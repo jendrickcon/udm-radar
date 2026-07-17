@@ -27,13 +27,19 @@ academic dashboards for students, faculty, and administrators.
 
 ## Setup
 
+**First time on a new machine?** See **[SETUP.md](SETUP.md)** for the
+complete walkthrough — installing XAMPP, Git, VS Code with recommended
+extensions, and Python for the ML pipeline.
+
+Quick version, if everything's already installed:
+
 1. Clone this repo into your XAMPP `htdocs` folder.
 2. Copy the example config files and fill in your local values:
    ```
    cp config/db.example.php config/db.php
    cp config/mail.example.php config/mail.php
    ```
-3. Import the database schema and seed data (see `/database` exports, if included).
+3. Import `database/udm_radar.sql` (one consolidated export — no need to replay build history).
 4. Start Apache + MySQL in XAMPP Control Panel.
 5. Visit `http://localhost/udm-radar/login.php`.
 
