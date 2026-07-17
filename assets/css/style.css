@@ -1,0 +1,89 @@
+/* assets/css/style.css — replaces theme.py COLORS and FONTS */
+
+/* ── CSS Variables (mirrors theme.py COLORS exactly) ────── */
+:root {
+  --dark-blue:    #0D2B6B;   /* Header, primary buttons */
+  --sidebar-blue: #1E4DB7;   /* Sidebar background */
+  --teal:         #007B83;   /* Active nav, borders */
+  --pale-teal:    #E0F7FA;   /* Page background */
+  --gold-bg:      #E8EDF7;   /* Card backgrounds */
+  --risk-low:     #1B7A3E;
+  --risk-moderate:#C97A00;
+  --risk-high:    #C62828;
+  --text-dark:    #1A1A2E;
+  --text-gray:    #4A5568;
+}
+
+/* ── Login Page ─────────────────────────────────────────── */
+body.login-body {
+  background: var(--pale-teal);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh;
+}
+.login-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+}
+.login-header { text-align: center; margin-bottom: 1.5rem; }
+.login-header h1 { color: var(--dark-blue); font-weight: 700; }
+
+/* ── Dashboard Layout ────────────────────────────────────── */
+.dashboard-wrapper { display: flex; min-height: 100vh; }
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  background: var(--pale-teal);
+  overflow-y: auto;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar {
+  width: 240px;
+  background: var(--dark-blue);
+  color: white;
+  padding: 1rem 0;
+  position: sticky;
+  top: 0; height: 100vh;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  font-weight: 700; font-size: 1rem;
+}
+.sidebar-link {
+  display: block;
+  padding: 0.75rem 1.25rem;
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.sidebar-link:hover, .sidebar-link.active {
+  background: var(--teal);
+  color: white;
+}
+
+/* ── Stat Cards ──────────────────────────────────────────── */
+.stat-card {
+  background: white;
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  text-align: center;
+}
+.stat-label { font-size: 0.8rem; color: var(--text-gray); text-transform: uppercase; }
+.stat-value { font-size: 1.6rem; font-weight: 700; color: var(--dark-blue); }
+
+/* ── Risk Badges ─────────────────────────────────────────── */
+.risk-badge { font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 20px; }
+.risk-low      { background: #E8F5E9; color: var(--risk-low); }
+.risk-moderate { background: #FFF8E1; color: var(--risk-moderate); }
+.risk-high     { background: #FFEBEE; color: var(--risk-high); }
+
+/* ── Tables ──────────────────────────────────────────────── */
+.grade-table th { background: var(--dark-blue); color: white; }
+.grade-table tr:nth-child(even) { background: #F8FAFC; }
+.chart-container { background: white; border-radius: 10px; padding: 1.5rem; }
