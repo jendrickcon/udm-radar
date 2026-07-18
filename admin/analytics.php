@@ -6,13 +6,28 @@ require_once '../config/db.php';
 requireRole('admin');
 $db = getDB();
 
+// `predictions` is an append-only log — a student CAN have multiple rows
+// over time (one per prediction run). Every query against it here is
+// scoped to each student's MOST RECENT row via a correlated subquery,
+// same pattern as admin/index.php, so a student is never counted twice
+// even once the real ML pipeline starts inserting new rows over time
+// instead of the UPDATE-in-place patches used so far.
+
 // College-wide risk distribution — recomputed live from predicted_gwa via
 // computeRiskFromAvg(), rather than trusting predictions.risk_level as
 // stored. That stored value already drifted out of sync with reality once
 // (before the section-tier recompute); recomputing live means it can't
 // happen silently again.
 $riskCounts = ['LOW' => 0, 'MODERATE' => 0, 'HIGH' => 0];
-foreach ($db->query("SELECT predicted_gwa FROM predictions WHERE predicted_gwa IS NOT NULL")->fetchAll() as $r) {
+$latestPredictions = $db->query("
+    SELECT p.predicted_gwa
+    FROM predictions p
+    WHERE p.predicted_gwa IS NOT NULL
+      AND p.generated_at = (
+          SELECT MAX(p2.generated_at) FROM predictions p2 WHERE p2.student_id = p.student_id
+      )
+")->fetchAll();
+foreach ($latestPredictions as $r) {
     $riskCounts[computeRiskFromAvg((float) $r['predicted_gwa'])]++;
 }
 
@@ -26,11 +41,16 @@ $sections = $db->query("
     ORDER BY sp.section
 ")->fetchAll();
 
-// Latin honor track distribution — explicitly ordered Summa -> Magna ->
-// Cum Laude -> Not Eligible (GROUP BY alone has no defined order).
+// Latin honor track distribution — same latest-per-student scoping, plus
+// explicitly ordered Summa -> Magna -> Cum Laude -> Not Eligible
+// (GROUP BY alone has no defined order).
 $honors = $db->query("
-    SELECT COALESCE(latin_honor, 'Not Eligible') AS honor, COUNT(*) AS c
-    FROM predictions GROUP BY honor
+    SELECT COALESCE(p.latin_honor, 'Not Eligible') AS honor, COUNT(*) AS c
+    FROM predictions p
+    WHERE p.generated_at = (
+        SELECT MAX(p2.generated_at) FROM predictions p2 WHERE p2.student_id = p.student_id
+    )
+    GROUP BY honor
     ORDER BY FIELD(honor, 'Summa Cum Laude', 'Magna Cum Laude', 'Cum Laude', 'Not Eligible')
 ")->fetchAll();
 
