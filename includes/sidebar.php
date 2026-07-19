@@ -7,7 +7,7 @@
 <nav id="sidebar" class="sidebar">
   <div class="sidebar-brand">
     <img src="<?= BASE_URL ?>assets/img/logo.png" alt="Logo" height="32" onerror="this.style.display='none'">
-    <div>UdM-<span><?= APP_NAME === 'UdM-RADAR' ? 'RADAR' : APP_NAME ?></span></div>
+    <div>UDM-<span><?= APP_NAME === 'UDM-RADAR' ? 'RADAR' : APP_NAME ?></span></div>
   </div>
   <ul class="sidebar-nav">
     <?php foreach ($navItems as [$label, $href, $icon]): ?>

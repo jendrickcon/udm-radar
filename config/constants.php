@@ -2,7 +2,7 @@
 // config/constants.php — Academic logic (replaces theme.py)
 
 // App identity
-define('APP_NAME',     'UdM-RADAR');
+define('APP_NAME',     'UDM-RADAR');
 define('APP_SUBTITLE', 'Risk Analytics & Decision-support for Academic Records');
 
 // Base URL — every include/sidebar link and asset path is prefixed with this,

@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | UdM-RADAR</title>
+    <title>Login | UDM-RADAR</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -195,8 +195,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Left Branding Side -->
     <div class="brand-section">
-        <h1>UdM-RADAR</h1>
+        <img src="assets/img/logo.png" alt="UDM-RADAR Logo" style="width:110px; height:110px; margin-bottom:16px;">
+        <h1>UDM-RADAR</h1>
         <h2>Predictive Analytics System</h2>
+        <p style="font-weight:600; color:#0e7490; margin-bottom:14px;">Risk Analytics &amp; Decision-support for Academic Records</p>
         <p>A specialized portal for the College of Computer Studies to monitor academic trajectories and support student success.</p>
     </div>
 

@@ -140,11 +140,12 @@ function getHonorBadge(float $gwa): array {
 }
 
 $pageTitle = 'Dashboard';
-$navItems  = [
+$navItems = [
     ['Home',               'index.php',     '🏠'],
     ['Dashboard',          'dashboard.php', '📊'],
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
+    ['Feedback & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
