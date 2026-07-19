@@ -224,6 +224,7 @@ $navItems = [
     ['Faculty',            'faculty.php',   '👨‍🏫'],
     ['Grades',             'grades.php',    '📝'],
     ['Program Analytics',  'analytics.php', '📊'],
+    ['Activity & Inbox',   'activity.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 

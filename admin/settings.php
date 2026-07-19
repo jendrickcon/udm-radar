@@ -35,10 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle = 'Settings';
 $navItems = [
     ['Dashboard',          'index.php',     '🏠'],
-    ['Manage Students',    'students.php',  '👥'],
-    ['Manage Faculty',     'faculty.php',   '👨‍🏫'],
-    ['Manage Grades',      'grades.php',    '📝'],
+    ['Students',           'students.php',  '👥'],
+    ['Faculty',            'faculty.php',   '👨‍🏫'],
+    ['Grades',             'grades.php',    '📝'],
     ['Program Analytics',  'analytics.php', '📊'],
+    ['Activity & Inbox',   'activity.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 

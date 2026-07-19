@@ -73,10 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
     }
 }
 
-// ── EDIT — only enrollment facts, never grades ───────────────────────────
-// Grades stay faculty-sourced; anything academic-record-shaped is
-// deliberately NOT editable here. See admin_change_log for the audit trail
-// every one of these writes leaves behind.
+// ── EDIT — name/status apply immediately; section/year_level do NOT ──────
+// UdM-RADAR does not officially own enrollment placement — the registrar's
+// system does. Name and status (Regular/Irregular) are administrative
+// corrections this system can reasonably make on its own (e.g. fixing a
+// typo). Section and year level instead go to pending_corrections and only
+// take effect once separately confirmed as officially reflected.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -86,11 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
         $newFirst   = trim($_POST['edit_first_name'] ?? '');
         $newMiddle  = trim($_POST['edit_middle_name'] ?? '');
         $newLast    = trim($_POST['edit_last_name'] ?? '');
-        $newSection = trim($_POST['edit_section'] ?? '');
-        $newYear    = (int) ($_POST['edit_year_level'] ?? 0);
         $newStatus  = trim($_POST['edit_status'] ?? 'Regular');
+        $propSection = trim($_POST['propose_section'] ?? '');
+        $propYear    = trim($_POST['propose_year_level'] ?? '');
+        $reason      = trim($_POST['propose_reason'] ?? '');
 
-        // Pull current values so we only log fields that actually changed
         $stmt = $db->prepare("
             SELECT u.first_name, u.middle_name, u.last_name, sp.section, sp.year_level, sp.status
             FROM users u JOIN student_profiles sp ON sp.user_id = u.id
@@ -106,40 +108,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
                 'first_name' => [$old['first_name'], $newFirst],
                 'middle_name'=> [$old['middle_name'], $newMiddle !== '' ? $newMiddle : null],
                 'last_name'  => [$old['last_name'], $newLast],
-                'section'    => [$old['section'], $newSection],
-                'year_level' => [$old['year_level'], $newYear],
                 'status'     => [$old['status'], $newStatus],
             ];
 
-            try {
-                $db->beginTransaction();
+            // If section or year_level was changed, a reason is required
+            // since those go through the pending-correction path.
+            $wantsSectionChange = ($propSection !== '' && $propSection !== $old['section']);
+            $wantsYearChange    = ($propYear !== '' && (int) $propYear !== (int) $old['year_level']);
 
-                $db->prepare("UPDATE users SET first_name=?, middle_name=?, last_name=? WHERE id=?")
-                   ->execute([$newFirst, $newMiddle !== '' ? $newMiddle : null, $newLast, $uid]);
+            if (($wantsSectionChange || $wantsYearChange) && $reason === '') {
+                $error = 'A reason is required to propose a section or year level correction.';
+            } else {
+                try {
+                    $db->beginTransaction();
 
-                $db->prepare("UPDATE student_profiles SET section=?, year_level=?, status=? WHERE user_id=?")
-                   ->execute([$newSection, $newYear, $newStatus, $uid]);
+                    $db->prepare("UPDATE users SET first_name=?, middle_name=?, last_name=? WHERE id=?")
+                       ->execute([$newFirst, $newMiddle !== '' ? $newMiddle : null, $newLast, $uid]);
 
-                $logStmt = $db->prepare("
-                    INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value)
-                    VALUES (?, 'student', ?, ?, ?, ?)
-                ");
-                $changedCount = 0;
-                foreach ($fieldsToCheck as $field => [$oldVal, $newVal]) {
-                    // Loose comparison: '3' vs 3 shouldn't count as a change
-                    if ((string) $oldVal !== (string) $newVal) {
-                        $logStmt->execute([$user['id'], $uid, $field, $oldVal, $newVal]);
-                        $changedCount++;
+                    $db->prepare("UPDATE student_profiles SET status=? WHERE user_id=?")
+                       ->execute([$newStatus, $uid]);
+
+                    $logStmt = $db->prepare("
+                        INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value)
+                        VALUES (?, 'student', ?, ?, ?, ?)
+                    ");
+                    $changedCount = 0;
+                    foreach ($fieldsToCheck as $field => [$oldVal, $newVal]) {
+                        if ((string) $oldVal !== (string) $newVal) {
+                            $logStmt->execute([$user['id'], $uid, $field, $oldVal, $newVal]);
+                            $changedCount++;
+                        }
                     }
-                }
 
-                $db->commit();
-                $success = $changedCount > 0
-                    ? "Student updated — {$changedCount} field(s) changed and logged."
-                    : "No changes were made.";
-            } catch (PDOException $e) {
-                $db->rollBack();
-                $error = 'Could not update student: ' . $e->getMessage();
+                    $proposedCount = 0;
+                    $propStmt = $db->prepare("
+                        INSERT INTO pending_corrections (proposed_by, target_type, target_id, field_changed, old_value, new_value, reason)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    if ($wantsSectionChange) {
+                        $propStmt->execute([$user['id'], 'student_section', $uid, 'section', $old['section'], $propSection, $reason]);
+                        $proposedCount++;
+                    }
+                    if ($wantsYearChange) {
+                        $propStmt->execute([$user['id'], 'student_year_level', $uid, 'year_level', $old['year_level'], $propYear, $reason]);
+                        $proposedCount++;
+                    }
+
+                    $db->commit();
+                    $parts = [];
+                    if ($changedCount > 0)  $parts[] = "{$changedCount} field(s) updated";
+                    if ($proposedCount > 0) $parts[] = "{$proposedCount} correction(s) proposed — pending confirmation";
+                    $success = $parts ? implode(', ', $parts) . '.' : 'No changes were made.';
+                } catch (PDOException $e) {
+                    $db->rollBack();
+                    $error = 'Could not update student: ' . $e->getMessage();
+                }
             }
         }
     }
@@ -153,6 +176,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $stmt = $db->prepare("DELETE FROM users WHERE id = ? AND role = 'student'");
         $stmt->execute([$delId]);
         $success = 'Student removed.';
+    }
+}
+
+// ── CONFIRM / REJECT a pending section or year-level correction ──────────
+// Same "manual stand-in for ICTO/registrar confirmation" model as grades.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['confirm_correction', 'reject_correction'])) {
+    if (!checkCsrf()) {
+        $error = 'Session expired — please refresh the page and try again.';
+    } else {
+        $corrId = (int) ($_POST['correction_id'] ?? 0);
+        $stmt = $db->prepare("SELECT * FROM pending_corrections WHERE id = ? AND status = 'pending'");
+        $stmt->execute([$corrId]);
+        $corr = $stmt->fetch();
+
+        if (!$corr) {
+            $error = 'Correction not found or already resolved.';
+        } elseif (($_POST['action'] ?? '') === 'reject_correction') {
+            $db->prepare("UPDATE pending_corrections SET status='rejected', resolved_by=?, resolved_at=NOW() WHERE id=?")
+               ->execute([$user['id'], $corrId]);
+            $success = 'Correction rejected — no change applied.';
+        } else {
+            try {
+                $db->beginTransaction();
+                $column = $corr['field_changed']; // 'section' or 'year_level'
+                $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")
+                   ->execute([$corr['new_value'], $corr['target_id']]);
+
+                $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")
+                   ->execute([$user['id'], $corrId]);
+
+                $db->prepare("
+                    INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value)
+                    VALUES (?, 'student', ?, ?, ?, ?)
+                ")->execute([$user['id'], $corr['target_id'], $column, $corr['old_value'], $corr['new_value']]);
+
+                $db->commit();
+                $success = 'Correction confirmed and officially reflected.';
+            } catch (PDOException $e) {
+                $db->rollBack();
+                $error = 'Could not confirm correction: ' . $e->getMessage();
+            }
+        }
     }
 }
 
@@ -236,6 +301,18 @@ foreach ($students as $s) {
     ];
 }
 
+// ── Pending section/year-level corrections awaiting confirmation ─────────
+$pending = $db->query("
+    SELECT pc.*, u.first_name, u.middle_name, u.last_name, sp.student_number,
+           au.first_name AS a_first, au.middle_name AS a_middle, au.last_name AS a_last
+    FROM pending_corrections pc
+    JOIN users u ON u.id = pc.target_id
+    JOIN student_profiles sp ON sp.user_id = pc.target_id
+    JOIN users au ON au.id = pc.proposed_by
+    WHERE pc.status = 'pending' AND pc.target_type IN ('student_section','student_year_level')
+    ORDER BY pc.proposed_at DESC
+")->fetchAll();
+
 $pageTitle = 'Students';
 $navItems = [
     ['Dashboard',          'index.php',     '🏠'],
@@ -243,6 +320,7 @@ $navItems = [
     ['Faculty',            'faculty.php',   '👨‍🏫'],
     ['Grades',             'grades.php',    '📝'],
     ['Program Analytics',  'analytics.php', '📊'],
+    ['Activity & Inbox',   'activity.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
@@ -321,6 +399,47 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
     <?php if ($success): ?>
         <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
+    <?php endif; ?>
+
+    <?php if (!empty($pending)): ?>
+    <div class="card" style="border-left:4px solid #d97706; margin-bottom:24px;">
+        <div class="table-title" style="display:flex; align-items:center; gap:8px;">
+            Pending Section / Year Level Corrections
+            <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> awaiting confirmation</span>
+        </div>
+        <table>
+            <thead><tr><th>Student</th><th>Field</th><th>Was</th><th>Proposed</th><th>Reason</th><th>Proposed By</th><th></th></tr></thead>
+            <tbody>
+                <?php foreach ($pending as $p):
+                    $studentName = formatNameLastFirst($p['first_name'], $p['middle_name'], $p['last_name']);
+                    $adminName   = formatNameLastFirst($p['a_first'], $p['a_middle'], $p['a_last']);
+                ?>
+                <tr>
+                    <td><?= htmlspecialchars($p['student_number'] . ' — ' . $studentName) ?></td>
+                    <td><?= htmlspecialchars($p['field_changed']) ?></td>
+                    <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
+                    <td style="font-weight:700; color:#d97706;"><?= htmlspecialchars($p['new_value']) ?></td>
+                    <td style="font-size:0.82rem; color:#64748b;"><?= htmlspecialchars($p['reason']) ?></td>
+                    <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
+                    <td style="white-space:nowrap;">
+                        <form method="POST" action="students.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected?');">
+                            <input type="hidden" name="action" value="confirm_correction">
+                            <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <button type="submit" style="background:#059669; color:white; border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Confirm</button>
+                        </form>
+                        <form method="POST" action="students.php" style="display:inline;" onsubmit="return confirm('Reject this proposed correction?');">
+                            <input type="hidden" name="action" value="reject_correction">
+                            <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <button type="submit" style="background:#fee2e2; color:#b91c1c; border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
     <?php endif; ?>
 
     <div class="card">
@@ -435,32 +554,44 @@ require_once '../includes/sidebar.php';
         <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
         <h2 style="color:var(--sidebar-bg); margin-bottom:4px;">Edit Student</h2>
         <p style="color:#94a3b8; font-size:0.78rem; margin-bottom:16px;">
-            Changes here are logged for audit — grades are not editable and always come from the faculty portal.
+            Name and status save immediately. Grades are not editable here at all.
         </p>
 
-        <form method="POST" action="students.php" id="edit-form" style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+        <form method="POST" action="students.php" id="edit-form">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="edit_id" id="edit-id">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
 
-            <input type="text" name="edit_first_name" id="edit-first-name" placeholder="First Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="edit_middle_name" id="edit-middle-name" placeholder="Middle Name (optional)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="edit_last_name" id="edit-last-name" placeholder="Last Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px;">
+                <input type="text" name="edit_first_name" id="edit-first-name" placeholder="First Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+                <input type="text" name="edit_middle_name" id="edit-middle-name" placeholder="Middle Name (optional)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+                <input type="text" name="edit_last_name" id="edit-last-name" placeholder="Last Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
+                <select name="edit_status" id="edit-status" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
+                    <option value="Regular">Regular</option>
+                    <option value="Irregular">Irregular</option>
+                </select>
+            </div>
 
-            <input type="text" name="edit_section" id="edit-section" placeholder="Section" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <select name="edit_year_level" id="edit-year-level" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-            </select>
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <p style="font-size:0.8rem; font-weight:700; color:#92400e; margin-bottom:2px;">Section &amp; Year Level</p>
+                <p style="font-size:0.75rem; color:#92400e; margin-bottom:12px;">
+                    UdM-RADAR does not officially own enrollment placement. Changing these proposes a correction — it will not take effect until separately confirmed as officially reflected by the registrar.
+                </p>
 
-            <select name="edit_status" id="edit-status" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
-                <option value="Regular">Regular</option>
-                <option value="Irregular">Irregular</option>
-            </select>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:10px;">
+                    <input type="text" name="propose_section" id="propose-section" placeholder="Current section" style="padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
+                    <select name="propose_year_level" id="propose-year-level" style="padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
+                        <option value="">— No change —</option>
+                        <option value="1">1st Year</option>
+                        <option value="2">2nd Year</option>
+                        <option value="3">3rd Year</option>
+                        <option value="4">4th Year</option>
+                    </select>
+                </div>
+                <input type="text" name="propose_reason" id="propose-reason" placeholder="Reason (required only if proposing a section/year change)" style="width:100%; padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
+            </div>
 
-            <button type="submit" style="grid-column:span 2; padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save Changes</button>
+            <button type="submit" style="width:100%; padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save Changes</button>
         </form>
     </div>
 </div>
@@ -613,9 +744,15 @@ function openEditModal(uid) {
     document.getElementById('edit-first-name').value = d.firstName || '';
     document.getElementById('edit-middle-name').value = d.middleName || '';
     document.getElementById('edit-last-name').value = d.lastName || '';
-    document.getElementById('edit-section').value = d.section || '';
-    document.getElementById('edit-year-level').value = d.yearLevel || '3';
     document.getElementById('edit-status').value = d.status || 'Regular';
+
+    // Section/year prefill shows current value as a reference point, but
+    // typing something different here PROPOSES a change — it doesn't save
+    // directly. Reason is cleared each time so an old note can't accidentally
+    // get resubmitted against a different student.
+    document.getElementById('propose-section').value = d.section || '';
+    document.getElementById('propose-year-level').value = '';
+    document.getElementById('propose-reason').value = '';
 
     document.getElementById('edit-modal-overlay').classList.add('open');
 }

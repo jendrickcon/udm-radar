@@ -28,6 +28,7 @@ $navItems = [
     ['Grades',             'grades.php',    '📝'],
     ['Academic History',   'history.php',   '📚'],
     ['Performance Trend',  'trend.php',     '📈'],
+    ['Feedback & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
