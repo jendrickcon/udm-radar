@@ -16,12 +16,6 @@ function checkCsrf(): bool {
 
 $error = '';
 
-// ── PROPOSE a grade correction ────────────────────────────────────────────
-// UdM-RADAR does not officially own grade data — the faculty portal /
-// registrar does. An admin here can only PROPOSE a correction; nothing in
-// `grades` changes until it's separately confirmed as officially reflected
-// (standing in for "ICTO/registrar confirmed this"). No direct edit, no
-// delete — grades are amended via proposal, never silently overwritten.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propose_grade') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh and try again.';
@@ -30,8 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propo
         $reason  = trim($_POST['reason'] ?? '');
         $openSec = trim($_POST['open_section'] ?? '');
         $openStu = (int) ($_POST['open_student'] ?? 0);
-        
-        // Capture the linked feedback report if this originated from the inbox shortcut
         $linkedFeedbackId = !empty($_POST['linked_feedback_id']) ? (int) $_POST['linked_feedback_id'] : null;
 
         if ($reason === '') {
@@ -77,11 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propo
     }
 }
 
-// ── CONFIRM / REJECT a pending correction ────────────────────────────────
-// Confirming is the manual stand-in for "ICTO/registrar has now officially
-// reflected this" — only at this point does the real `grades` row change,
-// with risk_level recomputed the same way a direct edit would have, and an
-// admin_change_log entry written since the change is now actually real.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['confirm_correction', 'reject_correction'])) {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh and try again.';
@@ -98,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                ->execute([$user['id'], $corrId]);
             $success = 'Correction rejected — no change applied.';
         } else {
-            // Confirm: apply to the real grades row, recompute risk, log it
             try {
                 $db->beginTransaction();
 
@@ -115,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
                 $db->prepare("UPDATE grades SET `$field` = ? WHERE id = ?")->execute([$newVal, $corr['target_id']]);
 
-                // Recompute risk from whichever value is authoritative
                 $stmt = $db->prepare("SELECT prelim, final_grade FROM grades WHERE id = ?");
                 $stmt->execute([$corr['target_id']]);
                 $fresh = $stmt->fetch();
@@ -131,7 +116,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                 $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")
                    ->execute([$user['id'], $corrId]);
 
-                // Auto-resolve linked feedback report if this correction came from the inbox
                 if ($corr['linked_feedback_id'] !== null) {
                     $db->prepare("UPDATE feedback_reports SET status='resolved', resolved_by=?, resolved_at=NOW() WHERE id=?")
                        ->execute([$user['id'], $corr['linked_feedback_id']]);
@@ -158,7 +142,6 @@ $openSection = trim($_GET['open_section'] ?? '');
 $openStudent = (int) ($_GET['open_student'] ?? 0);
 $openFeedbackId = (int) ($_GET['feedback_id'] ?? 0);
 
-// ── Section summary cards — cheap aggregate, not the full grade table ────
 $sections = $db->query("
     SELECT sp.section,
            COUNT(*) AS student_count,
@@ -172,7 +155,6 @@ $sections = $db->query("
     ORDER BY sp.section
 ")->fetchAll();
 
-// ── Pending grade corrections awaiting confirmation ───────────────────────
 $pending = $db->query("
     SELECT pc.*, g.student_id, s.code AS subj_code,
            su.first_name, su.middle_name, su.last_name,
@@ -202,26 +184,21 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-.section-card { padding:0; overflow:hidden; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; transition:box-shadow .15s; }
+.section-card { padding:0; overflow:hidden; border:1px solid var(--border-color); background: var(--card-bg); border-radius:8px; cursor:pointer; transition:box-shadow .15s; }
 .section-card:hover { box-shadow:0 4px 14px rgba(0,0,0,0.08); }
-.section-card-head { background:#0f172a; color:white; padding:14px 18px; font-weight:600; font-size:1.05rem; display:flex; justify-content:space-between; }
+.section-card-head { background:var(--sidebar-bg); color:white; padding:14px 18px; font-weight:600; font-size:1.05rem; display:flex; justify-content:space-between; }
 .section-card-body { padding:24px; text-align:center; }
 .section-card-body h2 { font-size:2.4rem !important; }
 
-.roster-panel { display:none; border:2px solid var(--teal); margin-bottom:24px; }
+.roster-panel { display:none; border:2px solid var(--accent-blue); background: var(--card-bg); margin-bottom:24px; }
 .row-clickable { cursor:pointer; }
-.row-clickable:hover { background:#f8fafc; }
-
-.modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:1000; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; }
-.modal-overlay.open { display:flex; }
-.modal-box { background:white; border-radius:12px; max-width:760px; width:100%; padding:28px; box-shadow:0 20px 50px rgba(0,0,0,0.25); }
-.modal-close { float:right; background:#e2e8f0; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit; }
+.row-clickable:hover { background:var(--bg-color); }
 
 .grade-row-form { display:grid; grid-template-columns: repeat(4, 70px) 1fr auto; gap:6px; align-items:center; }
-.grade-row-form input[type=number] { width:100%; padding:5px 6px; border:1px solid #ddd; border-radius:5px; font-size:0.82rem; }
+.grade-row-form input[type=number] { width:100%; padding:5px 6px; border:1px solid var(--border-color); border-radius:5px; font-size:0.82rem; background: var(--bg-color); color: var(--text-dark); }
 .small-btn { padding:5px 10px; border-radius:5px; border:none; font-weight:600; font-size:0.78rem; cursor:pointer; font-family:inherit; }
 
-.pending-badge { background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700; }
+.pending-badge { background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700; }
 </style>
 
 <div class="main-content">
@@ -230,14 +207,14 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($error): ?>
-        <p style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #c62828;"><?= htmlspecialchars($error) ?></p>
+        <p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high);"><?= htmlspecialchars($error) ?></p>
     <?php endif; ?>
     <?php if ($success): ?>
-        <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
+        <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
     <?php if (!empty($pending)): ?>
-    <div class="card" style="border-left:4px solid #d97706; margin-bottom:24px;">
+    <div class="card" style="border-left:4px solid var(--risk-mod); margin-bottom:24px;">
         <div class="table-title" style="display:flex; align-items:center; gap:8px;">
             Pending Grade Corrections
             <span class="pending-badge"><?= count($pending) ?> awaiting confirmation</span>
@@ -254,21 +231,21 @@ require_once '../includes/sidebar.php';
                     <td><?= htmlspecialchars($p['subj_code']) ?></td>
                     <td><?= htmlspecialchars($p['field_changed']) ?></td>
                     <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
-                    <td style="font-weight:700; color:#d97706;"><?= htmlspecialchars($p['new_value']) ?></td>
-                    <td style="font-size:0.82rem; color:#64748b;"><?= htmlspecialchars($p['reason']) ?></td>
+                    <td style="font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
+                    <td style="font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
                     <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
                     <td style="white-space:nowrap;">
                         <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected? This will update the live grade record.');">
                             <input type="hidden" name="action" value="confirm_correction">
                             <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" class="small-btn" style="background:#059669; color:white;">Confirm</button>
+                            <button type="submit" class="small-btn" style="background:var(--risk-low); color:white;">Confirm</button>
                         </form>
                         <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Reject this proposed correction?');">
                             <input type="hidden" name="action" value="reject_correction">
                             <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" class="small-btn" style="background:#fee2e2; color:#b91c1c;">Reject</button>
+                            <button type="submit" class="small-btn" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high);">Reject</button>
                         </form>
                     </td>
                 </tr>
@@ -281,16 +258,16 @@ require_once '../includes/sidebar.php';
     <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:24px;">
         <?php foreach ($sections as $sec):
             $avg = $sec['avg_gwa'] !== null ? number_format($sec['avg_gwa'], 2) : '—';
-            $riskColor = $sec['at_risk_count'] > 0 ? '#b91c1c' : '#059669';
+            $riskColor = $sec['at_risk_count'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
         ?>
         <div class="section-card" onclick="openSection('<?= htmlspecialchars($sec['section']) ?>')">
             <div class="section-card-head">
                 <span><?= htmlspecialchars($sec['section']) ?></span>
-                <span style="font-size:0.8rem; color:#94a3b8;"><?= $sec['student_count'] ?> students</span>
+                <span style="font-size:0.8rem; color:var(--text-gray);"><?= $sec['student_count'] ?> students</span>
             </div>
             <div class="section-card-body">
-                <h2 style="color:var(--teal); font-size:1.8rem; margin-bottom:2px;"><?= $avg ?></h2>
-                <p style="color:#64748b; font-size:0.8rem; margin-bottom:8px;">Avg GWA</p>
+                <h2 style="color:var(--accent-blue); font-size:1.8rem; margin-bottom:2px;"><?= $avg ?></h2>
+                <p style="color:var(--text-gray); font-size:0.8rem; margin-bottom:8px;">Avg GWA</p>
                 <div style="font-size:0.8rem; color:<?= $riskColor ?>; font-weight:600;">
                     <?= $sec['at_risk_count'] ?> at-risk
                 </div>
@@ -301,8 +278,8 @@ require_once '../includes/sidebar.php';
 
     <div class="card roster-panel" id="roster-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-            <h3 id="roster-title" style="color:var(--sidebar-bg);"></h3>
-            <button onclick="closeRoster()" style="background:#e2e8f0; border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">✕ Close</button>
+            <h3 id="roster-title" style="color:var(--text-dark);"></h3>
+            <button onclick="closeRoster()" style="background:var(--bg-color); color:var(--text-dark); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">✕ Close</button>
         </div>
         <table>
             <thead><tr><th>Student No.</th><th>Name</th><th>Status</th><th>GWA</th><th>Risk</th></tr></thead>
@@ -314,8 +291,8 @@ require_once '../includes/sidebar.php';
 <div class="modal-overlay" id="history-modal-overlay" onclick="if(event.target===this) closeHistoryModal();">
     <div class="modal-box">
         <button class="modal-close" onclick="closeHistoryModal()">✕ Close</button>
-        <h2 id="history-name" style="color:var(--sidebar-bg); margin-bottom:2px;"></h2>
-        <p style="color:#94a3b8; font-size:0.78rem; margin-bottom:16px;">
+        <h2 id="history-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
+        <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">
             Current semester only. Grades are not directly editable here — submitting proposes a correction that only takes effect once confirmed as officially reflected.
         </p>
         <div id="history-body"></div>
@@ -329,10 +306,10 @@ let openFeedbackId  = <?= json_encode($openFeedbackId) ?>;
 const csrfToken = <?= json_encode($_SESSION['csrf_token']) ?>;
 
 function riskColor(risk) {
-    if (risk === 'HIGH') return '#b91c1c';
-    if (risk === 'MODERATE') return '#d97706';
-    if (risk === 'LOW') return '#059669';
-    return '#94a3b8';
+    if (risk === 'HIGH') return 'var(--risk-high)';
+    if (risk === 'MODERATE') return 'var(--risk-mod)';
+    if (risk === 'LOW') return 'var(--risk-low)';
+    return 'var(--text-gray)';
 }
 
 function openSection(section) {
@@ -343,12 +320,12 @@ function openSection(section) {
             document.getElementById('roster-title').innerText = 'Section ' + section + ' — Student Roster';
             const body = document.getElementById('roster-body');
             if (!students.length) {
-                body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:16px;">No students in this section.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-gray); padding:16px;">No students in this section.</td></tr>';
             } else {
                 body.innerHTML = students.map(s => `
                     <tr class="row-clickable" onclick="openHistory(${s.userId}, '${s.name.replace(/'/g,"\\'")}')">
                         <td>${s.studentNo}</td>
-                        <td style="font-weight:600; color:var(--teal);">${s.name}</td>
+                        <td style="font-weight:600; color:var(--accent-blue);">${s.name}</td>
                         <td>${s.status || 'Regular'}</td>
                         <td style="font-weight:600;">${s.currentGwa !== null ? s.currentGwa.toFixed(2) : '—'}</td>
                         <td><span style="background:${riskColor(s.risk)}; color:white; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">${s.risk || 'N/A'}</span></td>
@@ -376,7 +353,7 @@ function openHistory(studentId, name) {
             document.getElementById('history-name').innerText = name;
 
             if (!rows.length) {
-                document.getElementById('history-body').innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">No current-term grades for this student.</p>';
+                document.getElementById('history-body').innerHTML = '<p style="color:var(--text-gray); text-align:center; padding:20px;">No current-term grades for this student.</p>';
             } else {
                 document.getElementById('history-body').innerHTML = rows.map(g => renderGradeRow(g, studentId)).join('');
             }
@@ -388,7 +365,7 @@ function openHistory(studentId, name) {
 function renderGradeRow(g, studentId) {
     const risk = g.risk || 'LOW';
     return `
-    <form method="POST" action="grades.php" class="grade-row-form" style="padding:8px 0; border-bottom:1px solid #f1f5f9;"
+    <form method="POST" action="grades.php" class="grade-row-form" style="padding:8px 0; border-bottom:1px solid var(--border-color);"
           onsubmit="return confirmProposal(this)">
         <input type="hidden" name="action" value="propose_grade">
         <input type="hidden" name="csrf_token" value="${csrfToken}">
@@ -402,13 +379,13 @@ function renderGradeRow(g, studentId) {
         <input type="number" step="0.01" name="edit_prefinal" value="${g.prefinal ?? ''}" placeholder="Pre-F %" title="Pre-Final (%)">
         <input type="number" step="0.01" min="0" max="4" name="edit_final" value="${g.finalGrade ?? ''}" placeholder="Final" title="Final Grade (1.00-4.00)">
 
-        <span style="font-size:0.8rem;" title="${g.title}">
+        <span style="font-size:0.8rem; color:var(--text-dark);" title="${g.title}">
             <strong>${g.code}</strong>
             <span style="background:${riskColor(risk)}; color:white; padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; margin-left:6px;">${risk}</span>
             ${g.hasPending ? '<span class="pending-badge" style="margin-left:6px;">Pending</span>' : ''}
         </span>
 
-        <button type="submit" class="small-btn" style="background:var(--teal); color:white;">Propose Correction</button>
+        <button type="submit" class="small-btn" style="background:var(--accent-blue); color:white;">Propose Correction</button>
     </form>`;
 }
 

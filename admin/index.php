@@ -7,11 +7,9 @@ requireRole('admin');
 $user = currentUser();
 $db = getDB();
 
-// Only keep the data filters, drop the PHP sorting vars
 $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
-// Correlated subquery ensures we only fetch the most recent prediction per student
 $sql = "
     SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa,
            u.first_name, u.middle_name, u.last_name, p.risk_level, p.predicted_gwa
@@ -28,7 +26,6 @@ $sql = "
 $params = [];
 if ($yearFilter !== '')    { $sql .= " AND sp.year_level = ?"; $params[] = $yearFilter; }
 if ($sectionFilter !== '') { $sql .= " AND sp.section = ?";    $params[] = $sectionFilter; }
-// Default load order before JS takes over
 $sql .= " ORDER BY sp.section, u.last_name, u.first_name";
 
 $stmt = $db->prepare($sql);
@@ -45,7 +42,6 @@ $irregular = count(array_filter($students, fn($s) => ($s['status'] ?? 'Regular')
 $gwas      = array_filter(array_column($students, 'current_gwa'), fn($g) => $g !== null);
 $avgGwa    = count($gwas) ? array_sum($gwas) / count($gwas) : null;
 
-// Calculate Data for the Bar Chart (Average GWA by Section)
 $sectionGwas = [];
 foreach ($students as $s) {
     $sec = $s['section'];
@@ -53,7 +49,7 @@ foreach ($students as $s) {
         $sectionGwas[$sec][] = (float)$s['current_gwa'];
     }
 }
-ksort($sectionGwas); // Sort alphabetically (IT-31 to IT-38)
+ksort($sectionGwas); 
 $chartSectionLabels = [];
 $chartSectionAverages = [];
 foreach ($sectionGwas as $sec => $grades) {
@@ -86,10 +82,15 @@ require_once '../includes/sidebar.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-/* Modern Faculty Sorter Styles */
 .sortable-col { cursor: pointer; user-select: none; transition: background 0.15s; }
-.sortable-col:hover { background: rgba(14, 116, 144, 0.06) !important; }
-.sort-arrow { font-size: 0.78rem; color: #cbd5e1; margin-left: 5px; transition: color 0.15s; }
+.sortable-col:hover { background: var(--table-header-bg) !important; }
+.sort-arrow { font-size: 0.78rem; color: var(--text-gray); margin-left: 5px; transition: color 0.15s; }
+.filter-select {
+    padding: 8px 12px; border-radius: 6px; 
+    border: 1px solid var(--border-color); 
+    background-color: var(--bg-color); 
+    color: var(--text-dark);
+}
 </style>
 
 <div class="main-content">
@@ -102,23 +103,23 @@ require_once '../includes/sidebar.php';
 
     <div class="card">
         <form method="GET" action="index.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-            <label style="font-weight:600; font-size:0.9rem;">Year Level:</label>
-            <select name="year" onchange="this.form.submit()" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd;">
+            <label style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Year Level:</label>
+            <select name="year" onchange="this.form.submit()" class="filter-select">
                 <option value="">All Years</option>
                 <?php foreach ($years as $y): ?>
                 <option value="<?= htmlspecialchars($y) ?>" <?= $yearFilter == $y ? 'selected' : '' ?>>Year <?= htmlspecialchars($y) ?></option>
                 <?php endforeach; ?>
             </select>
             
-            <label style="font-weight:600; font-size:0.9rem;">Section:</label>
-            <select name="section" onchange="this.form.submit()" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd;">
+            <label style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Section:</label>
+            <select name="section" onchange="this.form.submit()" class="filter-select">
                 <option value="">All Sections</option>
                 <?php foreach ($sections as $sec): ?>
                 <option value="<?= htmlspecialchars($sec) ?>" <?= $sectionFilter === $sec ? 'selected' : '' ?>><?= htmlspecialchars($sec) ?></option>
                 <?php endforeach; ?>
             </select>
             
-            <span style="color:var(--teal); font-size:0.9rem; margin-left: auto; font-weight: 600;">
+            <span style="color:var(--accent-blue); font-size:0.9rem; margin-left: auto; font-weight: 600;">
                 <?= $total ?> student<?= $total !== 1 ? 's' : '' ?> shown
             </span>
         </form>
@@ -131,11 +132,11 @@ require_once '../includes/sidebar.php';
             <h4>At-Risk</h4>
             <h2 style="margin-bottom: 2px;"><?= $atRisk ?></h2>
             <?php if ($atRisk > 0): ?>
-                <div style="font-size: 0.8rem; font-weight: 700; color: #b91c1c; margin-top: 4px;">
-                    <?= $highRisk ?> High <span style="color: #cbd5e1; font-weight: normal; margin: 0 4px;">|</span> <span style="color: #d97706;"><?= $modRisk ?> Moderate</span>
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--risk-high); margin-top: 4px;">
+                    <?= $highRisk ?> High <span style="color: var(--text-gray); font-weight: normal; margin: 0 4px;">|</span> <span style="color: var(--risk-mod);"><?= $modRisk ?> Moderate</span>
                 </div>
             <?php else: ?>
-                <div style="font-size: 0.8rem; font-weight: 600; color: #059669; margin-top: 4px;">All clear</div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--risk-low); margin-top: 4px;">All clear</div>
             <?php endif; ?>
         </div>
 
@@ -144,25 +145,22 @@ require_once '../includes/sidebar.php';
         <?php if ($noPredict > 0): ?>
         <div class="stat-card">
             <h4>No Prediction Yet</h4>
-            <h2 style="color:#94a3b8;"><?= $noPredict ?></h2>
-            <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">Excluded from At-Risk count</div>
+            <h2 style="color:var(--text-gray);"><?= $noPredict ?></h2>
+            <div style="font-size:0.8rem; color:var(--text-gray); margin-top:4px;">Excluded from At-Risk count</div>
         </div>
         <?php endif; ?>
     </div>
 
-    <!-- Executive Analytics Panels -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 24px;">
-        <!-- Donut Chart: Risk Distribution -->
         <div class="card" style="position: relative; height: 320px;">
-            <div style="font-weight: 700; color: #0f172a; margin-bottom: 16px;">College-Wide Risk Distribution</div>
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">College-Wide Risk Distribution</div>
             <div style="position: relative; height: 240px; width: 100%;">
                 <canvas id="riskDonutChart"></canvas>
             </div>
         </div>
         
-        <!-- Bar Chart: Average GWA by Section -->
         <div class="card" style="position: relative; height: 320px;">
-            <div style="font-weight: 700; color: #0f172a; margin-bottom: 16px;">Average GWA by Section</div>
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">Average GWA by Section</div>
             <div style="position: relative; height: 240px; width: 100%;">
                 <canvas id="sectionGwaBarChart"></canvas>
             </div>
@@ -209,8 +207,6 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
-// --- Chart.js Implementations ---
-// 1. Risk Donut Chart
 const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
 new Chart(ctxDonut, {
     type: 'doughnut',
@@ -218,7 +214,7 @@ new Chart(ctxDonut, {
         labels: ['High Risk', 'Moderate Risk', 'Low Risk', 'No Prediction Yet'],
         datasets: [{
             data: [<?= $highRisk ?>, <?= $modRisk ?>, <?= $lowRisk ?>, <?= $noPredict ?>],
-            backgroundColor: ['#b91c1c', '#d97706', '#059669', '#cbd5e1'],
+            backgroundColor: ['#DC2626', '#D97706', '#059669', '#64748B'],
             borderWidth: 0,
             hoverOffset: 4
         }]
@@ -233,7 +229,6 @@ new Chart(ctxDonut, {
     }
 });
 
-// 2. Average GWA by Section Bar Chart
 const ctxBar = document.getElementById('sectionGwaBarChart').getContext('2d');
 new Chart(ctxBar, {
     type: 'bar',
@@ -242,7 +237,7 @@ new Chart(ctxBar, {
         datasets: [{
             label: 'Average GWA',
             data: <?= json_encode($chartSectionAverages) ?>,
-            backgroundColor: '#0e7490',
+            backgroundColor: '#1E4DB7',
             borderRadius: 4,
             barPercentage: 0.6
         }]
@@ -250,32 +245,22 @@ new Chart(ctxBar, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false }
-        },
+        plugins: { legend: { display: false } },
         scales: {
-            y: { 
-                min: 1.0, 
-                max: 4.0, 
-                ticks: { stepSize: 0.5 }, 
-                title: { display: true, text: 'GWA (4.00 = Highest)' } 
-            }
+            y: { min: 1.0, max: 4.0, ticks: { stepSize: 0.5 }, title: { display: true, text: 'GWA (4.00 = Highest)' } }
         }
     }
 });
 
-// --- Table Sorting Script ---
 let currentSortCol = -1;
 let currentSortDir = 'asc';
 
 function sortTable(colIndex) {
     const tbody = document.getElementById('admin-tbody');
     if (!tbody) return;
-
     const rows = Array.from(tbody.querySelectorAll('tr'));
     if (!rows.length) return;
 
-    // Determine direction
     if (currentSortCol === colIndex) {
         currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
     } else {
@@ -283,42 +268,30 @@ function sortTable(colIndex) {
         currentSortDir = 'asc';
     }
 
-    // Reset UI Arrows
     document.querySelectorAll('.sort-arrow').forEach(el => {
         el.textContent = '⇅';
-        el.style.color = '#cbd5e1';
+        el.style.color = 'var(--text-gray)';
     });
     const activeArrow = document.getElementById('sort-arrow-' + colIndex);
     if (activeArrow) {
         activeArrow.textContent = currentSortDir === 'asc' ? ' ↑' : ' ↓';
-        activeArrow.style.color = '#0e7490'; // Teal highlight
+        activeArrow.style.color = 'var(--accent-blue)'; 
     }
 
-// Perform Sort — reads the raw data-sort value + the header's declared
-// data-type, instead of parsing rendered/formatted cell text. This is what
-// fixes the Student No. bug: "24-22-238" used to get parseFloat'd down to
-// just 24 (parseFloat stops at the first non-leading "-"), so almost every
-// student in the same batch compared equal and never actually sorted.
-// Reading the raw string via data-sort and comparing it as a string instead
-// avoids that entirely — no numeric coercion attempted on non-numeric data.
     const colType = document.querySelectorAll('#admin-table th')[colIndex]?.dataset.type || 'string';
-
     const getSort = (row, idx) => row.querySelectorAll('td')[idx]?.dataset.sort ?? '';
 
     rows.sort((a, b) => {
         let rawA = getSort(a, colIndex);
         let rawB = getSort(b, colIndex);
-
         const emptyA = rawA === '';
         const emptyB = rawB === '';
         if (emptyA && emptyB) return 0;
         if (emptyA) return 1;
         if (emptyB) return -1;
-
         let diff = 0;
 
         if (colType === 'risk') {
-            // NA (no prediction yet) ranks below LOW — distinct from "confirmed low risk"
             const riskMap = { 'HIGH': 3, 'MODERATE': 2, 'LOW': 1, 'NA': 0 };
             diff = (riskMap[rawA] ?? -1) - (riskMap[rawB] ?? -1);
         } else if (colType === 'number') {
@@ -327,17 +300,12 @@ function sortTable(colIndex) {
             diff = rawA.localeCompare(rawB);
         }
 
-        // TIEBREAKER 1: sorting by Section (Col 2) sub-sorts by Name (Col 1)
         if (diff === 0 && colIndex === 2) {
             diff = getSort(a, 1).localeCompare(getSort(b, 1));
             if (currentSortDir === 'desc') diff = -diff;
         }
 
-        // TIEBREAKER 2: sorting by Risk (Col 7) sub-sorts by GWA (Col 4), then Name (Col 1)
         if (diff === 0 && colIndex === 7) {
-            // Scale is 1.00-4.00; use Infinity (not an in-range number like 5.0)
-            // as the "missing GWA, sort last" sentinel so it can't be mistaken
-            // for a real value by anyone reading this later.
             let gwaA = parseFloat(getSort(a, 4));
             let gwaB = parseFloat(getSort(b, 4));
             gwaA = isNaN(gwaA) ? Infinity : gwaA;
@@ -350,7 +318,6 @@ function sortTable(colIndex) {
         return currentSortDir === 'asc' ? diff : -diff;
     });
 
-    // Reattach sorted rows
     rows.forEach(row => tbody.appendChild(row));
 }
 </script>

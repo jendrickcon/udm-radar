@@ -374,8 +374,8 @@ function renderClassTab(secName) {
     let thHtml = '<th class="sortable-col" onclick="sortClassTab(0)" id="col-h-0">Student Name<span class="sort-arrow" id="sort-arrow-0">⇅</span></th>';
     subjects.forEach((subj, i) => {
         const colIdx = i + 1;
-        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.title}" id="col-h-${colIdx}">
-            ${subj.code}<span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
+        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code}" id="col-h-${colIdx}">
+            ${subj.title}<span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
         </th>`;
     });
     const avgColIdx = subjects.length + 1;

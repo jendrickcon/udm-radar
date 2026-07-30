@@ -181,7 +181,7 @@ require_once '../includes/sidebar.php';
     <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
         <div class="stat-card" style="border-top: 4px solid #0f172a;">
             <h4>Cumulative GWA</h4>
-            <h2 style="color: #0f172a;"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : 'N/A' ?></h2>
+            <h2 style="color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: #64748b; margin-top: 4px; font-weight: 600;"><span style="color: <?= $honor_color ?>;">●</span> <?= $honor_text ?></p>
         </div>
         <div class="stat-card" style="border-top: 4px solid <?= $honor_color ?>;">
@@ -199,7 +199,7 @@ require_once '../includes/sidebar.php';
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         <div class="card" style="text-align: center;">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left;">🎯 Honor Track Proximity</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left;">🎯 Honor Track Proximity</h3>
             <p style="text-align: left; color: #64748b; font-size: 0.8rem; margin: 0 0 16px;">
                 Shows where your current GWA (<?= number_format($current_gwa, 2) ?>) falls on the 1.00–4.00 scale relative to each Latin Honor cutoff. The needle marks your exact standing.
             </p>
@@ -207,7 +207,7 @@ require_once '../includes/sidebar.php';
                 <canvas id="honorGauge"></canvas>
             </div>
             <div style="margin-top: 4px;">
-                <span style="font-size: 2rem; font-weight: 800; color: #0f172a;"><?= number_format($current_gwa, 2) ?></span>
+                <span style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= number_format($current_gwa, 2) ?></span>
                 <br><span style="font-size: 0.8rem; color: #64748b; font-weight: 600;">Current GWA</span>
             </div>
             <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600;">
@@ -218,7 +218,7 @@ require_once '../includes/sidebar.php';
         </div>
 
         <div class="card">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">🧠 Risk Factor Analysis</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">🧠 Risk Factor Analysis</h3>
             <div style="margin-bottom: 20px;">
                 <?php foreach ($risk_factors as $factor): 
                     $icon = match ($factor['type']) {
@@ -239,7 +239,7 @@ require_once '../includes/sidebar.php';
                 <?php endforeach; ?>
             </div>
 
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">📊 Subject Triage (Focus Areas)</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">📊 Subject Triage (Focus Areas)</h3>
             <?php if (empty($triage_alerts)): ?>
                 <p style="font-size: 0.85rem; color: #059669; font-weight: 600;">✓ All current subjects are within safe thresholds.</p>
             <?php else: ?>
@@ -254,7 +254,7 @@ require_once '../includes/sidebar.php';
 
     <div class="card" style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
             <button onclick="toggleCalculator()" style="background: #0e7490; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit;">
                 🎯 Open Grade Goal Calculator
             </button>
@@ -283,7 +283,7 @@ require_once '../includes/sidebar.php';
                     $riskBg    = getRiskColor($subj['final_risk']);
                 ?>
                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 12px; font-weight: 600; color: #0f172a;"><?= htmlspecialchars($subj['code']) ?></td>
+                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($subj['code']) ?></td>
                     <td style="padding: 12px; color: #475569;"><?= htmlspecialchars($subj['title']) ?></td>
                     <td style="padding: 12px; text-align: center;"><?= htmlspecialchars($subj['units']) ?></td>
                     
@@ -313,7 +313,7 @@ require_once '../includes/sidebar.php';
     <div id="calculator-section" class="card" style="display: none; border: 2px solid #0e7490; background-color: #f8fafc;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
-                <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700;">🎯 Grade Goal Calculator</h3>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">🎯 Grade Goal Calculator</h3>
                 <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Input percentage grades to compute your final point grade, or pick a Target to back-calculate.</p>
             </div>
             <div style="display: flex; gap: 16px; align-items: center;">
@@ -351,7 +351,7 @@ require_once '../includes/sidebar.php';
                     $pf_locked = $pf_val !== '' ? 'disabled style="background:#e2e8f0;"' : 'style="background:white;"';
                 ?>
                 <tr style="border-bottom: 1px solid #f1f5f9;" class="calc-row">
-                    <td style="padding: 12px; font-weight: 600; color: #0f172a; text-align: left;"><?= htmlspecialchars($subj['code']) ?></td>
+                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark); text-align: left;"><?= htmlspecialchars($subj['code']) ?></td>
                     <td style="padding: 12px; color: #475569; text-align: left;"><?= htmlspecialchars($subj['title']) ?></td>
                     <td style="padding: 12px;" class="calc-units"><?= htmlspecialchars($subj['units']) ?></td>
                     

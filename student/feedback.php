@@ -74,21 +74,21 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($error): ?>
-        <p style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #c62828;"><?= htmlspecialchars($error) ?></p>
+        <p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high);"><?= htmlspecialchars($error) ?></p>
     <?php endif; ?>
     <?php if ($success): ?>
-        <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
+        <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
     <div class="card" style="margin-bottom: 24px;">
-        <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Submit a Report</h3>
+        <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Submit a Report</h3>
         <form method="POST" action="feedback.php">
             <input type="hidden" name="action" value="submit_feedback">
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div>
-                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px;">Category</label>
-                    <select name="category" id="cat-select" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;" onchange="toggleSubject()">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Category</label>
+                    <select name="category" id="cat-select" required style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark);" onchange="toggleSubject()">
                         <option value="">— Select Category —</option>
                         <option value="grade_concern">Grade Concern / Dispute</option>
                         <option value="data_issue">Profile / Data Issue</option>
@@ -96,8 +96,8 @@ require_once '../includes/sidebar.php';
                     </select>
                 </div>
                 <div>
-                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px;">Subject (Optional)</label>
-                    <select name="subject_id" id="subj-select" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;" disabled>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Subject (Optional)</label>
+                    <select name="subject_id" id="subj-select" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark);" disabled>
                         <option value="">— Select a Subject (If applicable) —</option>
                         <?php foreach ($subjects as $s): ?>
                             <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['code'] . ' - ' . $s['title']) ?></option>
@@ -107,41 +107,46 @@ require_once '../includes/sidebar.php';
             </div>
 
             <div style="margin-bottom: 16px;">
-                <label style="display:block; font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px;">Message</label>
-                <textarea name="message" required rows="4" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; resize:vertical;"></textarea>
+                <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Message</label>
+                <textarea name="message" required rows="4" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); resize:vertical;"></textarea>
             </div>
 
-            <button type="submit" style="background:#0e7490; color:white; border:none; padding:10px 20px; border-radius:6px; font-weight:600; cursor:pointer;">Submit Feedback</button>
+            <button type="submit" style="background:var(--accent-blue); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer;">Submit Feedback</button>
         </form>
     </div>
 
-    <div class="card">
-        <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Your Submission History</h3>
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="padding: 24px 24px 16px; border-bottom: 1px solid var(--border-color);">
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Your Submission History</h3>
+        </div>
+
         <?php if (empty($history)): ?>
-            <p style="color: #94a3b8; font-size: 0.9rem;">You have not submitted any reports yet.</p>
+            <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">You have not submitted any reports yet.</p>
         <?php else: ?>
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                 <thead>
-                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
-                        <th style="padding: 12px;">Date</th>
-                        <th style="padding: 12px;">Category</th>
-                        <th style="padding: 12px;">Subject</th>
-                        <th style="padding: 12px;">Message</th>
-                        <th style="padding: 12px;">Status</th>
+                    <tr style="background: var(--table-header-bg); text-align: left;">
+                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600;">Date</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Category</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Subject</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Message</th>
+                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($history as $h): ?>
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="padding: 12px; color: #475569;"><?= date('M j, Y', strtotime($h['created_at'])) ?></td>
-                        <td style="padding: 12px; font-weight: 600; color: #0f172a;"><?= ucwords(str_replace('_', ' ', $h['category'])) ?></td>
-                        <td style="padding: 12px; color: #475569;"><?= htmlspecialchars($h['subj_code'] ?? '—') ?></td>
-                        <td style="padding: 12px; color: #475569; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?= htmlspecialchars($h['message']) ?>"><?= htmlspecialchars($h['message']) ?></td>
-                        <td style="padding: 12px;">
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px 24px; color: var(--text-gray);"><?= date('M j, Y', strtotime($h['created_at'])) ?></td>
+                        <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= ucwords(str_replace('_', ' ', $h['category'])) ?></td>
+                        <td style="padding: 12px; color: var(--accent-blue); font-weight:600;"><?= htmlspecialchars($h['subj_code'] ?? '—') ?></td>
+                        <td style="padding: 12px; color: var(--text-gray); max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?= htmlspecialchars($h['message']) ?>"><?= htmlspecialchars($h['message']) ?></td>
+                        <td style="padding: 12px 24px;">
                             <?php if ($h['status'] === 'open'): ?>
-                                <span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">OPEN</span>
+                                <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">OPEN</span>
+                            <?php elseif ($h['status'] === 'resolved'): ?>
+                                <span style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">RESOLVED</span>
                             <?php else: ?>
-                                <span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">RESOLVED</span>
+                                <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">REJECTED</span>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -159,10 +164,12 @@ function toggleSubject() {
     if (cat === 'grade_concern') {
         subj.disabled = false;
         subj.required = true;
+        subj.style.opacity = '1';
     } else {
         subj.disabled = true;
         subj.required = false;
         subj.value = '';
+        subj.style.opacity = '0.6';
     }
 }
 </script>
