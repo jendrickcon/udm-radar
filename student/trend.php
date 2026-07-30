@@ -131,14 +131,14 @@ require_once '../includes/sidebar.php';
     ?>
     <div class="card" style="margin-bottom: 24px; border-left: 4px solid <?= $riskBg ?>; display: flex; align-items: center; justify-content: space-between;">
         <div>
-            <h4 style="margin: 0; color: #64748b; font-size: 0.9rem; font-weight: 600; text-transform: uppercase;">Current Semester Projection</h4>
-            <h2 style="margin: 4px 0 0 0; color: #0f172a; font-size: 1.8rem;"><?= number_format($prediction['predicted_gwa'], 2) ?></h2>
+            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.9rem; font-weight: 600; text-transform: uppercase;">Current Semester Projection</h4>
+            <h2 style="margin: 4px 0 0 0; color: var(--text-dark); font-size: 1.8rem;"><?= number_format($prediction['predicted_gwa'], 2) ?></h2>
         </div>
         <div style="text-align: right;">
             <span style="background: <?= $riskBg ?>; color: white; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">
                 <?= $risk ?> RISK
             </span>
-            <p style="margin: 6px 0 0 0; font-size: 0.8rem; color: #94a3b8;">Based on Machine Learning Analysis</p>
+            <p style="margin: 6px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">Based on Machine Learning Analysis</p>
         </div>
     </div>
     <?php endif; ?>

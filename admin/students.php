@@ -36,9 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
         $yearLevel  = (int) ($_POST['year_level'] ?? 0);
         $section    = trim($_POST['section'] ?? '');
 
-        // Course and password are ALWAYS the locked constants, regardless
-        // of what the client sent — the readonly attribute on the form
-        // fields is a UX cue only, not a security boundary.
         $course   = LOCKED_COURSE;
         $password = LOCKED_PASSWORD;
 
@@ -74,11 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
 }
 
 // ── EDIT — name/status apply immediately; section/year_level do NOT ──────
-// UdM-RADAR does not officially own enrollment placement — the registrar's
-// system does. Name and status (Regular/Irregular) are administrative
-// corrections this system can reasonably make on its own (e.g. fixing a
-// typo). Section and year level instead go to pending_corrections and only
-// take effect once separately confirmed as officially reflected.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -111,8 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
                 'status'     => [$old['status'], $newStatus],
             ];
 
-            // If section or year_level was changed, a reason is required
-            // since those go through the pending-correction path.
             $wantsSectionChange = ($propSection !== '' && $propSection !== $old['section']);
             $wantsYearChange    = ($propYear !== '' && (int) $propYear !== (int) $old['year_level']);
 
@@ -180,7 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 }
 
 // ── CONFIRM / REJECT a pending section or year-level correction ──────────
-// Same "manual stand-in for ICTO/registrar confirmation" model as grades.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['confirm_correction', 'reject_correction'])) {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -229,8 +218,6 @@ $students = $db->query("
     ORDER BY sp.section, u.last_name, u.first_name
 ")->fetchAll();
 
-// ── Per-student current-term grades + latest prediction, for the modal ──
-// Embedded as JSON keyed by user_id so opening a profile needs no reload.
 $gradeStmt = $db->query("
     SELECT g.student_id, s.code, s.title, g.prelim, g.risk_level
     FROM grades g
@@ -259,9 +246,6 @@ foreach ($predStmt->fetchAll() as $p) {
     $predByStudent[$p['student_id']] = $p;
 }
 
-// ── Historical (Y1-Y2, is_current=0) grades, grouped by school year + sem ──
-// Loaded lazily in the modal via a "View History" toggle rather than shown
-// by default, since most profile views only need the current-term snapshot.
 $histStmt = $db->query("
     SELECT g.student_id, g.school_year, g.semester, s.code, s.title, g.final_grade
     FROM grades g
@@ -301,7 +285,6 @@ foreach ($students as $s) {
     ];
 }
 
-// ── Pending section/year-level corrections awaiting confirmation ─────────
 $pending = $db->query("
     SELECT pc.*, u.first_name, u.middle_name, u.last_name, sp.student_number,
            au.first_name AS a_first, au.middle_name AS a_middle, au.last_name AS a_last
@@ -330,14 +313,15 @@ require_once '../includes/sidebar.php';
 
 <style>
 .locked-field {
-    background: #f1f5f9 !important;
-    color: #64748b !important;
+    background: var(--bg-color) !important;
+    color: var(--text-gray) !important;
+    border-color: var(--border-color) !important;
     cursor: not-allowed;
 }
 .locked-hint {
     grid-column: span 1;
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-gray);
     margin-top: -8px;
 }
 
@@ -346,47 +330,38 @@ require_once '../includes/sidebar.php';
     gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
 }
 .search-box {
-    padding: 9px 14px; border: 1px solid #ddd; border-radius: 8px;
+    padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 8px;
     font-size: 0.9rem; width: 280px; max-width: 100%;
+    background-color: var(--bg-color); color: var(--text-dark);
+}
+.search-box:focus {
+    border-color: var(--accent-blue); outline: none; background-color: var(--card-bg);
 }
 .pagination-bar {
     display: flex; justify-content: center; align-items: center;
     gap: 6px; margin-top: 16px; flex-wrap: wrap;
 }
 .page-btn {
-    padding: 6px 12px; border: 1px solid #ddd; background: white;
+    padding: 6px 12px; border: 1px solid var(--border-color); background: var(--card-bg);
     border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-    color: #334155; font-family: inherit;
+    color: var(--text-dark); font-family: inherit; transition: all 0.2s;
 }
-.page-btn:hover { background: #f1f5f9; }
-.page-btn.active { background: var(--sidebar-bg); color: white; border-color: var(--sidebar-bg); }
+.page-btn:hover { background: var(--bg-color); }
+.page-btn.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .row-clickable { cursor: pointer; }
-.row-clickable:hover { background: #f8fafc; }
-.row-clickable td:first-child + td { color: var(--teal); font-weight: 600; }
+.row-clickable:hover { background: var(--bg-color); }
+.row-clickable td:first-child + td { color: var(--accent-blue); font-weight: 600; }
 
-.modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55);
-    z-index: 1000; align-items: flex-start; justify-content: center;
-    padding: 40px 16px; overflow-y: auto;
-}
-.modal-overlay.open { display: flex; }
-.modal-box {
-    background: white; border-radius: 12px; max-width: 640px; width: 100%;
-    padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-}
-.modal-close {
-    float: right; background: #e2e8f0; border: none; padding: 6px 12px;
-    border-radius: 6px; cursor: pointer; font-weight: 600; font-family: inherit;
-}
 .modal-stat-grid {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0;
 }
 .modal-stat {
-    background: #f8fafc; border-radius: 8px; padding: 10px 12px; text-align: center;
+    background: var(--bg-color); border-radius: 8px; padding: 10px 12px; text-align: center;
+    border: 1px solid var(--border-color);
 }
-.modal-stat span { display: block; font-size: 0.72rem; color: #64748b; margin-bottom: 4px; }
-.modal-stat strong { font-size: 1.15rem; color: var(--sidebar-bg); }
+.modal-stat span { display: block; font-size: 0.72rem; color: var(--text-gray); margin-bottom: 4px; }
+.modal-stat strong { font-size: 1.15rem; color: var(--text-dark); }
 </style>
 
 <div class="main-content">
@@ -395,17 +370,17 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($error): ?>
-        <p style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #c62828;"><?= htmlspecialchars($error) ?></p>
+        <p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high);"><?= htmlspecialchars($error) ?></p>
     <?php endif; ?>
     <?php if ($success): ?>
-        <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
+        <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
     <?php if (!empty($pending)): ?>
-    <div class="card" style="border-left:4px solid #d97706; margin-bottom:24px;">
+    <div class="card" style="border-left:4px solid var(--risk-mod); margin-bottom:24px;">
         <div class="table-title" style="display:flex; align-items:center; gap:8px;">
             Pending Section / Year Level Corrections
-            <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> awaiting confirmation</span>
+            <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> awaiting confirmation</span>
         </div>
         <table>
             <thead><tr><th>Student</th><th>Field</th><th>Was</th><th>Proposed</th><th>Reason</th><th>Proposed By</th><th></th></tr></thead>
@@ -418,21 +393,21 @@ require_once '../includes/sidebar.php';
                     <td><?= htmlspecialchars($p['student_number'] . ' — ' . $studentName) ?></td>
                     <td><?= htmlspecialchars($p['field_changed']) ?></td>
                     <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
-                    <td style="font-weight:700; color:#d97706;"><?= htmlspecialchars($p['new_value']) ?></td>
-                    <td style="font-size:0.82rem; color:#64748b;"><?= htmlspecialchars($p['reason']) ?></td>
+                    <td style="font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
+                    <td style="font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
                     <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
                     <td style="white-space:nowrap;">
                         <form method="POST" action="students.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected?');">
                             <input type="hidden" name="action" value="confirm_correction">
                             <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" style="background:#059669; color:white; border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Confirm</button>
+                            <button type="submit" style="background:var(--risk-low); color:white; border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Confirm</button>
                         </form>
                         <form method="POST" action="students.php" style="display:inline;" onsubmit="return confirm('Reject this proposed correction?');">
                             <input type="hidden" name="action" value="reject_correction">
                             <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" style="background:#fee2e2; color:#b91c1c; border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Reject</button>
+                            <button type="submit" style="background:rgba(220,38,38,0.1); color:var(--risk-high); border:none; padding:5px 10px; border-radius:5px; font-weight:600; font-size:0.78rem; cursor:pointer;">Reject</button>
                         </form>
                     </td>
                 </tr>
@@ -448,15 +423,15 @@ require_once '../includes/sidebar.php';
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
 
-            <input type="text" name="first_name" placeholder="First Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="middle_name" placeholder="Middle Name (optional)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="last_name" placeholder="Last Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+            <input type="text" name="first_name" placeholder="First Name" required class="form-input">
+            <input type="text" name="middle_name" placeholder="Middle Name (optional)" class="form-input">
+            <input type="text" name="last_name" placeholder="Last Name" required class="form-input">
 
-            <input type="text" name="student_number" placeholder="Student No. (e.g. 23-22-041)" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="email" name="email" placeholder="Email" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="section" placeholder="Section (e.g. IT-33)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+            <input type="text" name="student_number" placeholder="Student No. (e.g. 23-22-041)" required class="form-input">
+            <input type="email" name="email" placeholder="Email" class="form-input">
+            <input type="text" name="section" placeholder="Section (e.g. IT-33)" class="form-input">
 
-            <select name="year_level" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+            <select name="year_level" class="form-input">
                 <option value="3" selected>3rd Year</option>
                 <option value="1">1st Year</option>
                 <option value="2">2nd Year</option>
@@ -464,12 +439,10 @@ require_once '../includes/sidebar.php';
             </select>
 
             <div>
-                <input type="text" name="course" value="<?= htmlspecialchars(LOCKED_COURSE) ?>" readonly class="locked-field" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; width:100%;">
-                <div class="locked-hint">Fixed — all students are BSIT</div>
+                <input type="text" name="course" value="<?= htmlspecialchars(LOCKED_COURSE) ?>" readonly class="form-input locked-field">
             </div>
             <div>
-                <input type="text" name="password" value="<?= htmlspecialchars(LOCKED_PASSWORD) ?>" readonly class="locked-field" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; width:100%;">
-                <div class="locked-hint">Default password — student changes it on first login</div>
+                <input type="text" name="password" value="<?= htmlspecialchars(LOCKED_PASSWORD) ?>" readonly class="form-input locked-field">
             </div>
 
             <button type="submit" style="padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; align-self:start;">Add Student</button>
@@ -502,7 +475,7 @@ require_once '../includes/sidebar.php';
                     <td><?= htmlspecialchars($s['status'] ?? 'Regular') ?></td>
                     <td onclick="event.stopPropagation();">
                         <button type="button" onclick="openEditModal(<?= $uid ?>)"
-                            style="background:none; border:none; color:var(--teal); font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-right:10px;">Edit</button>
+                            style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-right:10px;">Edit</button>
                         <form method="POST" action="students.php" onsubmit="return confirm('Remove this student account? This cannot be undone.');" style="display:inline; margin:0;">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="delete_id" value="<?= $uid ?>">
@@ -523,8 +496,8 @@ require_once '../includes/sidebar.php';
 <div class="modal-overlay" id="student-modal-overlay" onclick="if(event.target===this) closeStudentModal();">
     <div class="modal-box">
         <button class="modal-close" onclick="closeStudentModal()">✕ Close</button>
-        <h2 id="modal-name" style="color:var(--sidebar-bg); margin-bottom:2px;"></h2>
-        <p id="modal-subline" style="color:#64748b; font-size:0.88rem; margin-bottom:12px;"></p>
+        <h2 id="modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
+        <p id="modal-subline" style="color:var(--text-gray); font-size:0.88rem; margin-bottom:12px;"></p>
 
         <div class="modal-stat-grid">
             <div class="modal-stat"><span>Current GWA</span><strong id="modal-gwa">—</strong></div>
@@ -532,18 +505,21 @@ require_once '../includes/sidebar.php';
             <div class="modal-stat"><span>Risk Level</span><strong id="modal-risk">—</strong></div>
         </div>
 
-        <h4 style="color:var(--sidebar-bg); font-size:0.95rem; margin-bottom:8px;">Current Semester Grades</h4>
+        <h4 style="color:var(--text-dark); font-size:0.95rem; margin-bottom:8px;">Current Semester Grades</h4>
         <table style="width:100%;">
             <thead><tr><th>Subject</th><th>Prelim</th><th>Risk</th></tr></thead>
             <tbody id="modal-grades-body"></tbody>
         </table>
 
-        <div style="margin-top:18px; border-top:1px solid #f1f5f9; padding-top:14px;">
+        <!-- Smooth Expanding History Accordion -->
+        <div style="margin-top:18px; border-top:1px solid var(--border-color); padding-top:14px;">
             <button type="button" id="modal-history-toggle" onclick="toggleHistory()"
-                style="background:none; border:1px solid #ddd; color:var(--teal); padding:7px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem; font-family:inherit;">
-                ▶ View Y1–Y2 Grade History
+                style="background:var(--bg-color); border:1px solid var(--border-color); color:var(--accent-blue); padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; font-family:inherit; transition:all 0.2s ease;">
+                <span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-right:4px;">▶</span> View Y1–Y2 Grade History
             </button>
-            <div id="modal-history-container" style="display:none; margin-top:14px;"></div>
+            <div id="modal-history-wrapper" class="history-wrapper">
+                <div id="modal-history-container" class="history-inner"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -552,8 +528,8 @@ require_once '../includes/sidebar.php';
 <div class="modal-overlay" id="edit-modal-overlay" onclick="if(event.target===this) closeEditModal();">
     <div class="modal-box">
         <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
-        <h2 style="color:var(--sidebar-bg); margin-bottom:4px;">Edit Student</h2>
-        <p style="color:#94a3b8; font-size:0.78rem; margin-bottom:16px;">
+        <h2 style="color:var(--text-dark); margin-bottom:4px;">Edit Student</h2>
+        <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">
             Name and status save immediately. Grades are not editable here at all.
         </p>
 
@@ -563,24 +539,24 @@ require_once '../includes/sidebar.php';
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
 
             <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px;">
-                <input type="text" name="edit_first_name" id="edit-first-name" placeholder="First Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-                <input type="text" name="edit_middle_name" id="edit-middle-name" placeholder="Middle Name (optional)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-                <input type="text" name="edit_last_name" id="edit-last-name" placeholder="Last Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
-                <select name="edit_status" id="edit-status" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; grid-column:span 2;">
+                <input type="text" name="edit_first_name" id="edit-first-name" placeholder="First Name" required class="form-input">
+                <input type="text" name="edit_middle_name" id="edit-middle-name" placeholder="Middle Name (optional)" class="form-input">
+                <input type="text" name="edit_last_name" id="edit-last-name" placeholder="Last Name" required class="form-input" style="grid-column:span 2;">
+                <select name="edit_status" id="edit-status" class="form-input" style="grid-column:span 2;">
                     <option value="Regular">Regular</option>
                     <option value="Irregular">Irregular</option>
                 </select>
             </div>
 
-            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px; margin-bottom:16px;">
-                <p style="font-size:0.8rem; font-weight:700; color:#92400e; margin-bottom:2px;">Section &amp; Year Level</p>
-                <p style="font-size:0.75rem; color:#92400e; margin-bottom:12px;">
+            <div style="background:rgba(217, 119, 6, 0.1); border:1px solid var(--risk-mod); border-radius:8px; padding:14px; margin-bottom:16px;">
+                <p style="font-size:0.8rem; font-weight:700; color:var(--risk-mod); margin-bottom:2px;">Section &amp; Year Level</p>
+                <p style="font-size:0.75rem; color:var(--risk-mod); margin-bottom:12px;">
                     UdM-RADAR does not officially own enrollment placement. Changing these proposes a correction — it will not take effect until separately confirmed as officially reflected by the registrar.
                 </p>
 
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:10px;">
-                    <input type="text" name="propose_section" id="propose-section" placeholder="Current section" style="padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
-                    <select name="propose_year_level" id="propose-year-level" style="padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
+                    <input type="text" name="propose_section" id="propose-section" placeholder="Current section" class="form-input">
+                    <select name="propose_year_level" id="propose-year-level" class="form-input">
                         <option value="">— No change —</option>
                         <option value="1">1st Year</option>
                         <option value="2">2nd Year</option>
@@ -588,7 +564,7 @@ require_once '../includes/sidebar.php';
                         <option value="4">4th Year</option>
                     </select>
                 </div>
-                <input type="text" name="propose_reason" id="propose-reason" placeholder="Reason (required only if proposing a section/year change)" style="width:100%; padding:9px 10px; border:1px solid #fbbf24; border-radius:6px; background:white;">
+                <input type="text" name="propose_reason" id="propose-reason" placeholder="Reason (required only if proposing a section/year change)" class="form-input" style="width:100%;">
             </div>
 
             <button type="submit" style="width:100%; padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save Changes</button>
@@ -626,7 +602,7 @@ function renderPage() {
         html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
     }
     html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button>`;
-    html += `<span style="color:#94a3b8; font-size:0.8rem; margin-left:10px;">${visible.length} student${visible.length!==1?'s':''}</span>`;
+    html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">${visible.length} student${visible.length!==1?'s':''}</span>`;
     bar.innerHTML = html;
 }
 
@@ -644,17 +620,17 @@ renderPage();
 
 // ── Modal ───────────────────────────────────────────────────────────────
 function riskColor(risk) {
-    if (risk === 'HIGH') return '#b91c1c';
-    if (risk === 'MODERATE') return '#d97706';
-    if (risk === 'LOW') return '#059669';
-    return '#94a3b8';
+    if (risk === 'HIGH') return 'var(--risk-high)';
+    if (risk === 'MODERATE') return 'var(--risk-mod)';
+    if (risk === 'LOW') return 'var(--risk-low)';
+    return 'var(--text-gray)';
 }
 
 function openStudentModal(uid) {
     const d = studentModalData[uid];
     if (!d) return;
 
-    currentModalUid = uid; // remember for the history toggle
+    currentModalUid = uid; 
 
     document.getElementById('modal-name').innerText = d.name;
     document.getElementById('modal-subline').innerText =
@@ -669,7 +645,7 @@ function openStudentModal(uid) {
 
     const body = document.getElementById('modal-grades-body');
     if (!d.grades.length) {
-        body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:16px;">No current-term grades on record.</td></tr>';
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-gray); padding:16px;">No current-term grades on record.</td></tr>';
     } else {
         body.innerHTML = d.grades.map(g => {
             const prelim = g.prelim !== null ? parseFloat(g.prelim).toFixed(2) : '—';
@@ -682,33 +658,34 @@ function openStudentModal(uid) {
         }).join('');
     }
 
-    // Reset history panel to collapsed every time a new profile opens
-    document.getElementById('modal-history-container').style.display = 'none';
+    // Reset history panel to collapsed state perfectly using grid properties
+    document.getElementById('modal-history-wrapper').classList.remove('open');
     document.getElementById('modal-history-container').innerHTML = '';
-    document.getElementById('modal-history-toggle').innerText = '▶ View Y1–Y2 Grade History';
+    document.getElementById('modal-history-toggle').innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-right:4px;">▶</span> View Y1–Y2 Grade History';
 
     document.getElementById('student-modal-overlay').classList.add('open');
 }
 
 let currentModalUid = null;
 
+// ── Smooth Animation History Accordion ──
 function toggleHistory() {
+    const wrapper = document.getElementById('modal-history-wrapper');
     const container = document.getElementById('modal-history-container');
     const btn = document.getElementById('modal-history-toggle');
-    const isOpen = container.style.display !== 'none';
+    const isOpen = wrapper.classList.contains('open');
 
     if (isOpen) {
-        container.style.display = 'none';
-        btn.innerText = '▶ View Y1–Y2 Grade History';
+        wrapper.classList.remove('open');
+        btn.innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-right:4px;">▶</span> View Y1–Y2 Grade History';
         return;
     }
 
-    // Build the history table content once, on first expand
     if (!container.innerHTML) {
         const d = studentModalData[currentModalUid];
         const terms = Object.keys(d.history || {});
         if (!terms.length) {
-            container.innerHTML = '<p style="color:#94a3b8; font-size:0.85rem; text-align:center; padding:12px;">No historical (Y1–Y2) grades on record for this student.</p>';
+            container.innerHTML = '<p style="color:var(--text-gray); font-size:0.85rem; text-align:center; padding:12px;">No historical (Y1–Y2) grades on record for this student.</p>';
         } else {
             container.innerHTML = terms.map(term => {
                 const rows = d.history[term].map(g => `
@@ -717,8 +694,8 @@ function toggleHistory() {
                         <td style="font-weight:600;">${g.grade.toFixed(2)}</td>
                     </tr>`).join('');
                 return `
-                    <div style="margin-bottom:14px;">
-                        <div style="font-weight:700; color:var(--sidebar-bg); font-size:0.85rem; margin-bottom:6px;">${term}</div>
+                    <div style="margin-bottom:14px; margin-top:14px;">
+                        <div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div>
                         <table style="width:100%;">
                             <thead><tr><th>Subject</th><th>Final Grade</th></tr></thead>
                             <tbody>${rows}</tbody>
@@ -728,8 +705,8 @@ function toggleHistory() {
         }
     }
 
-    container.style.display = 'block';
-    btn.innerText = '▼ Hide Y1–Y2 Grade History';
+    wrapper.classList.add('open');
+    btn.innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-right:4px; transform: rotate(90deg);">▶</span> Hide Y1–Y2 Grade History';
 }
 
 function closeStudentModal() {
@@ -746,10 +723,6 @@ function openEditModal(uid) {
     document.getElementById('edit-last-name').value = d.lastName || '';
     document.getElementById('edit-status').value = d.status || 'Regular';
 
-    // Section/year prefill shows current value as a reference point, but
-    // typing something different here PROPOSES a change — it doesn't save
-    // directly. Reason is cleared each time so an old note can't accidentally
-    // get resubmitted against a different student.
     document.getElementById('propose-section').value = d.section || '';
     document.getElementById('propose-year-level').value = '';
     document.getElementById('propose-reason').value = '';

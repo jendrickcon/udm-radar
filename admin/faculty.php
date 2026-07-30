@@ -234,7 +234,6 @@ require_once '../includes/sidebar.php';
 
 <style>
 .locked-field { background:#f1f5f9 !important; color:#64748b !important; cursor:not-allowed; }
-.locked-hint { font-size:0.72rem; color:#94a3b8; margin-top:-8px; }
 
 .table-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
 .search-box { padding:9px 14px; border:1px solid #ddd; border-radius:8px; font-size:0.9rem; width:280px; max-width:100%; }
@@ -246,10 +245,6 @@ require_once '../includes/sidebar.php';
 .row-clickable { cursor:pointer; }
 .row-clickable:hover { background:#f8fafc; }
 
-.modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:1000; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; }
-.modal-overlay.open { display:flex; }
-.modal-box { background:white; border-radius:12px; max-width:640px; width:100%; padding:28px; box-shadow:0 20px 50px rgba(0,0,0,0.25); }
-.modal-close { float:right; background:#e2e8f0; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit; }
 .modal-stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:16px 0; }
 .modal-stat { background:#f8fafc; border-radius:8px; padding:10px 12px; text-align:center; }
 .modal-stat span { display:block; font-size:0.72rem; color:#64748b; margin-bottom:4px; }
@@ -270,20 +265,19 @@ require_once '../includes/sidebar.php';
 
     <div class="card">
         <div class="table-title">Add New Faculty</div>
-        <form method="POST" action="faculty.php" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:14px;">
+<form method="POST" action="faculty.php" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:14px;">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
 
-            <input type="text" name="first_name" placeholder="First Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="middle_name" placeholder="Middle Name (optional)" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="text" name="last_name" placeholder="Last Name" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+            <input type="text" name="first_name" placeholder="First Name" required class="form-input">
+            <input type="text" name="middle_name" placeholder="Middle Name (optional)" class="form-input">
+            <input type="text" name="last_name" placeholder="Last Name" required class="form-input">
 
-            <input type="text" name="faculty_id" placeholder="Faculty ID (e.g. faculty05)" required style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
-            <input type="email" name="email" placeholder="Email" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px;">
+            <input type="text" name="faculty_id" placeholder="Faculty ID (e.g. faculty05)" required class="form-input">
+            <input type="email" name="email" placeholder="Email" class="form-input">
 
             <div>
-                <input type="text" name="password" value="<?= htmlspecialchars(LOCKED_FACULTY_PASSWORD) ?>" readonly class="locked-field" style="padding:10px 12px; border:1px solid #ddd; border-radius:8px; width:100%;">
-                <div class="locked-hint">Default password — faculty changes it on first login</div>
+                <input type="text" name="password" value="<?= htmlspecialchars(LOCKED_FACULTY_PASSWORD) ?>" readonly class="form-input locked-field">
             </div>
 
             <button type="submit" style="padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; align-self:start;">Add Faculty</button>

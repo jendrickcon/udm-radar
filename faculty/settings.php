@@ -51,29 +51,33 @@ require_once '../includes/sidebar.php';
         <div><h1>Settings</h1><p>Manage your account security.</p></div>
     </div>
 
-    <div class="card" style="max-width:480px;">
-        <div class="table-title">Change Password</div>
-        <?php if ($error): ?>
-            <p style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #c62828;"><?= htmlspecialchars($error) ?></p>
-        <?php endif; ?>
-        <?php if ($success): ?>
-            <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
-        <?php endif; ?>
-        <form method="POST" action="settings.php">
-            <div style="margin-bottom:16px;">
-                <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px;">Current Password</label>
-                <input type="password" name="current_password" required style="width:100%; padding:12px 14px; border:1px solid #ddd; border-radius:8px;">
-            </div>
-            <div style="margin-bottom:16px;">
-                <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px;">New Password</label>
-                <input type="password" name="new_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid #ddd; border-radius:8px;">
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px;">Confirm New Password</label>
-                <input type="password" name="confirm_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid #ddd; border-radius:8px;">
-            </div>
-            <button type="submit" style="width:100%; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Update Password</button>
-        </form>
+    <div class="stat-grid" style="grid-template-columns: 1fr 1fr; align-items: start;">
+
+        <div class="card">
+            <div class="table-title">Change Password</div>
+            <?php if ($error): ?>
+                <p style="background:rgba(220,38,38,0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high);"><?= htmlspecialchars($error) ?></p>
+            <?php endif; ?>
+            <?php if ($success): ?>
+                <p style="background:rgba(5,150,105,0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
+            <?php endif; ?>
+            <form method="POST" action="settings.php">
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Current Password</label>
+                    <input type="password" name="current_password" required style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-dark);">
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">New Password</label>
+                    <input type="password" name="new_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-dark);">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Confirm New Password</label>
+                    <input type="password" name="confirm_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-dark);">
+                </div>
+                <button type="submit" style="width:100%; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Update Password</button>
+            </form>
+        </div>
+
     </div>
 </div>
 

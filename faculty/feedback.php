@@ -86,22 +86,22 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($error): ?>
-        <p style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #c62828;"><?= htmlspecialchars($error) ?></p>
+        <p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high);"><?= htmlspecialchars($error) ?></p>
     <?php endif; ?>
     <?php if ($success): ?>
-        <p style="background:#e8f5e9; color:#1B7A3E; padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid #1B7A3E;"><?= htmlspecialchars($success) ?></p>
+        <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         <!-- Left: Submit Form -->
         <div class="card">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Contact Administration</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Contact Administration</h3>
             <form method="POST" action="feedback.php">
                 <input type="hidden" name="action" value="submit_feedback">
                 
                 <div style="margin-bottom: 12px;">
-                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px;">Category</label>
-                    <select name="category" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Category</label>
+                    <select name="category" required style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark);">
                         <option value="">— Select Category —</option>
                         <option value="data_issue">Data / System Issue</option>
                         <option value="general">General Inquiry</option>
@@ -109,32 +109,34 @@ require_once '../includes/sidebar.php';
                 </div>
 
                 <div style="margin-bottom: 12px;">
-                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px;">Message</label>
-                    <textarea name="message" required rows="4" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; resize:vertical;"></textarea>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Message</label>
+                    <textarea name="message" required rows="4" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); resize:vertical;"></textarea>
                 </div>
 
-                <button type="submit" style="background:#0e7490; color:white; border:none; padding:10px 20px; border-radius:6px; font-weight:600; cursor:pointer;">Send to Admin</button>
+                <button type="submit" style="background:var(--accent-blue); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer;">Send to Admin</button>
             </form>
         </div>
 
         <!-- Right: My Submissions -->
         <div class="card">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">My Sent Reports</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">My Sent Reports</h3>
             <?php if (empty($my_submissions)): ?>
-                <p style="color: #94a3b8; font-size: 0.9rem;">You have not sent any reports.</p>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">You have not sent any reports.</p>
             <?php else: ?>
                 <div style="max-height: 250px; overflow-y: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                         <tbody>
                             <?php foreach ($my_submissions as $h): ?>
-                            <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding: 10px; width: 80px; color: #64748b;"><?= date('M j', strtotime($h['created_at'])) ?></td>
-                                <td style="padding: 10px; font-weight: 600; color: #0f172a;"><?= ucwords(str_replace('_', ' ', $h['category'])) ?></td>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 10px; width: 80px; color: var(--text-gray);"><?= date('M j', strtotime($h['created_at'])) ?></td>
+                                <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= ucwords(str_replace('_', ' ', $h['category'])) ?></td>
                                 <td style="padding: 10px;">
                                     <?php if ($h['status'] === 'open'): ?>
-                                        <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">OPEN</span>
+                                        <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">OPEN</span>
+                                    <?php elseif ($h['status'] === 'resolved'): ?>
+                                        <span style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">RESOLVED</span>
                                     <?php else: ?>
-                                        <span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">RESOLVED</span>
+                                        <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">REJECTED</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -147,35 +149,42 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- Student Feedback Inbox -->
-    <div class="card">
-        <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">Student Concerns Inbox</h3>
-        <p style="font-size: 0.85rem; color: #64748b; margin-top: -10px; margin-bottom: 16px;">Read-only view. Only Administration can formally resolve these reports.</p>
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="padding: 24px 24px 16px; border-bottom: 1px solid var(--border-color);">
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px;">Student Concerns Inbox</h3>
+            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Read-only view. Only Administration can formally resolve these reports.</p>
+        </div>
         
         <?php if (empty($inbox)): ?>
-            <p style="color: #94a3b8; font-size: 0.9rem;">No student feedback reported for your subjects.</p>
+            <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No student feedback reported for your subjects.</p>
         <?php else: ?>
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                 <thead>
-                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
-                        <th style="padding: 12px;">Date</th>
-                        <th style="padding: 12px;">Student</th>
-                        <th style="padding: 12px;">Subject</th>
-                        <th style="padding: 12px;">Concern</th>
-                        <th style="padding: 12px;">Status</th>
+                    <tr style="background: var(--table-header-bg); text-align: left;">
+                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600;">Date</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Student</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Subject</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Concern</th>
+                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($inbox as $msg): ?>
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="padding: 12px; color: #475569;"><?= date('M j, Y', strtotime($msg['created_at'])) ?></td>
-                        <td style="padding: 12px; font-weight: 600; color: #0f172a;"><?= htmlspecialchars($msg['first_name'] . ' ' . $msg['last_name']) ?><br><span style="font-size: 0.75rem; color:#64748b; font-weight:normal;"><?= htmlspecialchars($msg['student_no']) ?></span></td>
-                        <td style="padding: 12px; color: #475569; font-weight: 600;"><?= htmlspecialchars($msg['subj_code']) ?></td>
-                        <td style="padding: 12px; color: #475569; max-width: 300px;"><?= nl2br(htmlspecialchars($msg['message'])) ?></td>
-                        <td style="padding: 12px;">
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px 24px; color: var(--text-gray); vertical-align: top;"><?= date('M j, Y', strtotime($msg['created_at'])) ?></td>
+                        <td style="padding: 12px; font-weight: 600; color: var(--text-dark); vertical-align: top;">
+                            <?= htmlspecialchars($msg['first_name'] . ' ' . $msg['last_name']) ?><br>
+                            <span style="font-size: 0.75rem; color:var(--text-gray); font-weight:normal;"><?= htmlspecialchars($msg['student_no']) ?></span>
+                        </td>
+                        <td style="padding: 12px; color: var(--accent-blue); font-weight: 600; vertical-align: top;"><?= htmlspecialchars($msg['subj_code']) ?></td>
+                        <td style="padding: 12px; color: var(--text-gray); max-width: 300px; vertical-align: top;"><?= nl2br(htmlspecialchars($msg['message'])) ?></td>
+                        <td style="padding: 12px 24px; vertical-align: top;">
                             <?php if ($msg['status'] === 'open'): ?>
-                                <span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">OPEN</span>
+                                <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">OPEN</span>
+                            <?php elseif ($msg['status'] === 'resolved'): ?>
+                                <span style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">RESOLVED</span>
                             <?php else: ?>
-                                <span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">RESOLVED</span>
+                                <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">REJECTED</span>
                             <?php endif; ?>
                         </td>
                     </tr>

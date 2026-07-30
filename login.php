@@ -51,15 +51,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | UDM-RADAR</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Apply saved theme before CSS renders, same pattern as header.php uses site-wide -->
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        
+
+        :root {
+            --bg-color: #F0F4F8;
+            --card-bg: #FFFFFF;
+            --text-dark: #1E293B;
+            --text-gray: #64748B;
+            --border-color: #E2E8F0;
+            --navy: #0A192F;
+            --navy-hover: #112240;
+            --accent-blue: #1E4DB7;
+            --error-bg: #FFEBEE;
+            --error-text: #C62828;
+            --error-border: #C62828;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0B1120;
+            --card-bg: #1E293B;
+            --text-dark: #F8FAFC;
+            --text-gray: #94A3B8;
+            --border-color: #334155;
+            --navy: #6C8EEF;
+            --navy-hover: #8AA6F5;
+            --accent-blue: #6C8EEF;
+            --error-bg: rgba(239, 68, 68, 0.15);
+            --error-text: #FCA5A5;
+            --error-border: #EF4444;
+        }
+
         /* Navy Blue Theme */
-        body { 
-            background-color: #F0F8FF; /* Pale Teal/Blue */
-            display: flex; 
-            height: 100vh; 
-            color: #1a1a1a;
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            height: 100vh;
+            color: var(--text-dark);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Left Side: Branding */
@@ -72,24 +108,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 40px;
             text-align: center;
         }
-        
-        .brand-section h1 {
-            font-size: 3.5rem;
-            color: #0A192F; /* Dark Navy */
-            font-weight: 700;
-            letter-spacing: -1px;
-            margin-bottom: 10px;
-        }
-        
-        .brand-section h2 {
-            font-size: 1.2rem;
-            color: #1a365d;
-            font-weight: 500;
-            margin-bottom: 30px;
+
+        /* Tagline — was an inline style before, moved here so dark mode can override it */
+        .brand-tagline {
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin-bottom: 14px;
+            transition: color 0.3s ease;
         }
 
         .brand-section p {
-            color: #555;
+            color: var(--text-gray);
             max-width: 400px;
             line-height: 1.6;
         }
@@ -104,22 +133,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .login-card {
-            background: white;
+            background: var(--card-bg);
             padding: 50px 40px;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 450px;
+            transition: background-color 0.3s ease;
         }
 
         .login-card h3 {
             font-size: 1.8rem;
-            color: #1a1a1a;
+            color: var(--text-dark);
             margin-bottom: 8px;
         }
 
         .login-card p {
-            color: #666;
+            color: var(--text-gray);
             margin-bottom: 30px;
             font-size: 0.95rem;
         }
@@ -132,31 +162,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             font-weight: 600;
             font-size: 0.9rem;
-            color: #333;
+            color: var(--text-dark);
             margin-bottom: 8px;
         }
 
         .form-control {
             width: 100%;
             padding: 14px 16px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             font-size: 1rem;
             transition: all 0.2s;
-            background-color: #f9f9f9;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
         }
 
         .form-control:focus {
-            border-color: #0A192F;
-            background-color: #fff;
+            border-color: var(--accent-blue);
+            background-color: var(--card-bg);
             outline: none;
-            box-shadow: 0 0 0 3px rgba(10, 25, 47, 0.1);
+            box-shadow: 0 0 0 3px rgba(30, 77, 183, 0.15);
         }
 
         .btn-login {
             width: 100%;
             padding: 14px;
-            background-color: #0A192F; /* Dark Navy */
+            background-color: var(--navy);
             color: white;
             border: none;
             border-radius: 8px;
@@ -167,25 +198,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-top: 10px;
         }
 
+        [data-theme="dark"] .btn-login { color: #0A192F; }
+
         .btn-login:hover {
-            background-color: #112240;
+            background-color: var(--navy-hover);
         }
 
         .error-msg {
-            background-color: #ffebee;
-            color: #c62828;
+            background-color: var(--error-bg);
+            color: var(--error-text);
             padding: 12px;
             border-radius: 6px;
             margin-bottom: 20px;
             font-size: 0.9rem;
-            border-left: 4px solid #c62828;
+            border-left: 4px solid var(--error-border);
         }
+
+        /* Theme toggle — floating circle, bottom-right */
+        .theme-toggle-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(15,23,42,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 999;
+            transition: transform 0.2s ease, background-color 0.3s ease;
+        }
+        .theme-toggle-fab:hover { transform: scale(1.07); }
+
+        .theme-toggle-fab svg {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            color: var(--text-dark);
+            transition: opacity 0.25s ease, transform 0.35s ease;
+        }
+        #icon-moon { opacity: 1; transform: rotate(0deg); }
+        #icon-sun  { opacity: 0; transform: rotate(-90deg); }
+        [data-theme="dark"] #icon-moon { opacity: 0; transform: rotate(90deg); }
+        [data-theme="dark"] #icon-sun  { opacity: 1; transform: rotate(0deg); }
 
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .brand-section { padding: 40px 20px 20px; }
-            .brand-section h1 { font-size: 2.5rem; }
             .login-section { padding: 20px; align-items: flex-start; }
             .login-card { padding: 30px 20px; box-shadow: none; background: transparent; }
         }
@@ -195,10 +259,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Left Branding Side -->
     <div class="brand-section">
-        <img src="assets/img/logo.png" alt="UDM-RADAR Logo" style="width:110px; height:110px; margin-bottom:16px;">
-        <h1>UDM-RADAR</h1>
-        <h2>Predictive Analytics System</h2>
-        <p style="font-weight:600; color:#0e7490; margin-bottom:14px;">Risk Analytics &amp; Decision-support for Academic Records</p>
+        <img src="assets/img/logo_sidebar.png" alt="UDM-RADAR Logo" style="width:360px; height:360px; margin-bottom:16px;">
+        <h3 class="brand-tagline">Risk Analytics &amp; Decision-support for Academic Records</h3>
         <p>A specialized portal for the College of Computer Studies to monitor academic trajectories and support student success.</p>
     </div>
 
@@ -227,6 +289,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
     </div>
+    <!-- Dark mode toggle -->
+    <button id="theme-toggle" class="theme-toggle-fab" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+    </button>
+
+    <script>
+        (function() {
+            const root = document.documentElement;
+            const btn = document.getElementById('theme-toggle');
+            let current = localStorage.getItem('theme') || 'light';
+
+            btn.addEventListener('click', () => {
+                current = current === 'light' ? 'dark' : 'light';
+                root.setAttribute('data-theme', current);
+                localStorage.setItem('theme', current);
+            });
+        })();
+    </script>
 
 </body>
 </html>
