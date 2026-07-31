@@ -16,6 +16,7 @@
     --risk-mod: #D97706;
     --risk-high: #DC2626;
     --gold: #C9A227;              
+    --honor-magna: #4338CA;        /* Magna Cum Laude — deliberately distinct from --accent-blue so it doesn't blend into the adjacent Dean's Lister tier in charts */
 }
 
 [data-theme="dark"] {
@@ -35,6 +36,7 @@
     --risk-mod: #F59E0B;
     --risk-high: #EF4444;
     --gold: #E0BB4D;              
+    --honor-magna: #818CF8;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }

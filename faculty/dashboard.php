@@ -136,8 +136,8 @@ $overall_avg_gwa = $gwa_count > 0 ? round($gwa_sum / $gwa_count, 2) : 0;
 $total_students  = count($students);
 
 function getHonorBadge(float $gwa): array {
-    if ($gwa >= 3.75) return ['text' => 'Summa Cum Laude track',     'bg' => '#b45309'];
-    if ($gwa >= 3.50) return ['text' => 'Magna Cum Laude track',     'bg' => '#1d4ed8'];
+    if ($gwa >= 3.75) return ['text' => 'Summa Cum Laude track',     'bg' => 'var(--gold)'];
+    if ($gwa >= 3.50) return ['text' => 'Magna Cum Laude track',     'bg' => 'var(--honor-magna)'];
     if ($gwa >= 3.25) return ['text' => "Dean's Lister / Cum Laude", 'bg' => 'var(--accent-blue)'];
     return ['text' => '—', 'bg' => 'var(--bg-color)', 'color' => 'var(--text-gray)'];
 }
@@ -512,8 +512,8 @@ function renderOverallTab(secName) {
     const medals = ['🥇', '🥈', '🥉'];
 
     function honorBadge(gwa) {
-        if (gwa >= 3.75) return { text: 'Summa Cum Laude track',     bg: '#b45309' };
-        if (gwa >= 3.50) return { text: 'Magna Cum Laude track',     bg: '#1d4ed8' };
+        if (gwa >= 3.75) return { text: 'Summa Cum Laude track',     bg: 'var(--gold)' };
+        if (gwa >= 3.50) return { text: 'Magna Cum Laude track',     bg: 'var(--honor-magna)' };
         if (gwa >= 3.25) return { text: "Dean's Lister / Cum Laude", bg: 'var(--accent-blue)' };
         return { text: '—', bg: 'var(--bg-color)', color: 'var(--text-gray)' };
     }
