@@ -48,43 +48,43 @@ require_once '../includes/sidebar.php';
 ?>
 
 <div class="main-content">
-    <div class="header">
+    <div class="header" style="margin-bottom: 24px;">
         <div>
             <h1>Welcome, <?= htmlspecialchars($p['first_name'] ?? $user['first_name']) ?></h1>
-            <p>Faculty Portal — College of Computing Studies</p>
+            <p style="color: var(--text-gray);">Faculty Portal — College of Computing Studies</p>
         </div>
     </div>
 
-    <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px;">
-        <div style="width:96px; height:96px; border-radius:50%; background:var(--pale-teal); display:flex; align-items:center; justify-content:center; font-size:2.5rem; flex-shrink:0;">👨‍🏫</div>
+    <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
+        <div style="width:96px; height:96px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:2.5rem; flex-shrink:0;">👨‍🏫</div>
         <div style="flex:1;">
-            <div style="display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem;">
-                <span style="font-weight:700; color:var(--dark_blue, var(--sidebar-bg));">Name</span>
-                <span>: <?= htmlspecialchars($displayName) ?></span>
+            <div style="display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
+                <span style="font-weight:700;">Name</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
 
-                <span style="font-weight:700; color:var(--dark_blue, var(--sidebar-bg));">Faculty ID</span>
-                <span>: <?= htmlspecialchars($p['user_id'] ?? '—') ?></span>
+                <span style="font-weight:700;">Faculty ID</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['user_id'] ?? '—') ?></span>
 
-                <span style="font-weight:700; color:var(--dark_blue, var(--sidebar-bg));">Department</span>
-                <span>: College of Computing Studies</span>
+                <span style="font-weight:700;">Department</span>
+                <span style="color: var(--text-gray);">: College of Computing Studies</span>
 
-                <span style="font-weight:700; color:var(--dark_blue, var(--sidebar-bg));">Email</span>
-                <span>: <?= htmlspecialchars($p['email'] ?? '—') ?></span>
+                <span style="font-weight:700;">Email</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['email'] ?? '—') ?></span>
 
-                <span style="font-weight:700; color:var(--dark_blue, var(--sidebar-bg));">Sections</span>
-                <span>: <?= !empty($sections) ? htmlspecialchars(implode(', ', $sections)) : '—' ?></span>
+                <span style="font-weight:700;">Sections</span>
+                <span style="color: var(--text-gray);">: <?= !empty($sections) ? htmlspecialchars(implode(', ', $sections)) : '—' ?></span>
             </div>
         </div>
     </div>
 
     <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 600px;">
-        <div class="stat-card teal">
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Assigned Sections</h4>
-            <h2><?= count($sections) ?> Section<?= count($sections) !== 1 ? 's' : '' ?></h2>
+            <h2 style="color: var(--accent-blue);"><?= count($sections) ?> Section<?= count($sections) !== 1 ? 's' : '' ?></h2>
         </div>
-        <div class="stat-card gold">
+        <div class="stat-card" style="border-left-color: var(--risk-mod);">
             <h4>Total Roster Size</h4>
-            <h2><?= $total_assigned_students ?> Student<?= $total_assigned_students !== 1 ? 's' : '' ?></h2>
+            <h2 style="color: var(--risk-mod);"><?= $total_assigned_students ?> Student<?= $total_assigned_students !== 1 ? 's' : '' ?></h2>
         </div>
     </div>
 </div>

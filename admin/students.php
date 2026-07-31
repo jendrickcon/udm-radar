@@ -7,11 +7,9 @@ requireRole('admin');
 $user = currentUser();
 $db = getDB();
 
-// ── Locked defaults — server is the source of truth, never trust the form ──
 const LOCKED_COURSE   = 'Bachelor of Science in Information Technology';
 const LOCKED_PASSWORD = 'default1!';
 
-// ── CSRF token (session-based) ─────────────────────────────────────────────
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -22,7 +20,6 @@ function checkCsrf(): bool {
 $error   = '';
 $success = '';
 
-// ── CREATE ──────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -70,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
     }
 }
 
-// ── EDIT — name/status apply immediately; section/year_level do NOT ──────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -169,7 +165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
-// ── CONFIRM / REJECT a pending section or year-level correction ──────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['confirm_correction', 'reject_correction'])) {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh the page and try again.';
@@ -188,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
         } else {
             try {
                 $db->beginTransaction();
-                $column = $corr['field_changed']; // 'section' or 'year_level'
+                $column = $corr['field_changed']; 
                 $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")
                    ->execute([$corr['new_value'], $corr['target_id']]);
 
@@ -210,7 +205,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
     }
 }
 
-// ── Main student list (table rows) ──────────────────────────────────────
 $students = $db->query("
     SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa,
            u.first_name, u.middle_name, u.last_name, u.email
@@ -366,7 +360,7 @@ require_once '../includes/sidebar.php';
 
 <div class="main-content">
     <div class="header">
-        <div><h1>Students</h1><p>Add or remove student accounts, and view individual profiles.</p></div>
+        <div><h1>Students</h1><p style="color: var(--text-gray);">Add or remove student accounts, and view individual profiles.</p></div>
     </div>
 
     <?php if ($error): ?>
@@ -382,21 +376,21 @@ require_once '../includes/sidebar.php';
             Pending Section / Year Level Corrections
             <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> awaiting confirmation</span>
         </div>
-        <table>
-            <thead><tr><th>Student</th><th>Field</th><th>Was</th><th>Proposed</th><th>Reason</th><th>Proposed By</th><th></th></tr></thead>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr style="border-bottom: 1px solid var(--border-color);"><th style="padding: 12px; text-align: left; color: var(--text-dark);">Student</th><th style="padding: 12px; text-align: left; color: var(--text-dark);">Field</th><th style="padding: 12px; text-align: left; color: var(--text-dark);">Was</th><th style="padding: 12px; text-align: left; color: var(--text-dark);">Proposed</th><th style="padding: 12px; text-align: left; color: var(--text-dark);">Reason</th><th style="padding: 12px; text-align: left; color: var(--text-dark);">Proposed By</th><th></th></tr></thead>
             <tbody>
                 <?php foreach ($pending as $p):
                     $studentName = formatNameLastFirst($p['first_name'], $p['middle_name'], $p['last_name']);
                     $adminName   = formatNameLastFirst($p['a_first'], $p['a_middle'], $p['a_last']);
                 ?>
-                <tr>
-                    <td><?= htmlspecialchars($p['student_number'] . ' — ' . $studentName) ?></td>
-                    <td><?= htmlspecialchars($p['field_changed']) ?></td>
-                    <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
-                    <td style="font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
-                    <td style="font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
-                    <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
-                    <td style="white-space:nowrap;">
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($p['student_number'] . ' — ' . $studentName) ?></td>
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($p['field_changed']) ?></td>
+                    <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
+                    <td style="padding: 12px; font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
+                    <td style="padding: 12px; font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
+                    <td style="padding: 12px; font-size:0.82rem; color: var(--text-dark);"><?= htmlspecialchars($adminName) ?></td>
+                    <td style="padding: 12px; white-space:nowrap; text-align: right;">
                         <form method="POST" action="students.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected?');">
                             <input type="hidden" name="action" value="confirm_correction">
                             <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
@@ -445,7 +439,7 @@ require_once '../includes/sidebar.php';
                 <input type="text" name="password" value="<?= htmlspecialchars(LOCKED_PASSWORD) ?>" readonly class="form-input locked-field">
             </div>
 
-            <button type="submit" style="padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; align-self:start;">Add Student</button>
+            <button type="submit" style="padding:10px; background:var(--accent-blue); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; align-self:start;">Add Student</button>
         </form>
     </div>
 
@@ -458,22 +452,33 @@ require_once '../includes/sidebar.php';
         <?php if (empty($students)): ?>
             <p class="empty-state">No students on record.</p>
         <?php else: ?>
-        <table id="students-table">
-            <thead><tr><th>Student No.</th><th>Name</th><th>Email</th><th>Section</th><th>Year</th><th>GWA</th><th>Status</th><th></th></tr></thead>
+        <table id="students-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Student No.</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Email</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">GWA</th>
+                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
+                    <th></th>
+                </tr>
+            </thead>
             <tbody id="students-tbody">
                 <?php foreach ($students as $s):
                     $uid = $s['user_id'];
                     $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
                 ?>
-                <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" onclick="openStudentModal(<?= $uid ?>)">
-                    <td><?= htmlspecialchars($s['student_number']) ?></td>
-                    <td><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
-                    <td><?= htmlspecialchars($s['email'] ?? '—') ?></td>
-                    <td><?= htmlspecialchars($s['section'] ?? '—') ?></td>
-                    <td><?= htmlspecialchars($s['year_level'] ?? '—') ?></td>
-                    <td><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
-                    <td><?= htmlspecialchars($s['status'] ?? 'Regular') ?></td>
-                    <td onclick="event.stopPropagation();">
+                <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" onclick="openStudentModal(<?= $uid ?>)" style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['student_number']) ?></td>
+                    <td style="padding: 12px; font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
+                    <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($s['email'] ?? '—') ?></td>
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['year_level'] ?? '—') ?></td>
+                    <td style="padding: 12px; color: var(--text-dark); font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
+                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['status'] ?? 'Regular') ?></td>
+                    <td onclick="event.stopPropagation();" style="padding: 12px; text-align: right;">
                         <button type="button" onclick="openEditModal(<?= $uid ?>)"
                             style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-right:10px;">Edit</button>
                         <form method="POST" action="students.php" onsubmit="return confirm('Remove this student account? This cannot be undone.');" style="display:inline; margin:0;">
@@ -506,8 +511,8 @@ require_once '../includes/sidebar.php';
         </div>
 
         <h4 style="color:var(--text-dark); font-size:0.95rem; margin-bottom:8px;">Current Semester Grades</h4>
-        <table style="width:100%;">
-            <thead><tr><th>Subject</th><th>Prelim</th><th>Risk</th></tr></thead>
+        <table style="width:100%; border-collapse: collapse;">
+            <thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Prelim</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Risk</th></tr></thead>
             <tbody id="modal-grades-body"></tbody>
         </table>
 
@@ -524,7 +529,7 @@ require_once '../includes/sidebar.php';
     </div>
 </div>
 
-<!-- Edit modal — enrollment facts only, never grades -->
+<!-- Edit modal -->
 <div class="modal-overlay" id="edit-modal-overlay" onclick="if(event.target===this) closeEditModal();">
     <div class="modal-box">
         <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
@@ -567,7 +572,7 @@ require_once '../includes/sidebar.php';
                 <input type="text" name="propose_reason" id="propose-reason" placeholder="Reason (required only if proposing a section/year change)" class="form-input" style="width:100%;">
             </div>
 
-            <button type="submit" style="width:100%; padding:10px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save Changes</button>
+            <button type="submit" style="width:100%; padding:10px; background:var(--accent-blue); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save Changes</button>
         </form>
     </div>
 </div>
@@ -575,12 +580,12 @@ require_once '../includes/sidebar.php';
 <script>
 const studentModalData = <?= json_encode($modalData, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 
-// ── Search + pagination (client-side, operates on already-rendered rows) ──
+// --- Smart Pagination Engine ---
 const ROWS_PER_PAGE = 25;
 let currentPage = 1;
 
 function getVisibleRows() {
-    const term = document.getElementById('student-search').value.trim().toLowerCase();
+    const term = document.getElementById('student-search')?.value.trim().toLowerCase() || '';
     const allRows = Array.from(document.querySelectorAll('#students-tbody tr'));
     return allRows.filter(row => !term || row.dataset.search.includes(term));
 }
@@ -588,21 +593,41 @@ function getVisibleRows() {
 function renderPage() {
     const allRows = Array.from(document.querySelectorAll('#students-tbody tr'));
     const visible = getVisibleRows();
+    
     allRows.forEach(r => r.style.display = 'none');
 
     const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
     currentPage = Math.min(currentPage, totalPages);
+    
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
 
     const bar = document.getElementById('pagination-bar');
+    if (!bar) return;
+
     let html = '';
     html += `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
-    for (let p = 1; p <= totalPages; p++) {
+    
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+        html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="color:var(--text-gray);">...</span>`;
+    }
+    
+    for (let p = startPage; p <= endPage; p++) {
         html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
     }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="color:var(--text-gray);">...</span>`;
+        html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
     html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button>`;
-    html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">${visible.length} student${visible.length!==1?'s':''}</span>`;
+    html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">Showing ${visible.length} results</span>`;
+    
     bar.innerHTML = html;
 }
 
@@ -611,11 +636,12 @@ function goToPage(p) {
     renderPage();
 }
 
-document.getElementById('student-search').addEventListener('input', () => {
-    currentPage = 1;
-    renderPage();
-});
-
+if (document.getElementById('student-search')) {
+    document.getElementById('student-search').addEventListener('input', () => {
+        currentPage = 1;
+        renderPage();
+    });
+}
 renderPage();
 
 // ── Modal ───────────────────────────────────────────────────────────────
@@ -650,15 +676,14 @@ function openStudentModal(uid) {
         body.innerHTML = d.grades.map(g => {
             const prelim = g.prelim !== null ? parseFloat(g.prelim).toFixed(2) : '—';
             const rc = riskColor(g.risk);
-            return `<tr>
-                <td title="${g.title}">${g.code}</td>
-                <td style="font-weight:600;">${prelim}</td>
-                <td><span style="background:${rc}; color:white; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td>
+            return `<tr style="border-bottom: 1px solid var(--border-color);">
+                <td title="${g.title}" style="color: var(--text-dark); padding: 8px;">${g.code}</td>
+                <td style="font-weight:600; color: var(--text-dark); padding: 8px;">${prelim}</td>
+                <td style="padding: 8px;"><span style="background:${rc}; color:white; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td>
             </tr>`;
         }).join('');
     }
 
-    // Reset history panel to collapsed state perfectly using grid properties
     document.getElementById('modal-history-wrapper').classList.remove('open');
     document.getElementById('modal-history-container').innerHTML = '';
     document.getElementById('modal-history-toggle').innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-right:4px;">▶</span> View Y1–Y2 Grade History';
@@ -668,7 +693,6 @@ function openStudentModal(uid) {
 
 let currentModalUid = null;
 
-// ── Smooth Animation History Accordion ──
 function toggleHistory() {
     const wrapper = document.getElementById('modal-history-wrapper');
     const container = document.getElementById('modal-history-container');
@@ -689,15 +713,18 @@ function toggleHistory() {
         } else {
             container.innerHTML = terms.map(term => {
                 const rows = d.history[term].map(g => `
-                    <tr>
-                        <td title="${g.title}">${g.code}</td>
-                        <td style="font-weight:600;">${g.grade.toFixed(2)}</td>
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td title="${g.title}" style="color:var(--text-dark); padding: 8px;">${g.code}</td>
+                        <td style="font-weight:600; color:var(--text-dark); padding: 8px;">${g.grade.toFixed(2)}</td>
                     </tr>`).join('');
                 return `
                     <div style="margin-bottom:14px; margin-top:14px;">
                         <div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div>
-                        <table style="width:100%;">
-                            <thead><tr><th>Subject</th><th>Final Grade</th></tr></thead>
+                        <table style="width:100%; border-collapse: collapse;">
+                            <thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
+                                <th style="text-align:left; padding: 8px; color:var(--text-dark);">Subject</th>
+                                <th style="text-align:left; padding: 8px; color:var(--text-dark);">Final Grade</th>
+                            </tr></thead>
                             <tbody>${rows}</tbody>
                         </table>
                     </div>`;

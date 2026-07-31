@@ -24,8 +24,6 @@ $stmt->execute([$user['id']]);
 $my_class_loads = $stmt->fetchAll();
 
 // ── 3. Per-section subject list (for tab column headers) ──────────────────
-// Key insight: IT-31 may only have subject 39, while IT-33 has 39 + 40.
-// We need this per-section so the tab renders the correct columns.
 $section_subject_map = []; // [section] => [ ['id','code','title'], ... ]
 foreach ($my_class_loads as $load) {
     $sec     = $load['section'];
@@ -111,7 +109,6 @@ foreach ($students as &$s) {
 
     $s['subject_grades'] = $subject_grades[$uid] ?? [];
 
-    // At-risk = flagged in ANY of faculty's subjects for this student's section
     $subj_at_risk = false;
     foreach ($s['subject_grades'] as $sg) {
         if (in_array($sg['risk'], ['HIGH', 'MODERATE'])) { $subj_at_risk = true; break; }
@@ -131,12 +128,11 @@ unset($s);
 $overall_avg_gwa = $gwa_count > 0 ? round($gwa_sum / $gwa_count, 2) : 0;
 $total_students  = count($students);
 
-// ── 7. Helpers ────────────────────────────────────────────────────────────
 function getHonorBadge(float $gwa): array {
-    if ($gwa >= 3.75) return ['text' => 'Summa Cum Laude track',     'bg' => '#6d28d9'];
+    if ($gwa >= 3.75) return ['text' => 'Summa Cum Laude track',     'bg' => '#b45309'];
     if ($gwa >= 3.50) return ['text' => 'Magna Cum Laude track',     'bg' => '#1d4ed8'];
-    if ($gwa >= 3.25) return ['text' => "Dean's Lister / Cum Laude", 'bg' => '#0e7490'];
-    return ['text' => '—', 'bg' => '#cbd5e1'];
+    if ($gwa >= 3.25) return ['text' => "Dean's Lister / Cum Laude", 'bg' => 'var(--accent-blue)'];
+    return ['text' => '—', 'bg' => 'var(--bg-color)', 'color' => 'var(--text-gray)'];
 }
 
 $pageTitle = 'Dashboard';
@@ -154,18 +150,18 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-.tab-bar  { display:flex; gap:6px; margin-bottom:18px; border-bottom:2px solid #e2e8f0; }
-.tab-btn  { padding:8px 18px; border:none; background:transparent; color:#64748b; font-size:0.88rem; font-weight:600; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.18s; font-family:inherit; }
-.tab-btn:hover  { color:#0e7490; }
-.tab-btn.active { color:#0e7490; border-bottom-color:#0e7490; }
+.tab-bar  { display:flex; gap:6px; margin-bottom:18px; border-bottom:2px solid var(--border-color); }
+.tab-btn  { padding:8px 18px; border:none; background:transparent; color:var(--text-gray); font-size:0.88rem; font-weight:600; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.18s; font-family:inherit; }
+.tab-btn:hover  { color:var(--accent-blue); }
+.tab-btn.active { color:var(--accent-blue); border-bottom-color:var(--accent-blue); }
 .grade-cell { font-weight:600; }
-.grade-low  { color:#059669; }
-.grade-mod  { color:#d97706; }
-.grade-high { color:#b91c1c; }
-.grade-none { color:#cbd5e1; }
-.sortable-col { cursor:pointer; user-select:none; }
-.sortable-col:hover { background:rgba(0,123,131,0.18) !important; }
-.sort-arrow { font-size:0.78rem; color:#cbd5e1; margin-left:5px; transition:color 0.15s; }
+.grade-low  { color:var(--risk-low); }
+.grade-mod  { color:var(--risk-mod); }
+.grade-high { color:var(--risk-high); }
+.grade-none { color:var(--text-gray); }
+.sortable-col { cursor:pointer; user-select:none; color:var(--text-dark); }
+.sortable-col:hover { background:var(--table-header-bg) !important; }
+.sort-arrow { font-size:0.78rem; color:var(--text-gray); margin-left:5px; transition:color 0.15s; }
 </style>
 
 <div class="main-content">
@@ -175,28 +171,28 @@ require_once '../includes/sidebar.php';
             <h1>Section Overview — S.Y. 2026-2027, 1st Semester</h1>
             <p style="color:var(--text-gray); font-size:0.95rem;">
                 Click a section card to open its student roster.
-                <em style="color:#94a3b8; font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
+                <em style="color:var(--text-gray); font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
             </p>
         </div>
     </div>
 
     <!-- KPI cards -->
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr); margin-bottom:24px;">
-        <div class="stat-card" style="border-top:4px solid #0f172a;">
+        <div class="stat-card" style="border-left-color: var(--text-dark);">
             <h4>Total Students</h4>
-            <h2><?= $total_students ?></h2>
+            <h2 style="color: var(--text-dark);"><?= $total_students ?></h2>
         </div>
-        <div class="stat-card" style="border-top:4px solid #b91c1c;">
-            <h4>At-Risk <span style="font-size:0.65rem;color:#94a3b8;font-weight:400;">(your classes)</span></h4>
-            <h2 style="color:#b91c1c;"><?= $at_risk_total ?></h2>
+        <div class="stat-card" style="border-left-color: var(--risk-high);">
+            <h4>At-Risk <span style="font-size:0.65rem;color:var(--text-gray);font-weight:400;">(your classes)</span></h4>
+            <h2 style="color: var(--risk-high);"><?= $at_risk_total ?></h2>
         </div>
-        <div class="stat-card" style="border-top:4px solid #d97706;">
+        <div class="stat-card" style="border-left-color: var(--risk-mod);">
             <h4>Irregular</h4>
-            <h2 style="color:#d97706;"><?= $irregular_total ?></h2>
+            <h2 style="color: var(--risk-mod);"><?= $irregular_total ?></h2>
         </div>
-        <div class="stat-card" style="border-top:4px solid #0e7490;">
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Overall Avg GWA</h4>
-            <h2 style="color:#0e7490;"><?= number_format($overall_avg_gwa, 2) ?></h2>
+            <h2 style="color: var(--accent-blue);"><?= number_format($overall_avg_gwa, 2) ?></h2>
         </div>
     </div>
 
@@ -205,22 +201,22 @@ require_once '../includes/sidebar.php';
         <?php foreach ($section_data as $sec_name => $data):
             $count    = count($data['students']);
             $avg      = $count > 0 ? round($data['gwa_sum'] / $count, 2) : 0;
-            $risk_col = $data['at_risk'] > 0 ? '#b91c1c' : '#059669';
+            $risk_col = $data['at_risk'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
         ?>
-        <div class="card" style="padding:0;overflow:hidden;border:1px solid #cbd5e1;border-radius:8px;">
-            <div style="background:#0f172a;color:white;padding:10px 14px;display:flex;justify-content:space-between;font-weight:600;">
+        <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border-color);border-radius:8px;">
+            <div style="background:var(--table-header-bg);color:var(--text-dark);padding:12px 16px;display:flex;justify-content:space-between;font-weight:700; border-bottom:1px solid var(--border-color);">
                 <span><?= htmlspecialchars($sec_name) ?></span>
-                <span style="font-size:0.8rem;color:#94a3b8;"><?= $count ?> students</span>
+                <span style="font-size:0.8rem;color:var(--text-gray);"><?= $count ?> students</span>
             </div>
             <div style="padding:16px;text-align:center;">
-                <h2 style="color:#0e7490;font-size:2rem;margin-bottom:2px;"><?= number_format($avg, 2) ?></h2>
-                <p style="color:#64748b;font-size:0.8rem;margin-bottom:12px;">Avg GWA</p>
-                <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:12px;border-top:1px solid #f1f5f9;padding-top:8px;">
-                    <span style="color:<?= $risk_col ?>;font-weight:500;">At-Risk: <?= $data['at_risk'] ?></span>
-                    <span style="color:#64748b;">Irregular: <?= $data['irregular'] ?></span>
+                <h2 style="color:var(--accent-blue);font-size:2rem;margin-bottom:2px;"><?= number_format($avg, 2) ?></h2>
+                <p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:12px;">Avg GWA</p>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:12px;border-top:1px solid var(--border-color);padding-top:8px;">
+                    <span style="color:<?= $risk_col ?>;font-weight:600;">At-Risk: <?= $data['at_risk'] ?></span>
+                    <span style="color:var(--text-gray);font-weight:600;">Irregular: <?= $data['irregular'] ?></span>
                 </div>
                 <button onclick="openSection('<?= $sec_name ?>')"
-                    style="width:100%;padding:8px;background:#0e7490;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:500;font-family:inherit;">
+                    style="width:100%;padding:10px;background:var(--accent-blue);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
                     View Students →
                 </button>
             </div>
@@ -229,11 +225,11 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- Roster panel -->
-    <div id="section-roster-card" class="card" style="display:none;border:2px solid #0e7490;margin-bottom:24px;">
+    <div id="section-roster-card" class="card" style="display:none;border:2px solid var(--accent-blue);margin-bottom:24px; padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 id="roster-title" style="color:#0f172a;font-weight:700;font-size:1.1rem;">Student List</h3>
+            <h3 id="roster-title" style="color:var(--text-dark);font-weight:700;font-size:1.1rem; margin:0;">Student List</h3>
             <button onclick="closeRoster()"
-                style="background:#e2e8f0;color:#334155;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-weight:600;font-family:inherit;">
+                style="background:var(--bg-color);color:var(--text-dark);border:1px solid var(--border-color);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
                 ✕ Close
             </button>
         </div>
@@ -245,24 +241,24 @@ require_once '../includes/sidebar.php';
 
         <!-- Tab 1: columns built dynamically by renderClassTab() -->
         <div id="tab-content-class" style="overflow-x:auto;">
-            <table>
-                <thead><tr id="class-thead-row"></tr></thead>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead><tr id="class-thead-row" style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color);"></tr></thead>
                 <tbody id="roster-body-class"></tbody>
             </table>
         </div>
 
         <!-- Tab 2: overall GWA ranking for the opened section -->
         <div id="tab-content-overall" style="display:none;overflow-x:auto;">
-            <table>
+            <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr>
-                        <th style="width:50px;text-align:center;">Rank</th>
-                        <th>Student Name</th>
-                        <th>Student No.</th>
-                        <th>Cumulative GWA</th>
-                        <th>Honor Track</th>
-                        <th>Overall Risk</th>
-                        <th>Status</th>
+                    <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
+                        <th style="width:50px;text-align:center; padding:12px;">Rank</th>
+                        <th style="text-align:left; padding:12px;">Student Name</th>
+                        <th style="text-align:left; padding:12px;">Student No.</th>
+                        <th style="text-align:center; padding:12px;">Cumulative GWA</th>
+                        <th style="text-align:center; padding:12px;">Honor Track</th>
+                        <th style="text-align:center; padding:12px;">Overall Risk</th>
+                        <th style="text-align:center; padding:12px;">Status</th>
                     </tr>
                 </thead>
                 <tbody id="roster-body-overall"></tbody>
@@ -273,20 +269,20 @@ require_once '../includes/sidebar.php';
     <!-- Top 10 across all sections -->
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="color:#0f172a;font-weight:700;">🏆 Top Students — GWA Ranking</h3>
-            <span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:4px;font-size:0.8rem;font-weight:600;">
+            <h3 style="color:var(--text-dark);font-weight:700; margin:0;">🏆 Top Students — GWA Ranking</h3>
+            <span style="background:rgba(217, 119, 6, 0.1);color:var(--risk-mod);padding:4px 10px;border-radius:4px;font-size:0.8rem;font-weight:600;">
                 Projected — based on cumulative GWA
             </span>
         </div>
-        <table>
+        <table style="width: 100%; border-collapse: collapse;">
             <thead>
-                <tr>
-                    <th style="width:50px;text-align:center;">Rank</th>
-                    <th>Student Name</th>
-                    <th>Section</th>
-                    <th>GWA</th>
-                    <th>Honor</th>
-                    <th>Status</th>
+                <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
+                    <th style="width:50px;text-align:center; padding:12px;">Rank</th>
+                    <th style="text-align:left; padding:12px;">Student Name</th>
+                    <th style="text-align:left; padding:12px;">Section</th>
+                    <th style="text-align:center; padding:12px;">GWA</th>
+                    <th style="text-align:center; padding:12px;">Honor</th>
+                    <th style="text-align:center; padding:12px;">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -297,18 +293,18 @@ require_once '../includes/sidebar.php';
                 foreach (array_slice($sorted, 0, 10) as $i => $ts):
                     $honor = getHonorBadge((float)$ts['current_gwa']);
                 ?>
-                <tr>
-                    <td style="text-align:center;font-weight:700;"><?= ($medals[$i] ?? '') . ' ' . ($i + 1) ?></td>
-                    <td style="font-weight:600;"><?= htmlspecialchars($ts['full_name']) ?></td>
-                    <td><?= htmlspecialchars($ts['section']) ?></td>
-                    <td style="font-weight:700;"><?= $ts['current_gwa'] ? number_format($ts['current_gwa'], 2) : '—' ?></td>
-                    <td>
-                        <span style="background:<?= $honor['bg'] ?>;color:white;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px;"><?= ($medals[$i] ?? '') . ' ' . ($i + 1) ?></td>
+                    <td style="font-weight:600; color:var(--text-dark); padding:12px;"><?= htmlspecialchars($ts['full_name']) ?></td>
+                    <td style="color:var(--text-gray); padding:12px;"><?= htmlspecialchars($ts['section']) ?></td>
+                    <td style="font-weight:700; color:var(--accent-blue); text-align:center; padding:12px;"><?= $ts['current_gwa'] ? number_format($ts['current_gwa'], 2) : '—' ?></td>
+                    <td style="text-align:center; padding:12px;">
+                        <span style="background:<?= $honor['bg'] ?>;color:<?= $honor['color'] ?? 'white' ?>;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
                             <?= $honor['text'] ?>
                         </span>
                     </td>
-                    <td>
-                        <span style="background:<?= $ts['status'] === 'Irregular' ? '#d97706' : '#059669' ?>;color:white;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">
+                    <td style="text-align:center; padding:12px;">
+                        <span style="background:<?= $ts['status'] === 'Irregular' ? 'var(--risk-mod)' : 'var(--risk-low)' ?>;color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
                             <?= htmlspecialchars($ts['status']) ?>
                         </span>
                     </td>
@@ -318,23 +314,18 @@ require_once '../includes/sidebar.php';
         </table>
     </div>
 
-</div><!-- /main-content -->
+</div>
 
 <script>
-// sectionDataMap: all student data including subject_grades per student
 const sectionDataMap     = <?= json_encode($section_data,       JSON_HEX_TAG | JSON_HEX_AMP) ?>;
-
-// sectionSubjectMap: which subjects this faculty teaches per section
-// e.g. { "IT-31": [{id,code,title}], "IT-33": [{id,...},{id,...}] }
 const sectionSubjectMap  = <?= json_encode($section_subject_map, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 
 let activeSection = null;
 
-// ── Open roster ───────────────────────────────────────────────────────────
 function openSection(secName) {
     activeSection = secName;
     document.getElementById('roster-title').innerText = 'Section ' + secName + ' — Student Roster';
-    switchTab('class'); // always open on tab 1
+    switchTab('class'); 
     document.getElementById('section-roster-card').style.display = 'block';
     document.getElementById('section-roster-card').scrollIntoView({ behavior: 'smooth' });
 }
@@ -344,7 +335,6 @@ function closeRoster() {
     activeSection = null;
 }
 
-// ── Tab switcher ──────────────────────────────────────────────────────────
 function switchTab(tab) {
     document.getElementById('tab-content-class').style.display   = tab === 'class'   ? 'block' : 'none';
     document.getElementById('tab-content-overall').style.display = tab === 'overall' ? 'block' : 'none';
@@ -355,39 +345,34 @@ function switchTab(tab) {
     if (tab === 'overall') renderOverallTab(activeSection);
 }
 
-// ── Tab 1: My Class Performance ───────────────────────────────────────────
-// Columns are ONLY the subjects this faculty teaches to this specific section.
-// Sort state for My Class Performance tab
 let classSortCol = -1;
 let classSortDir = 'desc';
 
 function renderClassTab(secName) {
-    // Reset sort state when switching sections
     classSortCol = -1;
     classSortDir = 'desc';
 
     const students = sectionDataMap[secName]?.students || [];
     const subjects = sectionSubjectMap[secName] || [];
 
-    // Build header with sort arrows on subject + avg columns
     const thead = document.getElementById('class-thead-row');
-    let thHtml = '<th class="sortable-col" onclick="sortClassTab(0)" id="col-h-0">Student Name<span class="sort-arrow" id="sort-arrow-0">⇅</span></th>';
+    let thHtml = '<th class="sortable-col" onclick="sortClassTab(0)" id="col-h-0" style="padding:12px; text-align:left;">Student Name<span class="sort-arrow" id="sort-arrow-0">⇅</span></th>';
     subjects.forEach((subj, i) => {
         const colIdx = i + 1;
-        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code}" id="col-h-${colIdx}">
+        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code}" id="col-h-${colIdx}" style="padding:12px; text-align:center;">
             ${subj.title}<span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
         </th>`;
     });
     const avgColIdx = subjects.length + 1;
-    thHtml += `<th class="sortable-col" onclick="sortClassTab(${avgColIdx})" id="col-h-${avgColIdx}">
+    thHtml += `<th class="sortable-col" onclick="sortClassTab(${avgColIdx})" id="col-h-${avgColIdx}" style="padding:12px; text-align:center;">
         Avg (My Subj.)<span class="sort-arrow" id="sort-arrow-${avgColIdx}">⇅</span>
     </th>`;
-    thHtml += '<th>Subject Risk</th>';
+    thHtml += '<th style="padding:12px; text-align:center; color:var(--text-dark);">Subject Risk</th>';
     thead.innerHTML = thHtml;
 
     const tbody = document.getElementById('roster-body-class');
     if (!students.length) {
-        tbody.innerHTML = `<tr><td colspan="${subjects.length + 3}" style="text-align:center;color:#94a3b8;padding:24px;">No students in this section.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${subjects.length + 3}" style="text-align:center;color:var(--text-gray);padding:24px;">No students in this section.</td></tr>`;
         return;
     }
 
@@ -402,13 +387,13 @@ function renderClassTab(secName) {
             if (g && g.prelim !== null && g.prelim !== undefined) {
                 const val = parseFloat(g.prelim);
                 const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
-                gradeCells += `<td class="grade-cell ${cls}">${val.toFixed(2)}</td>`;
+                gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center;">${val.toFixed(2)}</td>`;
                 prelimSum  += val;
                 prelimCount++;
                 if      (g.risk === 'HIGH')                              worstRisk = 'HIGH';
                 else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
             } else {
-                gradeCells += `<td class="grade-none">—</td>`;
+                gradeCells += `<td class="grade-none" style="padding:12px; text-align:center;">—</td>`;
             }
         });
 
@@ -416,21 +401,21 @@ function renderClassTab(secName) {
         const avgCls  = prelimCount > 0
             ? (parseFloat(avg) < 2.00 ? 'grade-high' : (parseFloat(avg) < 2.50 ? 'grade-mod' : 'grade-low'))
             : 'grade-none';
-        const riskBg  = prelimCount === 0 ? '#e2e8f0' : (worstRisk === 'HIGH' ? '#b91c1c' : (worstRisk === 'MODERATE' ? '#d97706' : '#059669'));
-        const riskClr = prelimCount === 0 ? '#64748b' : 'white';
+        
+        const riskBg  = prelimCount === 0 ? 'var(--bg-color)' : (worstRisk === 'HIGH' ? 'var(--risk-high)' : (worstRisk === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)'));
+        const riskClr = prelimCount === 0 ? 'var(--text-gray)' : 'white';
         const riskLbl = prelimCount === 0 ? 'No Data' : worstRisk;
 
-        html += `<tr>
-            <td style="font-weight:600;">${s.full_name}</td>
+        html += `<tr style="border-bottom:1px solid var(--border-color);">
+            <td style="font-weight:600; color:var(--text-dark); padding:12px;">${s.full_name}</td>
             ${gradeCells}
-            <td class="grade-cell ${avgCls}">${avg}</td>
-            <td><span style="background:${riskBg};color:${riskClr};padding:2px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">${riskLbl}</span></td>
+            <td class="grade-cell ${avgCls}" style="padding:12px; text-align:center;">${avg}</td>
+            <td style="padding:12px; text-align:center;"><span style="background:${riskBg};color:${riskClr};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${riskLbl}</span></td>
         </tr>`;
     });
     tbody.innerHTML = html;
 }
 
-// ── Tab 2: Overall Standing ───────────────────────────────────────────────
 function renderOverallTab(secName) {
     const students = (sectionDataMap[secName]?.students || [])
         .slice()
@@ -438,17 +423,17 @@ function renderOverallTab(secName) {
 
     const tbody = document.getElementById('roster-body-overall');
     if (!students.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">No students.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-gray);padding:24px;">No students.</td></tr>';
         return;
     }
 
     const medals = ['🥇', '🥈', '🥉'];
 
     function honorBadge(gwa) {
-        if (gwa >= 3.75) return { text: 'Summa Cum Laude track',     bg: '#6d28d9' };
+        if (gwa >= 3.75) return { text: 'Summa Cum Laude track',     bg: '#b45309' };
         if (gwa >= 3.50) return { text: 'Magna Cum Laude track',     bg: '#1d4ed8' };
-        if (gwa >= 3.25) return { text: "Dean's Lister / Cum Laude", bg: '#0e7490' };
-        return { text: '—', bg: '#e2e8f0', color: '#64748b' };
+        if (gwa >= 3.25) return { text: "Dean's Lister / Cum Laude", bg: 'var(--accent-blue)' };
+        return { text: '—', bg: 'var(--bg-color)', color: 'var(--text-gray)' };
     }
 
     let html = '';
@@ -456,33 +441,29 @@ function renderOverallTab(secName) {
         const gwa    = parseFloat(s.current_gwa || 0);
         const honor  = honorBadge(gwa);
         const risk   = (s.risk_level || 'N/A').toUpperCase();
-        const riskBg = risk === 'HIGH' ? '#b91c1c' : (risk === 'MODERATE' ? '#d97706' : (risk === 'LOW' ? '#059669' : '#94a3b8'));
-        const statBg = s.status === 'Irregular' ? '#d97706' : '#059669';
+        const riskBg = risk === 'HIGH' ? 'var(--risk-high)' : (risk === 'MODERATE' ? 'var(--risk-mod)' : (risk === 'LOW' ? 'var(--risk-low)' : 'var(--text-gray)'));
+        const statBg = s.status === 'Irregular' ? 'var(--risk-mod)' : 'var(--risk-low)';
 
-        html += `<tr>
-            <td style="text-align:center;font-weight:700;">${(medals[i] ?? '')} ${i + 1}</td>
-            <td style="font-weight:600;">${s.full_name}</td>
-            <td style="color:#64748b;">${s.student_number || '—'}</td>
-            <td style="font-weight:700;color:#0e7490;">${gwa > 0 ? gwa.toFixed(2) : '—'}</td>
-            <td><span style="background:${honor.bg};color:${honor.color ?? 'white'};padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">${honor.text}</span></td>
-            <td><span style="background:${riskBg};color:white;padding:2px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">${risk}</span></td>
-            <td><span style="background:${statBg};color:white;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">${s.status || 'Regular'}</span></td>
+        html += `<tr style="border-bottom:1px solid var(--border-color);">
+            <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px;">${(medals[i] ?? '')} ${i + 1}</td>
+            <td style="font-weight:600; color:var(--text-dark); padding:12px;">${s.full_name}</td>
+            <td style="color:var(--text-gray); padding:12px;">${s.student_number || '—'}</td>
+            <td style="font-weight:700;color:var(--accent-blue); text-align:center; padding:12px;">${gwa > 0 ? gwa.toFixed(2) : '—'}</td>
+            <td style="text-align:center; padding:12px;"><span style="background:${honor.bg};color:${honor.color ?? 'white'};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${honor.text}</span></td>
+            <td style="text-align:center; padding:12px;"><span style="background:${riskBg};color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">${risk}</span></td>
+            <td style="text-align:center; padding:12px;"><span style="background:${statBg};color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">${s.status || 'Regular'}</span></td>
         </tr>`;
     });
     tbody.innerHTML = html;
 }
-</script>
 
-<script>
 function sortClassTab(colIndex) {
     const tbody = document.getElementById('roster-body-class');
     if (!tbody) return;
 
     const rows = Array.from(tbody.querySelectorAll('tr'));
-    // Bail out if empty or only the "no students" colspan row
     if (!rows.length || rows[0].querySelectorAll('td').length <= 1) return;
 
-    // Same column → toggle direction. New column → default desc (highest first)
     if (classSortCol === colIndex) {
         classSortDir = classSortDir === 'desc' ? 'asc' : 'desc';
     } else {
@@ -490,22 +471,20 @@ function sortClassTab(colIndex) {
         classSortDir = 'desc';
     }
 
-    // Update all arrow indicators
     document.querySelectorAll('.sort-arrow').forEach(el => {
         el.textContent = '⇅';
-        el.style.color = '#cbd5e1';
+        el.style.color = 'var(--text-gray)';
     });
     const activeArrow = document.getElementById('sort-arrow-' + colIndex);
     if (activeArrow) {
         activeArrow.textContent = classSortDir === 'desc' ? ' ↓' : ' ↑';
-        activeArrow.style.color = '#0e7490';
+        activeArrow.style.color = 'var(--accent-blue)';
     }
 
     rows.sort((a, b) => {
         const cellA = a.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
         const cellB = b.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
 
-        // Always push empty/dash cells to the bottom regardless of sort direction
         const emptyA = cellA === '—' || cellA === '';
         const emptyB = cellB === '—' || cellB === '';
         if (emptyA && emptyB) return 0;

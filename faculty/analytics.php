@@ -74,6 +74,29 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
+<style>
+/* Smooth Accordion Animation Engine */
+.accordion-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.accordion-wrapper.open {
+    grid-template-rows: 1fr;
+}
+.accordion-inner {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.accordion-wrapper.open .accordion-inner {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
+
 <div class="main-content">
     <div class="header" style="margin-bottom: 24px;">
         <div>
@@ -91,17 +114,16 @@ require_once '../includes/sidebar.php';
                 $class_avg = (float)($load['class_avg'] ?? 0);
                 $at_risk_total = (int)$load['at_risk_count'];
                 
-                // Use the centralized helper for the overall class trajectory
                 $risk_label = $class_avg > 0 ? computeRiskFromAvg($class_avg) : 'LOW';
-                $risk_color = $risk_label === 'HIGH' ? 'var(--risk-high)' : ($risk_label === 'MODERATE' ? 'var(--risk-mod)' : 'var(--teal)');
+                $risk_color = $risk_label === 'HIGH' ? 'var(--risk-high)' : ($risk_label === 'MODERATE' ? 'var(--risk-mod)' : 'var(--accent-blue)');
                 $fill_pct = $class_avg > 0 ? min(100, max(6, ($class_avg / 4.0) * 100)) : 0;
                 $risk_students = $atRiskGrouped[$load_id] ?? [];
             ?>
-            <div class="card" style="padding: 0; margin-bottom: 15px; border: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+            <div class="card" style="padding: 0; margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: hidden;">
                 <div style="padding: 20px; display: flex; align-items: center; justify-content: space-between;">
                     <div style="flex: 1;">
-                        <span style="background:#0f172a; color:white; padding:4px 12px; border-radius:6px; font-size:0.9rem; font-weight:700; display:inline-block; margin-bottom:6px; letter-spacing: 0.5px;"><?= htmlspecialchars($load['section']) ?></span>
-                        <h3 style="color: var(--sidebar-bg); font-size: 1.1rem; margin: 6px 0 4px 0; font-weight: 700;"><?= htmlspecialchars($load['code'] . ' — ' . $load['title']) ?></h3>
+                        <span style="background:var(--table-header-bg); color:var(--text-dark); padding:6px 14px; border-radius:6px; font-size:0.9rem; font-weight:700; display:inline-block; margin-bottom:10px; letter-spacing: 0.5px; border: 1px solid var(--border-color);"><?= htmlspecialchars($load['section']) ?></span>
+                        <h3 style="color: var(--text-dark); font-size: 1.1rem; margin: 0 0 6px 0; font-weight: 700;"><?= htmlspecialchars($load['code'] . ' — ' . $load['title']) ?></h3>
                         <?php 
                             $total_stu = (int)$load['total_students'];
                             $risk_pct = $total_stu > 0 ? round(($at_risk_total / $total_stu) * 100) : 0;
@@ -113,39 +135,46 @@ require_once '../includes/sidebar.php';
                     </div>
                     
                     <div style="display: flex; align-items: center; gap: 15px; width: 440px; justify-content: flex-end;">
-                        <div style="width: 160px; height: 14px; background: var(--pale_teal, #f1f5f9); border-radius: 6px; overflow: hidden;">
+                        <div style="width: 160px; height: 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
                             <div style="width: <?= $fill_pct ?>%; height: 100%; background: <?= $risk_color ?>; border-radius: 6px;"></div>
                         </div>
                         <span style="background: <?= $risk_color ?>; color: white; padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; width: 85px; text-align: center;">
                             <?= $risk_label ?>
                         </span>
-                        <span id="toggle-btn-<?= $load_id ?>" onclick="toggleRisk(<?= $load_id ?>)" style="color: var(--teal); font-size: 0.85rem; cursor: pointer; font-weight: 500; width: 140px;">
-                            ▶ Show at-risk students
+                        
+                        <!-- Animated Toggle Button -->
+                        <span onclick="toggleRisk(<?= $load_id ?>)" style="color: var(--accent-blue); font-size: 0.85rem; cursor: pointer; font-weight: 600; width: 145px; display: flex; align-items: center; gap: 4px;">
+                            <span id="toggle-icon-<?= $load_id ?>" style="display: inline-block; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">▶</span> 
+                            <span id="toggle-text-<?= $load_id ?>">Show at-risk students</span>
                         </span>
                     </div>
                 </div>
                 
-                <div id="risk-list-<?= $load_id ?>" style="display: none; padding: 0 20px 20px 20px; border-top: 1px solid #f0f0f0;">
-                    <?php if (empty($risk_students)): ?>
-                        <p style="color: var(--risk-low); font-size: 0.9rem; padding-top: 15px; margin: 0; font-weight: 500;">✓ No at-risk students for this class load.</p>
-                    <?php else: ?>
-                        <div style="padding-top: 15px;">
-                            <?php foreach($risk_students as $stu): 
-                                // Pull the exact risk level and point grade we calculated in the PHP block
-                                $s_risk = $stu['risk_level'];
-                                $s_col = $s_risk === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
-                            ?>
-                            <div style="display: flex; align-items: center; background: #f8f9fa; padding: 10px 14px; margin-bottom: 4px; border-radius: 6px; font-size: 0.9rem;">
-                                <span style="flex: 1; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars(formatNameLastFirst($stu['first_name'], $stu['middle_name'], $stu['last_name'])) ?></span>
-                                <span style="width: 130px; color: var(--text-gray); font-family: monospace;"><?= htmlspecialchars($stu['student_number']) ?></span>
-                                <span style="width: 110px; font-weight: 700; color: <?= $s_col ?>;">Grade: <?= number_format($stu['prelim_point'], 2) ?></span>
-                                <span style="background: <?= $s_col ?>; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; width: 80px; text-align: center;">
-                                    <?= $s_risk ?>
-                                </span>
-                            </div>
-                            <?php endforeach; ?>
+                <!-- Smooth Expanding Accordion Wrapper -->
+                <div id="risk-wrapper-<?= $load_id ?>" class="accordion-wrapper">
+                    <div class="accordion-inner">
+                        <div style="padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color);">
+                            <?php if (empty($risk_students)): ?>
+                                <p style="color: var(--risk-low); font-size: 0.9rem; padding-top: 15px; margin: 0; font-weight: 600;">✓ No at-risk students for this class load.</p>
+                            <?php else: ?>
+                                <div style="padding-top: 15px;">
+                                    <?php foreach($risk_students as $stu): 
+                                        $s_risk = $stu['risk_level'];
+                                        $s_col = $s_risk === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
+                                    ?>
+                                    <div style="display: flex; align-items: center; background: var(--bg-color); border: 1px solid var(--border-color); padding: 10px 14px; margin-bottom: 6px; border-radius: 6px; font-size: 0.9rem;">
+                                        <span style="flex: 1; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars(formatNameLastFirst($stu['first_name'], $stu['middle_name'], $stu['last_name'])) ?></span>
+                                        <span style="width: 130px; color: var(--text-gray); font-family: monospace;"><?= htmlspecialchars($stu['student_number']) ?></span>
+                                        <span style="width: 110px; font-weight: 700; color: <?= $s_col ?>;">Grade: <?= number_format($stu['prelim_point'], 2) ?></span>
+                                        <span style="background: <?= $s_col ?>; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; width: 80px; text-align: center;">
+                                            <?= $s_risk ?>
+                                        </span>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -154,15 +183,20 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
+// Smooth accordion toggle logic
 function toggleRisk(id) {
-    var el = document.getElementById('risk-list-' + id);
-    var btn = document.getElementById('toggle-btn-' + id);
-    if (el.style.display === 'none' || el.style.display === '') {
-        el.style.display = 'block';
-        btn.innerHTML = '▼ Hide students';
+    const wrapper = document.getElementById('risk-wrapper-' + id);
+    const icon = document.getElementById('toggle-icon-' + id);
+    const text = document.getElementById('toggle-text-' + id);
+    
+    if (wrapper.classList.contains('open')) {
+        wrapper.classList.remove('open');
+        icon.style.transform = 'rotate(0deg)';
+        text.innerText = 'Show at-risk students';
     } else {
-        el.style.display = 'none';
-        btn.innerHTML = '▶ Show at-risk students';
+        wrapper.classList.add('open');
+        icon.style.transform = 'rotate(90deg)';
+        text.innerText = 'Hide students';
     }
 }
 </script>
