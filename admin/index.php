@@ -91,6 +91,32 @@ require_once '../includes/sidebar.php';
     background-color: var(--bg-color); 
     color: var(--text-dark);
 }
+
+/* Pagination & Search Styles */
+.table-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.search-box {
+    padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 8px;
+    font-size: 0.9rem; width: 280px; max-width: 100%;
+    background-color: var(--bg-color); color: var(--text-dark);
+}
+.search-box:focus {
+    border-color: var(--accent-blue); outline: none; background-color: var(--card-bg);
+}
+.pagination-bar {
+    display: flex; justify-content: center; align-items: center;
+    gap: 6px; margin-top: 16px; flex-wrap: wrap;
+}
+.page-btn {
+    padding: 6px 12px; border: 1px solid var(--border-color); background: var(--card-bg);
+    border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    color: var(--text-dark); font-family: inherit; transition: all 0.2s;
+}
+.page-btn:hover { background: var(--bg-color); }
+.page-btn.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 
 <div class="main-content">
@@ -168,7 +194,11 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card">
-        <div class="table-title">Students</div>
+        <div class="table-toolbar">
+            <div class="table-title" style="margin:0;">Students Database</div>
+            <input type="text" id="dashboard-search" class="search-box" placeholder="Search by name, student no., or section…">
+        </div>
+
         <?php if (empty($students)): ?>
             <p class="empty-state">No students match this filter.</p>
         <?php else: ?>
@@ -188,25 +218,28 @@ require_once '../includes/sidebar.php';
             <tbody id="admin-tbody">
                 <?php foreach ($students as $s):
                     $riskRaw = $s['risk_level'] !== null ? strtoupper($s['risk_level']) : 'NA';
+                    $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
                 ?>
-                <tr>
+                <tr data-search="<?= htmlspecialchars($searchBlob) ?>">
                     <td data-sort="<?= htmlspecialchars($s['student_number']) ?>"><?= htmlspecialchars($s['student_number']) ?></td>
-                    <td data-sort="<?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?>" style="font-weight: 500;"><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
+                    <td data-sort="<?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?>" style="font-weight: 500; color: var(--accent-blue);"><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
                     <td data-sort="<?= htmlspecialchars($s['section'] ?? '') ?>"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
                     <td data-sort="<?= $s['year_level'] !== null ? (int) $s['year_level'] : '' ?>"><?= htmlspecialchars($s['year_level'] ?? '—') ?></td>
                     <td data-sort="<?= $s['current_gwa'] !== null ? (float) $s['current_gwa'] : '' ?>" style="font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
-                    <td data-sort="<?= $s['predicted_gwa'] !== null ? (float) $s['predicted_gwa'] : '' ?>" style="font-weight: 600;"><?= $s['predicted_gwa'] !== null ? number_format($s['predicted_gwa'], 2) : 'N/A' ?></td>
+                    <td data-sort="<?= $s['predicted_gwa'] !== null ? (float) $s['predicted_gwa'] : '' ?>" style="font-weight: 600;"><?= $s['predicted_gwa'] !== null ? number_format($s['predicted_gwa'], 2) : '<span style="color: var(--text-gray);">N/A</span>' ?></td>
                     <td data-sort="<?= htmlspecialchars($s['status'] ?? 'Regular') ?>"><?= htmlspecialchars($s['status'] ?? 'Regular') ?></td>
                     <td data-sort="<?= $riskRaw ?>"><span class="badge <?= $riskBadgeClass($s['risk_level']) ?>"><?= $s['risk_level'] !== null ? htmlspecialchars(ucfirst(strtolower($s['risk_level']))) : 'N/A' ?></span></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <div class="pagination-bar" id="pagination-bar"></div>
         <?php endif; ?>
     </div>
 </div>
 
 <script>
+// --- Chart.js Implementations ---
 const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
 new Chart(ctxDonut, {
     type: 'doughnut',
@@ -252,6 +285,74 @@ new Chart(ctxBar, {
     }
 });
 
+// --- Search & Pagination Engine ---
+const ROWS_PER_PAGE = 25;
+let currentPage = 1;
+
+function getVisibleRows() {
+    const term = document.getElementById('dashboard-search')?.value.trim().toLowerCase() || '';
+    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr'));
+    return allRows.filter(row => !term || row.dataset.search.includes(term));
+}
+
+function renderPage() {
+    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr'));
+    const visible = getVisibleRows();
+    
+    allRows.forEach(r => r.style.display = 'none'); // Hide all
+
+    const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
+    currentPage = Math.min(currentPage, totalPages);
+    
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
+
+    const bar = document.getElementById('pagination-bar');
+    if (!bar) return;
+
+    let html = '';
+    html += `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
+    
+    // Smart page numbering for large datasets
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+        html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="color:var(--text-gray);">...</span>`;
+    }
+    
+    for (let p = startPage; p <= endPage; p++) {
+        html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="color:var(--text-gray);">...</span>`;
+        html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button>`;
+    html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">Showing ${visible.length} results</span>`;
+    
+    bar.innerHTML = html;
+}
+
+function goToPage(p) {
+    currentPage = p;
+    renderPage();
+}
+
+if (document.getElementById('dashboard-search')) {
+    document.getElementById('dashboard-search').addEventListener('input', () => {
+        currentPage = 1;
+        renderPage();
+    });
+}
+
+// Initial render
+renderPage();
+
+// --- Table Sorting Script ---
 let currentSortCol = -1;
 let currentSortDir = 'asc';
 
@@ -319,6 +420,10 @@ function sortTable(colIndex) {
     });
 
     rows.forEach(row => tbody.appendChild(row));
+    
+    // Important: Reset to page 1 and re-render so pagination applies to the newly sorted array
+    currentPage = 1;
+    renderPage();
 }
 </script>
 

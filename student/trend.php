@@ -51,7 +51,6 @@ $prelim_pts = 0; $prelim_units = 0;
 $midterm_pts = 0; $midterm_units = 0;
 
 foreach ($current_subjects as $subj) {
-    // We use normalizeTermGrade to handle raw percentages or point grades
     $p_point = normalizeTermGrade($subj['prelim']);
     $m_point = normalizeTermGrade($subj['midterm']);
 
@@ -68,7 +67,6 @@ foreach ($current_subjects as $subj) {
 $current_prelim_gwa = $prelim_units > 0 ? round($prelim_pts / $prelim_units, 2) : null;
 $current_midterm_gwa = $midterm_units > 0 ? round($midterm_pts / $midterm_units, 2) : null;
 
-// Push active tracking points into the chart data array
 if ($current_prelim_gwa !== null) {
     $semData[] = ['semester' => 'Current Prelims', 'gwa' => $current_prelim_gwa, 'is_prediction' => true];
 }
@@ -82,7 +80,6 @@ $stmtPred = $db->prepare("SELECT predicted_gwa, risk_level FROM predictions WHER
 $stmtPred->execute([$user['id']]);
 $prediction = $stmtPred->fetch();
 
-// SYNTHETIC FALLBACK: If no prediction exists in the DB yet, create a realistic mock
 if (!$prediction || empty($prediction['predicted_gwa'])) {
     $mock_pred_gwa = $last_gwa > 0 ? max(1.0, min(4.0, $last_gwa - 0.25)) : 2.50; 
     $mock_risk = $mock_pred_gwa < 2.00 ? 'HIGH' : ($mock_pred_gwa < 2.50 ? 'MODERATE' : 'LOW');
@@ -93,7 +90,6 @@ if (!$prediction || empty($prediction['predicted_gwa'])) {
     ];
 }
 
-// Push the final prediction into the chart data array
 if ($historical_count > 0 || !empty($current_subjects)) {
     $semData[] = [
         'semester' => 'Projected (End of Term)', 
@@ -127,7 +123,11 @@ require_once '../includes/sidebar.php';
 
     <?php if (!empty($semData)): 
         $risk = $prediction['risk_level'];
-        $riskBg = $risk === 'HIGH' ? '#b91c1c' : ($risk === 'MODERATE' ? '#d97706' : '#059669');
+        $riskBg = match($risk) {
+            'HIGH' => 'var(--risk-high)',
+            'MODERATE' => 'var(--risk-mod)',
+            default => 'var(--risk-low)'
+        };
     ?>
     <div class="card" style="margin-bottom: 24px; border-left: 4px solid <?= $riskBg ?>; display: flex; align-items: center; justify-content: space-between;">
         <div>
@@ -157,42 +157,53 @@ require_once '../includes/sidebar.php';
 <?php if (!empty($semData)): ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// Dynamically pull CSS Variables for Chart.js
+function getChartColors() {
+    const root = getComputedStyle(document.documentElement);
+    return {
+        text: root.getPropertyValue('--text-gray').trim(),
+        border: root.getPropertyValue('--border-color').trim(),
+        blue: root.getPropertyValue('--accent-blue').trim(),
+        gold: root.getPropertyValue('--risk-mod').trim()
+    };
+}
+
+let colors = getChartColors();
 const ctx = document.getElementById('semGwaChart').getContext('2d');
-// historicalCount marks the boundary. Anything after this index is a current/predicted point.
 const historicalCount = <?= $historical_count ?>;
 
-new Chart(ctx, {
+const trendChart = new Chart(ctx, {
     type: 'line',
     data: {
         labels: <?= json_encode(array_column($semData, 'semester')) ?>,
         datasets: [
-            // 1. Summa Cum Laude Baseline (Faint Gold)
+            // 1. Summa Cum Laude Baseline
             {
                 label: 'Summa Cum Laude (3.75)',
                 data: <?= json_encode(array_fill(0, count($semData), 3.75)) ?>,
-                borderColor: 'rgba(180, 83, 9, 0.4)', // Faint gold
+                borderColor: 'rgba(180, 83, 9, 0.4)',
                 borderWidth: 2,
-                borderDash: [5, 5], // Dashed line
-                pointRadius: 0, // Hide the dots
+                borderDash: [5, 5], 
+                pointRadius: 0, 
                 fill: false,
                 tension: 0
             },
-            // 2. Magna Cum Laude Baseline (Faint Blue)
+            // 2. Magna Cum Laude Baseline
             {
                 label: 'Magna Cum Laude (3.50)',
                 data: <?= json_encode(array_fill(0, count($semData), 3.50)) ?>,
-                borderColor: 'rgba(29, 78, 216, 0.4)', // Faint blue
+                borderColor: 'rgba(29, 78, 216, 0.4)',
                 borderWidth: 2,
                 borderDash: [5, 5],
                 pointRadius: 0,
                 fill: false,
                 tension: 0
             },
-            // 3. Cum Laude Baseline (Faint Teal)
+            // 3. Cum Laude Baseline
             {
                 label: 'Cum Laude (3.25)',
                 data: <?= json_encode(array_fill(0, count($semData), 3.25)) ?>,
-                borderColor: 'rgba(14, 116, 144, 0.4)', // Faint teal
+                borderColor: 'rgba(14, 116, 144, 0.4)',
                 borderWidth: 2,
                 borderDash: [5, 5],
                 pointRadius: 0,
@@ -203,18 +214,18 @@ new Chart(ctx, {
             {
                 label: 'Semester GWA Trajectory',
                 data: <?= json_encode(array_column($semData, 'gwa')) ?>,
-                borderColor: '#0e7490', 
-                backgroundColor: 'rgba(14, 116, 144, 0.06)',
+                borderColor: colors.blue, 
+                backgroundColor: 'rgba(108, 142, 239, 0.05)',
                 borderWidth: 3,
-                pointBackgroundColor: (context) => context.dataIndex >= historicalCount ? '#d97706' : '#0e7490',
-                pointBorderColor: (context) => context.dataIndex >= historicalCount ? '#d97706' : '#0e7490',
+                pointBackgroundColor: (context) => context.dataIndex >= historicalCount ? colors.gold : colors.blue,
+                pointBorderColor: (context) => context.dataIndex >= historicalCount ? colors.gold : colors.blue,
                 pointRadius: (context) => context.dataIndex >= historicalCount ? 7 : 5,
                 pointHoverRadius: 8,
                 fill: true,
                 tension: 0.15,
                 segment: {
                     borderDash: (ctx) => ctx.p0DataIndex >= historicalCount - 1 ? [6, 6] : undefined,
-                    borderColor: (ctx) => ctx.p0DataIndex >= historicalCount - 1 ? '#d97706' : '#0e7490'
+                    borderColor: (ctx) => ctx.p0DataIndex >= historicalCount - 1 ? colors.gold : colors.blue
                 }
             }
         ]
@@ -223,12 +234,14 @@ new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+            legend: {
+                labels: { color: colors.text }
+            },
             tooltip: {
                 callbacks: {
                     label: function(context) {
                         let label = context.dataset.label || '';
                         let pointLabel = context.chart.data.labels[context.dataIndex];
-                        // Change tooltip text if it's an active/projected point
                         if (context.dataIndex >= historicalCount) {
                             label = pointLabel; 
                         }
@@ -238,15 +251,40 @@ new Chart(ctx, {
             }
         },
         scales: {
+            x: {
+                ticks: { color: colors.text },
+                grid: { color: colors.border }
+            },
             y: {
                 min: 1.0,
                 max: 4.0,
-                ticks: { stepSize: 0.5 },
-                title: { display: true, text: 'GWA Value (4.00 = Highest)' }
+                ticks: { stepSize: 0.5, color: colors.text },
+                grid: { color: colors.border },
+                title: { display: true, text: 'GWA Value (4.00 = Highest)', color: colors.text }
             }
         }
     }
 });
+
+// Auto-redraw chart colors on theme toggle
+const observer = new MutationObserver(() => {
+    colors = getChartColors();
+    
+    trendChart.options.scales.x.ticks.color = colors.text;
+    trendChart.options.scales.x.grid.color = colors.border;
+    trendChart.options.scales.y.ticks.color = colors.text;
+    trendChart.options.scales.y.grid.color = colors.border;
+    trendChart.options.scales.y.title.color = colors.text;
+    trendChart.options.plugins.legend.labels.color = colors.text;
+
+    trendChart.data.datasets[3].borderColor = colors.blue;
+    trendChart.data.datasets[3].pointBackgroundColor = (ctx) => ctx.dataIndex >= historicalCount ? colors.gold : colors.blue;
+    trendChart.data.datasets[3].pointBorderColor = (ctx) => ctx.dataIndex >= historicalCount ? colors.gold : colors.blue;
+    trendChart.data.datasets[3].segment.borderColor = (ctx) => ctx.p0DataIndex >= historicalCount - 1 ? colors.gold : colors.blue;
+
+    trendChart.update();
+});
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
 <?php endif; ?>
 

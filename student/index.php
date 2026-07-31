@@ -18,7 +18,6 @@ $stmt = $db->prepare("
 $stmt->execute([$user['id']]);
 $p = $stmt->fetch() ?: [];
 
-// Safe fallback for names depending on your schema
 $fName = $p['first_name'] ?? $user['first_name'] ?? 'Student';
 $lName = $p['last_name'] ?? $user['last_name'] ?? '';
 $mName = $p['middle_name'] ?? null;
@@ -59,41 +58,42 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
-        <div style="width:96px; height:96px; border-radius:50%; background:var(--pale-teal, #e0f2fe); color: #0284c7; display:flex; align-items:center; justify-content:center; font-size:2.5rem; flex-shrink:0;">
+        <div style="width:96px; height:96px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:2.5rem; flex-shrink:0;">
             🎓
         </div>
         <div style="flex:1;">
-            <div style="display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem;">
-                <span style="font-weight:700; color:var(--sidebar-bg, #0f172a);">Name</span>
-                <span>: <?= htmlspecialchars($displayName) ?></span>
+            <div style="display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
+                <span style="font-weight:700;">Name</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
 
-                <span style="font-weight:700; color:var(--sidebar-bg, #0f172a);">Student No.</span>
-                <span>: <?= htmlspecialchars($p['student_number'] ?? '—') ?></span>
+                <span style="font-weight:700;">Student No.</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['student_number'] ?? '—') ?></span>
 
-                <span style="font-weight:700; color:var(--sidebar-bg, #0f172a);">Course</span>
-                <span>: <?= htmlspecialchars($p['course'] ?? '—') ?></span>
+                <span style="font-weight:700;">Course</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['course'] ?? '—') ?></span>
 
-                <span style="font-weight:700; color:var(--sidebar-bg, #0f172a);">Year & Section</span>
-                <span>: <?= htmlspecialchars($p['year_level'] ?? '—') ?> — <?= htmlspecialchars($p['section'] ?? '—') ?></span>
+                <span style="font-weight:700;">Year & Section</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['year_level'] ?? '—') ?> — <?= htmlspecialchars($p['section'] ?? '—') ?></span>
 
-                <span style="font-weight:700; color:var(--sidebar-bg, #0f172a);">Email</span>
-                <span>: <?= htmlspecialchars($p['email'] ?? '—') ?></span>
+                <span style="font-weight:700;">Email</span>
+                <span style="color: var(--text-gray);">: <?= htmlspecialchars($p['email'] ?? '—') ?></span>
             </div>
         </div>
     </div>
 
+    <!-- Swapped border-top for border-left-color so it uses your clean, global dashboard styles -->
     <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
-        <div class="stat-card" style="border-top:4px solid #0f172a;">
+        <div class="stat-card" style="border-left-color: var(--text-dark);">
             <h4>Enrollment Status</h4>
-            <h2 style="color: #0f172a;"><?= htmlspecialchars($p['status'] ?? 'Regular') ?></h2>
+            <h2 style="color: var(--text-dark);"><?= htmlspecialchars($p['status'] ?? 'Regular') ?></h2>
         </div>
-        <div class="stat-card" style="border-top:4px solid #0e7490;">
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Current Subjects</h4>
-            <h2 style="color: #0e7490;"><?= $stats['subject_count'] ?? 0 ?> Classes</h2>
+            <h2 style="color: var(--accent-blue);"><?= $stats['subject_count'] ?? 0 ?> Classes</h2>
         </div>
-        <div class="stat-card" style="border-top:4px solid #d97706;">
+        <div class="stat-card" style="border-left-color: var(--risk-mod);">
             <h4>Total Term Units</h4>
-            <h2 style="color: #d97706;"><?= $stats['total_units'] ?? 0 ?> Units</h2>
+            <h2 style="color: var(--risk-mod);"><?= $stats['total_units'] ?? 0 ?> Units</h2>
         </div>
     </div>
 

@@ -18,7 +18,7 @@ $top_students = [];
 if (!empty($my_sections)) {
     $inQuery = implode(',', array_fill(0, count($my_sections), '?'));
     
-    // 2. Fetch Section Averages (Cumulative GWA is already 1.00-4.00)
+    // 2. Fetch Section Averages
     $stmtStats = $db->prepare("
         SELECT sp.section, 
                COUNT(sp.user_id) AS total,
@@ -32,7 +32,6 @@ if (!empty($my_sections)) {
     $stmtStats->execute($my_sections);
     $section_stats_raw = $stmtStats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Initialize stats array
     foreach ($section_stats_raw as $row) {
         $row['high_risk'] = 0;
         $row['mod_risk'] = 0;
@@ -50,13 +49,11 @@ if (!empty($my_sections)) {
     $stmtGrades->execute([$user['id']]);
     $gradeRows = $stmtGrades->fetchAll();
 
-    // Track unique worst-case risk per student per section
     $student_risk_map = []; 
     foreach ($gradeRows as $r) {
         $sec = $r['section'];
         $sid = $r['student_id'];
         
-        // Convert raw percentage to point grade safely!
         $point = normalizeTermGrade($r['prelim']);
         
         if ($point !== null) {
@@ -65,14 +62,12 @@ if (!empty($my_sections)) {
                 if (!isset($student_risk_map[$sec][$sid])) {
                     $student_risk_map[$sec][$sid] = $risk;
                 } else {
-                    // Upgrade to HIGH if they are already tracked as MODERATE
                     if ($risk === 'HIGH') $student_risk_map[$sec][$sid] = 'HIGH';
                 }
             }
         }
     }
 
-    // Tally the unique at-risk students into the main stats array
     foreach ($student_risk_map as $sec => $students) {
         foreach ($students as $sid => $worstRisk) {
             if ($worstRisk === 'HIGH') {
@@ -95,11 +90,7 @@ if (!empty($my_sections)) {
     $stmtTop->execute($my_sections);
     $top_students = $stmtTop->fetchAll();
 
-    // 5. My Subject Averages — current term only. NOTE: this is a single-term
-    // snapshot, not a multi-term trend — the seed data only has one current
-    // term of grades tied to faculty_class_loads, so there's nothing to plot
-    // a trajectory against yet. Once a second term exists, this same query
-    // extends naturally into a real per-load time series.
+    // 5. My Subject Averages
     $stmt = $db->prepare("SELECT id AS load_id, subject_id, section FROM faculty_class_loads WHERE faculty_user_id = ? ORDER BY section, subject_id");
     $stmt->execute([$user['id']]);
     $my_loads = $stmt->fetchAll();
@@ -133,24 +124,18 @@ if (!empty($my_sections)) {
 
 $subject_load_stats = $subject_load_stats ?? [];
 
-// Prepare Data for Chart.js
 $chart1_labels = [];
 $chart1_data = [];
-$chart1_colors = [];
 
 foreach ($section_stats as $stat) {
     $chart1_labels[] = $stat['section'];
-    $gwa = round((float)$stat['avg_gwa'], 2);
-    $chart1_data[] = $gwa;
-    $chart1_colors[] = $gwa >= 3.25 ? '#059669' : ($gwa >= 2.50 ? '#d97706' : '#b91c1c');
+    $chart1_data[] = round((float)$stat['avg_gwa'], 2);
 }
 
 $chart2_labels = [];
 $chart2_data = [];
-$chart2_colors = [];
 
 foreach ($top_students as $stu) {
-    // Professional initial/surname formatting for high chart clarity
     $nameParts = explode(' ', trim($stu['name']));
     if (count($nameParts) > 1) {
         $displayName = substr($nameParts[0], 0, 1) . '. ' . end($nameParts);
@@ -159,13 +144,7 @@ foreach ($top_students as $stu) {
     }
     
     $chart2_labels[] = $displayName . ' (' . $stu['section'] . ')';
-    $gwa = round((float)$stu['current_gwa'], 2);
-    $chart2_data[] = $gwa;
-    
-    if ($gwa >= 3.75) $chart2_colors[] = '#b45309'; 
-    elseif ($gwa >= 3.50) $chart2_colors[] = '#1d4ed8'; 
-    elseif ($gwa >= 3.25) $chart2_colors[] = '#0e7490'; 
-    else $chart2_colors[] = '#475569'; 
+    $chart2_data[] = round((float)$stu['current_gwa'], 2);
 }
 
 $pageTitle = 'Performance Trends';
@@ -200,16 +179,16 @@ require_once '../includes/sidebar.php';
     <div class="card" style="margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
             <div>
-                <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700;">Section Average GWA Comparison</h3>
-                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">S.Y. 2026-2027, 1st Semester</p>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Section Average GWA Comparison</h3>
+                <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0;">S.Y. 2026-2027, 1st Semester</p>
             </div>
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: #334155;">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#059669; margin-right:6px; vertical-align:middle;"></span>Cum Laude+ (≥3.25)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#d97706; margin-right:6px; vertical-align:middle;"></span>Very Satisfactory (≥2.50)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#b91c1c; margin-right:6px; vertical-align:middle;"></span>Below 2.50</span>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: var(--text-dark);">
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-low); margin-right:6px; vertical-align:middle;"></span>Cum Laude+ (≥3.25)</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-mod); margin-right:6px; vertical-align:middle;"></span>Very Satisfactory (≥2.50)</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-high); margin-right:6px; vertical-align:middle;"></span>Below 2.50</span>
             </div>
         </div>
-        <p style="color: #94a3b8; font-size: 0.75rem; margin: 0 0 12px;">Bar color reflects each section's average tier; dashed lines mark the exact GWA cutoffs.</p>
+        <p style="color: var(--text-gray); font-size: 0.75rem; margin: 0 0 12px;">Bar color reflects each section's average tier; dashed lines mark the exact GWA cutoffs.</p>
         <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="sectionChart"></canvas>
         </div>
@@ -218,17 +197,17 @@ require_once '../includes/sidebar.php';
     <div class="card" style="margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
             <div>
-                <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">🏆 Top Students — Honor Tier Breakdown</h3>
-                <span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">Projected Honor Eligibility</span>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">🏆 Top Students — Honor Tier Breakdown</h3>
+                <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); border: 1px solid rgba(217, 119, 6, 0.3); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">Projected Honor Eligibility</span>
             </div>
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: #334155;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: var(--text-dark);">
                 <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#b45309; margin-right:6px; vertical-align:middle;"></span>Summa (≥3.75)</span>
                 <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#1d4ed8; margin-right:6px; vertical-align:middle;"></span>Magna (≥3.50)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#0e7490; margin-right:6px; vertical-align:middle;"></span>Dean's Lister (≥3.25)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#475569; margin-right:6px; vertical-align:middle;"></span>Below 3.25</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--accent-blue); margin-right:6px; vertical-align:middle;"></span>Dean's Lister (≥3.25)</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--text-gray); margin-right:6px; vertical-align:middle;"></span>Below 3.25</span>
             </div>
         </div>
-        <p style="color: #94a3b8; font-size: 0.75rem; margin: 0 0 12px;">Bar color shows each student's own projected tier; dashed lines mark the exact GWA cutoffs.</p>
+        <p style="color: var(--text-gray); font-size: 0.75rem; margin: 0 0 12px;">Bar color shows each student's own projected tier; dashed lines mark the exact GWA cutoffs.</p>
         <div style="position: relative; height: 320px; width: 100%;">
             <canvas id="topStudentsChart"></canvas>
         </div>
@@ -236,9 +215,9 @@ require_once '../includes/sidebar.php';
 
     <div class="card" style="margin-bottom: 20px;">
         <div style="margin-bottom: 4px;">
-            <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700;">My Subject Averages</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">My Subject Averages</h3>
         </div>
-        <p style="color: #64748b; font-size: 0.8rem; margin: 0 0 16px;">
+        <p style="color: var(--text-gray); font-size: 0.8rem; margin: 0 0 16px;">
             Average prelim grade in the subjects <em>you specifically teach</em>, per section — unlike the chart above, this reflects only your own class loads, not students' overall standing across all their subjects.
             Current-term snapshot only; becomes a real trend line once a second term of grades exists.
         </p>
@@ -252,27 +231,27 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card">
-        <h3 style="color: #0f172a; font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">At-Risk Count per Section <span style="font-size: 0.8rem; color: #64748b; font-weight: 400;">(In your assigned subjects)</span></h3>
+        <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">At-Risk Count per Section <span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 400;">(In your assigned subjects)</span></h3>
         
         <?php foreach ($section_stats as $stat): 
             $total_risk = (int)$stat['high_risk'] + (int)$stat['mod_risk'];
             $risk_pct = $stat['total'] > 0 ? ($total_risk / (int)$stat['total']) * 100 : 0;
-            $fill_color = (int)$stat['high_risk'] > 0 ? '#b91c1c' : '#d97706';
-            if ($total_risk == 0) { $fill_color = '#059669'; $risk_pct = 0; }
+            $fill_color = (int)$stat['high_risk'] > 0 ? 'var(--risk-high)' : 'var(--risk-mod)';
+            if ($total_risk == 0) { $fill_color = 'var(--risk-low)'; $risk_pct = 0; }
         ?>
         <div style="display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem;">
-            <span style="width: 70px; font-weight: 600; color: #0f172a;"><?= htmlspecialchars($stat['section']) ?></span>
-            <span style="width: 80px; color: #0e7490; font-weight: 500;">Avg: <?= number_format($stat['avg_gwa'] ?? 0, 2) ?></span>
+            <span style="width: 70px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($stat['section']) ?></span>
+            <span style="width: 80px; color: var(--accent-blue); font-weight: 600;">Avg: <?= number_format($stat['avg_gwa'] ?? 0, 2) ?></span>
             
-            <div style="flex: 1; max-width: 280px; height: 12px; background: #f1f5f9; border-radius: 4px; margin: 0 16px; overflow: hidden;">
+            <div style="flex: 1; max-width: 280px; height: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; margin: 0 16px; overflow: hidden;">
                 <?php if($total_risk > 0): ?>
                     <div style="width: <?= $risk_pct ?>%; height: 100%; background: <?= $fill_color ?>; border-radius: 4px;"></div>
                 <?php endif; ?>
             </div>
             
-            <span style="color: <?= $total_risk > 0 ? $fill_color : '#059669' ?>; font-weight: 500; font-size: 0.85rem;">
+            <span style="color: <?= $total_risk > 0 ? $fill_color : 'var(--risk-low)' ?>; font-weight: 600; font-size: 0.85rem;">
                 <?= $total_risk ?> at-risk 
-                <span style="color: #64748b; font-weight: normal;">(<?= (int)$stat['high_risk'] ?> HIGH, <?= (int)$stat['mod_risk'] ?> MODERATE)</span>
+                <span style="color: var(--text-gray); font-weight: normal;">(<?= (int)$stat['high_risk'] ?> HIGH, <?= (int)$stat['mod_risk'] ?> MODERATE)</span>
             </span>
         </div>
         <?php endforeach; ?>
@@ -282,15 +261,32 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
+function getChartColors() {
+    const root = getComputedStyle(document.documentElement);
+    return {
+        text: root.getPropertyValue('--text-gray').trim(),
+        textDark: root.getPropertyValue('--text-dark').trim(),
+        border: root.getPropertyValue('--border-color').trim(),
+        blue: root.getPropertyValue('--accent-blue').trim(),
+        gold: root.getPropertyValue('--risk-mod').trim(),
+        red: root.getPropertyValue('--risk-high').trim(),
+        green: root.getPropertyValue('--risk-low').trim()
+    };
+}
+
+let colors = getChartColors();
+
+// CHART 1: Section Average GWA
+const rawChart1Data = <?= json_encode($chart1_data) ?>;
 const ctx1 = document.getElementById('sectionChart').getContext('2d');
-new Chart(ctx1, {
+const chart1 = new Chart(ctx1, {
     type: 'bar',
     data: {
         labels: <?= json_encode($chart1_labels) ?>,
         datasets: [{
             label: 'Average GWA',
-            data: <?= json_encode($chart1_data) ?>,
-            backgroundColor: <?= json_encode($chart1_colors) ?>,
+            data: rawChart1Data,
+            backgroundColor: rawChart1Data.map(v => v >= 3.25 ? colors.green : (v >= 2.50 ? colors.gold : colors.red)),
             borderRadius: 6,
             barPercentage: 0.45
         }]
@@ -302,36 +298,30 @@ new Chart(ctx1, {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    summaLine: {
-                        type: 'line', yMin: 3.75, yMax: 3.75,
-                        borderColor: '#b45309', borderWidth: 2, borderDash: [4, 4]
-                    },
-                    magnaLine: {
-                        type: 'line', yMin: 3.50, yMax: 3.50,
-                        borderColor: '#1d4ed8', borderWidth: 2, borderDash: [4, 4]
-                    },
-                    cumLine: {
-                        type: 'line', yMin: 3.25, yMax: 3.25,
-                        borderColor: '#0e7490', borderWidth: 2, borderDash: [4, 4]
-                    }
+                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: '#b45309', borderWidth: 2, borderDash: [4, 4] },
+                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: '#1d4ed8', borderWidth: 2, borderDash: [4, 4] },
+                    cumLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 2, borderDash: [4, 4] }
                 }
             }
         },
         scales: {
-            y: { min: 0, max: 4.0, ticks: { stepSize: 0.5, callback: v => v.toFixed(2) }, title: { display: true, text: 'Average GWA (4.00 = Highest)' } }
+            x: { ticks: { color: colors.text }, grid: { color: colors.border } },
+            y: { min: 0, max: 4.0, ticks: { stepSize: 0.5, color: colors.text, callback: v => v.toFixed(2) }, grid: { color: colors.border }, title: { display: true, text: 'Average GWA (4.00 = Highest)', color: colors.text } }
         }
     }
 });
 
+// CHART 2: Top Students
+const rawChart2Data = <?= json_encode($chart2_data) ?>;
 const ctx2 = document.getElementById('topStudentsChart').getContext('2d');
-new Chart(ctx2, {
+const chart2 = new Chart(ctx2, {
     type: 'bar',
     data: {
         labels: <?= json_encode($chart2_labels) ?>,
         datasets: [{
             label: 'Projected GWA',
-            data: <?= json_encode($chart2_data) ?>,
-            backgroundColor: <?= json_encode($chart2_colors) ?>,
+            data: rawChart2Data,
+            backgroundColor: rawChart2Data.map(v => v >= 3.75 ? '#b45309' : (v >= 3.50 ? '#1d4ed8' : (v >= 3.25 ? colors.blue : colors.text))),
             borderRadius: 6,
             barPercentage: 0.55
         }]
@@ -343,41 +333,33 @@ new Chart(ctx2, {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    summaLine: {
-                        type: 'line', yMin: 3.75, yMax: 3.75,
-                        borderColor: '#b45309', borderWidth: 1.5, borderDash: [3, 3]
-                    },
-                    magnaLine: {
-                        type: 'line', yMin: 3.50, yMax: 3.50,
-                        borderColor: '#1d4ed8', borderWidth: 1.5, borderDash: [3, 3]
-                    },
-                    dlLine: {
-                        type: 'line', yMin: 3.25, yMax: 3.25,
-                        borderColor: '#0e7490', borderWidth: 1.5, borderDash: [5, 5]
-                    }
+                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: '#b45309', borderWidth: 1.5, borderDash: [3, 3] },
+                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: '#1d4ed8', borderWidth: 1.5, borderDash: [3, 3] },
+                    dlLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 1.5, borderDash: [5, 5] }
                 }
             }
         },
         scales: {
-            y: { min: 2.0, max: 4.0, ticks: { stepSize: 0.25, callback: v => v.toFixed(2) }, title: { display: true, text: 'GWA (4.00 = Highest)' } },
-            x: { ticks: { font: { size: 9 } } }
+            x: { ticks: { font: { size: 9 }, color: colors.text }, grid: { color: colors.border } },
+            y: { min: 2.0, max: 4.0, ticks: { stepSize: 0.25, color: colors.text, callback: v => v.toFixed(2) }, grid: { color: colors.border }, title: { display: true, text: 'GWA (4.00 = Highest)', color: colors.text } }
         }
     }
 });
 
+// CHART 3: My Loads
 const loadLabels = <?= json_encode(array_column($subject_load_stats, 'label')) ?>;
 const loadData = <?= json_encode(array_column($subject_load_stats, 'avg')) ?>;
-const loadColors = loadData.map(v => v >= 2.50 ? '#059669' : (v >= 1.75 ? '#d97706' : '#b91c1c'));
+let chart3 = null;
 
 if (document.getElementById('myLoadsChart')) {
-    new Chart(document.getElementById('myLoadsChart').getContext('2d'), {
+    chart3 = new Chart(document.getElementById('myLoadsChart').getContext('2d'), {
         type: 'bar',
         data: {
             labels: loadLabels,
             datasets: [{
                 label: 'Average Prelim (Point Scale)',
                 data: loadData,
-                backgroundColor: loadColors,
+                backgroundColor: loadData.map(v => v >= 2.50 ? colors.green : (v >= 1.75 ? colors.gold : colors.red)),
                 borderRadius: 4,
                 barPercentage: 0.6
             }]
@@ -388,11 +370,44 @@ if (document.getElementById('myLoadsChart')) {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                x: { min: 0, max: 4.0, ticks: { stepSize: 0.5 }, title: { display: true, text: 'Average Prelim Grade' } }
+                x: { min: 0, max: 4.0, ticks: { stepSize: 0.5, color: colors.text }, grid: { color: colors.border }, title: { display: true, text: 'Average Prelim Grade', color: colors.text } },
+                y: { ticks: { color: colors.text }, grid: { color: colors.border } }
             }
         }
     });
 }
+
+// Auto-redraw charts on theme toggle
+const observer = new MutationObserver(() => {
+    colors = getChartColors();
+    
+    [chart1, chart2, chart3].forEach(chart => {
+        if (chart) {
+            chart.options.scales.x.ticks.color = colors.text;
+            chart.options.scales.x.grid.color = colors.border;
+            chart.options.scales.y.ticks.color = colors.text;
+            chart.options.scales.y.grid.color = colors.border;
+            if (chart.options.scales.y.title) chart.options.scales.y.title.color = colors.text;
+            if (chart.options.scales.x.title) chart.options.scales.x.title.color = colors.text;
+        }
+    });
+
+    if (chart1) {
+        chart1.data.datasets[0].backgroundColor = rawChart1Data.map(v => v >= 3.25 ? colors.green : (v >= 2.50 ? colors.gold : colors.red));
+        chart1.options.plugins.annotation.annotations.cumLine.borderColor = colors.blue;
+        chart1.update();
+    }
+    if (chart2) {
+        chart2.data.datasets[0].backgroundColor = rawChart2Data.map(v => v >= 3.75 ? '#b45309' : (v >= 3.50 ? '#1d4ed8' : (v >= 3.25 ? colors.blue : colors.text)));
+        chart2.options.plugins.annotation.annotations.dlLine.borderColor = colors.blue;
+        chart2.update();
+    }
+    if (chart3) {
+        chart3.data.datasets[0].backgroundColor = loadData.map(v => v >= 2.50 ? colors.green : (v >= 1.75 ? colors.gold : colors.red));
+        chart3.update();
+    }
+});
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
