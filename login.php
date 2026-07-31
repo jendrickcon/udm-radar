@@ -1,31 +1,27 @@
 <?php
 session_start();
-require_once 'config/db.php'; // Ensure your DB connection is linked
+require_once 'config/db.php';
 
 $error = '';
 
-// Handle the login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userid = $_POST['userid'];
     $password = $_POST['password'];
 
     try {
         $db = getDB();
-        // Check if user exists
         $stmt = $db->prepare("SELECT * FROM users WHERE user_id = ?");
         $stmt->execute([$userid]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            // Password is correct, set sessions
             $_SESSION['user_id']    = $user['id'];
             $_SESSION['role']       = $user['role'];
-            $_SESSION['name']       = $user['name'];       // generated column (CONCAT_WS of the split names) — unchanged for every other page
+            $_SESSION['name']       = $user['name'];
             $_SESSION['first_name'] = $user['first_name'];
             $_SESSION['last_name']  = $user['last_name'];
-            $_SESSION['identifier'] = $user['user_id'];    // e.g. "23-22-040" or "admin"
+            $_SESSION['identifier'] = $user['user_id'];
 
-            // Route to correct dashboard based on role
             if ($user['role'] === 'student') {
                 header("Location: student/index.php");
             } elseif ($user['role'] === 'faculty') {
@@ -38,7 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Invalid User ID or Password.";
         }
     } catch (PDOException $e) {
-        // This will now print the exact database error on the screen
         $error = "System error: " . $e->getMessage();
     }
 }
@@ -52,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login | UDM-RADAR</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Apply saved theme before CSS renders, same pattern as header.php uses site-wide -->
     <script>
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -73,6 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --error-bg: #FFEBEE;
             --error-text: #C62828;
             --error-border: #C62828;
+            
+            /* SVG Background Variables - Gold Line & Arrow */
+            --chart-bar: rgba(10, 25, 47, 0.03);
+            --chart-line: rgba(217, 119, 6, 0.35); /* Gold */
+            --chart-arrow: rgba(217, 119, 6, 0.55); /* Gold */
         }
 
         [data-theme="dark"] {
@@ -87,18 +86,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --error-bg: rgba(239, 68, 68, 0.15);
             --error-text: #FCA5A5;
             --error-border: #EF4444;
+
+            /* SVG Background Variables - Bright Neon Gold */
+            --chart-bar: rgba(255, 255, 255, 0.02);
+            --chart-line: rgba(251, 191, 36, 0.25);
+            --chart-arrow: rgba(251, 191, 36, 0.45);
         }
 
-        /* Navy Blue Theme */
         body {
             background-color: var(--bg-color);
             display: flex;
             height: 100vh;
             color: var(--text-dark);
             transition: background-color 0.3s ease, color 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Left Side: Branding */
+        /* ── Formal SVG Animation Background ── */
+        .academic-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .academic-bg svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-bar {
+            fill: var(--chart-bar);
+            transform-origin: bottom;
+            opacity: 0;
+            animation: riseUp 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: fill 0.4s ease;
+        }
+        
+        .bar-1 { animation-delay: 0.1s; }
+        .bar-2 { animation-delay: 0.5s; }
+        .bar-3 { animation-delay: 0.9s; }
+        .bar-4 { animation-delay: 1.3s; }
+        .bar-5 { animation-delay: 1.7s; }
+        .bar-6 { animation-delay: 2.1s; }
+
+        @keyframes riseUp {
+            from { transform: scaleY(0); opacity: 0; }
+            to   { transform: scaleY(1); opacity: 1; }
+        }
+
+        .chart-line {
+            fill: none;
+            stroke: var(--chart-line);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            /* Recalculated to exact path length (1466px) so the timer is perfectly synced */
+            stroke-dasharray: 1500;
+            stroke-dashoffset: 1500;
+            /* 3.6 second duration spanning the exact path length */
+            animation: drawLine 3.6s ease-in-out forwards;
+            transition: stroke 0.4s ease;
+        }
+
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .chart-arrow {
+            fill: var(--chart-arrow);
+            opacity: 0;
+            transform: scale(0);
+            /* Tip of the arrow */
+            transform-origin: 1165px 145px;
+            /* Starts at 3.3s so it blooms exactly as the line tip slides underneath it */
+            animation: popArrow 0.4s cubic-bezier(0.16, 1, 0.3, 1) 3.3s forwards;
+            transition: fill 0.4s ease;
+        }
+
+        @keyframes popArrow {
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* ── Foreground Content ── */
+        .brand-section, .login-section {
+            position: relative;
+            z-index: 10;
+        }
+
         .brand-section {
             flex: 1;
             display: flex;
@@ -109,7 +185,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
         }
 
-        /* Tagline — was an inline style before, moved here so dark mode can override it */
         .brand-tagline {
             font-weight: 600;
             color: var(--accent-blue);
@@ -123,7 +198,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             line-height: 1.6;
         }
 
-        /* Right Side: Login Card */
+        .brand-logo {
+            width: 360px; 
+            height: 360px; 
+            margin-bottom: 16px;
+            /* Stacked shadows: 
+               1st is a tight, dark shadow so the thin text pops over the line.
+               2nd is a wide, soft shadow for the large shield. */
+            filter: drop-shadow(0px 2px 3px rgba(10, 25, 47, 0.5)) 
+                    drop-shadow(0px 12px 24px rgba(10, 25, 47, 0.15));
+            transition: filter 0.3s ease;
+        }
+
+        [data-theme="dark"] .brand-logo {
+            filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.9)) 
+                    drop-shadow(0px 12px 24px rgba(0, 0, 0, 0.6));
+        }
+
         .login-section {
             flex: 1;
             display: flex;
@@ -136,10 +227,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: var(--card-bg);
             padding: 50px 40px;
             border-radius: 16px;
+            border: 1px solid var(--border-color);
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 450px;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         .login-card h3 {
@@ -154,9 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 0.95rem;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 20px; }
 
         .form-group label {
             display: block;
@@ -200,9 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         [data-theme="dark"] .btn-login { color: #0A192F; }
 
-        .btn-login:hover {
-            background-color: var(--navy-hover);
-        }
+        .btn-login:hover { background-color: var(--navy-hover); }
 
         .error-msg {
             background-color: var(--error-bg);
@@ -214,7 +302,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-left: 4px solid var(--error-border);
         }
 
-        /* Theme toggle — floating circle, bottom-right */
         .theme-toggle-fab {
             position: fixed;
             bottom: 24px;
@@ -246,22 +333,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [data-theme="dark"] #icon-moon { opacity: 0; transform: rotate(90deg); }
         [data-theme="dark"] #icon-sun  { opacity: 1; transform: rotate(0deg); }
 
-        /* Mobile Responsiveness */
         @media (max-width: 768px) {
             body { flex-direction: column; }
+            .academic-bg { display: none; }
             .brand-section { padding: 40px 20px 20px; }
             .login-section { padding: 20px; align-items: flex-start; }
-            .login-card { padding: 30px 20px; box-shadow: none; background: transparent; }
+            .login-card { padding: 30px 20px; box-shadow: none; background: transparent; border: none; }
         }
     </style>
 </head>
 <body>
 
+    <!-- Formal Academic Background Animation -->
+    <div class="academic-bg">
+        <svg viewBox="0 0 1440 800" preserveAspectRatio="xMidYMid slice">
+            <!-- Staggered Bar Chart -->
+            <rect class="chart-bar bar-1" x="100" y="600" width="120" height="200" />
+            <rect class="chart-bar bar-2" x="300" y="450" width="120" height="350" />
+            <rect class="chart-bar bar-3" x="500" y="500" width="120" height="300" />
+            <rect class="chart-bar bar-4" x="700" y="350" width="120" height="450" />
+            <rect class="chart-bar bar-5" x="900" y="400" width="120" height="400" />
+            <rect class="chart-bar bar-6" x="1100" y="200" width="120" height="600" />
+            
+            <!-- Ascending Line, stops short at 1150, 160 so the rounded cap hides inside the arrowhead -->
+            <path class="chart-line" d="M -50 700 L 160 550 L 360 400 L 560 480 L 760 300 L 960 350 L 1150 160" />
+            
+            <!-- Perfect 45-degree arrow pointing up and right -->
+            <polygon class="chart-arrow" points="1125,155 1165,145 1155,185" />
+        </svg>
+    </div>
+
     <!-- Left Branding Side -->
     <div class="brand-section">
-        <img src="assets/img/logo_sidebar.png" alt="UDM-RADAR Logo" style="width:360px; height:360px; margin-bottom:16px;">
-        <h3 class="brand-tagline">Risk Analytics &amp; Decision-support for Academic Records</h3>
-        <p>A specialized portal for the College of Computer Studies to monitor academic trajectories and support student success.</p>
+        <img src="assets/img/logo_sidebar.png" alt="UDM-RADAR Logo" class="brand-logo">        <h3 class="brand-tagline">Risk Analytics &amp; Decision-support for Academic Records</h3>
+        <!-- Fixed typo: Computer -> Computing -->
+        <p>A specialized portal for the College of Computing Studies to monitor academic trajectories and support student success.</p>
     </div>
 
     <!-- Right Login Side -->
@@ -289,6 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
     </div>
+
     <!-- Dark mode toggle -->
     <button id="theme-toggle" class="theme-toggle-fab" aria-label="Toggle dark mode" title="Toggle dark mode">
         <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -320,6 +427,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         })();
     </script>
-
 </body>
 </html>

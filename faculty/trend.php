@@ -201,8 +201,8 @@ require_once '../includes/sidebar.php';
                 <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); border: 1px solid rgba(217, 119, 6, 0.3); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">Projected Honor Eligibility</span>
             </div>
             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: var(--text-dark);">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#b45309; margin-right:6px; vertical-align:middle;"></span>Summa (≥3.75)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#1d4ed8; margin-right:6px; vertical-align:middle;"></span>Magna (≥3.50)</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--gold); margin-right:6px; vertical-align:middle;"></span>Summa (≥3.75)</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--honor-magna); margin-right:6px; vertical-align:middle;"></span>Magna (≥3.50)</span>
                 <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--accent-blue); margin-right:6px; vertical-align:middle;"></span>Dean's Lister (≥3.25)</span>
                 <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--text-gray); margin-right:6px; vertical-align:middle;"></span>Below 3.25</span>
             </div>
@@ -270,7 +270,9 @@ function getChartColors() {
         blue: root.getPropertyValue('--accent-blue').trim(),
         gold: root.getPropertyValue('--risk-mod').trim(),
         red: root.getPropertyValue('--risk-high').trim(),
-        green: root.getPropertyValue('--risk-low').trim()
+        green: root.getPropertyValue('--risk-low').trim(),
+        summa: root.getPropertyValue('--gold').trim(),
+        magna: root.getPropertyValue('--honor-magna').trim()
     };
 }
 
@@ -298,8 +300,8 @@ const chart1 = new Chart(ctx1, {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: '#b45309', borderWidth: 2, borderDash: [4, 4] },
-                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: '#1d4ed8', borderWidth: 2, borderDash: [4, 4] },
+                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: colors.summa, borderWidth: 2, borderDash: [4, 4] },
+                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: colors.magna, borderWidth: 2, borderDash: [4, 4] },
                     cumLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 2, borderDash: [4, 4] }
                 }
             }
@@ -321,7 +323,7 @@ const chart2 = new Chart(ctx2, {
         datasets: [{
             label: 'Projected GWA',
             data: rawChart2Data,
-            backgroundColor: rawChart2Data.map(v => v >= 3.75 ? '#b45309' : (v >= 3.50 ? '#1d4ed8' : (v >= 3.25 ? colors.blue : colors.text))),
+            backgroundColor: rawChart2Data.map(v => v >= 3.75 ? colors.summa : (v >= 3.50 ? colors.magna : (v >= 3.25 ? colors.blue : colors.text))),
             borderRadius: 6,
             barPercentage: 0.55
         }]
@@ -333,8 +335,8 @@ const chart2 = new Chart(ctx2, {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: '#b45309', borderWidth: 1.5, borderDash: [3, 3] },
-                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: '#1d4ed8', borderWidth: 1.5, borderDash: [3, 3] },
+                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: colors.summa, borderWidth: 1.5, borderDash: [3, 3] },
+                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: colors.magna, borderWidth: 1.5, borderDash: [3, 3] },
                     dlLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 1.5, borderDash: [5, 5] }
                 }
             }
@@ -398,7 +400,7 @@ const observer = new MutationObserver(() => {
         chart1.update();
     }
     if (chart2) {
-        chart2.data.datasets[0].backgroundColor = rawChart2Data.map(v => v >= 3.75 ? '#b45309' : (v >= 3.50 ? '#1d4ed8' : (v >= 3.25 ? colors.blue : colors.text)));
+        chart2.data.datasets[0].backgroundColor = rawChart2Data.map(v => v >= 3.75 ? colors.summa : (v >= 3.50 ? colors.magna : (v >= 3.25 ? colors.blue : colors.text)));
         chart2.options.plugins.annotation.annotations.dlLine.borderColor = colors.blue;
         chart2.update();
     }
