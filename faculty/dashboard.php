@@ -66,7 +66,7 @@ if (!empty($my_sections)) {
 }
 
 // ── 5. Grades scoped to exact (subject, section) load pairs ───────────────
-$subject_grades = []; // [user_id][subject_id] = ['prelim' => x, 'risk' => y]
+$subject_grades = []; 
 if (!empty($my_class_loads)) {
     $conds  = [];
     $params = [];
@@ -76,8 +76,12 @@ if (!empty($my_class_loads)) {
         $params[] = $load['id'];
     }
     $where = implode(' OR ', $conds);
+    
+    // Fetch ALL term grades so we can build the breakdown modal
     $stmt  = $db->prepare("
-        SELECT g.student_id, g.subject_id, g.prelim, g.risk_level
+        SELECT g.student_id, g.subject_id, 
+               g.prelim, g.midterm, g.prefinal, g.final_grade, 
+               g.risk_level
         FROM grades g
         JOIN student_profiles sp ON g.student_id = sp.user_id
         WHERE ($where) AND g.is_current = 1
@@ -85,8 +89,11 @@ if (!empty($my_class_loads)) {
     $stmt->execute($params);
     foreach ($stmt->fetchAll() as $gr) {
         $subject_grades[$gr['student_id']][$gr['subject_id']] = [
-            'prelim' => $gr['prelim'],
-            'risk'   => $gr['risk_level'],
+            'prelim'      => $gr['prelim'],
+            'midterm'     => $gr['midterm'],
+            'prefinal'    => $gr['prefinal'],
+            'final_grade' => $gr['final_grade'],
+            'risk'        => $gr['risk_level'],
         ];
     }
 }
@@ -162,6 +169,8 @@ require_once '../includes/sidebar.php';
 .sortable-col { cursor:pointer; user-select:none; color:var(--text-dark); }
 .sortable-col:hover { background:var(--table-header-bg) !important; }
 .sort-arrow { font-size:0.78rem; color:var(--text-gray); margin-left:5px; transition:color 0.15s; }
+.row-clickable { cursor:pointer; transition: background 0.15s; }
+.row-clickable:hover { background: var(--bg-color); }
 </style>
 
 <div class="main-content">
@@ -227,7 +236,10 @@ require_once '../includes/sidebar.php';
     <!-- Roster panel -->
     <div id="section-roster-card" class="card" style="display:none;border:2px solid var(--accent-blue);margin-bottom:24px; padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 id="roster-title" style="color:var(--text-dark);font-weight:700;font-size:1.1rem; margin:0;">Student List</h3>
+            <div>
+                <h3 id="roster-title" style="color:var(--text-dark);font-weight:700;font-size:1.1rem; margin:0;">Student List</h3>
+                <p style="color:var(--text-gray); font-size:0.8rem; margin: 4px 0 0 0;">Click on a student row in 'My Class Performance' to view their full term breakdown.</p>
+            </div>
             <button onclick="closeRoster()"
                 style="background:var(--bg-color);color:var(--text-dark);border:1px solid var(--border-color);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
                 ✕ Close
@@ -316,6 +328,29 @@ require_once '../includes/sidebar.php';
 
 </div>
 
+<!-- Grade Breakdown Modal -->
+<div class="modal-overlay" id="grade-modal-overlay" onclick="if(event.target===this) closeGradeModal();">
+    <div class="modal-box" style="max-width: 650px;">
+        <button class="modal-close" onclick="closeGradeModal()">✕ Close</button>
+        <h2 id="grade-modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
+        <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
+            Detailed grade breakdown for your assigned subjects.
+        </p>
+        <table style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background:var(--table-header-bg); border-bottom:1px solid var(--border-color);">
+                    <th style="padding:10px; text-align:left; color:var(--text-dark);">Subject</th>
+                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Prelim</th>
+                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Midterm</th>
+                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Pre-Final</th>
+                    <th style="padding:10px; text-align:center; color:var(--accent-blue);">Final</th>
+                </tr>
+            </thead>
+            <tbody id="grade-modal-body"></tbody>
+        </table>
+    </div>
+</div>
+
 <script>
 const sectionDataMap     = <?= json_encode($section_data,       JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 const sectionSubjectMap  = <?= json_encode($section_subject_map, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
@@ -355,17 +390,22 @@ function renderClassTab(secName) {
     const students = sectionDataMap[secName]?.students || [];
     const subjects = sectionSubjectMap[secName] || [];
 
+    // Smart Truncation: Calculates max width so it only truncates if crowded
+    const maxWidth = Math.max(120, 600 / (subjects.length || 1)); 
+
     const thead = document.getElementById('class-thead-row');
     let thHtml = '<th class="sortable-col" onclick="sortClassTab(0)" id="col-h-0" style="padding:12px; text-align:left;">Student Name<span class="sort-arrow" id="sort-arrow-0">⇅</span></th>';
+    
     subjects.forEach((subj, i) => {
         const colIdx = i + 1;
-        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code}" id="col-h-${colIdx}" style="padding:12px; text-align:center;">
-            ${subj.title}<span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
+        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code} — ${subj.title}" id="col-h-${colIdx}" style="padding:12px; text-align:center;">
+            <div style="max-width: ${maxWidth}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom;">${subj.title}</div><span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
         </th>`;
     });
+    
     const avgColIdx = subjects.length + 1;
     thHtml += `<th class="sortable-col" onclick="sortClassTab(${avgColIdx})" id="col-h-${avgColIdx}" style="padding:12px; text-align:center;">
-        Avg (My Subj.)<span class="sort-arrow" id="sort-arrow-${avgColIdx}">⇅</span>
+        Current Grade (Avg)<span class="sort-arrow" id="sort-arrow-${avgColIdx}">⇅</span>
     </th>`;
     thHtml += '<th style="padding:12px; text-align:center; color:var(--text-dark);">Subject Risk</th>';
     thead.innerHTML = thHtml;
@@ -379,41 +419,83 @@ function renderClassTab(secName) {
     let html = '';
     students.forEach(s => {
         const grades = s.subject_grades || {};
-        let prelimSum = 0, prelimCount = 0, worstRisk = 'LOW';
+        let gradeSum = 0, gradeCount = 0, worstRisk = 'LOW';
         let gradeCells = '';
 
         subjects.forEach(subj => {
             const g = grades[subj.id];
-            if (g && g.prelim !== null && g.prelim !== undefined) {
-                const val = parseFloat(g.prelim);
+            
+            let currentGrade = null;
+            let termLabel = '';
+            
+            if (g && g.final_grade !== null && g.final_grade !== undefined) { currentGrade = parseFloat(g.final_grade); termLabel = 'FIN'; }
+            else if (g && g.prefinal !== null && g.prefinal !== undefined) { currentGrade = parseFloat(g.prefinal); termLabel = 'PRE-F'; }
+            else if (g && g.midterm !== null && g.midterm !== undefined) { currentGrade = parseFloat(g.midterm); termLabel = 'MID'; }
+            else if (g && g.prelim !== null && g.prelim !== undefined) { currentGrade = parseFloat(g.prelim); termLabel = 'PRE'; }
+
+            if (currentGrade !== null) {
                 const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
-                gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center;">${val.toFixed(2)}</td>`;
-                prelimSum  += val;
-                prelimCount++;
+                gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center; vertical-align:middle;">
+                    ${currentGrade.toFixed(2)}<br>
+                    <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">${termLabel}</span>
+                </td>`;
+                gradeSum  += currentGrade;
+                gradeCount++;
                 if      (g.risk === 'HIGH')                              worstRisk = 'HIGH';
                 else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
             } else {
-                gradeCells += `<td class="grade-none" style="padding:12px; text-align:center;">—</td>`;
+                gradeCells += `<td class="grade-none" style="padding:12px; text-align:center; vertical-align:middle;">—</td>`;
             }
         });
 
-        const avg     = prelimCount > 0 ? (prelimSum / prelimCount).toFixed(2) : '—';
-        const avgCls  = prelimCount > 0
+        const avg     = gradeCount > 0 ? (gradeSum / gradeCount).toFixed(2) : '—';
+        const avgCls  = gradeCount > 0
             ? (parseFloat(avg) < 2.00 ? 'grade-high' : (parseFloat(avg) < 2.50 ? 'grade-mod' : 'grade-low'))
             : 'grade-none';
         
-        const riskBg  = prelimCount === 0 ? 'var(--bg-color)' : (worstRisk === 'HIGH' ? 'var(--risk-high)' : (worstRisk === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)'));
-        const riskClr = prelimCount === 0 ? 'var(--text-gray)' : 'white';
-        const riskLbl = prelimCount === 0 ? 'No Data' : worstRisk;
+        const riskBg  = gradeCount === 0 ? 'var(--bg-color)' : (worstRisk === 'HIGH' ? 'var(--risk-high)' : (worstRisk === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)'));
+        const riskClr = gradeCount === 0 ? 'var(--text-gray)' : 'white';
+        const riskLbl = gradeCount === 0 ? 'No Data' : worstRisk;
 
-        html += `<tr style="border-bottom:1px solid var(--border-color);">
+        html += `<tr class="row-clickable" onclick="openGradeModal('${s.user_id}', '${secName}')" style="border-bottom:1px solid var(--border-color);">
             <td style="font-weight:600; color:var(--text-dark); padding:12px;">${s.full_name}</td>
             ${gradeCells}
-            <td class="grade-cell ${avgCls}" style="padding:12px; text-align:center;">${avg}</td>
-            <td style="padding:12px; text-align:center;"><span style="background:${riskBg};color:${riskClr};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${riskLbl}</span></td>
+            <td class="grade-cell ${avgCls}" style="padding:12px; text-align:center; vertical-align:middle;">${avg}</td>
+            <td style="padding:12px; text-align:center; vertical-align:middle;"><span style="background:${riskBg};color:${riskClr};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${riskLbl}</span></td>
         </tr>`;
     });
     tbody.innerHTML = html;
+}
+
+// ── Grade Breakdown Modal Logic ──
+function openGradeModal(uid, secName) {
+    const student = sectionDataMap[secName].students.find(s => s.user_id == uid);
+    const subjects = sectionSubjectMap[secName];
+    const grades = student.subject_grades || {};
+
+    document.getElementById('grade-modal-name').innerText = student.full_name;
+
+    let html = '';
+    subjects.forEach(subj => {
+        const g = grades[subj.id];
+        if (g) {
+            const formatG = (val) => val !== null && val !== undefined ? parseFloat(val).toFixed(2) : '<span style="color:var(--text-gray);">—</span>';
+            html += `<tr style="border-bottom:1px solid var(--border-color);">
+                <td style="padding:12px; color:var(--text-dark); font-weight:600; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${subj.code} — ${subj.title}">${subj.title}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.prelim)}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.midterm)}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.prefinal)}</td>
+                <td style="padding:12px; text-align:center; font-weight:700; color:var(--accent-blue);">${formatG(g.final_grade)}</td>
+            </tr>`;
+        }
+    });
+
+    document.getElementById('grade-modal-body').innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:16px; color:var(--text-gray);">No grades encoded yet.</td></tr>';
+    document.getElementById('grade-modal-overlay').classList.add('open');
+}
+
+function closeGradeModal() {
+    document.getElementById('grade-modal-overlay').classList.remove('open');
 }
 
 function renderOverallTab(secName) {
@@ -482,8 +564,11 @@ function sortClassTab(colIndex) {
     }
 
     rows.sort((a, b) => {
-        const cellA = a.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
-        const cellB = b.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
+        let cellA = a.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
+        let cellB = b.querySelectorAll('td')[colIndex]?.innerText.trim() || '';
+        
+        cellA = cellA.split('\n')[0].trim();
+        cellB = cellB.split('\n')[0].trim();
 
         const emptyA = cellA === '—' || cellA === '';
         const emptyB = cellB === '—' || cellB === '';

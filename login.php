@@ -73,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --error-bg: #FFEBEE;
             --error-text: #C62828;
             --error-border: #C62828;
+            
+            /* Ambient Background Orbs */
+            --orb-1: rgba(30, 77, 183, 0.12); /* Accent blue tint */
+            --orb-2: rgba(16, 185, 129, 0.10); /* Soft teal tint */
+            --orb-3: rgba(14, 116, 144, 0.10); /* Soft cyan tint */
         }
 
         [data-theme="dark"] {
@@ -87,15 +92,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --error-bg: rgba(239, 68, 68, 0.15);
             --error-text: #FCA5A5;
             --error-border: #EF4444;
+
+            /* Ambient Background Orbs */
+            --orb-1: rgba(108, 142, 239, 0.20); 
+            --orb-2: rgba(5, 150, 105, 0.15); 
+            --orb-3: rgba(14, 116, 144, 0.15);
         }
 
-        /* Navy Blue Theme */
         body {
             background-color: var(--bg-color);
             display: flex;
             height: 100vh;
             color: var(--text-dark);
             transition: background-color 0.3s ease, color 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ── Animated Background ── */
+        .ambient-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0; /* Keeps it strictly in the background */
+            overflow: hidden;
+            pointer-events: none; /* Prevents overlap/click blocking */
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: float 15s infinite ease-in-out alternate;
+            transition: background-color 0.4s ease;
+        }
+
+        .orb-1 {
+            width: 45vw; height: 45vw;
+            background: var(--orb-1);
+            top: -10%; left: -5%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 40vw; height: 40vw;
+            background: var(--orb-2);
+            bottom: -10%; right: -5%;
+            animation-delay: -4s;
+            animation-duration: 18s;
+        }
+
+        .orb-3 {
+            width: 35vw; height: 35vw;
+            background: var(--orb-3);
+            bottom: 20%; left: 20%;
+            animation-delay: -8s;
+            animation-duration: 12s;
+        }
+
+        @keyframes float {
+            0%   { transform: translate(0, 0) scale(1); }
+            50%  { transform: translate(5vw, 10vh) scale(1.05); }
+            100% { transform: translate(-5vw, -5vh) scale(0.95); }
+        }
+
+        /* ── Foreground Content ── */
+        .brand-section, .login-section {
+            position: relative;
+            z-index: 10; /* Elevates above the background orbs */
         }
 
         /* Left Side: Branding */
@@ -109,7 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
         }
 
-        /* Tagline — was an inline style before, moved here so dark mode can override it */
         .brand-tagline {
             font-weight: 600;
             color: var(--accent-blue);
@@ -121,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: var(--text-gray);
             max-width: 400px;
             line-height: 1.6;
+            text-shadow: 0 1px 2px var(--bg-color); /* Readability against moving orbs */
         }
 
         /* Right Side: Login Card */
@@ -133,13 +196,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .login-card {
-            background: var(--card-bg);
+            background: var(--card-bg); /* Solid standard card, no frosted glass */
             padding: 50px 40px;
             border-radius: 16px;
+            border: 1px solid var(--border-color); /* Added explicit border to match dashboards */
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 450px;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         .login-card h3 {
@@ -251,11 +315,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body { flex-direction: column; }
             .brand-section { padding: 40px 20px 20px; }
             .login-section { padding: 20px; align-items: flex-start; }
-            .login-card { padding: 30px 20px; box-shadow: none; background: transparent; }
+            .login-card { padding: 30px 20px; box-shadow: none; background: transparent; border: none; }
         }
     </style>
 </head>
 <body>
+
+    <!-- Ambient Animated Background -->
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
 
     <!-- Left Branding Side -->
     <div class="brand-section">
@@ -289,6 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
     </div>
+
     <!-- Dark mode toggle -->
     <button id="theme-toggle" class="theme-toggle-fab" aria-label="Toggle dark mode" title="Toggle dark mode">
         <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
