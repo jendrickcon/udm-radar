@@ -83,5 +83,18 @@ function updateToggleText(theme) {
 // Set correct text on initial load
 document.addEventListener('DOMContentLoaded', () => {
     updateToggleText(document.documentElement.getAttribute('data-theme'));
+
+    // Fix: every navigation is a full page reload, so the sidebar's nav
+    // list has no memory of scroll position — it defaults to top every
+    // time. At higher browser zoom (125%+), the nav list itself needs to
+    // scroll, so clicking a link near the bottom would reload the page
+    // and immediately hide that same link above the fold again. Scroll
+    // the active link into view instead of trying to persist a raw pixel
+    // offset, since that stays correct regardless of zoom level or how
+    // many nav items a given portal has.
+    const activeLink = document.querySelector('.sidebar-link.active');
+    if (activeLink) {
+        activeLink.scrollIntoView({ block: 'nearest' });
+    }
 });
 </script>
