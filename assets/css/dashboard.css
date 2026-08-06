@@ -39,7 +39,35 @@
     --honor-magna: #818CF8;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: 'Inter', sans-serif; 
+    
+    /* Firefox global thin scrollbar */
+    scrollbar-width: thin; 
+    scrollbar-color: #475569 transparent;
+}
+
+/* ── Custom Scrollbar (Global WebKit) ── */
+::-webkit-scrollbar {
+    width: 6px; 
+    height: 6px; /* For horizontal scrolls in tables */
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #475569; 
+    border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-blue); 
+}
 
 body { 
     display: flex; 
@@ -327,6 +355,125 @@ tr:last-child td { border-bottom: none; }
     border-color: var(--accent-blue);
     outline: none;
     box-shadow: 0 0 0 3px rgba(108, 142, 239, 0.15);
+}
+
+/* ── Drag & Drop UI ── */
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: var(--bg-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent-blue);
+    background-color: rgba(108, 142, 239, 0.05); /* Soft accent background */
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--text-gray);
+    margin-bottom: 16px;
+    transition: color 0.3s ease;
+}
+
+.drop-zone:hover .upload-icon, .drop-zone.dragover .upload-icon {
+    color: var(--accent-blue);
+}
+
+.drop-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+}
+
+.drop-subtext {
+    font-size: 0.9rem;
+    color: var(--text-gray);
+}
+
+.browse-link {
+    color: var(--accent-blue);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+/* File Preview Bar */
+.file-preview {
+    display: none; /* Hidden until file is selected */
+    align-items: center;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+}
+
+.file-preview.active {
+    display: flex;
+}
+
+.file-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.file-name {
+    flex-grow: 1;
+    font-size: 0.95rem;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 12px;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: var(--risk-high);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+}
+
+.remove-btn:hover {
+    opacity: 0.7;
+}
+
+/* Primary Button (if not already globally defined) */
+.btn-primary {
+    background-color: var(--accent-blue);
+    color: #FFFFFF;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.btn-primary:disabled {
+    background-color: var(--text-gray);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary:not(:disabled):hover {
+    opacity: 0.9;
 }
 
 .switch input:checked + .switch-slider { background-color: var(--accent-blue); }
