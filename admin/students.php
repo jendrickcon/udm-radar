@@ -331,21 +331,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
         $error = 'Session expired.';
     } else {
         $resPayload = json_decode($_POST['resolution_payload'], true);
+        // A matched student's radio button and the manual fallback field are two
+        // separate inputs now (they used to share a name, which let the empty
+        // manual field silently clobber a selected radio match). Prefer whichever
+        // one actually has a value, radio match first.
         $studentNo = trim($_POST['resolved_student_no'] ?? '');
-        
+        if (!$studentNo) {
+            $studentNo = trim($_POST['resolved_student_no_manual'] ?? '');
+        }
+
         if (!$studentNo) {
             $error = "Student Number is required to resolve the import.";
         } else {
+            // The admin now explicitly confirms the current year level/semester in
+            // the resolution modal (since a PEF-less file has no reliable source for
+            // this), instead of the app silently guessing/defaulting current_sem=1.
+            $confirmedYearLevel = (int) ($_POST['confirmed_year_level'] ?? $resPayload['maxYearLevel'] ?? 0);
+            $confirmedSemester  = (int) ($_POST['confirmed_semester'] ?? 1);
+
             $previewPayload = [
                 'studentNo'  => $studentNo,
                 'firstName'  => $resPayload['firstName'],
                 'middleName' => $resPayload['middleName'],
                 'lastName'   => $resPayload['lastName'],
                 'grades'     => $resPayload['grades'],
-                'maxYearLevel' => $resPayload['maxYearLevel'],
+                'maxYearLevel' => $confirmedYearLevel ?: $resPayload['maxYearLevel'],
                 'enrolled_subjects' => $resPayload['enrolled_subjects'] ?? [],
                 'current_sy' => $resPayload['current_sy'] ?? '',
-                'current_sem' => $resPayload['current_sem'] ?? 1,
+                'current_sem' => $confirmedSemester,
                 'current_section' => $resPayload['current_section'] ?? ''
             ];
         }
@@ -392,7 +405,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 $stmtUpdateGrade = $db->prepare("UPDATE grades SET final_grade = ?, risk_level = ?, school_year = ?, semester = ?, encoded_by = ? WHERE id = ?");
                 $stmtInsertGrade = $db->prepare("INSERT INTO grades (student_id, subject_id, final_grade, school_year, semester, is_current, risk_level, encoded_by) VALUES (?, ?, ?, ?, ?, 0, ?, ?)");
 
+                // A CC row whose school year/semester matches the student's CURRENT
+                // enrollment term needs to land in that current-term row (is_current = 1),
+                // not be filed away as history — otherwise the current semester's grade
+                // stays blank while a duplicate historical record gets the real grade.
+                $stmtCheckCurrentGrade  = $db->prepare("SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
+                $stmtUpdateCurrentGrade = $db->prepare("UPDATE grades SET final_grade = ?, risk_level = ?, encoded_by = ? WHERE id = ?");
+                $stmtInsertCurrentGrade = $db->prepare("INSERT INTO grades (student_id, subject_id, final_grade, school_year, semester, is_current, risk_level, encoded_by) VALUES (?, ?, ?, ?, ?, 1, ?, ?)");
+
                 $baseYear = 2000 + (int)substr($payload['studentNo'], 0, 2);
+
+                // Demote any row still flagged is_current=1 that does NOT belong to the
+                // just-confirmed current term. Without this, a subject that was ever
+                // wrongly marked "current" (e.g. from an earlier import before the term
+                // was confirmed correctly) stays stuck as current forever — every later
+                // import for that subject would just keep re-confirming it via the
+                // "primary signal" check below instead of ever recognizing the term has
+                // moved on. We UPDATE (not DELETE) so any real grade already recorded
+                // there is preserved, just correctly reclassified as history.
+                if (!empty($payload['maxYearLevel']) && !empty($payload['current_sem'])) {
+                    $confirmedYearLevel = (int) $payload['maxYearLevel'];
+                    $confirmedSemester  = (int) $payload['current_sem'];
+                    $confirmedSyStart   = $baseYear + ($confirmedYearLevel - 1);
+                    $confirmedSy        = !empty($payload['current_sy']) ? $payload['current_sy'] : ($confirmedSyStart . '-' . ($confirmedSyStart + 1));
+
+                    $db->prepare("UPDATE grades SET is_current = 0 WHERE student_id = ? AND is_current = 1 AND (school_year != ? OR semester != ?)")
+                       ->execute([$uid, $confirmedSy, $confirmedSemester]);
+                }
 
                 foreach ($payload['grades'] as $item) {
                     $schoolYearStart = $baseYear + ($item['year_level'] - 1);
@@ -400,8 +439,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 
                     $stmtFindSubj->execute([$item['code']]);
                     if ($subj = $stmtFindSubj->fetch()) {
-                        $stmtCheckGrade->execute([$uid, $subj['id']]);
-                        
                         // BUG 4 FIXED: Safely convert 'INC', 'P', 'DRP' to null to protect the DECIMAL column
                         $isNum = is_numeric($item['grade']);
                         $finalGrade = $isNum ? (float)$item['grade'] : null;
@@ -409,6 +446,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                         // BUG 2 FIXED: Dynamically compute Risk instead of hardcoding 'LOW'
                         $riskLevel = ($isNum && function_exists('computeRiskFromAvg')) ? computeRiskFromAvg($finalGrade) : 'LOW';
 
+                        // PRIMARY SIGNAL: if this subject already has a live current-term
+                        // (is_current = 1) row for the student, ANY freshly-imported grade
+                        // for it belongs there — full stop. This doesn't depend on
+                        // reconstructing/guessing a school year or semester from the
+                        // spreadsheet (which kept mismatching due to formatting/column
+                        // layout differences); it just asks the database what's actually
+                        // "current" right now for this student+subject.
+                        $stmtCheckCurrentGrade->execute([$uid, $subj['id']]);
+                        if ($currentGrade = $stmtCheckCurrentGrade->fetch()) {
+                            $stmtUpdateCurrentGrade->execute([$finalGrade, $riskLevel, $user['id'], $currentGrade['id']]);
+                            continue;
+                        }
+
+                        // FALLBACK: no existing current row for this subject yet, but this
+                        // row's year_level/semester line up with the student's current term
+                        // (maxYearLevel = highest year level reached in the transcript) —
+                        // file it as a brand-new current-term record instead of history.
+                        $isCurrentTerm = !empty($payload['current_sem']) && !empty($payload['maxYearLevel'])
+                            && (int) $item['year_level'] === (int) $payload['maxYearLevel']
+                            && (int) $item['semester'] === (int) $payload['current_sem'];
+
+                        if ($isCurrentTerm) {
+                            // Prefer the raw current_sy text from the PEF sheet for a
+                            // brand-new current-term row, since we now know this row IS
+                            // the current term — it's more accurate than the reconstructed string.
+                            $currentSyToStore = !empty($payload['current_sy']) ? $payload['current_sy'] : $schoolYearString;
+                            $stmtInsertCurrentGrade->execute([$uid, $subj['id'], $finalGrade, $currentSyToStore, $item['semester'], $riskLevel, $user['id']]);
+                            continue;
+                        }
+
+                        $stmtCheckGrade->execute([$uid, $subj['id']]);
                         if ($existingGrade = $stmtCheckGrade->fetch()) {
                             $stmtUpdateGrade->execute([$finalGrade, $riskLevel, $schoolYearString, $item['semester'], $user['id'], $existingGrade['id']]);
                         } else {
@@ -466,10 +534,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 // ---------------------------------------------------------
 $students = $db->query("SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa, u.first_name, u.middle_name, u.last_name, u.email FROM student_profiles sp JOIN users u ON u.id = sp.user_id ORDER BY sp.section, u.last_name, u.first_name")->fetchAll();
 
-$gradeStmt = $db->query("SELECT g.student_id, s.code, s.title, g.prelim, g.risk_level FROM grades g JOIN subjects s ON s.id = g.subject_id WHERE g.is_current = 1 ORDER BY g.student_id, s.code");
+$gradeStmt = $db->query("SELECT g.student_id, s.code, s.title, g.prelim, g.final_grade, g.risk_level FROM grades g JOIN subjects s ON s.id = g.subject_id WHERE g.is_current = 1 ORDER BY g.student_id, s.code");
 $gradesByStudent = [];
 foreach ($gradeStmt->fetchAll() as $g) {
-    $gradesByStudent[$g['student_id']][] = ['code' => $g['code'], 'title' => $g['title'], 'prelim'=> $g['prelim'] !== null ? (float) $g['prelim'] : null, 'risk' => $g['risk_level']];
+    $gradesByStudent[$g['student_id']][] = ['code' => $g['code'], 'title' => $g['title'], 'prelim'=> $g['prelim'] !== null ? (float) $g['prelim'] : null, 'finalGrade' => $g['final_grade'] !== null ? (float) $g['final_grade'] : null, 'risk' => $g['risk_level']];
 }
 
 $predStmt = $db->query("SELECT p.student_id, p.predicted_gwa, p.risk_level, p.latin_honor FROM predictions p JOIN (SELECT student_id, MAX(generated_at) mx FROM predictions GROUP BY student_id) latest ON latest.student_id = p.student_id AND latest.mx = p.generated_at");
@@ -697,7 +765,21 @@ require_once '../includes/sidebar.php';
             <?php endif; ?>
 
             <h4 style="margin-bottom:8px;"><?= empty($matches) ? 'Create New Profile' : 'Or enter a new Student No:' ?></h4>
-            <input type="text" name="resolved_student_no" placeholder="Enter Student No (e.g. 23-22-123)" class="form-input" style="width:100%; margin-bottom:20px;" <?= empty($matches) ? 'required' : '' ?> oninput="if(this.value) { document.querySelectorAll('input[type=radio]').forEach(r => r.required = false); } else { document.querySelectorAll('input[type=radio]').forEach(r => r.required = true); }">
+            <input type="text" name="resolved_student_no_manual" placeholder="Enter Student No (e.g. 23-22-123)" class="form-input" style="width:100%; margin-bottom:20px;" <?= empty($matches) ? 'required' : '' ?> oninput="if(this.value) { document.querySelectorAll('input[type=radio]').forEach(r => r.required = false); } else { document.querySelectorAll('input[type=radio]').forEach(r => r.required = true); }">
+
+            <h4 style="margin-bottom:4px;">Confirm Current Term</h4>
+            <p style="color:var(--text-gray); font-size:0.8rem; margin-bottom:8px;">This file has no PEF sheet, so the current term can't be read from it automatically. Please confirm which term is the student's <em>ongoing</em> one — grades for it will update the current-semester record instead of being filed as history.</p>
+            <div style="display:flex; gap:12px; margin-bottom:20px;">
+                <select name="confirmed_year_level" class="form-input" style="flex:1;" required>
+                    <?php for ($yr = 1; $yr <= 4; $yr++): ?>
+                    <option value="<?= $yr ?>" <?= $yr === (int) $resolutionPayload['maxYearLevel'] ? 'selected' : '' ?>>Year <?= $yr ?></option>
+                    <?php endfor; ?>
+                </select>
+                <select name="confirmed_semester" class="form-input" style="flex:1;" required>
+                    <option value="1" <?= (int) $resolutionPayload['current_sem'] === 1 ? 'selected' : '' ?>>1st Semester</option>
+                    <option value="2" <?= (int) $resolutionPayload['current_sem'] === 2 ? 'selected' : '' ?>>2nd Semester</option>
+                </select>
+            </div>
 
             <div style="display:flex; gap:12px; justify-content:flex-end;">
                 <a href="students.php" style="padding:10px 16px; background:var(--bg-color); color:var(--text-dark); text-decoration:none; border:1px solid var(--border-color); border-radius:8px; font-weight:600;">Cancel</a>
@@ -797,7 +879,7 @@ require_once '../includes/sidebar.php';
 
         <h4 style="color:var(--text-dark); font-size:0.95rem; margin-bottom:8px;">Current Semester Grades</h4>
         <table style="width:100%; border-collapse: collapse;">
-            <thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Prelim</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Risk</th></tr></thead>
+            <thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Prelim</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Final Grade</th><th style="padding: 8px; text-align: left; color: var(--text-dark);">Risk</th></tr></thead>
             <tbody id="modal-grades-body"></tbody>
         </table>
 
@@ -923,8 +1005,9 @@ function openStudentModal(uid) {
     // Convert nulls for display safely based on the array
     document.getElementById('modal-grades-body').innerHTML = d.grades.length ? d.grades.map(g => {
         let numericGrade = g.prelim !== null ? parseFloat(g.prelim).toFixed(2) : '—';
-        return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color: var(--text-dark); padding: 8px;">${g.code}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${numericGrade}</td><td style="padding: 8px;"><span style="background:var(--risk-low); color:white; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td></tr>`
-    }).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-gray); padding:16px;">No current grades.</td></tr>';
+        let finalGradeDisplay = g.finalGrade !== null ? parseFloat(g.finalGrade).toFixed(2) : 'In Progress';
+        return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color: var(--text-dark); padding: 8px;">${g.code}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${numericGrade}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${finalGradeDisplay}</td><td style="padding: 8px;"><span style="background:var(--risk-low); color:white; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td></tr>`
+    }).join('') : '<tr><td colspan="4" style="text-align:center; color:var(--text-gray); padding:16px;">No current grades.</td></tr>';
     
     document.getElementById('modal-history-wrapper').style.maxHeight = null;
     document.getElementById('modal-history-container').innerHTML = '';

@@ -10,6 +10,23 @@ $db = getDB();
 $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
+$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles ORDER BY year_level")->fetchAll(), 'year_level');
+
+if ($yearFilter !== '') {
+    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND year_level = ? ORDER BY section");
+    $sectionsStmt->execute([$yearFilter]);
+} else {
+    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL ORDER BY section");
+}
+$sections = array_column($sectionsStmt->fetchAll(), 'section');
+
+// If the section in the URL no longer belongs to the selected year (e.g. user
+// switched Year Level while a now-invalid section was still selected), drop it
+// instead of silently filtering the table down to zero results.
+if ($sectionFilter !== '' && !in_array($sectionFilter, $sections, true)) {
+    $sectionFilter = '';
+}
+
 $sql = "
     SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa,
            u.first_name, u.middle_name, u.last_name, p.risk_level, p.predicted_gwa
@@ -56,9 +73,6 @@ foreach ($sectionGwas as $sec => $grades) {
     $chartSectionLabels[] = $sec;
     $chartSectionAverages[] = round(array_sum($grades) / count($grades), 2);
 }
-
-$years    = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles ORDER BY year_level")->fetchAll(), 'year_level');
-$sections = array_column($db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL ORDER BY section")->fetchAll(), 'section');
 
 $riskBadgeClass = fn(?string $risk) => match ($risk !== null ? strtoupper($risk) : null) {
     'LOW' => 'low', 'MODERATE' => 'mod', 'HIGH' => 'high', default => 'na',
