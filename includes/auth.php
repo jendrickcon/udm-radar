@@ -30,4 +30,11 @@ function currentUser(): array {
     'identifier' => $_SESSION['identifier'] ?? '',
   ];
 }
+
+// CSRF check — was duplicated identically across admin/activity.php,
+// students.php, faculty.php, and grades.php. Single source of truth now,
+// since every one of those pages already requires this file anyway.
+function checkCsrf(): bool {
+    return isset($_POST['csrf_token']) && hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);
+}
 ?>

@@ -16,26 +16,6 @@ const LOCKED_PASSWORD = 'default1!';
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-function checkCsrf(): bool {
-    return isset($_POST['csrf_token']) && hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);
-}
-
-// BUG 1 FIXED: Strict 1.00 - 4.00 range, explicitly checking for quarter-point steps
-function isValidGrade($val) {
-    if ($val === '') return false;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($valStr, ['P', 'PASSED', 'INC', 'DRP'])) return true;
-    
-    if (is_numeric($val)) {
-        $f = (float)$val;
-        if ($f >= 1.00 && $f <= 4.00) {
-            $step = (int)round($f * 100);
-            if ($step % 25 === 0) return true;
-        }
-    }
-    return false;
-}
-
 $error   = '';
 $success = '';
 $previewPayload = null;
@@ -226,9 +206,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
 
                             $rowIdx = $enrollStartIndex + 6;
                             while (isset($pefRows[$rowIdx][0]) && trim((string)$pefRows[$rowIdx][0]) !== '') {
+                                $rawCode  = trim((string)$pefRows[$rowIdx][0]);
+                                $rawDesc  = isset($pefRows[$rowIdx][1]) ? trim((string)$pefRows[$rowIdx][1]) : '';
+                                $cleanTitle = cleanSubjectTitle($rawDesc);
+                                $altCode   = extractTrackCode($rawDesc);
+
                                 $enrolledSubjects[] = [
-                                    'code' => trim((string)$pefRows[$rowIdx][0]),
-                                    'title' => isset($pefRows[$rowIdx][1]) ? trim((string)$pefRows[$rowIdx][1]) : ''
+                                    'code'    => $rawCode,
+                                    'altCode' => $altCode,
+                                    'title'   => $cleanTitle ?: $rawDesc
                                 ];
                                 $rowIdx++;
                             }
@@ -238,7 +224,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                     // SECT 4: MISSING ID RESOLUTION TRIGGER (PEF missing)
                     $requiresResolution = true;
                     $ccRows = $xlsx->rows($ccIndex);
-                    // Extract specifically from Row 1, Column B based on verified CC template
                     $rawName = isset($ccRows[0][1]) ? trim((string)$ccRows[0][1]) : '';
                     
                     if (!$rawName) {
@@ -272,18 +257,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                         
                         if ($currentYearLevel > $maxYearLevel) $maxYearLevel = $currentYearLevel;
 
-                        $code1 = isset($row[0]) ? trim((string)$row[0]) : '';
+                        $code1  = isset($row[0]) ? trim((string)$row[0]) : '';
+                        $desc1  = isset($row[1]) ? trim((string)$row[1]) : '';
                         $grade1 = isset($row[4]) ? trim((string)$row[4]) : '';
-                        $code2 = isset($row[8]) ? trim((string)$row[8]) : '';
+
+                        $code2  = isset($row[8]) ? trim((string)$row[8]) : '';
+                        $desc2  = isset($row[9]) ? trim((string)$row[9]) : '';
                         $grade2 = isset($row[12]) ? trim((string)$row[12]) : '';
 
                         if ($code1 && isValidGrade($grade1)) {
-                            $extractedGrades[] = ['code' => $code1, 'grade' => $grade1, 'year_level' => $currentYearLevel, 'semester' => 1];
+                            $cleanTitle1 = cleanSubjectTitle($desc1);
+                            $altCode1    = extractTrackCode($desc1);
+                            $extractedGrades[] = [
+                                'code'       => $code1,
+                                'altCode'    => $altCode1,
+                                'title'      => $cleanTitle1 ?: $desc1,
+                                'grade'      => $grade1,
+                                'year_level' => $currentYearLevel,
+                                'semester'   => 1
+                            ];
                         }
                         if ($code2 && isValidGrade($grade2)) {
-                            $extractedGrades[] = ['code' => $code2, 'grade' => $grade2, 'year_level' => $currentYearLevel, 'semester' => 2];
+                            $cleanTitle2 = cleanSubjectTitle($desc2);
+                            $altCode2    = extractTrackCode($desc2);
+                            $extractedGrades[] = [
+                                'code'       => $code2,
+                                'altCode'    => $altCode2,
+                                'title'      => $cleanTitle2 ?: $desc2,
+                                'grade'      => $grade2,
+                                'year_level' => $currentYearLevel,
+                                'semester'   => 2
+                            ];
                         }
                     }
+
+                    // Sort grades descending (Highest Year & Sem first)
+                    usort($extractedGrades, function($a, $b) {
+                        if ($a['year_level'] === $b['year_level']) {
+                            return $b['semester'] <=> $a['semester'];
+                        }
+                        return $b['year_level'] <=> $a['year_level'];
+                    });
 
                     // Step C: Route to Resolution Modal or Preview Modal
                     if ($requiresResolution) {
@@ -331,10 +345,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
         $error = 'Session expired.';
     } else {
         $resPayload = json_decode($_POST['resolution_payload'], true);
-        // A matched student's radio button and the manual fallback field are two
-        // separate inputs now (they used to share a name, which let the empty
-        // manual field silently clobber a selected radio match). Prefer whichever
-        // one actually has a value, radio match first.
         $studentNo = trim($_POST['resolved_student_no'] ?? '');
         if (!$studentNo) {
             $studentNo = trim($_POST['resolved_student_no_manual'] ?? '');
@@ -343,9 +353,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
         if (!$studentNo) {
             $error = "Student Number is required to resolve the import.";
         } else {
-            // The admin now explicitly confirms the current year level/semester in
-            // the resolution modal (since a PEF-less file has no reliable source for
-            // this), instead of the app silently guessing/defaulting current_sem=1.
             $confirmedYearLevel = (int) ($_POST['confirmed_year_level'] ?? $resPayload['maxYearLevel'] ?? 0);
             $confirmedSemester  = (int) ($_POST['confirmed_semester'] ?? 1);
 
@@ -354,7 +361,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
                 'firstName'  => $resPayload['firstName'],
                 'middleName' => $resPayload['middleName'],
                 'lastName'   => $resPayload['lastName'],
-                'grades'     => $resPayload['grades'],
+                'grades'     => $resPayload['grades'], // Already sorted from step 4
                 'maxYearLevel' => $confirmedYearLevel ?: $resPayload['maxYearLevel'],
                 'enrolled_subjects' => $resPayload['enrolled_subjects'] ?? [],
                 'current_sy' => $resPayload['current_sy'] ?? '',
@@ -365,7 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
     }
 }
 
-// 5. CONFIRM IMPORT (DB Upsert includes Time Logic & Bug Fixes)
+// 5. CONFIRM IMPORT (DB Upsert with Dual-Code Elective Resolution)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm_import') {
     if (!checkCsrf()) {
         $error = 'Session expired.';
@@ -383,46 +390,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 if ($existing) {
                     $uid = $existing['id'];
                     $db->prepare("UPDATE users SET first_name=?, middle_name=?, last_name=? WHERE id=?")->execute([$payload['firstName'], $payload['middleName'], $payload['lastName'], $uid]);
-                    // BUG 6 FIXED: Explicitly enforce Course Locking on Update
                     $db->prepare("UPDATE student_profiles SET course=? WHERE user_id=?")->execute([LOCKED_COURSE, $uid]);
                 } else {
                     $db->prepare("INSERT INTO users (user_id, password_hash, role, first_name, middle_name, last_name) VALUES (?, ?, 'student', ?, ?, ?)")
                        ->execute([$payload['studentNo'], password_hash(LOCKED_PASSWORD, PASSWORD_DEFAULT), $payload['firstName'], $payload['middleName'], $payload['lastName']]);
                     $uid = $db->lastInsertId();
                     
-                    // BUG 5 & 6 FIXED: Dynamic Year Level integration, Explicit Course locking on Insert
                     $db->prepare("INSERT INTO student_profiles (user_id, student_number, course, year_level, status) VALUES (?, ?, ?, ?, 'Regular')")
                        ->execute([$uid, $payload['studentNo'], LOCKED_COURSE, $payload['maxYearLevel']]);
                 }
 
-                // -------------------------------------------------------------
-                // HISTORICAL GRADES UPSERT (is_current = 0)
-                // -------------------------------------------------------------
-                $stmtFindSubj = $db->prepare("SELECT id FROM subjects WHERE code = ? LIMIT 1");
-                $stmtCheckGrade = $db->prepare("SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 0");
+                // Query that finds subject by Primary Code or Alt Track Code
+                $stmtFindSubj = $db->prepare("SELECT id FROM subjects WHERE code = ? OR (code IS NOT NULL AND code = ?) LIMIT 1");
                 
-                // BUG 3 FIXED: Ensure risk_level is updated dynamically during UPSERT
+                $stmtCheckGrade = $db->prepare("SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 0");
                 $stmtUpdateGrade = $db->prepare("UPDATE grades SET final_grade = ?, risk_level = ?, school_year = ?, semester = ?, encoded_by = ? WHERE id = ?");
                 $stmtInsertGrade = $db->prepare("INSERT INTO grades (student_id, subject_id, final_grade, school_year, semester, is_current, risk_level, encoded_by) VALUES (?, ?, ?, ?, ?, 0, ?, ?)");
 
-                // A CC row whose school year/semester matches the student's CURRENT
-                // enrollment term needs to land in that current-term row (is_current = 1),
-                // not be filed away as history — otherwise the current semester's grade
-                // stays blank while a duplicate historical record gets the real grade.
                 $stmtCheckCurrentGrade  = $db->prepare("SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
                 $stmtUpdateCurrentGrade = $db->prepare("UPDATE grades SET final_grade = ?, risk_level = ?, encoded_by = ? WHERE id = ?");
                 $stmtInsertCurrentGrade = $db->prepare("INSERT INTO grades (student_id, subject_id, final_grade, school_year, semester, is_current, risk_level, encoded_by) VALUES (?, ?, ?, ?, ?, 1, ?, ?)");
 
                 $baseYear = 2000 + (int)substr($payload['studentNo'], 0, 2);
 
-                // Demote any row still flagged is_current=1 that does NOT belong to the
-                // just-confirmed current term. Without this, a subject that was ever
-                // wrongly marked "current" (e.g. from an earlier import before the term
-                // was confirmed correctly) stays stuck as current forever — every later
-                // import for that subject would just keep re-confirming it via the
-                // "primary signal" check below instead of ever recognizing the term has
-                // moved on. We UPDATE (not DELETE) so any real grade already recorded
-                // there is preserved, just correctly reclassified as history.
                 if (!empty($payload['maxYearLevel']) && !empty($payload['current_sem'])) {
                     $confirmedYearLevel = (int) $payload['maxYearLevel'];
                     $confirmedSemester  = (int) $payload['current_sem'];
@@ -437,40 +427,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     $schoolYearStart = $baseYear + ($item['year_level'] - 1);
                     $schoolYearString = $schoolYearStart . '-' . ($schoolYearStart + 1);
 
-                    $stmtFindSubj->execute([$item['code']]);
+                    $altCode = $item['altCode'] ?? null;
+                    $stmtFindSubj->execute([$item['code'], $altCode]);
                     if ($subj = $stmtFindSubj->fetch()) {
-                        // BUG 4 FIXED: Safely convert 'INC', 'P', 'DRP' to null to protect the DECIMAL column
                         $isNum = is_numeric($item['grade']);
                         $finalGrade = $isNum ? (float)$item['grade'] : null;
                         
-                        // BUG 2 FIXED: Dynamically compute Risk instead of hardcoding 'LOW'
                         $riskLevel = ($isNum && function_exists('computeRiskFromAvg')) ? computeRiskFromAvg($finalGrade) : 'LOW';
 
-                        // PRIMARY SIGNAL: if this subject already has a live current-term
-                        // (is_current = 1) row for the student, ANY freshly-imported grade
-                        // for it belongs there — full stop. This doesn't depend on
-                        // reconstructing/guessing a school year or semester from the
-                        // spreadsheet (which kept mismatching due to formatting/column
-                        // layout differences); it just asks the database what's actually
-                        // "current" right now for this student+subject.
                         $stmtCheckCurrentGrade->execute([$uid, $subj['id']]);
                         if ($currentGrade = $stmtCheckCurrentGrade->fetch()) {
                             $stmtUpdateCurrentGrade->execute([$finalGrade, $riskLevel, $user['id'], $currentGrade['id']]);
                             continue;
                         }
 
-                        // FALLBACK: no existing current row for this subject yet, but this
-                        // row's year_level/semester line up with the student's current term
-                        // (maxYearLevel = highest year level reached in the transcript) —
-                        // file it as a brand-new current-term record instead of history.
                         $isCurrentTerm = !empty($payload['current_sem']) && !empty($payload['maxYearLevel'])
                             && (int) $item['year_level'] === (int) $payload['maxYearLevel']
                             && (int) $item['semester'] === (int) $payload['current_sem'];
 
                         if ($isCurrentTerm) {
-                            // Prefer the raw current_sy text from the PEF sheet for a
-                            // brand-new current-term row, since we now know this row IS
-                            // the current term — it's more accurate than the reconstructed string.
                             $currentSyToStore = !empty($payload['current_sy']) ? $payload['current_sy'] : $schoolYearString;
                             $stmtInsertCurrentGrade->execute([$uid, $subj['id'], $finalGrade, $currentSyToStore, $item['semester'], $riskLevel, $user['id']]);
                             continue;
@@ -489,7 +464,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 // CURRENT ENROLLED SUBJECTS UPSERT (is_current = 1)
                 // -------------------------------------------------------------
                 if (!empty($payload['enrolled_subjects'])) {
-                    // Clean up stale current grades that belong to older semesters
                     if (!empty($payload['current_sy']) && !empty($payload['current_sem'])) {
                         $db->prepare("DELETE FROM grades WHERE student_id = ? AND is_current = 1 AND (school_year != ? OR semester != ?)")
                            ->execute([$uid, $payload['current_sy'], $payload['current_sem']]);
@@ -499,17 +473,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     $stmtInsertCurrent = $db->prepare("INSERT INTO grades (student_id, subject_id, school_year, semester, is_current, risk_level, encoded_by) VALUES (?, ?, ?, ?, 1, 'LOW', ?)");
 
                     foreach ($payload['enrolled_subjects'] as $subj) {
-                        $stmtFindSubj->execute([$subj['code']]);
+                        $altCode = $subj['altCode'] ?? null;
+                        $stmtFindSubj->execute([$subj['code'], $altCode]);
                         if ($dbSubj = $stmtFindSubj->fetch()) {
                             $stmtCheckCurrent->execute([$uid, $dbSubj['id']]);
-                            // If they are not already enrolled in this term, insert it. (Prevents wiping teacher's prelim grades if re-uploaded mid-term).
                             if (!$stmtCheckCurrent->fetch()) {
                                 $stmtInsertCurrent->execute([$uid, $dbSubj['id'], $payload['current_sy'], $payload['current_sem'], $user['id']]);
                             }
                         }
                     }
                     
-                    // Automatically update Profile Section based on PEF anchor
                     if (!empty($payload['current_section'])) {
                         $sec = trim($payload['current_section']);
                         if (preg_match('/^IT\s*(\d+)$/i', $sec, $m)) {
@@ -534,10 +507,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 // ---------------------------------------------------------
 $students = $db->query("SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa, u.first_name, u.middle_name, u.last_name, u.email FROM student_profiles sp JOIN users u ON u.id = sp.user_id ORDER BY sp.section, u.last_name, u.first_name")->fetchAll();
 
+// Fetch Title instead of Code for Student Profile Modal
 $gradeStmt = $db->query("SELECT g.student_id, s.code, s.title, g.prelim, g.final_grade, g.risk_level FROM grades g JOIN subjects s ON s.id = g.subject_id WHERE g.is_current = 1 ORDER BY g.student_id, s.code");
 $gradesByStudent = [];
 foreach ($gradeStmt->fetchAll() as $g) {
-    $gradesByStudent[$g['student_id']][] = ['code' => $g['code'], 'title' => $g['title'], 'prelim'=> $g['prelim'] !== null ? (float) $g['prelim'] : null, 'finalGrade' => $g['final_grade'] !== null ? (float) $g['final_grade'] : null, 'risk' => $g['risk_level']];
+    $gradesByStudent[$g['student_id']][] = [
+        'code'       => $g['code'],
+        'title'      => cleanSubjectTitle($g['title']),
+        'prelim'     => $g['prelim'] !== null ? (float) $g['prelim'] : null,
+        'finalGrade' => $g['final_grade'] !== null ? (float) $g['final_grade'] : null,
+        'risk'       => $g['risk_level']
+    ];
 }
 
 $predStmt = $db->query("SELECT p.student_id, p.predicted_gwa, p.risk_level, p.latin_honor FROM predictions p JOIN (SELECT student_id, MAX(generated_at) mx FROM predictions GROUP BY student_id) latest ON latest.student_id = p.student_id AND latest.mx = p.generated_at");
@@ -558,7 +538,11 @@ foreach ($histStmt->fetchAll() as $h) {
     $sid = $h['student_id'];
     $sy = $h['school_year'] ?? 'Unknown Year';
     $sem = $h['semester'];
-    $tempHistory[$sid][$sy][$sem][] = ['code' => $h['code'], 'title' => $h['title'], 'grade' => (float) $h['final_grade']];
+    $tempHistory[$sid][$sy][$sem][] = [
+        'code'  => $h['code'],
+        'title' => cleanSubjectTitle($h['title']),
+        'grade' => (float) $h['final_grade']
+    ];
 }
 
 $historyByStudent = [];
@@ -573,7 +557,6 @@ foreach ($tempHistory as $sid => $years) {
         }
         $yearLevel++;
     }
-    // Reverse array to put newest term (Y4) at the top of the UI
     $historyByStudent[$sid] = array_reverse($historyByStudent[$sid], true);
 }
 
@@ -641,6 +624,26 @@ require_once '../includes/sidebar.php';
 .modal-stat { background: var(--bg-color); border-radius: 8px; padding: 10px 12px; text-align: center; border: 1px solid var(--border-color); }
 .modal-stat span { display: block; font-size: 0.72rem; color: var(--text-gray); margin-bottom: 4px; }
 .modal-stat strong { font-size: 1.15rem; color: var(--text-dark); }
+
+/* Updated Modal Centering, Width, & Smooth Animations */
+.modal-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0, 0, 0, 0.5); z-index: 1000; 
+    display: flex; align-items: flex-start; justify-content: center; 
+    overflow-y: auto; padding: 40px 20px; 
+    opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; 
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+
+.modal-box { 
+    background: var(--card-bg); padding: 24px; border-radius: 12px; width: 100%; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; margin: auto; 
+    transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; 
+}
+.modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+
+.modal-close { position: absolute; top: 20px; right: 20px; background: none; border: 1px solid var(--border-color); color: var(--text-dark); cursor: pointer; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
+.modal-close:hover { background: var(--bg-color); }
 
 /* Drag & Drop UI */
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 40px 20px; text-align: center; background-color: var(--bg-color); cursor: pointer; transition: all 0.3s ease; position: relative; }
@@ -742,7 +745,7 @@ require_once '../includes/sidebar.php';
 
 <!-- MISSING ID RESOLUTION MODAL -->
 <?php if ($resolutionPayload): ?>
-<div class="modal-overlay open" style="display:flex;">
+<div class="modal-overlay open">
     <div class="modal-box" style="max-width: 500px;">
         <h2 style="color:var(--text-dark); margin-bottom:4px;">⚠️ Incomplete File Detected</h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">We found grades for <strong><?= htmlspecialchars($resolutionPayload['rawName']) ?></strong>, but the Student ID is missing from the file.</p>
@@ -792,8 +795,8 @@ require_once '../includes/sidebar.php';
 
 <!-- IMPORT PREVIEW MODAL -->
 <?php if ($previewPayload): ?>
-<div class="modal-overlay open" id="import-preview-modal" style="display:flex;">
-    <div class="modal-box" style="max-width: 650px;">
+<div class="modal-overlay open" id="import-preview-modal">
+    <div class="modal-box" style="max-width: 850px;">
         <button class="modal-close" onclick="document.getElementById('import-preview-modal').classList.remove('open');">✕ Cancel</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Review Import Data</h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">Verify the extracted Curriculum Checklist data below.</p>
@@ -808,23 +811,23 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">
+        <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; background: var(--card-bg);">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                <thead style="position: sticky; top: 0; background: var(--table-header-bg); z-index: 1; box-shadow: 0 1px 0 var(--border-color);">
+                <thead style="position: sticky; top: 0; z-index: 10;">
                     <tr>
-                        <th style="padding:10px; text-align:left; color:var(--text-dark);">Subject Code</th>
-                        <th style="padding:10px; text-align:left; color:var(--text-dark);">Calculated Term</th>
-                        <th style="padding:10px; text-align:left; color:var(--text-dark);">Final Grade</th>
-                        <th style="padding:10px; text-align:left; color:var(--text-dark);">Action</th>
+                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Subject Name</th>
+                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Calculated Term</th>
+                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Final Grade</th>
+                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <!-- Display Enrolled Subjects First -->
                     <?php if (!empty($previewPayload['enrolled_subjects'])): ?>
-                        <tr><td colspan="4" style="background: var(--bg-color); padding: 6px 10px; font-size:0.8rem; font-weight:700; color:var(--text-gray); border-bottom: 1px solid var(--border-color);">CURRENTLY ENROLLED (<?= htmlspecialchars($previewPayload['current_sy'] . ' | Sem ' . $previewPayload['current_sem'] . ' | ' . $previewPayload['current_section']) ?>)</td></tr>
+                        <tr><td colspan="4" style="background: rgba(108, 142, 239, 0.1); padding: 8px 10px; font-size:0.8rem; font-weight:700; color:var(--accent-blue); border-bottom: 1px solid var(--border-color);">CURRENTLY ENROLLED (<?= htmlspecialchars($previewPayload['current_sy'] . ' | Sem ' . $previewPayload['current_sem'] . ' | ' . $previewPayload['current_section']) ?>)</td></tr>
                         <?php foreach ($previewPayload['enrolled_subjects'] as $g): ?>
                             <tr style="border-bottom: 1px solid var(--border-color); background: rgba(5, 150, 105, 0.03);">
-                                <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['code']) ?></td>
+                                <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
                                 <td style="padding: 10px; color: var(--text-gray); font-size: 0.85rem;"><?= htmlspecialchars($previewPayload['current_sy'] . ' | Sem ' . $previewPayload['current_sem']) ?></td>
                                 <td style="padding: 10px; color: var(--accent-blue); font-weight:600;">Enrolled</td>
                                 <td style="padding: 10px; color: var(--risk-low); font-weight:600;">Ready</td>
@@ -834,7 +837,7 @@ require_once '../includes/sidebar.php';
 
                     <!-- Display Historical Grades Below -->
                     <?php if (!empty($previewPayload['grades'])): ?>
-                        <tr><td colspan="4" style="background: var(--bg-color); padding: 6px 10px; font-size:0.8rem; font-weight:700; color:var(--text-gray); border-bottom: 1px solid var(--border-color);">HISTORICAL GRADES</td></tr>
+                        <tr><td colspan="4" style="background: rgba(255,255,255,0.03); padding: 8px 10px; font-size:0.8rem; font-weight:700; color:var(--text-gray); border-bottom: 1px solid var(--border-color);">HISTORICAL GRADES</td></tr>
                         <?php 
                         $baseYear = 2000 + (int)substr($previewPayload['studentNo'], 0, 2);
                         foreach ($previewPayload['grades'] as $g): 
@@ -842,7 +845,7 @@ require_once '../includes/sidebar.php';
                             $syDisplay = $schoolYearStart . '-' . ($schoolYearStart + 1);
                         ?>
                             <tr style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['code']) ?></td>
+                                <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
                                 <td style="padding: 10px; color: var(--text-gray); font-size: 0.85rem;"><?= htmlspecialchars($syDisplay . ' | Sem ' . $g['semester']) ?></td>
                                 <td style="padding: 10px; color: var(--text-dark); font-weight:600;"><?= htmlspecialchars($g['grade']) ?></td>
                                 <td style="padding: 10px; color: var(--risk-low); font-weight:600;">Ready</td>
@@ -866,7 +869,7 @@ require_once '../includes/sidebar.php';
 
 <!-- STUDENT PROFILE MODAL -->
 <div class="modal-overlay" id="student-modal-overlay" onclick="if(event.target===this) closeStudentModal();">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 850px;">
         <button class="modal-close" onclick="closeStudentModal()">✕ Close</button>
         <h2 id="modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p id="modal-subline" style="color:var(--text-gray); font-size:0.88rem; margin-bottom:12px;"></p>
@@ -887,7 +890,7 @@ require_once '../includes/sidebar.php';
             <button type="button" id="modal-history-toggle" onclick="toggleHistory()" style="background:var(--bg-color); border:1px solid var(--border-color); color:var(--accent-blue); padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s ease;">
                 <span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History
             </button>
-            <div id="modal-history-wrapper" class="history-wrapper" style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease;">
+            <div id="modal-history-wrapper" class="history-wrapper" style="max-height: 0px; overflow: hidden; transition: max-height 0.4s ease;">
                 <div id="modal-history-container" style="padding-top: 10px;"></div>
             </div>
         </div>
@@ -896,7 +899,7 @@ require_once '../includes/sidebar.php';
 
 <!-- EDIT STUDENT MODAL -->
 <div class="modal-overlay" id="edit-modal-overlay" onclick="if(event.target===this) closeEditModal();">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 500px;">
         <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Edit Student</h2>
         <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">Name and status save immediately. Grades are not editable here.</p>
@@ -973,18 +976,40 @@ function renderPage() {
     const allRows = Array.from(document.querySelectorAll('#students-tbody tr'));
     const visible = allRows.filter(row => !term || row.dataset.search.includes(term));
     allRows.forEach(r => r.style.display = 'none');
+    
     const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
     currentPage = Math.min(currentPage, totalPages);
+    
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
 
     const bar = document.getElementById('pagination-bar');
     if (!bar) return;
-    let html = `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
-    for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++) {
+    
+    let html = '';
+    html += `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
+    
+    // Smart page numbering for large datasets (matches index.php)
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+        html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="color:var(--text-gray); margin: 0 4px;">...</span>`;
+    }
+    
+    for (let p = startPage; p <= endPage; p++) {
         html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
     }
-    html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button><span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">Showing ${visible.length} results</span>`;
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="color:var(--text-gray); margin: 0 4px;">...</span>`;
+        html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button>`;
+    html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">Showing ${visible.length} results</span>`;
+    
     bar.innerHTML = html;
 }
 function goToPage(p) { currentPage = p; renderPage(); }
@@ -1006,10 +1031,11 @@ function openStudentModal(uid) {
     document.getElementById('modal-grades-body').innerHTML = d.grades.length ? d.grades.map(g => {
         let numericGrade = g.prelim !== null ? parseFloat(g.prelim).toFixed(2) : '—';
         let finalGradeDisplay = g.finalGrade !== null ? parseFloat(g.finalGrade).toFixed(2) : 'In Progress';
-        return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color: var(--text-dark); padding: 8px;">${g.code}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${numericGrade}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${finalGradeDisplay}</td><td style="padding: 8px;"><span style="background:var(--risk-low); color:white; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td></tr>`
+        return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color: var(--text-dark); padding: 8px;">${g.title}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${numericGrade}</td><td style="font-weight:600; color: var(--text-dark); padding: 8px;">${finalGradeDisplay}</td><td style="padding: 8px;"><span style="background:var(--risk-low); color:white; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${g.risk || '—'}</span></td></tr>`
     }).join('') : '<tr><td colspan="4" style="text-align:center; color:var(--text-gray); padding:16px;">No current grades.</td></tr>';
     
-    document.getElementById('modal-history-wrapper').style.maxHeight = null;
+    // Explicitly reset max height to '0px'
+    document.getElementById('modal-history-wrapper').style.maxHeight = '0px';
     document.getElementById('modal-history-container').innerHTML = '';
     document.getElementById('modal-history-toggle').innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History';
     document.getElementById('student-modal-overlay').classList.add('open');
@@ -1020,15 +1046,16 @@ function toggleHistory() {
     const container = document.getElementById('modal-history-container');
     const btn = document.getElementById('modal-history-toggle');
     
-    if (wrapper.style.maxHeight) {
-        wrapper.style.maxHeight = null;
+    // Fix: Explicitly check against '0px' to ensure toggle works perfectly
+    if (wrapper.style.maxHeight && wrapper.style.maxHeight !== '0px') {
+        wrapper.style.maxHeight = '0px';
         btn.innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History';
     } else {
         if (!container.innerHTML) {
             const terms = Object.keys(studentModalData[currentModalUid].history || {});
-            container.innerHTML = terms.length ? terms.map(term => `<div style="margin-bottom:14px;"><div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div><table style="width:100%; border-collapse: collapse;"><thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="text-align:left; padding: 8px; color:var(--text-dark);">Subject</th><th style="text-align:left; padding: 8px; color:var(--text-dark);">Final Grade</th></tr></thead><tbody>${studentModalData[currentModalUid].history[term].map(g => {
+            container.innerHTML = terms.length ? terms.map(term => `<div style="margin-bottom:14px;"><div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div><table style="width:100%; border-collapse: collapse;"><thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="text-align:left; padding: 8px; color:var(--text-dark);">Subject Name</th><th style="text-align:left; padding: 8px; color:var(--text-dark);">Final Grade</th></tr></thead><tbody>${studentModalData[currentModalUid].history[term].map(g => {
                 let dispGrade = isNaN(g.grade) || g.grade === null ? (g.grade || '—') : parseFloat(g.grade).toFixed(2);
-                return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color:var(--text-dark); padding: 8px;">${g.code}</td><td style="font-weight:600; color:var(--text-dark); padding: 8px;">${dispGrade}</td></tr>`
+                return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color:var(--text-dark); padding: 8px;">${g.title}</td><td style="font-weight:600; color:var(--text-dark); padding: 8px;">${dispGrade}</td></tr>`
             }).join('')}</tbody></table></div>`).join('') : '<p style="color:var(--text-gray); font-size:0.85rem; text-align:center;">No historical grades on record.</p>';
         }
         wrapper.style.maxHeight = container.scrollHeight + "px";
