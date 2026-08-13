@@ -206,4 +206,32 @@ function getCurrentTerm(?DateTimeInterface $asOf = null): array {
 
     return ['school_year' => $schoolYear, 'semester' => $semester];
 }
-?>
+
+// --- Grade Validation & Formatting ----------------------------------------
+function isValidGrade($val) {
+    if ($val === '') return false;
+    $valStr = strtoupper(trim((string)$val));
+    if (in_array($valStr, ['P', 'PASSED', 'INC', 'DRP'])) return true;
+    
+    if (is_numeric($val)) {
+        $f = (float)$val;
+        if ($f >= 1.00 && $f <= 4.00) {
+            $step = (int)round($f * 100);
+            if ($step % 25 === 0) return true;
+        }
+    }
+    return false;
+}
+
+// Clean prefixes like "SD353 Software Development" -> "Software Development"
+function cleanSubjectTitle($rawTitle) {
+    return trim(preg_replace('/^(SD|CY|DS|ITE)\d{3}\s*/i', '', $rawTitle));
+}
+
+// Extract track code if embedded in title (e.g. "SD353 Software Development" -> "SD353")
+function extractTrackCode($rawTitle) {
+    if (preg_match('/^(SD|CY|DS|ITE)\d{3}/i', trim($rawTitle), $m)) {
+        return strtoupper($m[0]);
+    }
+    return null;
+}

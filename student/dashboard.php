@@ -155,8 +155,7 @@ $pageTitle = 'Dashboard';
 $navItems = [
     ['Home',               'index.php',     '🏠'],
     ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Academic History',   'history.php',   '📚'],
+    ['Grades & History',   'grades.php',    '📝'],
     ['Performance Trend',  'trend.php',     '📈'],
     ['Feedback & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
