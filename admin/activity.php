@@ -21,7 +21,7 @@ try {
 }
 
 // ---------------------------------------------------------
-// POST HANDLERS (Unified Inbox Actions)
+// POST HANDLERS (Unified Inbox & Batch Approvals)
 // ---------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!checkCsrf()) {
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = $newStatus === 'resolved' ? 'Report marked as resolved.' : 'Report rejected.';
         }
         
-        // 2. Handle Pending Corrections
+        // 2. Handle Pending Individual Corrections
         elseif (in_array($action, ['confirm_correction', 'reject_correction'])) {
             $corrId = (int)$_POST['correction_id'];
             $stmt = $db->prepare("SELECT * FROM pending_corrections WHERE id = ? AND status = 'pending'");
@@ -57,28 +57,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->beginTransaction();
                     $column = $corr['field_changed']; 
                     $logTargetId = $corr['target_id'];
-                    $logTargetType = 'student'; // Default for current correction types
 
-                    // Route the update to the correct table based on target_type
                     if (in_array($corr['target_type'], ['student_section', 'student_year_level'])) {
-                        $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")
-                           ->execute([$corr['new_value'], $corr['target_id']]);
-                    } elseif ($corr['target_type'] === 'grade' || strpos($corr['target_type'], 'grade') !== false) {
-                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")
-                           ->execute([$corr['new_value'], $corr['target_id']]);
-                        // For grades, target_id is the grades.id, so we need to fetch the actual student's user_id for the audit log
+                        $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
+                    } elseif (strpos($corr['target_type'], 'grade') !== false) {
+                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$corr['new_value'], $corr['target_id']]);
                         $gradeRow = $db->query("SELECT student_id FROM grades WHERE id = " . (int)$corr['target_id'])->fetch();
                         if ($gradeRow) $logTargetId = $gradeRow['student_id'];
                     }
 
-                    // Mark as confirmed
-                    $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")
-                       ->execute([$user['id'], $corrId]);
+                    $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
                        
-                    // Record in permanent audit log with the reason
                     $note = 'Confirmed correction' . ($corr['reason'] ? ': ' . $corr['reason'] : '');
-                    $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                       ->execute([$user['id'], $logTargetType, $logTargetId, $column, $corr['old_value'], $corr['new_value'], $note]);
+                    $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)")
+                       ->execute([$user['id'], $logTargetId, $column, $corr['old_value'], $corr['new_value'], $note]);
                     
                     $db->commit();
                     $success = 'Correction confirmed and officially reflected.';
@@ -88,55 +80,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        
+        // 3. Handle Pending Batch Grades (Approve or Reject)
+        elseif ($action === 'approve_batch' || $action === 'reject_batch') {
+            $batchId = (int)$_POST['batch_id'];
+            
+            $stmt = $db->prepare("SELECT * FROM pending_grade_batches WHERE id = ? AND status = 'pending'");
+            $stmt->execute([$batchId]);
+            $batch = $stmt->fetch();
+            
+            if (!$batch) {
+                $error = 'Grade batch not found or already processed.';
+            } elseif ($action === 'reject_batch') {
+                $db->prepare("UPDATE pending_grade_batches SET status='rejected', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
+                $success = 'Grade batch rejected. No grades were updated.';
+            } else {
+                // Approve Batch (with Admin Spot-Edits applied)
+                $approvedGrades = $_POST['approved_grades'] ?? []; // The potentially edited numbers from the modal
+                $payload = json_decode($batch['payload'], true);
+                $termType = $batch['term_type'];
+                
+                try {
+                    $db->beginTransaction();
+                    $getGradeStmt = $db->prepare("SELECT id, `$termType` FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
+                    $updateGradeStmt = $db->prepare("UPDATE grades SET `$termType` = ? WHERE id = ?");
+                    $logStmt = $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)");
+
+                    foreach ($payload as $item) {
+                        $sid = (int)$item['student_id'];
+                        $facultyProposed = $item['grade'];
+                        $reason = $item['reason'];
+                        
+                        // If admin edited the field in the modal, use it; otherwise fall back to faculty proposal
+                        $finalGrade = trim($approvedGrades[$sid] ?? $facultyProposed);
+                        
+                        $getGradeStmt->execute([$sid, $batch['subject_id']]);
+                        $gradeRow = $getGradeStmt->fetch();
+                        
+                        if ($gradeRow && $finalGrade !== '') {
+                            $oldVal = $gradeRow[$termType] ?? '(empty)';
+                            $updateGradeStmt->execute([$finalGrade, $gradeRow['id']]);
+                            
+                            $note = 'Batch Approval: ' . $reason;
+                            if ($finalGrade !== $facultyProposed) {
+                                $note .= " (Admin modified from proposed $facultyProposed)";
+                            }
+                            
+                            $logStmt->execute([$user['id'], $sid, "grade_{$termType}", $oldVal, $finalGrade, $note]);
+                        }
+                    }
+                    
+                    $db->prepare("UPDATE pending_grade_batches SET status='approved', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
+                    $db->commit();
+                    $success = 'Batch successfully approved and grades have been updated.';
+                } catch (PDOException $e) {
+                    $db->rollBack();
+                    $error = 'Could not approve batch: ' . $e->getMessage();
+                }
+            }
+        }
     }
 }
 
-// 1. Fetch Feedback Inbox (Open Reports)
-$stmtFeed = $db->query("
-    SELECT f.*, u.first_name, u.last_name, u.role, u.user_id AS identifier, s.code AS subj_code,
-           sp.section
+// ---------------------------------------------------------
+// DATA FETCHING
+// ---------------------------------------------------------
+// Fetch Student Dictionary for Name Lookups in JSON payload
+$allStudents = $db->query("SELECT u.id, sp.student_number, u.first_name, u.middle_name, u.last_name FROM users u JOIN student_profiles sp ON u.id = sp.user_id")->fetchAll();
+$studentDict = [];
+foreach ($allStudents as $st) {
+    $studentDict[$st['id']] = [
+        'no' => $st['student_number'],
+        'name' => formatNameLastFirst($st['first_name'], $st['middle_name'], $st['last_name'])
+    ];
+}
+
+// 1. Fetch Open Reports
+$feedback = $db->query("
+    SELECT f.*, u.first_name, u.last_name, u.role, u.user_id AS identifier, s.code AS subj_code, sp.section
     FROM feedback_reports f
     JOIN users u ON u.id = f.submitted_by
     LEFT JOIN subjects s ON s.id = f.subject_id
     LEFT JOIN student_profiles sp ON sp.user_id = f.submitted_by
-    WHERE f.status = 'open'
-    ORDER BY f.created_at DESC
-");
-$feedback = $stmtFeed->fetchAll();
+    WHERE f.status = 'open' ORDER BY f.created_at DESC
+")->fetchAll();
 
-// 2. Fetch Feedback History (Resolved & Rejected from Last 30 Days)
-$stmtHistory = $db->query("
-    SELECT f.*, u.first_name, u.last_name, u.role, u.user_id AS identifier, s.code AS subj_code,
-           ru.first_name AS r_first, ru.last_name AS r_last
+// 2. Fetch History Reports
+$historyFeedback = $db->query("
+    SELECT f.*, u.first_name, u.last_name, u.role, u.user_id AS identifier, s.code AS subj_code, ru.first_name AS r_first, ru.last_name AS r_last
     FROM feedback_reports f
     JOIN users u ON u.id = f.submitted_by
     LEFT JOIN subjects s ON s.id = f.subject_id
     LEFT JOIN users ru ON ru.id = f.resolved_by
-    WHERE f.status IN ('resolved', 'rejected')
-    ORDER BY f.resolved_at DESC
-");
-$historyFeedback = $stmtHistory->fetchAll();
+    WHERE f.status IN ('resolved', 'rejected') ORDER BY f.resolved_at DESC
+")->fetchAll();
 
-// 3. Fetch Pending Corrections (Admin proposed, awaiting confirm)
-$stmtPend = $db->query("
-    SELECT pc.*, u.first_name, u.last_name, 
-           au.first_name AS a_first, au.last_name AS a_last
+// 3. Fetch Pending Individual Corrections
+$pending = $db->query("
+    SELECT pc.*, u.first_name, u.last_name, au.first_name AS a_first, au.last_name AS a_last
     FROM pending_corrections pc
     JOIN users au ON au.id = pc.proposed_by
     LEFT JOIN users u ON u.id = pc.target_id AND pc.target_type != 'grade'
-    WHERE pc.status = 'pending'
-    ORDER BY pc.proposed_at DESC
-");
-$pending = $stmtPend->fetchAll();
+    WHERE pc.status = 'pending' ORDER BY pc.proposed_at DESC
+")->fetchAll();
 
-// 4. Fetch Admin Change Log (Permanent Audit Trail)
-$stmtLog = $db->query("
+// 4. Fetch Pending Batch Grades
+$pendingBatches = $db->query("
+    SELECT pgb.*, u.first_name, u.last_name, s.code AS subj_code, s.title AS subj_title
+    FROM pending_grade_batches pgb
+    JOIN users u ON u.id = pgb.faculty_id
+    JOIN subjects s ON s.id = pgb.subject_id
+    WHERE pgb.status = 'pending' ORDER BY pgb.submitted_at ASC
+")->fetchAll();
+
+// 5. Fetch Permanent Audit Log
+$logs = $db->query("
     SELECT acl.*, au.first_name AS a_first, au.last_name AS a_last
     FROM admin_change_log acl
     JOIN users au ON au.id = acl.admin_id
     ORDER BY acl.created_at DESC LIMIT 50
-");
-$logs = $stmtLog->fetchAll();
+")->fetchAll();
 
 $pageTitle = 'Activity & Inbox';
 $navItems = [
@@ -153,6 +216,28 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
+<style>
+/* Modal styling for Admin Review */
+.modal-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0, 0, 0, 0.5); z-index: 1000; 
+    display: flex; align-items: flex-start; justify-content: center; 
+    overflow-y: auto; padding: 40px 20px; 
+    opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; 
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+
+.modal-box { 
+    background: var(--card-bg); padding: 24px; border-radius: 12px; width: 100%; max-width: 800px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; margin: auto; 
+    transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; 
+}
+.modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+
+.modal-close { position: absolute; top: 20px; right: 20px; background: none; border: 1px solid var(--border-color); color: var(--text-dark); cursor: pointer; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
+.modal-close:hover { background: var(--bg-color); }
+</style>
+
 <div class="main-content">
     <div class="header" style="margin-bottom: 24px;">
         <div>
@@ -168,7 +253,7 @@ require_once '../includes/sidebar.php';
         <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low);"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
-    <!-- Feedback Inbox Panel -->
+    <!-- 1. OPEN FEEDBACK INBOX (Top Row) -->
     <div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden;">
         <div style="display:flex; align-items:center; gap:8px; padding: 20px 24px 16px;">
             <h3 style="color: var(--text-dark); font-size: 1.1rem; font-weight: 700; margin:0;">Inbox: Open Feedback Reports</h3>
@@ -204,11 +289,11 @@ require_once '../includes/sidebar.php';
                                 <span style="font-size: 0.75rem; color:var(--text-gray); font-weight:normal;"><?= htmlspecialchars($f['subj_code'] ?? '') ?></span>
                             </td>
                             <td style="padding: 12px 24px; color: var(--text-gray); max-width: 250px; vertical-align: top; border-bottom: 1px solid var(--border-color);"><?= nl2br(htmlspecialchars($f['message'])) ?></td>
-                            <td style="padding: 12px 24px; text-align:right; white-space:nowrap; vertical-align: top; border-bottom: 1px solid var(--border-color);">
-                                <?php if ($f['category'] === 'grade_concern'): ?>
-                                    <a href="grades.php?open_section=<?= urlencode($f['section'] ?? '') ?>&open_student=<?= $f['submitted_by'] ?>&feedback_id=<?= $f['id'] ?>" style="background:var(--accent-blue); color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:600; display:inline-block; margin-bottom:8px; transition: opacity 0.2s;">Propose Fix</a><br>
-                                <?php endif; ?>
-                                <div style="display:flex; justify-content: flex-end; gap: 8px;">
+                            <td style="padding: 12px 24px; text-align:right; vertical-align: top; border-bottom: 1px solid var(--border-color);">
+                                <div style="display:flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <?php if ($f['category'] === 'grade_concern'): ?>
+                                        <a href="grades.php?open_section=<?= urlencode($f['section'] ?? '') ?>&open_student=<?= $f['submitted_by'] ?>&feedback_id=<?= $f['id'] ?>" style="background:var(--accent-blue); color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:600; transition: opacity 0.2s;">Propose Fix</a>
+                                    <?php endif; ?>
                                     <form method="POST" action="activity.php" onsubmit="return confirm('Mark this report as resolved?');" style="margin:0;">
                                         <input type="hidden" name="action" value="resolve_feedback">
                                         <input type="hidden" name="feedback_id" value="<?= $f['id'] ?>">
@@ -231,13 +316,109 @@ require_once '../includes/sidebar.php';
         <?php endif; ?>
     </div>
 
-    <!-- Closed Feedback History (30 Days) -->
-    <div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 350px;">
+    <!-- 2. PENDING APPROVALS GRID (Side by Side) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 24px;">
+        
+        <!-- Pending Grade Batches Panel -->
+        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Pending Grade Batches</h3>
+                <?php if (count($pendingBatches) > 0): ?>
+                    <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pendingBatches) ?> Awaiting Approval</span>
+                <?php endif; ?>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto; padding: 0;">
+                <?php if (empty($pendingBatches)): ?>
+                    <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No faculty grade batches pending.</p>
+                <?php else: ?>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <tbody>
+                            <?php foreach ($pendingBatches as $b): 
+                                $payloadData = json_decode($b['payload'], true);
+                                $recordCount = count($payloadData);
+                            ?>
+                            <tr>
+                                <td style="padding: 16px 24px; border-bottom: 1px solid var(--border-color);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 16px;">
+                                        <div>
+                                            <span style="font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars($b['subj_code']) ?> — <?= htmlspecialchars($b['section']) ?></span><br>
+                                            <span style="color:var(--text-dark); font-size: 0.9rem; display: inline-block; margin: 4px 0;"><strong><?= ucfirst($b['term_type']) ?></strong> Grades</span><br>
+                                            <span style="font-size:0.75rem; color:var(--text-gray);">Submitted by Prof. <?= htmlspecialchars($b['first_name'] . ' ' . $b['last_name']) ?></span>
+                                        </div>
+                                        <div>
+                                            <span style="display:block; text-align:right; font-size:0.75rem; color:var(--text-gray); margin-bottom:8px;"><?= $recordCount ?> student record(s)</span>
+                                            <button onclick="document.getElementById('batch-modal-<?= $b['id'] ?>').classList.add('open')" style="background:rgba(30, 77, 183, 0.1); color:var(--accent-blue); border:1px solid rgba(30, 77, 183, 0.2); padding:6px 12px; border-radius:6px; font-weight:600; font-size:0.8rem; cursor:pointer; transition: all 0.2s;">Review Batch</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Pending Corrections Panel (Individual) -->
+        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Pending Corrections (Individual)</h3>
+                <?php if (count($pending) > 0): ?>
+                    <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> Awaiting Approval</span>
+                <?php endif; ?>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto; padding: 0;">
+                <?php if (empty($pending)): ?>
+                    <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No individual corrections pending.</p>
+                <?php else: ?>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <tbody>
+                            <?php foreach ($pending as $p): ?>
+                            <tr>
+                                <td style="padding: 16px 24px; border-bottom: 1px solid var(--border-color);">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 16px;">
+                                        <div>
+                                            <span style="font-weight:600; color:var(--risk-mod);"><?= htmlspecialchars(str_replace('_', ' ', strtoupper($p['target_type']))) ?>: <?= htmlspecialchars(strtoupper($p['field_changed'])) ?></span><br>
+                                            <span style="color:var(--text-gray); font-size: 0.9rem; display: inline-block; margin: 4px 0;"><?= htmlspecialchars($p['old_value'] ?: '(empty)') ?> &rarr; <strong style="color:var(--text-dark);"><?= htmlspecialchars($p['new_value']) ?></strong></span><br>
+                                            <span style="font-size:0.75rem; color:var(--text-gray);">Proposed by <?= htmlspecialchars($p['a_first'] . ' ' . $p['a_last']) ?></span>
+                                        </div>
+                                        <div style="display:flex; gap: 8px;">
+                                            <form method="POST" action="activity.php" onsubmit="return confirm('Confirm this correction and apply it to the database?');" style="margin:0;">
+                                                <input type="hidden" name="action" value="confirm_correction">
+                                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                                <button type="submit" style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); border:1px solid rgba(5, 150, 105, 0.3); padding:6px 12px; border-radius:6px; font-weight:600; font-size:0.8rem; cursor:pointer; font-family:inherit; transition: all 0.2s;">Confirm</button>
+                                            </form>
+                                            <form method="POST" action="activity.php" onsubmit="return confirm('Reject this correction?');" style="margin:0;">
+                                                <input type="hidden" name="action" value="reject_correction">
+                                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                                <button type="submit" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); border:1px solid rgba(220, 38, 38, 0.3); padding:6px 12px; border-radius:6px; font-weight:600; font-size:0.8rem; cursor:pointer; font-family:inherit; transition: all 0.2s;">Reject</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    <?php if ($p['reason']): ?>
+                                        <div style="margin-top: 8px; padding: 8px 12px; background: var(--bg-color); border-radius: 6px; font-size: 0.8rem; color: var(--text-gray); border-left: 3px solid var(--border-color);">
+                                            <strong>Reason:</strong> <?= htmlspecialchars($p['reason']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. CLOSED FEEDBACK HISTORY (Full Width Row) -->
+    <div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
         <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Closed Feedback History</h3>
             <span style="font-size: 0.8rem; color: var(--text-gray);">Last 30 Days</span>
         </div>
-        <div style="overflow-y: auto; padding: 0;">
+        <div style="max-height: 350px; overflow-y: auto; padding: 0;">
             <?php if (empty($historyFeedback)): ?>
                 <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No closed feedback in the last 30 days.</p>
             <?php else: ?>
@@ -281,85 +462,90 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
-        <!-- Pending Corrections Panel -->
-        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 500px;">
-            <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Pending Corrections</h3>
-                <?php if (count($pending) > 0): ?>
-                    <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;"><?= count($pending) ?> Awaiting Approval</span>
-                <?php endif; ?>
-            </div>
-            <div style="overflow-y: auto; padding: 0;">
-                <?php if (empty($pending)): ?>
-                    <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No pending corrections.</p>
-                <?php else: ?>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                        <tbody>
-                            <?php foreach ($pending as $p): ?>
-                            <tr>
-                                <td style="padding: 16px 24px; border-bottom: 1px solid var(--border-color);">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 16px;">
-                                        <div>
-                                            <span style="font-weight:600; color:var(--risk-mod);"><?= htmlspecialchars(str_replace('_', ' ', strtoupper($p['target_type']))) ?>: <?= htmlspecialchars(strtoupper($p['field_changed'])) ?></span><br>
-                                            <span style="color:var(--text-gray); font-size: 0.9rem; display: inline-block; margin: 4px 0;"><?= htmlspecialchars($p['old_value'] ?: '(empty)') ?> &rarr; <strong style="color:var(--text-dark);"><?= htmlspecialchars($p['new_value']) ?></strong></span><br>
-                                            <span style="font-size:0.75rem; color:var(--text-gray);">Proposed by <?= htmlspecialchars($p['a_first'] . ' ' . $p['a_last']) ?></span>
-                                        </div>
-                                        <div style="display:flex; gap: 8px;">
-                                            <form method="POST" action="activity.php" onsubmit="return confirm('Confirm this correction and apply it to the database?');" style="margin:0;">
-                                                <input type="hidden" name="action" value="confirm_correction">
-                                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                                                <button type="submit" style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); border:1px solid rgba(5, 150, 105, 0.3); padding:6px 12px; border-radius:6px; font-weight:600; font-size:0.8rem; cursor:pointer; font-family:inherit; transition: all 0.2s;">Confirm</button>
-                                            </form>
-                                            <form method="POST" action="activity.php" onsubmit="return confirm('Reject this correction?');" style="margin:0;">
-                                                <input type="hidden" name="action" value="reject_correction">
-                                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                                                <button type="submit" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); border:1px solid rgba(220, 38, 38, 0.3); padding:6px 12px; border-radius:6px; font-weight:600; font-size:0.8rem; cursor:pointer; font-family:inherit; transition: all 0.2s;">Reject</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                    <?php if ($p['reason']): ?>
-                                        <div style="margin-top: 8px; padding: 8px 12px; background: var(--bg-color); border-radius: 6px; font-size: 0.8rem; color: var(--text-gray); border-left: 3px solid var(--border-color);">
-                                            <strong>Reason:</strong> <?= htmlspecialchars($p['reason']) ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
+    <!-- 4. SYSTEM AUDIT LOG (Full Width Row, Bottom) -->
+    <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">System Audit Log</h3>
+            <span style="font-size: 0.8rem; color: var(--risk-high); font-weight: 600;">Permanent Record</span>
         </div>
+        <div style="max-height: 400px; overflow-y: auto; padding: 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <tbody>
+                    <?php foreach ($logs as $l): ?>
+                    <tr>
+                        <td style="padding: 12px 16px; width: 70px; color: var(--text-gray); vertical-align: top; border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);"><?= date('M j', strtotime($l['created_at'])) ?></td>
+                        <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
+                            <span style="font-weight:600; color:var(--text-dark);"><?= htmlspecialchars($l['a_first'] . ' ' . $l['a_last']) ?></span> modified <span style="font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars($l['target_type']) ?></span><br>
+                            <span style="color:var(--text-gray);"><?= htmlspecialchars($l['field_changed']) ?>: <?= htmlspecialchars($l['old_value'] ?? '(empty)') ?> &rarr; <strong style="color:var(--text-dark);"><?= htmlspecialchars($l['new_value']) ?></strong></span>
+                            <?php if ($l['note']): ?>
+                                <br><span style="font-size:0.75rem; color:var(--text-gray); display: inline-block; margin-top: 6px; padding: 4px 8px; background: var(--bg-color); border-radius: 4px;">Note: <?= htmlspecialchars($l['note']) ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-        <!-- Audit Log Panel (Permanent) -->
-        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 500px;">
-            <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">System Audit Log</h3>
-                <span style="font-size: 0.8rem; color: var(--risk-high); font-weight: 600;">Permanent Record</span>
-            </div>
-            <div style="overflow-y: auto; padding: 0;">
+</div>
+
+<!-- Modals for Batch Reviews (Rendered outside layout grid) -->
+<?php foreach ($pendingBatches as $b): 
+    $payloadData = json_decode($b['payload'], true);
+?>
+<div class="modal-overlay" id="batch-modal-<?= $b['id'] ?>" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="modal-box">
+        <button type="button" class="modal-close" onclick="document.getElementById('batch-modal-<?= $b['id'] ?>').classList.remove('open')">✕ Close</button>
+        <h2 style="color:var(--text-dark); margin-bottom:4px;">Review Grade Batch</h2>
+        <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
+            Submitted by Prof. <?= htmlspecialchars($b['first_name'] . ' ' . $b['last_name']) ?> <br>
+            <strong><?= htmlspecialchars($b['subj_code']) ?> — <?= htmlspecialchars($b['section']) ?> (<?= ucfirst($b['term_type']) ?>)</strong>
+        </p>
+
+        <form method="POST" action="activity.php">
+            <input type="hidden" name="action" value="approve_batch">
+            <input type="hidden" name="batch_id" value="<?= $b['id'] ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+
+            <div style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:8px; overflow:hidden; margin-bottom:20px; max-height:400px; overflow-y:auto;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                    <tbody>
-                        <?php foreach ($logs as $l): ?>
+                    <thead style="position: sticky; top: 0; background: var(--table-header-bg); z-index: 10;">
                         <tr>
-                            <td style="padding: 12px 16px; width: 70px; color: var(--text-gray); vertical-align: top; border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);"><?= date('M j', strtotime($l['created_at'])) ?></td>
-                            <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
-                                <span style="font-weight:600; color:var(--text-dark);"><?= htmlspecialchars($l['a_first'] . ' ' . $l['a_last']) ?></span> modified <span style="font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars($l['target_type']) ?></span><br>
-                                <span style="color:var(--text-gray);"><?= htmlspecialchars($l['field_changed']) ?>: <?= htmlspecialchars($l['old_value'] ?? '(empty)') ?> &rarr; <strong style="color:var(--text-dark);"><?= htmlspecialchars($l['new_value']) ?></strong></span>
-                                <?php if ($l['note']): ?>
-                                    <br><span style="font-size:0.75rem; color:var(--text-gray); display: inline-block; margin-top: 6px; padding: 4px 8px; background: var(--bg-color); border-radius: 4px;">Note: <?= htmlspecialchars($l['note']) ?></span>
-                                <?php endif; ?>
+                            <th style="padding: 10px 16px; text-align: left; color: var(--text-dark); border-bottom: 1px solid var(--border-color);">Student</th>
+                            <th style="padding: 10px 16px; text-align: left; color: var(--text-dark); border-bottom: 1px solid var(--border-color);">Proposed Grade</th>
+                            <th style="padding: 10px 16px; text-align: left; color: var(--text-dark); border-bottom: 1px solid var(--border-color);">Reason Provided</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($payloadData as $item): 
+                            $studentInfo = $studentDict[$item['student_id']] ?? ['no' => 'Unknown', 'name' => 'Unknown Student'];
+                        ?>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 16px;">
+                                <strong style="color:var(--text-dark);"><?= htmlspecialchars($studentInfo['name']) ?></strong><br>
+                                <span style="font-size:0.75rem; color:var(--text-gray);"><?= htmlspecialchars($studentInfo['no']) ?></span>
+                            </td>
+                            <td style="padding: 10px 16px;">
+                                <!-- Spot Editing Input -->
+                                <input type="text" name="approved_grades[<?= $item['student_id'] ?>]" value="<?= htmlspecialchars($item['grade']) ?>" style="width: 70px; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-dark); text-align: center; font-weight: bold;">
+                            </td>
+                            <td style="padding: 10px 16px; color:var(--text-gray);">
+                                <?= htmlspecialchars($item['reason']) ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            <div style="display:flex; justify-content: flex-end; gap: 12px;">
+                <button type="submit" formaction="activity.php" name="action" value="reject_batch" onclick="return confirm('Reject this entire batch?');" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); border:1px solid rgba(220, 38, 38, 0.3); padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; transition: all 0.2s;">Reject Batch</button>
+                <button type="submit" onclick="return confirm('Approve these grades and write them to the database?');" style="background:var(--accent-blue); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; transition: all 0.2s;">Approve & Apply</button>
+            </div>
+        </form>
     </div>
 </div>
+<?php endforeach; ?>
 
 <?php require_once '../includes/footer.php'; ?>

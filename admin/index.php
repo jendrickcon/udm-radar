@@ -141,6 +141,19 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <!-- Admin ML Batch Trigger (Properly Placed) -->
+    <div class="card" style="padding: 20px; border-left: 5px solid var(--accent-blue); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h3 style="margin: 0 0 5px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">System-Wide AI Analysis</h3>
+            <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem;">
+                Recalculate Decision Tree predictions and risk levels for all active students.
+            </p>
+        </div>
+        <button id="runBatchBtn" onclick="runBatchPredictions()" style="background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-family: inherit; cursor: pointer; transition: opacity 0.2s;">
+            ▶ Run Batch Predictions
+        </button>
+    </div>
+
     <div class="card">
         <form method="GET" action="index.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
             <label style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Year Level:</label>
@@ -233,6 +246,18 @@ require_once '../includes/sidebar.php';
                 <?php foreach ($students as $s):
                     $riskRaw = $s['risk_level'] !== null ? strtoupper($s['risk_level']) : 'NA';
                     $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
+                    
+                    // Admin Tooltip Logic
+                    $adminTooltip = "";
+                    if ($riskRaw === 'HIGH') {
+                        $adminTooltip = "High Risk: Student is statistically likely to face academic delays based on historical failures or a low GWA trajectory.";
+                    } elseif ($riskRaw === 'MODERATE') {
+                        $adminTooltip = "Moderate Risk: Student is approaching delay thresholds and should be monitored.";
+                    } elseif ($riskRaw === 'LOW') {
+                        $adminTooltip = "Low Risk: Student is currently maintaining a safe academic trajectory.";
+                    } else {
+                        $adminTooltip = "No Prediction Yet: The model requires more data to generate a risk profile.";
+                    }
                 ?>
                 <tr data-search="<?= htmlspecialchars($searchBlob) ?>">
                     <td data-sort="<?= htmlspecialchars($s['student_number']) ?>"><?= htmlspecialchars($s['student_number']) ?></td>
@@ -242,7 +267,38 @@ require_once '../includes/sidebar.php';
                     <td data-sort="<?= $s['current_gwa'] !== null ? (float) $s['current_gwa'] : '' ?>" style="font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
                     <td data-sort="<?= $s['predicted_gwa'] !== null ? (float) $s['predicted_gwa'] : '' ?>" style="font-weight: 600;"><?= $s['predicted_gwa'] !== null ? number_format($s['predicted_gwa'], 2) : '<span style="color: var(--text-gray);">N/A</span>' ?></td>
                     <td data-sort="<?= htmlspecialchars($s['status'] ?? 'Regular') ?>"><?= htmlspecialchars($s['status'] ?? 'Regular') ?></td>
-                    <td data-sort="<?= $riskRaw ?>"><span class="badge <?= $riskBadgeClass($s['risk_level']) ?>"><?= $s['risk_level'] !== null ? htmlspecialchars(ucfirst(strtolower($s['risk_level']))) : 'N/A' ?></span></td>
+                    
+                    <td data-sort="<?= $riskRaw ?>" style="padding: 12px; text-align: left;">
+                        <span 
+                            class="badge custom-tooltip <?= $riskBadgeClass($s['risk_level']) ?>" 
+                            style="display: inline-flex; align-items: center; gap: 5px;" 
+                            tabindex="0" 
+                            aria-label="<?= htmlspecialchars($adminTooltip) ?>"
+                        >
+                            <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                width="12" 
+                                height="12" 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                stroke-width="2" 
+                                stroke-linecap="round" 
+                                stroke-linejoin="round" 
+                                aria-hidden="true"
+                            >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            
+                            <?= $s['risk_level'] !== null ? htmlspecialchars(ucfirst(strtolower($s['risk_level']))) : 'N/A' ?>
+                            
+                            <span class="tooltip-text" role="tooltip">
+                                <?= htmlspecialchars($adminTooltip) ?>
+                            </span>
+                        </span>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -253,6 +309,43 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
+function runBatchPredictions() {
+    const btn = document.getElementById('runBatchBtn');
+    const originalText = btn.innerHTML;
+    
+    // UI Loading State
+    btn.innerHTML = '⏳ Processing Data...';
+    btn.style.opacity = '0.7';
+    btn.disabled = true;
+
+    // Call our batch API
+    fetch('../api/batch_predict.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alert('✅ ' + data.message);
+            window.location.reload(); 
+        } else {
+            alert('❌ Error: ' + (data.error || 'Unknown error occurred.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ A network error occurred while reaching the Python API.');
+    })
+    .finally(() => {
+        // Reset UI
+        btn.innerHTML = originalText;
+        btn.style.opacity = '1';
+        btn.disabled = false;
+    });
+}
+
 // --- Chart.js Implementations ---
 const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
 new Chart(ctxDonut, {
@@ -327,7 +420,6 @@ function renderPage() {
     let html = '';
     html += `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
     
-    // Smart page numbering for large datasets
     let startPage = Math.max(1, currentPage - 2);
     let endPage = Math.min(totalPages, currentPage + 2);
     
@@ -363,7 +455,6 @@ if (document.getElementById('dashboard-search')) {
     });
 }
 
-// Initial render
 renderPage();
 
 // --- Table Sorting Script ---
@@ -434,8 +525,6 @@ function sortTable(colIndex) {
     });
 
     rows.forEach(row => tbody.appendChild(row));
-    
-    // Important: Reset to page 1 and re-render so pagination applies to the newly sorted array
     currentPage = 1;
     renderPage();
 }

@@ -10,30 +10,6 @@ $db = getDB();
 // ---------------------------------------------------------
 // Helper Functions
 // ---------------------------------------------------------
-if (!function_exists('convertPercentageToGrade')) {
-    function convertPercentageToGrade(float $p): float {
-        if ($p >= 98) return 1.00;
-        if ($p >= 95) return 1.25;
-        if ($p >= 92) return 1.50;
-        if ($p >= 89) return 1.75;
-        if ($p >= 86) return 2.00;
-        if ($p >= 83) return 2.25;
-        if ($p >= 80) return 2.50;
-        if ($p >= 77) return 2.75;
-        if ($p >= 75) return 3.00;
-        return 5.00;
-    }
-}
-
-if (!function_exists('computeRiskFromAvg')) {
-    function computeRiskFromAvg(float $grade): string {
-        if ($grade <= 2.25) return 'LOW';
-        if ($grade <= 2.75) return 'MODERATE';
-        return 'HIGH';
-    }
-}
-
-// Smart formatter for 0-100 percentages: drops ".00"
 if (!function_exists('formatPercentage')) {
     function formatPercentage($val) {
         if ($val === null) return '—';
@@ -41,7 +17,6 @@ if (!function_exists('formatPercentage')) {
     }
 }
 
-// Strict formatter for 1.00-5.00 scale: always keeps 2 decimal places
 if (!function_exists('formatFinalGrade')) {
     function formatFinalGrade($val) {
         if ($val === null) return '—';
@@ -99,7 +74,90 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
-<div class="main-content">
+<style>
+/* Grades page: preserve full table structure at narrow browser widths. */
+.grades-page {
+    min-width: 0;
+}
+
+.grades-card {
+    min-width: 0;
+}
+
+.grades-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+}
+
+.grades-table-scroll::-webkit-scrollbar {
+    height: 7px;
+}
+
+.grades-table-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grades-table-scroll::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 999px;
+}
+
+.grades-table-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-blue);
+}
+
+.current-grades-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+}
+
+.history-grades-table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+}
+
+.current-grades-table .subject-cell,
+.history-grades-table .subject-cell {
+    min-width: 230px;
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.current-grades-table th,
+.current-grades-table td,
+.history-grades-table th,
+.history-grades-table td {
+    vertical-align: middle;
+}
+
+.current-grades-table .compact-cell,
+.history-grades-table .compact-cell {
+    white-space: nowrap;
+}
+
+/* Reduce page padding only after the browser becomes narrow.
+   The tables remain complete inside their own horizontal scrollers. */
+@media (max-width: 900px) {
+    .grades-page {
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+
+    .grades-card {
+        padding: 16px;
+    }
+}
+</style>
+
+<div class="main-content grades-page">
 
     <div class="header">
         <div>
@@ -110,91 +168,124 @@ require_once '../includes/sidebar.php';
 
     <!-- CURRENT SEMESTER SECTION -->
     <h2 style="margin-bottom: 16px; font-size: 1.25rem; color: var(--text-dark);">Current Semester Grades</h2>
-    <div class="card" style="margin-bottom: 32px;">
+    <div class="card grades-card" style="margin-bottom: 32px;">
         <?php if (empty($currentGrades)): ?>
             <p class="empty-state">No current-semester grades have been encoded yet.</p>
         <?php else: ?>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Code</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Subject</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Units</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Prelim</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Midterm</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Pre-Final</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Final Grade</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Live Risk</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($currentGrades as $g): 
-                    $prelim   = $g['prelim'] !== null ? (float)$g['prelim'] : null;
-                    $midterm  = $g['midterm'] !== null ? (float)$g['midterm'] : null;
-                    $prefinal = $g['prefinal'] !== null ? (float)$g['prefinal'] : null;
-                    $finalGrade = $g['final_grade'] !== null ? (float)$g['final_grade'] : null;
+            <div class="grades-table-scroll" role="region" aria-label="Current semester grades" tabindex="0">
+            <table class="current-grades-table">
+                <thead>
+                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                        <!-- Added width: 1% to force shrink-to-fit -->
+                        <th class="compact-cell" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Code</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Units</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Prelim</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Midterm</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Pre-Final</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Final Grade</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Live Risk</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($currentGrades as $g): 
+                        $prelim   = $g['prelim'] !== null ? (float)$g['prelim'] : null;
+                        $midterm  = $g['midterm'] !== null ? (float)$g['midterm'] : null;
+                        $prefinal = $g['prefinal'] !== null ? (float)$g['prefinal'] : null;
+                        $finalGrade = $g['final_grade'] !== null ? (float)$g['final_grade'] : null;
 
-                    // Compute risk live by averaging the raw percentages first, then converting to 1.0-5.0 scale
-                    $sum = 0; $count = 0;
-                    if ($prelim !== null)   { $sum += $prelim; $count++; }
-                    if ($midterm !== null)  { $sum += $midterm; $count++; }
-                    if ($prefinal !== null) { $sum += $prefinal; $count++; }
+                        $sum = 0; $count = 0;
+                        if ($prelim !== null)   { $sum += $prelim; $count++; }
+                        if ($midterm !== null)  { $sum += $midterm; $count++; }
+                        if ($prefinal !== null) { $sum += $prefinal; $count++; }
 
-                    $liveRisk = 'LOW';
-                    if ($finalGrade !== null) {
-                        $liveRisk = computeRiskFromAvg($finalGrade);
-                    } elseif ($count > 0) {
-                        $avgPercent = $sum / $count;
-                        $projectedGrade = convertPercentageToGrade($avgPercent);
-                        $liveRisk = computeRiskFromAvg($projectedGrade);
-                    }
-                ?>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($g['code']) ?></td>
-                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
-                    <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
-                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prelim) ?></td>
-                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($midterm) ?></td>
-                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prefinal) ?></td>
-                    <td style="padding: 12px; font-weight: 700; color: var(--text-dark);"><?= $finalGrade !== null ? formatFinalGrade($finalGrade) : '<span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>' ?></td>
-                    <td style="padding: 12px;"><span class="badge <?= $riskBadgeClass($liveRisk) ?>"><?= htmlspecialchars(ucfirst(strtolower($liveRisk))) ?></span></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                        $liveRisk = 'LOW';
+                        if ($finalGrade !== null) {
+                            $liveRisk = computeRiskFromAvg($finalGrade);
+                        } elseif ($count > 0) {
+                            $avgPercent = $sum / $count;
+                            $projectedGrade = convertPercentageToPoint($avgPercent);
+                            $liveRisk = computeRiskFromAvg($projectedGrade);
+                        }
+
+                        $subjTooltip = "";
+                        if ($liveRisk === 'HIGH') {
+                            $subjTooltip = "High Risk: Your current subject grade point is below 1.75 (79% or lower). Significant focus is required to prevent failure.";
+                        } elseif ($liveRisk === 'MODERATE') {
+                            $subjTooltip = "Moderate Risk: Your current subject grade point is between 1.75 and 2.25 (80% - 85%). Improvement is recommended.";
+                        } else {
+                            $subjTooltip = "Low Risk: Excellent. Your current subject grade point is 2.50 (86%) or higher.";
+                        }
+                    ?>
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td class="compact-cell" style="padding: 12px; font-weight: 600; color: var(--accent-blue); white-space: nowrap;"><?= htmlspecialchars($g['code']) ?></td>
+                        
+                        <td class="subject-cell" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 12px; color: var(--text-dark);">
+                            <?= htmlspecialchars($g['title']) ?>
+                        </td>
+                        
+                        <td class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-gray); white-space: nowrap;"><?= htmlspecialchars($g['units']) ?></td>
+                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap;"><?= formatPercentage($prelim) ?></td>
+                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap;"><?= formatPercentage($midterm) ?></td>
+                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap;"><?= formatPercentage($prefinal) ?></td>
+                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark); white-space: nowrap;">
+                            <?= $finalGrade !== null ? formatFinalGrade($finalGrade) : '<span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>' ?>
+                        </td>
+                        <td class="compact-cell" style="padding: 12px; text-align: left; white-space: nowrap;">
+                            <span class="badge custom-tooltip tooltip-top-right <?= $riskBadgeClass($liveRisk) ?>" style="display: inline-flex; align-items: center; gap: 5px;" tabindex="0" aria-label="<?= htmlspecialchars($subjTooltip) ?>">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                </svg>
+                                <?= htmlspecialchars(ucfirst(strtolower($liveRisk))) ?>
+                                <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($subjTooltip) ?></span>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
         <?php endif; ?>
     </div>
 
     <!-- ACADEMIC HISTORY SECTION -->
     <h2 style="margin-bottom: 16px; font-size: 1.25rem; color: var(--text-dark);">Academic History</h2>
     <?php if (empty($historyTerms)): ?>
-        <div class="card"><p class="empty-state">No completed-semester records found yet.</p></div>
+        <div class="card grades-card"><p class="empty-state">No completed-semester records found yet.</p></div>
     <?php else: ?>
         <?php foreach ($historyTerms as $termLabel => $termGrades): ?>
-        <div class="card" style="margin-bottom: 24px;">
+        <div class="card grades-card" style="margin-bottom: 24px;">
             <div class="table-title" style="margin-bottom: 12px; color: var(--text-dark); font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
                 <?= htmlspecialchars($termLabel) ?>
             </div>
-            <table style="width: 100%; border-collapse: collapse;">
+            <div class="grades-table-scroll" role="region" aria-label="Academic history grades" tabindex="0">
+            <table class="history-grades-table">
                 <thead>
                     <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
-                        <th style="padding: 10px; text-align: left; color: var(--text-dark);">Code</th>
-                        <th style="padding: 10px; text-align: left; color: var(--text-dark);">Subject</th>
-                        <th style="padding: 10px; text-align: left; color: var(--text-dark);">Units</th>
-                        <th style="padding: 10px; text-align: left; color: var(--text-dark);">Final Grade</th>
+                        <th class="compact-cell" style="padding: 10px; text-align: left; color: var(--text-dark); white-space: nowrap;">Code</th>
+                        <th style="padding: 10px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                        <th class="compact-cell" style="padding: 10px; text-align: center; color: var(--text-dark); white-space: nowrap;">Units</th>
+                        <th class="compact-cell" style="padding: 10px; text-align: center; color: var(--text-dark); white-space: nowrap;">Final Grade</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($termGrades as $g): ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['code']) ?></td>
-                        <td style="padding: 10px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
-                        <td style="padding: 10px; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
-                        <td style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= formatFinalGrade($g['final_grade']) ?></td>
+                        <td class="compact-cell" style="padding: 10px; font-weight: 600; color: var(--text-dark); white-space: nowrap;"><?= htmlspecialchars($g['code']) ?></td>
+                        
+                        <td class="subject-cell" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 10px; color: var(--text-dark);">
+                            <?= htmlspecialchars($g['title']) ?>
+                        </td>
+                        
+                        <td class="compact-cell" style="padding: 10px; text-align: center; color: var(--text-gray); white-space: nowrap;"><?= htmlspecialchars($g['units']) ?></td>
+                        <td class="compact-cell" style="padding: 10px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap;"><?= formatFinalGrade($g['final_grade']) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
         <?php endforeach; ?>
     <?php endif; ?>

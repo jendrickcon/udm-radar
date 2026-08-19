@@ -97,11 +97,17 @@ function normalizeGrade($grade): ?float {
     return (float) $grade;
 }
 
-function getLatinHonor(float $gwa): string {
-  if ($gwa >= SUMMA_CUM_LAUDE) return 'Summa Cum Laude';
-  if ($gwa >= MAGNA_CUM_LAUDE) return 'Magna Cum Laude';
-  if ($gwa >= CUM_LAUDE)       return 'Cum Laude';
-  return 'Not Eligible';
+function getLatinHonor(float $gwa, bool $hasDisqualifyingGrade = false): string {
+    // Immediate academic disqualification (e.g., any grade < 1.75 or 80%)
+    if ($hasDisqualifyingGrade) {
+        return 'Not Eligible';
+    }
+
+    if ($gwa >= SUMMA_CUM_LAUDE) return 'Summa Cum Laude';
+    if ($gwa >= MAGNA_CUM_LAUDE) return 'Magna Cum Laude';
+    if ($gwa >= CUM_LAUDE)       return 'Cum Laude';
+    
+    return 'Not Eligible';
 }
 
 function getDeansLister(float $gwa): string {

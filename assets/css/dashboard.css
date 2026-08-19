@@ -310,6 +310,183 @@ tr:last-child td { border-bottom: none; }
     border-color: var(--risk-high);
 }
 
+/* =========================================================
+   Global Tooltip and Status-Pill Components
+   ========================================================= */
+.custom-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: help;
+    outline: none;
+}
+.custom-tooltip .tooltip-text {
+    position: absolute;
+    z-index: 2000;
+    width: max-content;
+    max-width: 280px;
+    padding: 10px 12px;
+    color: #F8FAFC;
+    background-color: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: normal;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+.custom-tooltip .tooltip-text,
+.custom-tooltip.tooltip-top .tooltip-text {
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translate(-50%, 4px);
+}
+.custom-tooltip.tooltip-top-right .tooltip-text {
+    right: 0;
+    left: auto;
+    bottom: calc(100% + 10px);
+    transform: translateY(4px);
+}
+.custom-tooltip.tooltip-top-left .tooltip-text {
+    left: 0;
+    bottom: calc(100% + 10px);
+    transform: translateY(4px);
+}
+
+/* Bottom placement aligned to the trigger's right edge */
+.custom-tooltip.tooltip-bottom-right .tooltip-text {
+    top: calc(100% + 10px);
+    right: 0;
+    bottom: auto;
+    left: auto;
+    transform: translateY(-4px);
+}
+.custom-tooltip:hover .tooltip-text,
+.custom-tooltip:focus .tooltip-text,
+.custom-tooltip:focus-visible .tooltip-text,
+.custom-tooltip:focus-within .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+.custom-tooltip:not(.tooltip-top-right):not(.tooltip-top-left):not(.tooltip-bottom-right):hover .tooltip-text,
+.custom-tooltip:not(.tooltip-top-right):not(.tooltip-top-left):not(.tooltip-bottom-right):focus .tooltip-text,
+.custom-tooltip:not(.tooltip-top-right):not(.tooltip-top-left):not(.tooltip-bottom-right):focus-visible .tooltip-text,
+.custom-tooltip:not(.tooltip-top-right):not(.tooltip-top-left):not(.tooltip-bottom-right):focus-within .tooltip-text {
+    transform: translate(-50%, 0);
+}
+.custom-tooltip.tooltip-top-right:hover .tooltip-text,
+.custom-tooltip.tooltip-top-right:focus .tooltip-text,
+.custom-tooltip.tooltip-top-right:focus-visible .tooltip-text,
+.custom-tooltip.tooltip-top-right:focus-within .tooltip-text,
+.custom-tooltip.tooltip-top-left:hover .tooltip-text,
+.custom-tooltip.tooltip-top-left:focus .tooltip-text,
+.custom-tooltip.tooltip-top-left:focus-visible .tooltip-text,
+.custom-tooltip.tooltip-top-left:focus-within .tooltip-text,
+.custom-tooltip.tooltip-bottom-right:hover .tooltip-text,
+.custom-tooltip.tooltip-bottom-right:focus .tooltip-text,
+.custom-tooltip.tooltip-bottom-right:focus-visible .tooltip-text,
+.custom-tooltip.tooltip-bottom-right:focus-within .tooltip-text {
+    transform: translateY(0);
+}
+.custom-tooltip:not(.tooltip-top-right):not(.tooltip-top-left):not(.tooltip-bottom-right) .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border: 6px solid transparent;
+    border-top-color: #0F172A;
+}
+.custom-tooltip.tooltip-top-right .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    right: 14px;
+    border: 6px solid transparent;
+    border-top-color: #0F172A;
+}
+.custom-tooltip.tooltip-top-left .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 14px;
+    border: 6px solid transparent;
+    border-top-color: #0F172A;
+}
+
+.custom-tooltip.tooltip-bottom-right .tooltip-text::after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    bottom: 100%;
+    border: 6px solid transparent;
+    border-bottom-color: #0F172A;
+}
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    color: var(--accent-blue);
+    background-color: transparent;
+    border: 1px solid var(--accent-blue);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+.status-pill svg { flex-shrink: 0; }
+.status-pill:hover,
+.status-pill:focus-visible { background-color: rgba(108, 142, 239, 0.08); }
+.status-pill:focus-visible,
+.risk-info-icon:focus-visible { box-shadow: 0 0 0 3px rgba(108, 142, 239, 0.18); }
+.status-pill-muted { color: var(--text-gray); border-color: var(--text-gray); }
+.status-pill-muted:hover,
+.status-pill-muted:focus-visible {
+    color: var(--text-dark);
+    border-color: var(--text-dark);
+    background-color: var(--table-header-bg);
+}
+.stat-card-heading-with-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin-bottom: 8px;
+}
+.stat-card-heading-with-info h4 {
+    flex: 0 1 auto;
+    width: auto;
+    white-space: nowrap;
+}
+.stat-card-heading-with-info .risk-info-icon {
+    flex: 0 0 auto;
+}
+.risk-info-icon { color: var(--text-gray); border-radius: 50%; }
+.risk-info-icon:hover,
+.risk-info-icon:focus-visible { color: var(--accent-blue); }
+
+
+
+.dashboard-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+    .dashboard-stat-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── Smooth Dropdown Animation for the Grades Panel ────────────── */
 @keyframes slideDownFade {
     from { opacity: 0; transform: translateY(-10px); }
