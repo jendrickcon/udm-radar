@@ -50,12 +50,14 @@ $stmtHist->execute([$user['id']]);
 $my_submissions = $stmtHist->fetchAll();
 
 // Inbox: Feedback from students tagged to subjects this faculty teaches
+// UPDATED: Now joins student_profiles so we know exactly which section the complaining student belongs to
 $stmtInbox = $db->prepare("
-    SELECT f.*, s.code AS subj_code, u.first_name, u.last_name, u.user_id AS student_no
+    SELECT f.*, s.code AS subj_code, u.first_name, u.last_name, u.user_id AS student_no, sp.section
     FROM feedback_reports f
     JOIN subjects s ON s.id = f.subject_id
     JOIN users u ON u.id = f.submitted_by
-    JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id
+    JOIN student_profiles sp ON sp.user_id = u.id
+    JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section
     WHERE fcl.faculty_user_id = ? AND u.role = 'student'
     GROUP BY f.id
     ORDER BY f.created_at DESC
@@ -69,6 +71,7 @@ $navItems = [
     ['Dashboard',          'dashboard.php', '📊'],
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
+    ['Encode Grades',      'grades.php',    '📝'],
     ['Feedback & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
@@ -148,11 +151,11 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- Student Feedback Inbox -->
+<!-- Student Feedback Inbox -->
     <div class="card" style="padding:0; overflow:hidden;">
         <div style="padding: 24px 24px 16px; border-bottom: 1px solid var(--border-color);">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px;">Student Concerns Inbox</h3>
-            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Read-only view. Only Administration can formally resolve these reports.</p>
+            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Read-only view. Administration formally resolves these once you propose the corrected grade.</p>
         </div>
         
         <?php if (empty($inbox)): ?>
@@ -165,7 +168,8 @@ require_once '../includes/sidebar.php';
                         <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Student</th>
                         <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Subject</th>
                         <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Concern</th>
-                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600;">Status</th>
+                        <th style="padding: 12px; color:var(--text-dark); font-weight:600;">Status</th>
+                        <th style="padding: 12px 24px; color:var(--text-dark); font-weight:600; text-align: right;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -176,9 +180,22 @@ require_once '../includes/sidebar.php';
                             <?= htmlspecialchars($msg['first_name'] . ' ' . $msg['last_name']) ?><br>
                             <span style="font-size: 0.75rem; color:var(--text-gray); font-weight:normal;"><?= htmlspecialchars($msg['student_no']) ?></span>
                         </td>
-                        <td style="padding: 12px; color: var(--accent-blue); font-weight: 600; vertical-align: top;"><?= htmlspecialchars($msg['subj_code']) ?></td>
-                        <td style="padding: 12px; color: var(--text-gray); max-width: 300px; vertical-align: top;"><?= nl2br(htmlspecialchars($msg['message'])) ?></td>
-                        <td style="padding: 12px 24px; vertical-align: top;">
+                        <td style="padding: 12px; color: var(--accent-blue); font-weight: 600; vertical-align: top;">
+                            <?= htmlspecialchars($msg['subj_code']) ?><br>
+                            <span style="font-size: 0.75rem; color:var(--text-gray); font-weight:normal;"><?= htmlspecialchars($msg['section'] ?? '') ?></span>
+                        </td>
+                        
+                        <!-- Expandable Message Cell -->
+                        <td style="padding: 12px; color: var(--text-gray); max-width: 250px; vertical-align: top;">
+                            <div id="msg_<?= $msg['id'] ?>" style="max-height: 44px; overflow: hidden; transition: max-height 0.3s ease;">
+                                <?= nl2br(htmlspecialchars($msg['message'])) ?>
+                            </div>
+                            <?php if (strlen($msg['message']) > 60): ?>
+                                <button type="button" onclick="const el = document.getElementById('msg_<?= $msg['id'] ?>'); if(el.style.maxHeight === '44px'){ el.style.maxHeight = '500px'; this.innerText = 'Show less'; } else { el.style.maxHeight = '44px'; this.innerText = 'Read full message'; }" style="background:none; border:none; color:var(--accent-blue); font-size:0.75rem; cursor:pointer; padding:0; margin-top:6px; font-weight:600;">Read full message</button>
+                            <?php endif; ?>
+                        </td>
+
+                        <td style="padding: 12px; vertical-align: top;">
                             <?php if ($msg['status'] === 'open'): ?>
                                 <span style="background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">OPEN</span>
                             <?php elseif ($msg['status'] === 'resolved'): ?>
@@ -187,12 +204,22 @@ require_once '../includes/sidebar.php';
                                 <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">REJECTED</span>
                             <?php endif; ?>
                         </td>
+                        
+                        <!-- Dedicated Action Column -->
+                        <td style="padding: 12px 24px; vertical-align: top; text-align: right;">
+                            <?php if ($msg['category'] === 'grade_concern' && $msg['status'] === 'open'): ?>
+                                <a href="grades.php?class=<?= $msg['subject_id'] ?>_<?= urlencode($msg['section'] ?? '') ?>&term=prelim" style="display:inline-block; background:rgba(30, 77, 183, 0.1); color:var(--accent-blue); border:1px solid rgba(30, 77, 183, 0.2); padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; text-decoration:none; transition:all 0.2s; white-space: nowrap;">
+                                    Propose Fix
+                                </a>
+                            <?php else: ?>
+                                <span style="color:var(--text-gray); font-size: 0.85rem;">—</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         <?php endif; ?>
     </div>
-</div>
 
 <?php require_once '../includes/footer.php'; ?>

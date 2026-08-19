@@ -74,11 +74,10 @@ if ($current_midterm_gwa !== null) {
     $semData[] = ['semester' => 'Current Midterms', 'gwa' => $current_midterm_gwa, 'is_prediction' => true];
 }
 
-
-// 3. Fetch or Mock the Final Prediction
-$stmtPred = $db->prepare("SELECT predicted_gwa, risk_level FROM predictions WHERE student_id = ? ORDER BY generated_at DESC LIMIT 1");
+// 3. Fetch or Mock the Final Prediction (Switched to ORDER BY id)
+$stmtPred = $db->prepare("SELECT predicted_gwa, risk_level, irregular_prob, prediction_source FROM predictions WHERE student_id = ? ORDER BY id DESC LIMIT 1");
 $stmtPred->execute([$user['id']]);
-$prediction = $stmtPred->fetch();
+$prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 
 if (!$prediction || empty($prediction['predicted_gwa'])) {
     $mock_pred_gwa = $last_gwa > 0 ? max(1.0, min(4.0, $last_gwa - 0.25)) : 2.50; 
@@ -86,7 +85,9 @@ if (!$prediction || empty($prediction['predicted_gwa'])) {
     
     $prediction = [
         'predicted_gwa' => round($mock_pred_gwa, 2),
-        'risk_level' => $mock_risk
+        'risk_level' => $mock_risk,
+        'irregular_prob' => null,
+        'prediction_source' => 'heuristic'
     ];
 }
 
@@ -98,6 +99,7 @@ if ($historical_count > 0 || !empty($current_subjects)) {
     ];
 }
 
+// Fixed Mojibake Emojis
 $pageTitle = 'Performance Trend';
 $navItems = [
     ['Home',               'index.php',     '🏠'],
@@ -116,28 +118,54 @@ require_once '../includes/sidebar.php';
     <div class="header" style="margin-bottom: 24px;">
         <div>
             <h1>Performance Trend</h1>
-            <p>Your average final grade trajectory across completed semesters, including current projections.</p>
+            <p style="color: var(--text-gray);">Your average final grade trajectory across completed semesters, including current projections.</p>
         </div>
     </div>
 
     <?php if (!empty($semData)): 
-        $risk = $prediction['risk_level'];
+        $risk = strtoupper($prediction['risk_level']);
         $riskBg = match($risk) {
             'HIGH' => 'var(--risk-high)',
             'MODERATE' => 'var(--risk-mod)',
             default => 'var(--risk-low)'
         };
+
+        // Smart Tooltip Generator
+        $riskTooltip = "";
+        if ($prediction['prediction_source'] === 'decision_tree') {
+            if ($risk === 'HIGH') {
+                $riskTooltip = "High Risk: The AI model detected a " . number_format((float)$prediction['irregular_prob'], 1) . "% probability of academic delay based on your trajectory.";
+            } elseif ($risk === 'MODERATE') {
+                $riskTooltip = "Moderate Risk: The AI model detected a " . number_format((float)$prediction['irregular_prob'], 1) . "% probability of delay.";
+            } else {
+                $riskTooltip = "Low Risk: Excellent. The AI model projects a highly stable trajectory.";
+            }
+        } else {
+            $riskTooltip = "Heuristic Analysis Active: Risk classification is currently based on pure academic averages.";
+        }
     ?>
     <div class="card" style="margin-bottom: 24px; border-left: 4px solid <?= $riskBg ?>; display: flex; align-items: center; justify-content: space-between;">
         <div>
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.9rem; font-weight: 600; text-transform: uppercase;">Current Semester Projection</h4>
             <h2 style="margin: 4px 0 0 0; color: var(--text-dark); font-size: 1.8rem;"><?= number_format($prediction['predicted_gwa'], 2) ?></h2>
         </div>
-        <div style="text-align: right;">
-            <span style="background: <?= $riskBg ?>; color: white; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">
-                <?= $risk ?> RISK
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+            
+            <!-- Accessible Hover Tooltip Badge -->
+            <span 
+                class="badge custom-tooltip" 
+                style="background: <?= $riskBg ?>; display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem;" 
+                tabindex="0" 
+                aria-label="<?= htmlspecialchars($riskTooltip) ?>"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <?= htmlspecialchars($risk) ?> RISK
+                <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($riskTooltip) ?></span>
             </span>
-            <p style="margin: 6px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">Based on Machine Learning Analysis</p>
+            
+            <p style="margin: 6px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">
+                <?= $prediction['prediction_source'] === 'decision_tree' ? 'Based on AI Machine Learning' : 'Based on Baseline Heuristics' ?>
+            </p>
         </div>
     </div>
     <?php endif; ?>

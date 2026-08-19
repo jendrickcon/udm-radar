@@ -31,6 +31,17 @@ $historical_rows = array_map(
 $historical_gwa = computeWeightedGWA($historical_rows); 
 $current_gwa = $historical_gwa ?? (float) ($profile['current_gwa'] ?? 0);
 
+// --- Fetch ML Prediction from Database ---
+$stmtPred = $db->prepare("
+    SELECT predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source 
+    FROM predictions 
+    WHERE student_id = ? 
+    ORDER BY generated_at DESC 
+    LIMIT 1
+");
+$stmtPred->execute([$user['id']]);
+$ml_prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
+
 // 2. Fetch Current Semester Subjects & All Grades
 $stmtCurr = $db->prepare("
     SELECT s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade
@@ -80,20 +91,39 @@ foreach ($current_subjects as &$subj) {
 }
 unset($subj);
 
-$predicted_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa ?? 0.0;
-$overall_risk  = computeRiskFromAvg($predicted_gwa);
+// --- OVERRIDE LOGIC: Prefer ML data over local heuristics ---
+$heuristic_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa ?? 0.0;
+$heuristic_risk = computeRiskFromAvg($heuristic_gwa);
+
+$display_predicted_gwa = $ml_prediction ? (float)$ml_prediction['predicted_gwa'] : $heuristic_gwa;
+$display_risk = $ml_prediction ? $ml_prediction['risk_level'] : $heuristic_risk;
+$display_honor = $ml_prediction ? $ml_prediction['latin_honor'] : getLatinHonor($display_predicted_gwa);
+$prediction_source = $ml_prediction ? $ml_prediction['prediction_source'] : 'heuristic (local)';
+// -------------------------------------------------------------
 
 if ($at_risk_count > 0) {
     $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
 }
-if ($historical_gwa !== null && $predicted_gwa < $historical_gwa) {
-    $drop = number_format($historical_gwa - $predicted_gwa, 2);
-    $risk_factors[] = ['type' => 'warning', 'text' => "Trajectory: Heuristic estimate projects a {$drop} drop in your GWA based on current pacing."];
+if ($historical_gwa !== null && $display_predicted_gwa > 0) {
+    $diff = round($display_predicted_gwa - $historical_gwa, 2);
+    
+    if ($diff < 0) { 
+        // GWA is dropping
+        $drop = number_format(abs($diff), 2);
+        $risk_factors[] = ['type' => 'warning', 'text' => "Trajectory: Model projects a {$drop} point drop in your GWA based on current pacing."];
+    } elseif ($diff > 0) {
+        // GWA is improving
+        $gain = number_format($diff, 2);
+        $risk_factors[] = ['type' => 'success', 'text' => "Trajectory: Excellent pacing! Model projects a {$gain} point increase over your historical GWA."];
+    } else {
+        // GWA is exactly the same
+        $risk_factors[] = ['type' => 'info', 'text' => "Trajectory: Consistent pacing. You are projected to perfectly maintain your historical GWA."];
+    }
 }
 
 $gradedSubjects = array_filter($current_subjects, fn($s) => $s['prelim_point'] !== null);
 if (!empty($gradedSubjects)) {
-    $lowestGrade = min(array_column($gradedSubjects, 'prelim_point'));
+    $lowestGrade = min(array_column($gradedSubjects, 'prelim_point')); 
     $weakestSubjects = array_values(array_filter(
         $gradedSubjects,
         fn($s) => $s['prelim_point'] == $lowestGrade
@@ -104,8 +134,7 @@ if (!empty($gradedSubjects)) {
         ? implode(', ', array_slice($titles, 0, -1)) . ' and ' . end($titles)
         : $titles[0];
     $plural = count($titles) > 1 ? 'these subjects' : 'this subject';
-
-    $lowestRaw = min(array_column($weakestSubjects, 'prelim_raw'));
+    $lowestRaw = min(array_column($weakestSubjects, 'prelim_raw')); 
 
     if (computeRiskFromAvg($lowestGrade) !== 'LOW') {
         $risk_factors[] = [
@@ -113,6 +142,7 @@ if (!empty($gradedSubjects)) {
             'text' => "Focus Recommendation: Your weakest current grade is in <strong>{$subjectList}</strong> at <strong>" . round($lowestRaw) . "%</strong>. Prioritize study time on {$plural} first! Improving your lowest grade raises your GWA more than equal effort spread across subjects already doing well.",
         ];
     } else {
+        // Restored Optimization Strategy
         $risk_factors[] = [
             'type' => 'info',
             'text' => "Optimization Strategy: You are performing safely across the board! However, your lowest grade is in <strong>{$subjectList}</strong> at <strong>" . round($lowestRaw) . "%</strong>. To boost your GWA even higher, direct your extra effort toward {$plural}.",
@@ -124,22 +154,38 @@ if (empty($risk_factors)) {
     $risk_factors[] = ['type' => 'success', 'text' => 'Positive: No immediate risk factors detected. Consistent performance maintained.'];
 }
 
-$honor_text = getLatinHonor($current_gwa);
-$honor_color = match ($honor_text) {
-    'Summa Cum Laude' => '#b45309',
-    'Magna Cum Laude'  => '#1d4ed8',
-    'Cum Laude'        => 'var(--accent-blue)',
-    default            => 'var(--text-gray)',
-};
-$honor_text = $honor_text === 'Not Eligible' ? '—' : $honor_text . ' Track';
-
 // Global Risk Colors
-$riskBg = match($overall_risk) {
+$riskBg = match($display_risk) {
     'HIGH' => 'var(--risk-high)',
     'MODERATE' => 'var(--risk-mod)',
     'LOW' => 'var(--risk-low)',
     default => 'var(--text-gray)'
 }; 
+
+// Smart Tooltip Generator for Dashboard
+$riskTooltip = "";
+if ($display_risk === 'HIGH') {
+    $riskTooltip = $ml_prediction 
+        ? "High Risk: The AI model detected a " . number_format($ml_prediction['irregular_prob'], 1) . "% probability of academic delay, typically driven by historical failed subjects or a low GWA trajectory."
+        : "High Risk: Heuristic analysis flagged your projected GWA as critically low (< 2.00) or detected multiple past failures.";
+} elseif ($display_risk === 'MODERATE') {
+    $riskTooltip = $ml_prediction 
+        ? "Moderate Risk: The AI model detected a " . number_format($ml_prediction['irregular_prob'], 1) . "% probability of delay. Minor interventions and focus are recommended to secure your standing."
+        : "Moderate Risk: Heuristic analysis shows your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
+} elseif ($display_risk === 'LOW') {
+    $riskTooltip = $ml_prediction 
+        ? "Low Risk: Excellent. The AI model projects a highly stable trajectory with only a " . number_format($ml_prediction['irregular_prob'], 1) . "% probability of delay."
+        : "Low Risk: Heuristic analysis shows your projected GWA is well within the safe, highly satisfactory threshold.";
+} else {
+    $riskTooltip = "No prediction data available yet.";
+}
+
+$honor_color = match ($display_honor) {
+    'Summa Cum Laude' => '#b45309',
+    'Magna Cum Laude'  => '#1d4ed8',
+    'Cum Laude'        => 'var(--accent-blue)',
+    default            => 'var(--text-gray)',
+};
 
 $valid_grades = [4.00, 3.75, 3.50, 3.25, 3.00, 2.75, 2.50, 2.25, 2.00, 1.75, 1.50, 1.25, 1.00];
 function renderTargetOptions($valid_grades) {
@@ -166,28 +212,69 @@ require_once '../includes/sidebar.php';
 ?>
 
 <div class="main-content">
-    <div class="header" style="margin-bottom: 24px;">
+    <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h1>Analytics Dashboard</h1>
-            <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and heuristic academic estimation.</p>
+            <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and AI academic estimation.</p>
+        </div>
+        <div>
+            <?php if ($prediction_source === 'decision_tree'): ?>
+                <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Decision Tree prediction is active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    AI Decision Tree Active
+                    <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the UDM-RADAR Decision Tree model based on the available academic inputs.</span>
+                </span>
+            <?php else: ?>
+                <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Heuristic analysis is active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    Heuristic Analysis Active
+                    <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the system's rule-based academic calculations because no current Decision Tree prediction was available.</span>
+                </span>
+            <?php endif; ?>
         </div>
     </div>
 
-    <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
+    <div class="stat-grid dashboard-stat-grid" style="margin-bottom: 24px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Cumulative GWA</h4>
             <h2 style="color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : 'N/A' ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><span style="color: <?= $honor_color ?>;">●</span> <?= $honor_text ?></p>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
-            <h4>Projected End-of-Term GWA</h4>
-            <h2 style="color: <?= $honor_color ?>;"><?= number_format($predicted_gwa, 2) ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Heuristic Estimate — pending Decision Tree model</p>
+            <h4>Predicted Final GWA</h4>
+            <h2 style="color: <?= $honor_color ?>;"><?= number_format($display_predicted_gwa, 2) ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
+                Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
+            </p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $riskBg ?>;">
-            <h4>Overall Academic Risk</h4>
-            <h2 style="color: <?= $riskBg ?>;"><?= $overall_risk ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Trajectory Classification</p>
+            <div class="stat-card-heading-with-info">
+                <h4 style="margin: 0;">Overall Academic Risk</h4>
+                <span class="custom-tooltip tooltip-top-left risk-info-icon" tabindex="0" aria-label="<?= htmlspecialchars($riskTooltip) ?>">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($riskTooltip) ?></span>
+                </span>
+            </div>
+            <h2 style="color: <?= $riskBg ?>; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($display_risk) ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
+                <?php if ($ml_prediction): ?>
+                    Irregularity Probability: <strong><?= number_format((float) $ml_prediction['irregular_prob'], 1) ?>%</strong>
+                <?php else: ?>
+                    Trajectory Classification
+                <?php endif; ?>
+            </p>
         </div>
     </div>
 
@@ -222,7 +309,6 @@ require_once '../includes/sidebar.php';
                         default   => '🟢',
                     };
                     
-                    // Set the border color
                     $borderColor = match ($factor['type']) {
                         'danger'  => 'var(--risk-high)',
                         'warning' => 'var(--risk-mod)',
@@ -230,11 +316,10 @@ require_once '../includes/sidebar.php';
                         default   => 'var(--risk-low)',
                     };
                     
-                    // Soft transparent tinted backgrounds instead of solid black
                     $bgTint = match ($factor['type']) {
                         'danger'  => 'rgba(220, 38, 38, 0.1)',
                         'warning' => 'rgba(217, 119, 6, 0.1)',
-                        'info'    => 'var(--table-header-bg)', // Inherits the soft blue overlay
+                        'info'    => 'var(--table-header-bg)', 
                         default   => 'rgba(5, 150, 105, 0.1)',
                     };
                 ?>
@@ -257,6 +342,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <!-- Rest of page remains exactly the same for Calculator and Tables -->
     <div class="card" style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>

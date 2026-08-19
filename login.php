@@ -14,7 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$userid]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($user && password_verify($password, $user['password_hash'])) {
+        if ($user && !(int)$user['is_active']) {
+            // Correct password, but the account is deactivated — is_active
+            // exists in the schema but was never actually checked here.
+            // Deliberately the same generic message as a wrong password,
+            // so this doesn't confirm to an outsider that the account exists.
+            $error = "Invalid User ID or Password.";
+        } elseif ($user && password_verify($password, $user['password_hash'])) {
             $_SESSION['user_id']    = $user['id'];
             $_SESSION['role']       = $user['role'];
             $_SESSION['name']       = $user['name'];
@@ -202,9 +208,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 360px; 
             height: 360px; 
             margin-bottom: 16px;
-            /* Stacked shadows: 
-               1st is a tight, dark shadow so the thin text pops over the line.
-               2nd is a wide, soft shadow for the large shield. */
             filter: drop-shadow(0px 2px 3px rgba(10, 25, 47, 0.5)) 
                     drop-shadow(0px 12px 24px rgba(10, 25, 47, 0.15));
             transition: filter 0.3s ease;
