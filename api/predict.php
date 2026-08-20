@@ -47,7 +47,7 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     }
     $currentPrelimAvg = computeWeightedGWA($prelim_rows) ?? 0.0;
 
-    // 3. Count Failed Subjects, Irregular Semesters, & Latin Honor Eligibility
+    // 3. Count Failed Subjects & Irregular Semesters (feature inputs to the model)
     $stmtPast = $db->prepare("
         SELECT school_year, semester, final_grade 
         FROM grades 
@@ -58,7 +58,6 @@ function getStudentPrediction(int $studentId, PDO $db): array {
 
     $failedCount = 0;
     $failedSemesters = []; 
-    $hasDisqualifyingGrade = false;
 
     foreach ($pastRecords as $row) {
         $gStr = strtoupper(trim((string)$row['final_grade']));
@@ -66,16 +65,12 @@ function getStudentPrediction(int $studentId, PDO $db): array {
         if (in_array($gStr, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
             $failedCount++;
             $failedSemesters[] = $row['school_year'] . '_' . $row['semester'];
-            $hasDisqualifyingGrade = true;
-        } 
-        elseif (is_numeric($gStr)) {
-            $val = (float)$gStr;
-            if ($val < 1.75 && $val > 0) {
-                $hasDisqualifyingGrade = true;
-            }
         }
     }
     $irregularSemesters = count(array_unique($failedSemesters));
+
+    // Latin Honor Eligibility — shared logic, see hasDisqualifyingGrade() in constants.php
+    $hasDisqGrade = hasDisqualifyingGrade($studentId, $db);
 
     $payload = [
         'historical_gwa'        => $historicalGwa,
@@ -84,20 +79,23 @@ function getStudentPrediction(int $studentId, PDO $db): array {
         'irregular_semesters'   => $irregularSemesters
     ];
 
-    // 4. Mathematical Base (Always calculate this regardless of AI status)
+    // 4. Mathematical Base (Always calculate this regardless of AI status).
+    // predGwa is a plain number from here on — risk, honors, and irregularity
+    // probability are ALL derived from this single number, whichever source
+    // it came from. There is exactly one code path from "a GWA" to "a risk
+    // level" (computeRiskFromAvg) and one from "a GWA" to "an honor"
+    // (getLatinHonor), so the prediction source (heuristic vs. decision_tree)
+    // can never disagree with itself the way it used to when only risk_level
+    // was swapped in from the ML response while predicted_gwa stayed heuristic.
     $predGwa = predictFinalGradeHeuristic(
         $currentPrelimAvg > 0 ? $currentPrelimAvg : null, 
         $historicalGwa > 0 ? $historicalGwa : null
     ) ?? 0.0;
-    
-    $latinHonor = getLatinHonor($predGwa, $hasDisqualifyingGrade);
-    
-    // Default Heuristics (will be overwritten if AI is online)
-    $risk = computeRiskFromAvg($predGwa);
-    $irregularProb = $risk === 'HIGH' ? 70.0 : ($risk === 'MODERATE' ? 30.0 : 5.0);
     $predictionSource = 'heuristic';
 
-    // 5. Call Flask Python Microservice via cURL to get AI Overrides
+    // 5. Call Flask Python Microservice — the Decision Tree Regressor. It
+    // returns only a numeric predicted_gwa; it does not classify risk or
+    // honors itself (see python_ml/decision_tree.py for why).
     $ch = curl_init('http://127.0.0.1:5000/predict');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -111,15 +109,19 @@ function getStudentPrediction(int $studentId, PDO $db): array {
 
     if ($httpCode === 200 && $response) {
         $mlResult = json_decode($response, true);
-        if ($mlResult && isset($mlResult['risk_level'])) {
-            // Override heuristics with ML Intelligence
-            $risk = $mlResult['risk_level'];
-            $irregularProb = $mlResult['irregular_prob'] ?? $irregularProb;
-            $predictionSource = 'decision_tree';
+        if ($mlResult && isset($mlResult['predicted_gwa']) && is_numeric($mlResult['predicted_gwa'])) {
+            $predGwa = max(1.00, min(4.00, (float) $mlResult['predicted_gwa']));
+            $predictionSource = ($mlResult['source'] ?? '') === 'decision_tree' ? 'decision_tree' : 'heuristic';
         }
     }
 
-    // 6. Persist to predictions Table
+    // 6. Everything else is derived from predGwa, regardless of which source
+    // produced it — same rules the rest of the app already uses.
+    $risk = computeRiskFromAvg($predGwa);
+    $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
+    $irregularProb = $risk === 'HIGH' ? 70.0 : ($risk === 'MODERATE' ? 30.0 : 5.0);
+
+    // 7. Persist to predictions Table
     $stmtSave = $db->prepare("
         INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
         VALUES (?, ?, ?, ?, ?, ?)

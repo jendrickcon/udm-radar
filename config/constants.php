@@ -97,6 +97,31 @@ function normalizeGrade($grade): ?float {
     return (float) $grade;
 }
 
+// Shared disqualifying-grade check for honors eligibility — a student with
+// any past failed subject or any final_grade below 1.75 is disqualified
+// regardless of GWA. Previously this was only computed inline in
+// api/predict.php, so any other caller of getLatinHonor() silently defaulted
+// to "no disqualifying grade" and could show honors eligibility a student
+// doesn't actually qualify for. Both predict.php and student/dashboard.php's
+// local fallback should call this instead of recomputing or omitting it.
+function hasDisqualifyingGrade(int $studentId, PDO $db): bool {
+    $stmt = $db->prepare("
+        SELECT final_grade FROM grades
+        WHERE student_id = ? AND is_current = 0 AND final_grade IS NOT NULL
+    ");
+    $stmt->execute([$studentId]);
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $grade) {
+        $gStr = strtoupper(trim((string) $grade));
+        if (in_array($gStr, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
+            return true;
+        }
+        if (is_numeric($gStr) && (float) $gStr > 0 && (float) $gStr < 1.75) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function getLatinHonor(float $gwa, bool $hasDisqualifyingGrade = false): string {
     // Immediate academic disqualification (e.g., any grade < 1.75 or 80%)
     if ($hasDisqualifyingGrade) {
@@ -157,17 +182,14 @@ function computeRiskFromAvg(float $avg): string {
     return 'LOW';
 }
 
-// TEMPORARY heuristic placeholder for the real Decision Tree model (not yet
-// built — see python_ml/). Blends current-term prelim performance with the
-// student's historical weighted GWA 50/50, so one early exam can't swing the
-// prediction wildly on its own — prelim is only ~30% of a real final grade.
-// This is NOT machine learning; label it honestly wherever it's shown
-// ("Heuristic Estimate — pending Decision Tree model"), never as ML output.
+// TEMPORARY heuristic placeholder for the real Decision Tree model.
+// Blends historical weighted GWA (70%) with current-term prelim (30%).
+// This is NOT machine learning; label it honestly wherever it's shown.
 function predictFinalGradeHeuristic(?float $currentPrelim, ?float $historicalGWA): ?float {
     if ($currentPrelim === null && $historicalGWA === null) return null;
     if ($currentPrelim === null) return round($historicalGWA, 2);
     if ($historicalGWA === null) return round($currentPrelim, 2);
-    $blend = (0.5 * $currentPrelim) + (0.5 * $historicalGWA);
+    $blend = (0.30 * $currentPrelim) + (0.70 * $historicalGWA);
     $blend = max(1.00, min(4.00, $blend));
     return round($blend * 4) / 4; // snap to the .25 grading increments
 }
