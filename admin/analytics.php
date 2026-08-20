@@ -7,9 +7,9 @@ requireRole('admin');
 $db = getDB();
 
 // ---------------------------------------------------------
-// Helper: Ordinal Year Labels
+// Helper: Ordinal Year Labels (Type-Hinted)
 // ---------------------------------------------------------
-function ordinalYearLabel($year) {
+function ordinalYearLabel(int|string $year): string {
     return match ((int) $year) {
         1 => '1st Year',
         2 => '2nd Year',
@@ -39,6 +39,23 @@ if ($yearFilter !== '' && !in_array($yearFilter, $dbYears, true)) $yearFilter = 
 $isCurrentTerm = ($syFilter === '2026-2027' && $semFilter === '1');
 
 // ---------------------------------------------------------
+// Default values to prevent IDE warnings (P1116)
+// ---------------------------------------------------------
+$totalStudents = 0; $sectionData = []; $meanGwa = null; $gwaSum = 0; $gwaCount = 0;
+$atRiskPct = 0.0; $coveragePct = 0.0;
+$riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
+$sourceTotals = ['decision_tree' => 0, 'heuristic' => 0, 'none' => 0];
+$distinctions = [
+    'Summa-level threshold' => 0, 'Magna-level threshold' => 0,
+    'Cum Laude-level threshold' => 0, 'Not currently within a distinction threshold' => 0,
+    'Insufficient Data' => 0
+];
+$chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
+$subjectStats = []; $histSubjects = [];
+$totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0; 
+$histPassedCount = 0; $overallHistPassRate = 0.0;
+
+// ---------------------------------------------------------
 // MODE A: CURRENT TERM ANALYTICS (Progress & Predictions)
 // ---------------------------------------------------------
 if ($isCurrentTerm) {
@@ -65,15 +82,6 @@ if ($isCurrentTerm) {
 
     // 2. Aggregate Current Data
     $totalStudents = count($students);
-    $gwaSum = 0; $gwaCount = 0;
-    $riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
-    $sourceTotals = ['decision_tree' => 0, 'heuristic' => 0, 'none' => 0];
-    $distinctions = [
-        'Summa-level threshold' => 0, 'Magna-level threshold' => 0,
-        'Cum Laude-level threshold' => 0, 'Not currently within a distinction threshold' => 0,
-        'Insufficient Data' => 0
-    ];
-    $sectionData = [];
 
     foreach ($students as $s) {
         $sec = $s['section'];
@@ -117,15 +125,14 @@ if ($isCurrentTerm) {
 
     $meanGwa = $gwaCount > 0 ? $gwaSum / $gwaCount : null;
     $coverageCount = $totalStudents - $riskTotals['NONE'];
-    $coveragePct = $totalStudents > 0 ? ($coverageCount / $totalStudents) * 100 : 0;
+    $coveragePct = $totalStudents > 0 ? ($coverageCount / $totalStudents) * 100 : 0.0;
     
     // Accurate At-Risk Denominator: Only count students with predictions
     $atRiskCount = $riskTotals['HIGH'] + $riskTotals['MODERATE'];
-    $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0;
+    $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0.0;
 
     // Chart Data
     $chartSecLabels = array_keys($sectionData);
-    $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
     foreach ($chartSecLabels as $sec) {
         $t = $sectionData[$sec]['total'];
         $chartSecHigh[] = $t > 0 ? round(($sectionData[$sec]['risks']['HIGH'] / $t) * 100, 1) : 0;
@@ -151,7 +158,6 @@ if ($isCurrentTerm) {
     $stmtSubjects->execute($paramsSubjects);
     $rawGrades = $stmtSubjects->fetchAll(PDO::FETCH_ASSOC);
 
-    $subjectStats = [];
     foreach ($rawGrades as $r) {
         $id = $r['id'];
         if (!isset($subjectStats[$id])) {
@@ -194,8 +200,6 @@ else {
     $rawHistGrades = $stmtHistorical->fetchAll(PDO::FETCH_ASSOC);
 
     $histStudents = [];
-    $histSubjects = [];
-    $histGradesSum = 0; $histGradesCount = 0; $histPassedCount = 0;
 
     foreach ($rawHistGrades as $r) {
         $histStudents[$r['student_id']] = true;
@@ -230,7 +234,7 @@ else {
     
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
-    $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0;
+    $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0.0;
 }
 
 $pageTitle = 'Program Analytics';

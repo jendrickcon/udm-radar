@@ -11,14 +11,14 @@ $db = getDB();
 // Helper Functions
 // ---------------------------------------------------------
 if (!function_exists('formatPercentage')) {
-    function formatPercentage($val) {
+    function formatPercentage(float|int|string|null $val): string {
         if ($val === null) return '—';
         return str_replace('.00', '', number_format((float)$val, 2));
     }
 }
 
 if (!function_exists('formatFinalGrade')) {
-    function formatFinalGrade($val) {
+    function formatFinalGrade(float|int|string|null $val): string {
         if ($val === null) return '—';
         return number_format((float)$val, 2);
     }
