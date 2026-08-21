@@ -54,6 +54,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($replyMessage)) throw new Exception("Reply message cannot be empty.");
             if (mb_strlen($replyMessage) > 2000) throw new Exception("Replies must not exceed 2,000 characters.");
 
+            // SECURITY: Verify Faculty authorization to access this specific ticket
+            $stmtAuth = $db->prepare("
+                SELECT f.status 
+                FROM feedback_reports f
+                LEFT JOIN student_profiles sp ON sp.user_id = f.submitted_by
+                LEFT JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section AND fcl.faculty_user_id = ?
+                WHERE f.id = ? AND (f.submitted_by = ? OR fcl.faculty_user_id IS NOT NULL)
+            ");
+            $stmtAuth->execute([$user['id'], $ticketId, $user['id']]);
+            $ticketStatus = $stmtAuth->fetchColumn();
+
+            if ($ticketStatus === false) throw new Exception("Unauthorized: You do not have access to this ticket.");
+            if (in_array($ticketStatus, ['resolved', 'rejected'])) throw new Exception("Cannot reply to a closed ticket.");
+
             // RATE LIMIT: Faculty Replies
             $stmtHourly = $db->prepare("SELECT COUNT(*) FROM feedback_messages WHERE sender_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
             $stmtHourly->execute([$user['id']]);
@@ -145,25 +159,39 @@ $stmtMyReports = $db->prepare("
 $stmtMyReports->execute([$user['id']]);
 $my_submissions = $stmtMyReports->fetchAll(PDO::FETCH_ASSOC);
 
+// ISOLATION FIX: Only query messages belonging to accessible tickets
+$accessibleTicketIds = [];
+foreach ($inbox as $msg) $accessibleTicketIds[] = $msg['id'];
+foreach ($my_submissions as $msg) $accessibleTicketIds[] = $msg['id'];
+
 $messages_by_ticket = [];
-$stmtMsgs = $db->prepare("SELECT fm.*, u.first_name, u.last_name, u.role FROM feedback_messages fm JOIN users u ON fm.sender_id = u.id ORDER BY fm.created_at ASC");
-$stmtMsgs->execute();
-foreach ($stmtMsgs->fetchAll(PDO::FETCH_ASSOC) as $msg) {
-    $messages_by_ticket[$msg['feedback_id']][] = $msg;
+if (!empty($accessibleTicketIds)) {
+    $inClause = implode(',', array_fill(0, count($accessibleTicketIds), '?'));
+    $stmtMsgs = $db->prepare("
+        SELECT fm.*, u.first_name, u.last_name, u.role 
+        FROM feedback_messages fm 
+        JOIN users u ON fm.sender_id = u.id 
+        WHERE fm.feedback_id IN ($inClause)
+        ORDER BY fm.created_at ASC
+    ");
+    $stmtMsgs->execute($accessibleTicketIds);
+    foreach ($stmtMsgs->fetchAll(PDO::FETCH_ASSOC) as $msg) {
+        $messages_by_ticket[$msg['feedback_id']][] = $msg;
+    }
 }
 
 $stmtSubj = $db->prepare("SELECT DISTINCT s.id, s.code, s.title FROM faculty_class_loads fcl JOIN subjects s ON s.id = fcl.subject_id WHERE fcl.faculty_user_id = ?");
 $stmtSubj->execute([$user['id']]);
 $my_subjects = $stmtSubj->fetchAll(PDO::FETCH_ASSOC);
 
-$pageTitle = 'Concerns, Support & Reports';
+$pageTitle = 'Concerns & Reports';
 $navItems = [
     ['Home',               'index.php',     '🏠'],
     ['Dashboard',          'dashboard.php', '📊'],
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
     ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'],
+    ['Concerns & Reports', 'feedback.php',  '💬'], // Ensured message bubble icon
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
@@ -201,10 +229,11 @@ require_once '../includes/sidebar.php';
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
+    <!-- FIXED: Explicit button IDs for programmatic routing -->
     <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
-        <button class="tab-btn active" onclick="switchTab('inbox')">Student Concerns</button>
-        <button class="tab-btn" onclick="switchTab('support')">Academic Support Cases</button>
-        <button class="tab-btn" onclick="switchTab('reports')">My Reports to Admin</button>
+        <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Student Concerns</button>
+        <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support Cases</button>
+        <button id="btn-reports" class="tab-btn" onclick="switchTab('reports')">My Reports to Admin</button>
     </div>
 
     <!-- TAB 1: Student Concerns Inbox -->
@@ -500,8 +529,8 @@ require_once '../includes/sidebar.php';
 </div>
 
 <!-- Intervention Modal -->
-<div id="interventionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 100%; max-width: 500px; padding: 24px;">
+<div id="interventionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
         <h3 style="margin-top: 0; color: var(--text-dark);">Issue Academic Support Notice</h3>
         <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">Sending a notice to <strong id="modalStudentName" style="color: var(--accent-blue);"></strong>. This requires the student to acknowledge receipt upon their next login.</p>
         
@@ -522,16 +551,41 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
+// FIXED: Reliable tab switching logic with specific IDs
 function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById('tab-' + tabId).classList.add('active');
+    
+    const targetContent = document.getElementById('tab-' + tabId);
+    const activeBtn = document.getElementById('btn-' + tabId);
+    
+    if (targetContent) targetContent.classList.add('active');
+    if (activeBtn) activeBtn.classList.add('active');
 }
+
+// FIXED: Listen for ?tab= parameters in URL on load
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get('tab');
+    const allowedTabs = ['inbox', 'support', 'reports'];
+
+    if (allowedTabs.includes(requestedTab)) {
+        switchTab(requestedTab);
+    }
+});
+
+// Utility to open the Intervention Modal
+function openInterventionModal(caseId, studentName) {
+    document.getElementById('modalCaseId').value = caseId;
+    document.getElementById('modalStudentName').innerText = studentName;
+    document.getElementById('interventionModal').style.display = 'flex';
+}
+
 function toggleThread(ticketId) {
     const thread = document.getElementById('thread_' + ticketId);
     thread.style.display = (thread.style.display === 'none' || thread.style.display === '') ? 'block' : 'none';
 }
+
 document.querySelectorAll('.safe-submit-form').forEach(f => {
     f.addEventListener('submit', function() {
         const btn = this.querySelector('.submit-btn');

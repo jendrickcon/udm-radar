@@ -12,7 +12,27 @@
   --risk-high:    #C62828;
   --text-dark:    #1A1A2E;
   --text-gray:    #4A5568;
+  --shadow-sm:    0 4px 15px rgba(13, 43, 107, 0.08); /* Soft blue shadow for light mode */
+  --btn-bg:       #FFFFFF;
 }
+
+[data-theme="dark"] {
+  /* Dark Mode Overrides */
+  --pale-teal:    #0B1120;
+  --dark-blue:    #1E293B;
+  --teal:         #00B5C0;
+  --gold-bg:      #E0BB4D;
+  --risk-low:     #10B981;
+  --risk-moderate:#F59E0B;
+  --risk-high:    #EF4444;
+  --text-dark:    #F8FAFC;
+  --text-gray:    #94A3B8;
+  --shadow-sm:    0 4px 20px rgba(0, 0, 0, 0.4); /* Deeper, softer shadow for dark mode to prevent the 'double border' look */
+  --btn-bg:       #0F172A; /* Dark button background for action banners */
+}
+
+/* Global Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
 /* ── Login Page ─────────────────────────────────────────── */
 body.login-body {
@@ -37,6 +57,7 @@ body.login-body {
   padding: 2rem;
   background: var(--pale-teal);
   overflow-y: auto;
+  transition: background-color 0.3s ease;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────── */
@@ -47,6 +68,7 @@ body.login-body {
   padding: 1rem 0;
   position: sticky;
   top: 0; height: 100vh;
+  transition: background-color 0.3s ease;
 }
 .sidebar-brand {
   display: flex; align-items: center; gap: 0.75rem;
@@ -66,24 +88,207 @@ body.login-body {
   color: white;
 }
 
-/* ── Stat Cards ──────────────────────────────────────────── */
+/* ── General Cards ───────────────────────────────────────── */
+.card { 
+  background: var(--dark-blue); 
+  border-radius: 12px; 
+  padding: 24px; 
+  box-shadow: var(--shadow-sm); 
+  margin-bottom: 24px; 
+  border: 1px solid rgba(255,255,255,0.05); /* Very subtle border to define edge without harsh lines */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.chart-container { background: var(--dark-blue); border-radius: 10px; padding: 1.5rem; }
+
+/* ── Stat Cards (Upgraded for uniform height & anti-wrap) ── */
+.stat-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+  gap: 16px; 
+  margin-bottom: 24px; 
+}
 .stat-card {
-  background: white;
+  background: var(--dark-blue);
   border-radius: 10px;
   padding: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  text-align: center;
+  box-shadow: var(--shadow-sm);
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
-.stat-label { font-size: 0.8rem; color: var(--text-gray); text-transform: uppercase; }
-.stat-value { font-size: 1.6rem; font-weight: 700; color: var(--dark-blue); }
+.stat-card h4, .stat-label { 
+  color: var(--text-gray); 
+  font-size: 0.75rem; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  margin: 0; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+}
+.stat-card h2, .stat-value { 
+  color: var(--text-dark); 
+  font-size: 1.8rem; 
+  font-weight: 700; 
+  margin: 4px 0; 
+}
+.stat-card-subtext { 
+  font-size: 0.75rem; 
+  color: var(--text-gray); 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  margin-top: 6px; 
+  font-weight: 600; 
+}
 
 /* ── Risk Badges ─────────────────────────────────────────── */
 .risk-badge { font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 20px; }
-.risk-low      { background: #E8F5E9; color: var(--risk-low); }
-.risk-moderate { background: #FFF8E1; color: var(--risk-moderate); }
-.risk-high     { background: #FFEBEE; color: var(--risk-high); }
+.risk-low      { background: rgba(27, 122, 62, 0.1); color: var(--risk-low); }
+.risk-moderate { background: rgba(201, 122, 0, 0.1); color: var(--risk-moderate); }
+.risk-high     { background: rgba(198, 40, 40, 0.1); color: var(--risk-high); }
 
 /* ── Tables ──────────────────────────────────────────────── */
-.grade-table th { background: var(--dark-blue); color: white; }
-.grade-table tr:nth-child(even) { background: #F8FAFC; }
-.chart-container { background: white; border-radius: 10px; padding: 1.5rem; }
+table { width: 100%; border-collapse: collapse; }
+.grade-table th, th { 
+  background: rgba(255,255,255,0.02); 
+  color: var(--text-dark); 
+  padding: 12px; 
+  text-align: left; 
+  font-size: 0.9rem; 
+}
+.grade-table tr:nth-child(even), tr:nth-child(even) { background: rgba(255,255,255,0.01); }
+td { 
+  padding: 12px; 
+  border-bottom: 1px solid rgba(255,255,255,0.05); 
+  font-size: 0.95rem; 
+  color: var(--text-dark); 
+}
+
+/* =========================================================
+   NEW ARCHITECTURE COMPONENTS (Added for Admin/Faculty UI)
+   ========================================================= */
+
+/* ── Tab System ── */
+.tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tab-content { display: none; animation: fadeIn 0.3s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Action Buttons ── */
+.action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.btn-resolve { background: rgba(27, 122, 62, 0.1); color: var(--risk-low); border-color: rgba(27, 122, 62, 0.2); }
+.btn-reject { background: rgba(198, 40, 40, 0.1); color: var(--risk-high); border-color: rgba(198, 40, 40, 0.2); }
+.btn-route { background: rgba(0, 123, 131, 0.1); color: var(--teal); border-color: rgba(0, 123, 131, 0.2); }
+.btn-intervene { background: rgba(201, 122, 0, 0.1); color: var(--risk-moderate); border-color: rgba(201, 122, 0, 0.2); }
+.btn-reply { background: rgba(13, 43, 107, 0.1); color: var(--accent-blue); border-color: rgba(13, 43, 107, 0.2); padding: 4px 10px; font-size: 0.75rem; }
+
+/* ── Modals ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(11, 17, 32, 0.7); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; backdrop-filter: blur(4px); }
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal-box { background: var(--dark-blue); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; max-width: 640px; width: 100%; padding: 32px; box-shadow: var(--shadow-sm); position: relative; opacity: 0; transform: scale(0.95) translateY(-20px); transition: transform 0.3s ease, opacity 0.3s ease; }
+.modal-overlay.open .modal-box { opacity: 1; transform: scale(1) translateY(0); }
+.modal-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.05); color: var(--text-dark); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+.modal-close:hover { background: var(--risk-high); color: white; border-color: var(--risk-high); }
+
+/* ── Faculty Analytics: Native Details Accordion ── */
+.risk-details { border-top: 1px solid rgba(255,255,255,0.05); }
+.risk-details summary { display: flex; align-items: center; padding: 14px 20px; color: var(--teal); font-size: 0.85rem; font-weight: 700; cursor: pointer; list-style: none; user-select: none; }
+.risk-details summary::-webkit-details-marker { display: none; }
+.risk-details summary::before { content: "▶"; display: inline-block; margin-right: 8px; font-size: 0.7rem; transition: transform 0.2s ease; }
+.risk-details[open] summary::before { transform: rotate(90deg); }
+.risk-list { padding: 0 20px 20px; }
+.risk-list-header, .risk-student-row { display: grid; grid-template-columns: minmax(220px, 1fr) 110px 100px; gap: 16px; align-items: center; }
+.risk-list-header { padding: 8px 14px; color: var(--text-gray); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+.risk-student-row { margin-bottom: 6px; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.9rem; }
+.risk-student-identity { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--text-dark); }
+.student-number { color: var(--text-gray); font-family: monospace; font-size: 0.78rem; }
+.student-grade { text-align: center; font-variant-numeric: tabular-nums; }
+.risk-status { color: white; padding: 4px 10px; border-radius: 4px; text-align: center; font-size: 0.75rem; font-weight: 700; }
+.no-risk-message { padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.05); color: var(--risk-low); font-size: 0.9rem; font-weight: 600; }
+@media (max-width: 700px) { .risk-list-header { display: none; } .risk-student-row { grid-template-columns: 1fr auto; } .risk-status { grid-column: 2; } .student-grade { text-align: right; } }
+
+/* =========================================================
+   DASHBOARD ACTION BANNERS
+   ========================================================= */
+.dashboard-action-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    background: rgba(0, 123, 131, 0.08); /* --teal tint */
+    border: 1px solid rgba(0, 123, 131, 0.24);
+    border-left: 4px solid var(--teal);
+    border-radius: 8px;
+    color: var(--text-dark);
+    flex-wrap: wrap;
+}
+
+.dashboard-action-warning {
+    background: rgba(201, 122, 0, 0.10); /* --risk-moderate tint */
+    border-color: rgba(201, 122, 0, 0.30);
+    border-left-color: var(--risk-moderate);
+}
+
+.dashboard-action-description,
+.dashboard-action-items {
+    color: var(--text-gray);
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+.dashboard-action-items {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.dashboard-action-items span:not(:last-child)::after {
+    content: "•";
+    margin-left: 14px;
+    color: var(--text-gray);
+}
+
+.dashboard-action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* FIXED: Button background uses theme-aware variable instead of hardcoded white */
+.dashboard-banner-btn {
+    padding: 10px 16px;
+    background: var(--btn-bg); 
+    color: var(--risk-moderate);
+    border: 1px solid var(--risk-moderate);
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+.dashboard-banner-btn:hover {
+    background: var(--risk-moderate);
+    color: white;
+}
+
+@media (max-width: 700px) {
+    .dashboard-action-banner {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .dashboard-action-buttons {
+        width: 100%;
+    }
+    .dashboard-action-buttons .dashboard-banner-btn {
+        flex: 1;
+        text-align: center;
+    }
+}

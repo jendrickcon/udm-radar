@@ -7,11 +7,20 @@ requireRole('faculty');
 $user = currentUser();
 $db = getDB();
 
+// Safety fallback in case normalizePointGrade isn't in your helpers yet
+if (!function_exists('normalizePointGrade')) {
+    function normalizePointGrade($val) {
+        if ($val === null || trim((string)$val) === '') return null;
+        return (float)$val;
+    }
+}
+
 // ---------------------------------------------------------
-// 0. Set Current Academic Term Context
+// 0. Set Current Academic Term Context (Dynamic)
 // ---------------------------------------------------------
-$currentSy = '2026-2027';
-$currentSem = '1';
+$currentTerm = getCurrentTerm();
+$currentSy = $currentTerm['school_year'];
+$currentSem = (string) $currentTerm['semester'];
 
 // ---------------------------------------------------------
 // 1. Fetch Assigned Class Loads
@@ -53,23 +62,24 @@ foreach ($myLoads as $load) {
     foreach ($grades as $g) {
         $uniqueStudents[$g['student_id']] = true;
 
-        // Determine the "Latest Available Period" for this student
         $latestVal = null;
-        if ($g['final_grade'] !== null && trim((string)$g['final_grade']) !== '') $latestVal = $g['final_grade'];
-        elseif ($g['prefinal'] !== null && trim((string)$g['prefinal']) !== '') $latestVal = $g['prefinal'];
-        elseif ($g['midterm'] !== null && trim((string)$g['midterm']) !== '') $latestVal = $g['midterm'];
-        elseif ($g['prelim'] !== null && trim((string)$g['prelim']) !== '') $latestVal = $g['prelim'];
+        $latestType = '';
+        if ($g['final_grade'] !== null && trim((string)$g['final_grade']) !== '') { $latestVal = $g['final_grade']; $latestType = 'final_grade'; }
+        elseif ($g['prefinal'] !== null && trim((string)$g['prefinal']) !== '') { $latestVal = $g['prefinal']; $latestType = 'prefinal'; }
+        elseif ($g['midterm'] !== null && trim((string)$g['midterm']) !== '') { $latestVal = $g['midterm']; $latestType = 'midterm'; }
+        elseif ($g['prelim'] !== null && trim((string)$g['prelim']) !== '') { $latestVal = $g['prelim']; $latestType = 'prelim'; }
 
         if ($latestVal !== null) {
             $overallEncoded++;
             $classCount++;
 
-            // Check for failing text grades (INC, FA, etc.)
             if (in_array(strtoupper(trim((string)$latestVal)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
                 $classAttention++;
                 $overallAttention++;
             } else {
-                $pt = normalizeTermGrade($latestVal);
+                // FIXED: Use Point Grade normalizer for Finals, Term Grade normalizer for Percentages
+                $pt = ($latestType === 'final_grade') ? normalizePointGrade($latestVal) : normalizeTermGrade($latestVal);
+                
                 if ($pt !== null) {
                     $classSum += $pt;
                     $overallGradesSum += $pt;
@@ -118,7 +128,6 @@ if (!empty($myLoads)) {
     }
 }
 
-// Default values for selected class
 $enrolledCount = 0; $latestMean = null; $latestPeriodName = 'Preliminary';
 $attentionCount = 0; $completenessPct = 0;
 $periods = ['Prelim', 'Midterm', 'Pre-Final', 'Final'];
@@ -151,7 +160,6 @@ if ($subjFilter && $secFilter) {
         $stuName = formatNameLastFirst($g['first_name'], '', $g['last_name']);
         $pPts = ['Prelim' => null, 'Midterm' => null, 'Pre-Final' => null, 'Final' => null];
 
-        // Process each period
         $pMap = ['Prelim' => 'prelim', 'Midterm' => 'midterm', 'Pre-Final' => 'prefinal', 'Final' => 'final_grade'];
         foreach ($pMap as $pName => $dbCol) {
             if ($g[$dbCol] !== null && trim((string)$g[$dbCol]) !== '') {
@@ -162,7 +170,9 @@ if ($subjFilter && $secFilter) {
                      continue;
                 }
 
-                $pt = normalizeTermGrade($g[$dbCol]);
+                // FIXED: Normalization segregation
+                $pt = ($dbCol === 'final_grade') ? normalizePointGrade($g[$dbCol]) : normalizeTermGrade($g[$dbCol]);
+                
                 if ($pt !== null) {
                     $pPts[$pName] = $pt;
                     $rawSums[$pName] += $pt;
@@ -174,7 +184,6 @@ if ($subjFilter && $secFilter) {
             }
         }
 
-        // Track Significant Changes (Midterm vs Prelim)
         if ($pPts['Prelim'] !== null && $pPts['Midterm'] !== null) {
             $diff = $pPts['Midterm'] - $pPts['Prelim'];
             if (abs($diff) >= 0.50) { 
@@ -195,7 +204,6 @@ if ($subjFilter && $secFilter) {
         }
     }
 
-    // Determine Latest Period metrics for Selected Class summary cards
     if ($periodEncoded['Final'] > 0) {
         $latestPeriodName = 'Final';
         $latestMean = $periodMeans['Final'];
@@ -235,7 +243,7 @@ $navItems = [
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
     ['Encode Grades',      'grades.php',    '📝'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Concerns & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
@@ -260,7 +268,7 @@ require_once '../includes/sidebar.php';
         </div>
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; text-align: center;">
             <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Current Academic Term</div>
-            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= $currentSy ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</div>
+            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= htmlspecialchars($currentSy) ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</div>
         </div>
     </div>
 
@@ -268,12 +276,9 @@ require_once '../includes/sidebar.php';
         <div class="card"><p class="empty-state">No section class loads assigned to your account for the current term.</p></div>
     <?php else: ?>
 
-    <!-- ========================================== -->
-    <!-- SECTION 1: ASSIGNED CLASSES OVERVIEW       -->
-    <!-- ========================================== -->
     <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">Assigned Classes Overview</h2>
     <div style="margin-bottom: 16px; font-size: 0.85rem; color: var(--text-gray);">
-        <em>Note: These indicators summarize student academic performance and grade-record completeness across your assigned class loads. They do not constitute a formal evaluation of teaching performance.</em>
+        <em>Note: These indicators summarize student academic performance and grade-record completeness across your assigned class loads.</em>
     </div>
 
     <div class="analytics-stat-grid">
@@ -444,8 +449,7 @@ require_once '../includes/sidebar.php';
                     </thead>
                     <tbody>
                         <?php foreach ($significantChanges as $stu): 
-                            $isDrop = $stu['diff'] < 0; // Note: on UDM scale 1.00 is best. So diff < 0 means dropping numerically (approaching 1.00) which is IMPROVING.
-                            // If diff > 0 (e.g. 2.50 to 3.00), grade is WORSE.
+                            $isDrop = $stu['diff'] < 0; 
                             $diffColor = $stu['diff'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
                             $diffSign = $stu['diff'] > 0 ? '↓ ' : '↑ +'; 
                             

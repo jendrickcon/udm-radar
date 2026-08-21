@@ -7,6 +7,40 @@ requireRole('faculty');
 $user = currentUser();
 $db   = getDB();
 
+// ── 0. FACULTY WORKLOAD QUERIES ───────────────────────────────────────────
+
+$stmtConcernCount = $db->prepare("
+    SELECT COUNT(DISTINCT f.id)
+    FROM feedback_reports f
+    JOIN users student_user ON student_user.id = f.submitted_by AND student_user.role = 'student'
+    JOIN student_profiles sp ON sp.user_id = f.submitted_by
+    JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section
+    WHERE fcl.faculty_user_id = ? AND f.status IN ('open', 'faculty_review')
+");
+$stmtConcernCount->execute([$user['id']]);
+$openConcernCount = (int) $stmtConcernCount->fetchColumn();
+
+$stmtPendingBatchCount = $db->prepare("
+    SELECT COUNT(*)
+    FROM pending_grade_batches
+    WHERE faculty_id = ? AND status = 'pending'
+");
+$stmtPendingBatchCount->execute([$user['id']]);
+$pendingBatchCount = (int) $stmtPendingBatchCount->fetchColumn();
+
+$stmtSupportReviewCount = $db->prepare("
+    SELECT COUNT(DISTINCT support_case.id)
+    FROM academic_support_cases support_case
+    JOIN student_profiles sp ON sp.user_id = support_case.student_id
+    JOIN grades g ON g.student_id = support_case.student_id AND g.is_current = 1
+    JOIN faculty_class_loads fcl ON fcl.subject_id = g.subject_id AND fcl.section = sp.section
+    WHERE fcl.faculty_user_id = ? AND support_case.status = 'needs_review'
+");
+$stmtSupportReviewCount->execute([$user['id']]);
+$supportReviewCount = (int) $stmtSupportReviewCount->fetchColumn();
+
+$facultyActionCount = $openConcernCount + $pendingBatchCount + $supportReviewCount;
+
 // ── 1. Faculty's assigned sections ────────────────────────────────────────
 $stmt = $db->prepare("SELECT DISTINCT section FROM faculty_class_loads WHERE faculty_user_id = ? ORDER BY section");
 $stmt->execute([$user['id']]);
@@ -24,7 +58,7 @@ $stmt->execute([$user['id']]);
 $my_class_loads = $stmt->fetchAll();
 
 // ── 3. Per-section subject list (for tab column headers) ──────────────────
-$section_subject_map = []; // [section] => [ ['id','code','title'], ... ]
+$section_subject_map = [];
 foreach ($my_class_loads as $load) {
     $sec     = $load['section'];
     $already = array_column($section_subject_map[$sec] ?? [], 'id');
@@ -47,12 +81,13 @@ if (!empty($my_sections)) {
                p.risk_level, p.latin_honor
         FROM users u
         JOIN student_profiles sp ON u.id = sp.user_id
-        LEFT JOIN predictions p ON u.id = p.student_id
-            AND p.generated_at = (
-                SELECT MAX(p2.generated_at)
-                FROM predictions p2
-                WHERE p2.student_id = u.id
-            )
+        LEFT JOIN predictions p ON p.id = (
+            SELECT p2.id
+            FROM predictions p2
+            WHERE p2.student_id = u.id
+            ORDER BY p2.generated_at DESC, p2.id DESC
+            LIMIT 1
+        )
         WHERE sp.section IN ($inSec) AND u.role = 'student'
         ORDER BY sp.section, u.last_name, u.first_name
     ");
@@ -77,7 +112,6 @@ if (!empty($my_class_loads)) {
     }
     $where = implode(' OR ', $conds);
     
-    // Fetch ALL term grades so we can build the breakdown modal
     $stmt  = $db->prepare("
         SELECT g.student_id, g.subject_id, 
                g.prelim, g.midterm, g.prefinal, g.final_grade, 
@@ -136,9 +170,9 @@ $overall_avg_gwa = $gwa_count > 0 ? round($gwa_sum / $gwa_count, 2) : 0;
 $total_students  = count($students);
 
 function getHonorBadge(float $gwa): array {
-    if ($gwa >= 3.75) return ['text' => 'Summa Cum Laude track',     'bg' => 'var(--gold)'];
-    if ($gwa >= 3.50) return ['text' => 'Magna Cum Laude track',     'bg' => 'var(--honor-magna)'];
-    if ($gwa >= 3.25) return ['text' => "Dean's Lister / Cum Laude", 'bg' => 'var(--accent-blue)'];
+    if ($gwa >= 3.75) return ['text' => 'Summa-level threshold',     'bg' => 'var(--gold)'];
+    if ($gwa >= 3.50) return ['text' => 'Magna-level threshold',     'bg' => 'var(--honor-magna)'];
+    if ($gwa >= 3.25) return ['text' => 'Cum Laude-level threshold', 'bg' => 'var(--accent-blue)'];
     return ['text' => '—', 'bg' => 'var(--bg-color)', 'color' => 'var(--text-gray)'];
 }
 
@@ -149,7 +183,7 @@ $navItems = [
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
     ['Encode Grades',      'grades.php',    '📝'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Concerns & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
@@ -172,6 +206,33 @@ require_once '../includes/sidebar.php';
 .sort-arrow { font-size:0.78rem; color:var(--text-gray); margin-left:5px; transition:color 0.15s; }
 .row-clickable { cursor:pointer; transition: background 0.15s; }
 .row-clickable:hover { background: var(--bg-color); }
+.warning-banner { background: rgba(217, 119, 6, 0.08); }
+[data-theme="dark"] .warning-banner { background: rgba(245, 158, 11, 0.12); }
+.control-btn { transition: opacity 0.2s ease, transform 0.1s ease; }
+.control-btn:hover { opacity: 0.85; }
+.control-btn:active { transform: scale(0.98); }
+
+.action-link { color: inherit !important; text-decoration: none !important; transition: opacity 0.2s; }
+.action-link:hover { opacity: 0.7; text-decoration: underline !important; text-underline-offset: 2px; }
+
+.dashboard-banner-btn {
+    display: inline-block;
+    padding: 10px 16px;
+    background: var(--btn-bg) !important; 
+    color: var(--risk-moderate) !important;
+    border: 1px solid var(--risk-moderate);
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none !important;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.2);
+    white-space: nowrap;
+}
+.dashboard-banner-btn:hover {
+    background: var(--risk-moderate) !important;
+    color: white !important;
+}
 </style>
 
 <div class="main-content">
@@ -186,27 +247,59 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- KPI cards -->
-    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr); margin-bottom:24px;">
-        <div class="stat-card" style="border-left-color: var(--text-dark);">
+    <!-- TIER 1: FACULTY WORKLOAD BANNER -->
+    <?php if ($facultyActionCount > 0): ?>
+        <div class="card warning-banner" style="margin-bottom: 24px; padding: 16px 24px; border-left: 4px solid var(--risk-mod); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <h3 style="margin: 0 0 6px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">Work requiring your attention</h3>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; color: var(--text-gray); font-size: 0.85rem;">
+                    <?php if ($openConcernCount > 0): ?>
+                        <span style="display: flex; align-items: center; gap: 6px;"><div style="width:6px; height:6px; border-radius:50%; background:var(--risk-mod);"></div><a href="feedback.php?tab=inbox" class="action-link"><strong><?= $openConcernCount ?></strong> student concern<?= $openConcernCount === 1 ? '' : 's' ?></a></span>
+                    <?php endif; ?>
+                    <?php if ($supportReviewCount > 0): ?>
+                        <span style="display: flex; align-items: center; gap: 6px;"><div style="width:6px; height:6px; border-radius:50%; background:var(--risk-mod);"></div><a href="feedback.php?tab=support" class="action-link"><strong><?= $supportReviewCount ?></strong> support review<?= $supportReviewCount === 1 ? '' : 's' ?></a></span>
+                    <?php endif; ?>
+                    <?php if ($pendingBatchCount > 0): ?>
+                        <span style="display: flex; align-items: center; gap: 6px;"><div style="width:6px; height:6px; border-radius:50%; background:var(--risk-mod);"></div><a href="grades.php" class="action-link"><strong><?= $pendingBatchCount ?></strong> grade submission<?= $pendingBatchCount === 1 ? '' : 's' ?> awaiting Admin review</a></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <?php if ($openConcernCount > 0): ?>
+                    <a href="feedback.php?tab=inbox" class="dashboard-banner-btn control-btn">Open Concerns</a>
+                <?php endif; ?>
+                <?php if ($supportReviewCount > 0): ?>
+                    <a href="feedback.php?tab=support" class="dashboard-banner-btn control-btn">Review Support Cases</a>
+                <?php endif; ?>
+                <?php if ($pendingBatchCount > 0): ?>
+                    <a href="grades.php" class="dashboard-banner-btn control-btn" style="background: var(--card-bg) !important; color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;">View Grade Submissions</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- TIER 2: KPI CARDS (Static for Faculty View) -->
+    <div class="stat-grid" style="margin-bottom:24px;">
+        <div class="stat-card" style="border-left-color: var(--text-dark) !important;">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total_students ?></h2>
         </div>
-        <div class="stat-card" style="border-left-color: var(--risk-high);">
+        <div class="stat-card" style="border-left-color: var(--risk-high) !important;">
             <h4>At-Risk <span style="font-size:0.65rem;color:var(--text-gray);font-weight:400;">(your classes)</span></h4>
             <h2 style="color: var(--risk-high);"><?= $at_risk_total ?></h2>
         </div>
-        <div class="stat-card" style="border-left-color: var(--risk-mod);">
+        <div class="stat-card" style="border-left-color: var(--gold) !important;">
             <h4>Irregular</h4>
-            <h2 style="color: var(--risk-mod);"><?= $irregular_total ?></h2>
+            <h2 style="color: var(--gold);"><?= $irregular_total ?></h2>
         </div>
-        <div class="stat-card" style="border-left-color: var(--accent-blue);">
+        <div class="stat-card" style="border-left-color: var(--teal) !important;">
             <h4>Overall Avg GWA</h4>
-            <h2 style="color: var(--accent-blue);"><?= number_format($overall_avg_gwa, 2) ?></h2>
+            <h2 style="color: var(--teal);"><?= number_format($overall_avg_gwa, 2) ?></h2>
         </div>
     </div>
 
-    <!-- Section cards -->
+    <!-- TIER 3: SECTION CARDS -->
     <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
         <?php foreach ($section_data as $sec_name => $data):
             $count    = count($data['students']);
@@ -226,7 +319,7 @@ require_once '../includes/sidebar.php';
                     <span style="color:var(--text-gray);font-weight:600;">Irregular: <?= $data['irregular'] ?></span>
                 </div>
                 <button onclick="openSection('<?= $sec_name ?>')"
-                    style="width:100%;padding:10px;background:var(--accent-blue);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
+                    style="width:100%;padding:10px;background:var(--accent-blue);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.9" onmouseout="this.style.opacity=1">
                     View Students →
                 </button>
             </div>
@@ -234,7 +327,7 @@ require_once '../includes/sidebar.php';
         <?php endforeach; ?>
     </div>
 
-    <!-- Roster panel -->
+    <!-- TIER 4: EXPANDABLE ROSTER PANEL -->
     <div id="section-roster-card" class="card" style="display:none;border:2px solid var(--accent-blue);margin-bottom:24px; padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <div>
@@ -249,10 +342,9 @@ require_once '../includes/sidebar.php';
 
         <div class="tab-bar">
             <button class="tab-btn active" id="tab-btn-class"   onclick="switchTab('class')">📚 My Class Performance</button>
-            <button class="tab-btn"        id="tab-btn-overall" onclick="switchTab('overall')">🏆 Overall Standing</button>
+            <button class="tab-btn"        id="tab-btn-overall" onclick="switchTab('overall')">📊 Overall Standing</button>
         </div>
 
-        <!-- Tab 1: columns built dynamically by renderClassTab() -->
         <div id="tab-content-class" style="overflow-x:auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead><tr id="class-thead-row" style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color);"></tr></thead>
@@ -260,7 +352,6 @@ require_once '../includes/sidebar.php';
             </table>
         </div>
 
-        <!-- Tab 2: overall GWA ranking for the opened section -->
         <div id="tab-content-overall" style="display:none;overflow-x:auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
@@ -269,7 +360,7 @@ require_once '../includes/sidebar.php';
                         <th style="text-align:left; padding:12px;">Student Name</th>
                         <th style="text-align:left; padding:12px;">Student No.</th>
                         <th style="text-align:center; padding:12px;">Cumulative GWA</th>
-                        <th style="text-align:center; padding:12px;">Honor Track</th>
+                        <th style="text-align:center; padding:12px;">Distinction Threshold</th>
                         <th style="text-align:center; padding:12px;">Overall Risk</th>
                         <th style="text-align:center; padding:12px;">Status</th>
                     </tr>
@@ -279,52 +370,75 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- Top 10 across all sections -->
+    <!-- TIER 5: TOP PERFORMERS (Opportunity Discovery) -->
     <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="color:var(--text-dark);font-weight:700; margin:0;">🏆 Top Students — GWA Ranking</h3>
-            <span style="background:rgba(217, 119, 6, 0.1);color:var(--risk-mod);padding:4px 10px;border-radius:4px;font-size:0.8rem;font-weight:600;">
-                Projected — based on cumulative GWA
-            </span>
+        <div style="margin-bottom:16px;">
+            <h3 style="color:var(--text-dark);font-weight:700; font-size:1.1rem; margin:0 0 4px 0;">Top Academic Performers in Your Assigned Sections</h3>
+            <p style="color:var(--text-gray); font-size: 0.85rem; margin: 0 0 12px 0;">Highlights students with the highest officially recorded current GWA for possible academic opportunities, subject to additional student interest and eligibility.</p>
+            <div style="background: rgba(30, 77, 183, 0.05); border-left: 3px solid var(--accent-blue); padding: 10px 14px; border-radius: 4px; font-size: 0.8rem; color: var(--text-dark);">
+                <strong>Note:</strong> This ranking is an academic reference only. Selection for programs or events should also consider eligibility, interest, availability, conduct, and program-specific requirements.
+            </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
-                    <th style="width:50px;text-align:center; padding:12px;">Rank</th>
-                    <th style="text-align:left; padding:12px;">Student Name</th>
-                    <th style="text-align:left; padding:12px;">Section</th>
-                    <th style="text-align:center; padding:12px;">GWA</th>
-                    <th style="text-align:center; padding:12px;">Honor</th>
-                    <th style="text-align:center; padding:12px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                $sorted = $students;
-                usort($sorted, fn($a, $b) => (float)$b['current_gwa'] <=> (float)$a['current_gwa']);
-                $medals = ['🥇', '🥈', '🥉'];
-                foreach (array_slice($sorted, 0, 10) as $i => $ts):
-                    $honor = getHonorBadge((float)$ts['current_gwa']);
-                ?>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px;"><?= ($medals[$i] ?? '') . ' ' . ($i + 1) ?></td>
-                    <td style="font-weight:600; color:var(--text-dark); padding:12px;"><?= htmlspecialchars($ts['full_name']) ?></td>
-                    <td style="color:var(--text-gray); padding:12px;"><?= htmlspecialchars($ts['section']) ?></td>
-                    <td style="font-weight:700; color:var(--accent-blue); text-align:center; padding:12px;"><?= $ts['current_gwa'] ? number_format($ts['current_gwa'], 2) : '—' ?></td>
-                    <td style="text-align:center; padding:12px;">
-                        <span style="background:<?= $honor['bg'] ?>;color:<?= $honor['color'] ?? 'white' ?>;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
-                            <?= $honor['text'] ?>
-                        </span>
-                    </td>
-                    <td style="text-align:center; padding:12px;">
-                        <span style="background:<?= $ts['status'] === 'Irregular' ? 'var(--risk-mod)' : 'var(--risk-low)' ?>;color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
-                            <?= htmlspecialchars($ts['status']) ?>
-                        </span>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <thead>
+                    <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
+                        <th style="width:50px;text-align:center; padding:12px;">Rank</th>
+                        <th style="text-align:left; padding:12px;">Student</th>
+                        <th style="text-align:center; padding:12px;">Recorded Cumulative GWA</th>
+                        <th style="text-align:center; padding:12px;">Distinction Threshold</th>
+                        <th style="text-align:center; padding:12px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $eligibleTopStudents = array_values(array_filter(
+                        $students,
+                        fn($student) => $student['current_gwa'] !== null && (float) $student['current_gwa'] > 0
+                    ));
+
+                    usort(
+                        $eligibleTopStudents,
+                        fn($a, $b) => (float) $b['current_gwa'] <=> (float) $a['current_gwa']
+                    );
+
+                    $topStudents = array_slice($eligibleTopStudents, 0, 10);
+                    
+                    $currentRank = 1;
+                    $actualIndex = 1;
+                    $previousGwa = null;
+
+                    foreach ($topStudents as $ts):
+                        if ($ts['current_gwa'] !== $previousGwa) {
+                            $currentRank = $actualIndex;
+                        }
+                        $previousGwa = $ts['current_gwa'];
+                        $actualIndex++;
+
+                        $honor = getHonorBadge((float)$ts['current_gwa']);
+                    ?>
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px; font-size: 1.1rem;"><?= $currentRank ?></td>
+                        <td style="padding:12px;">
+                            <div style="font-weight:600; color:var(--text-dark); margin-bottom: 2px;"><?= htmlspecialchars($ts['full_name']) ?></div>
+                            <div style="color:var(--text-gray); font-size: 0.8rem;"><?= htmlspecialchars($ts['student_number']) ?> · <?= htmlspecialchars($ts['section']) ?></div>
+                        </td>
+                        <td style="font-weight:700; color:var(--accent-blue); text-align:center; padding:12px; font-size: 1.05rem;"><?= number_format($ts['current_gwa'], 2) ?></td>
+                        <td style="text-align:center; padding:12px;">
+                            <span style="background:<?= $honor['bg'] ?>;color:<?= $honor['color'] ?? 'white' ?>;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
+                                <?= $honor['text'] ?>
+                            </span>
+                        </td>
+                        <td style="text-align:center; padding:12px;">
+                            <span style="background:<?= $ts['status'] === 'Irregular' ? 'var(--risk-mod)' : 'var(--risk-low)' ?>;color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">
+                                <?= htmlspecialchars($ts['status']) ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
@@ -363,7 +477,7 @@ function openSection(secName) {
     document.getElementById('roster-title').innerText = 'Section ' + secName + ' — Student Roster';
     switchTab('class'); 
     document.getElementById('section-roster-card').style.display = 'block';
-    document.getElementById('section-roster-card').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('section-roster-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeRoster() {
@@ -391,7 +505,6 @@ function renderClassTab(secName) {
     const students = sectionDataMap[secName]?.students || [];
     const subjects = sectionSubjectMap[secName] || [];
 
-    // Smart Truncation: Calculates max width so it only truncates if crowded
     const maxWidth = Math.max(120, 600 / (subjects.length || 1)); 
 
     const thead = document.getElementById('class-thead-row');
@@ -426,21 +539,35 @@ function renderClassTab(secName) {
         subjects.forEach(subj => {
             const g = grades[subj.id];
             
-            let currentGrade = null;
+            let currentGradeStr = '—';
             let termLabel = '';
             
-            if (g && g.final_grade !== null && g.final_grade !== undefined) { currentGrade = parseFloat(g.final_grade); termLabel = 'FIN'; }
-            else if (g && g.prefinal !== null && g.prefinal !== undefined) { currentGrade = parseFloat(g.prefinal); termLabel = 'PRE-F'; }
-            else if (g && g.midterm !== null && g.midterm !== undefined) { currentGrade = parseFloat(g.midterm); termLabel = 'MID'; }
-            else if (g && g.prelim !== null && g.prelim !== undefined) { currentGrade = parseFloat(g.prelim); termLabel = 'PRE'; }
+            // FIXED: Explicitly format percentages (0-100) with % sign, and decimals (1.00-4.00) with toFixed(2)
+            if (g && g.final_grade !== null && g.final_grade !== undefined) { currentGradeStr = parseFloat(g.final_grade).toFixed(2); termLabel = 'FIN'; }
+            else if (g && g.prefinal !== null && g.prefinal !== undefined) { currentGradeStr = Math.round(parseFloat(g.prefinal)) + '%'; termLabel = 'PRE-F'; }
+            else if (g && g.midterm !== null && g.midterm !== undefined) { currentGradeStr = Math.round(parseFloat(g.midterm)) + '%'; termLabel = 'MID'; }
+            else if (g && g.prelim !== null && g.prelim !== undefined) { currentGradeStr = Math.round(parseFloat(g.prelim)) + '%'; termLabel = 'PRE'; }
 
-            if (currentGrade !== null) {
+            if (currentGradeStr !== '—') {
                 const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
                 gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center; vertical-align:middle;">
-                    ${currentGrade.toFixed(2)}<br>
+                    ${currentGradeStr}<br>
                     <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">${termLabel}</span>
                 </td>`;
-                gradeSum  += currentGrade;
+                
+                // Track risk and point average strictly using point logic
+                if (termLabel === 'FIN') {
+                    gradeSum += parseFloat(g.final_grade);
+                } else {
+                    let pointEquivalent = 0;
+                    let pct = parseFloat(currentGradeStr);
+                    if (pct >= 99) pointEquivalent = 4.00; else if (pct >= 97) pointEquivalent = 3.75; else if (pct >= 95) pointEquivalent = 3.50; else if (pct >= 92) pointEquivalent = 3.25;
+                    else if (pct >= 90) pointEquivalent = 3.00; else if (pct >= 88) pointEquivalent = 2.75; else if (pct >= 86) pointEquivalent = 2.50; else if (pct >= 84) pointEquivalent = 2.25;
+                    else if (pct >= 82) pointEquivalent = 2.00; else if (pct >= 80) pointEquivalent = 1.75; else if (pct >= 78) pointEquivalent = 1.50; else if (pct >= 76) pointEquivalent = 1.25;
+                    else if (pct >= 75) pointEquivalent = 1.00; else pointEquivalent = 0.00;
+                    gradeSum += pointEquivalent;
+                }
+                
                 gradeCount++;
                 if      (g.risk === 'HIGH')                              worstRisk = 'HIGH';
                 else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
@@ -468,7 +595,6 @@ function renderClassTab(secName) {
     tbody.innerHTML = html;
 }
 
-// ── Grade Breakdown Modal Logic ──
 function openGradeModal(uid, secName) {
     const student = sectionDataMap[secName].students.find(s => s.user_id == uid);
     const subjects = sectionSubjectMap[secName];
@@ -477,16 +603,19 @@ function openGradeModal(uid, secName) {
     document.getElementById('grade-modal-name').innerText = student.full_name;
 
     let html = '';
+    // FIXED: Formats raw percentage explicitly for term grades
+    const formatPct = (val) => val !== null && val !== undefined ? Math.round(parseFloat(val)) + '%' : '<span style="color:var(--text-gray);">—</span>';
+    const formatPt = (val) => val !== null && val !== undefined ? parseFloat(val).toFixed(2) : '<span style="color:var(--text-gray);">—</span>';
+    
     subjects.forEach(subj => {
         const g = grades[subj.id];
         if (g) {
-            const formatG = (val) => val !== null && val !== undefined ? parseFloat(val).toFixed(2) : '<span style="color:var(--text-gray);">—</span>';
             html += `<tr style="border-bottom:1px solid var(--border-color);">
                 <td style="padding:12px; color:var(--text-dark); font-weight:600; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${subj.code} — ${subj.title}">${subj.title}</td>
-                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.prelim)}</td>
-                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.midterm)}</td>
-                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatG(g.prefinal)}</td>
-                <td style="padding:12px; text-align:center; font-weight:700; color:var(--accent-blue);">${formatG(g.final_grade)}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatPct(g.prelim)}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatPct(g.midterm)}</td>
+                <td style="padding:12px; text-align:center; font-weight:600; color:var(--text-dark);">${formatPct(g.prefinal)}</td>
+                <td style="padding:12px; text-align:center; font-weight:700; color:var(--accent-blue);">${formatPt(g.final_grade)}</td>
             </tr>`;
         }
     });
@@ -510,26 +639,38 @@ function renderOverallTab(secName) {
         return;
     }
 
-    const medals = ['🥇', '🥈', '🥉'];
-
     function honorBadge(gwa) {
-        if (gwa >= 3.75) return { text: 'Summa Cum Laude track',     bg: 'var(--gold)' };
-        if (gwa >= 3.50) return { text: 'Magna Cum Laude track',     bg: 'var(--honor-magna)' };
-        if (gwa >= 3.25) return { text: "Dean's Lister / Cum Laude", bg: 'var(--accent-blue)' };
+        if (gwa >= 3.75) return { text: 'Summa-level threshold',     bg: 'var(--gold)' };
+        if (gwa >= 3.50) return { text: 'Magna-level threshold',     bg: 'var(--honor-magna)' };
+        if (gwa >= 3.25) return { text: 'Cum Laude-level threshold', bg: 'var(--accent-blue)' };
         return { text: '—', bg: 'var(--bg-color)', color: 'var(--text-gray)' };
     }
 
     let html = '';
-    students.forEach((s, i) => {
-        const gwa    = parseFloat(s.current_gwa || 0);
+    let currentRank = 1;
+    let actualIndex = 1;
+    let previousGwa = null;
+
+    students.forEach((s) => {
+        const gwa = parseFloat(s.current_gwa || 0);
+        
+        if (gwa !== previousGwa) {
+            currentRank = actualIndex;
+        }
+        previousGwa = gwa;
+        actualIndex++;
+
         const honor  = honorBadge(gwa);
         const risk   = (s.risk_level || 'N/A').toUpperCase();
         const riskBg = risk === 'HIGH' ? 'var(--risk-high)' : (risk === 'MODERATE' ? 'var(--risk-mod)' : (risk === 'LOW' ? 'var(--risk-low)' : 'var(--text-gray)'));
         const statBg = s.status === 'Irregular' ? 'var(--risk-mod)' : 'var(--risk-low)';
 
         html += `<tr style="border-bottom:1px solid var(--border-color);">
-            <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px;">${(medals[i] ?? '')} ${i + 1}</td>
-            <td style="font-weight:600; color:var(--text-dark); padding:12px;">${s.full_name}</td>
+            <td style="text-align:center;font-weight:700; color:var(--text-dark); padding:12px;">${currentRank}</td>
+            <td style="padding:12px;">
+                <div style="font-weight:600; color:var(--text-dark); margin-bottom: 2px;">${s.full_name}</div>
+                <div style="color:var(--text-gray); font-size: 0.8rem;">${s.student_number || '—'}</div>
+            </td>
             <td style="color:var(--text-gray); padding:12px;">${s.student_number || '—'}</td>
             <td style="font-weight:700;color:var(--accent-blue); text-align:center; padding:12px;">${gwa > 0 ? gwa.toFixed(2) : '—'}</td>
             <td style="text-align:center; padding:12px;"><span style="background:${honor.bg};color:${honor.color ?? 'white'};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${honor.text}</span></td>
