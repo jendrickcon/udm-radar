@@ -7,147 +7,228 @@ requireRole('faculty');
 $user = currentUser();
 $db = getDB();
 
-// 1. Get assigned sections via precise class loads table
-$stmt = $db->prepare("SELECT DISTINCT section FROM faculty_class_loads WHERE faculty_user_id = ? ORDER BY section");
-$stmt->execute([$user['id']]);
-$my_sections = $stmt->fetchAll(PDO::FETCH_COLUMN);
+// ---------------------------------------------------------
+// 0. Set Current Academic Term Context
+// ---------------------------------------------------------
+$currentSy = '2026-2027';
+$currentSem = '1';
 
-$section_stats = [];
-$top_students = [];
+// ---------------------------------------------------------
+// 1. Fetch Assigned Class Loads
+// ---------------------------------------------------------
+$stmtLoads = $db->prepare("
+    SELECT fcl.subject_id, fcl.section, s.code, s.title 
+    FROM faculty_class_loads fcl 
+    JOIN subjects s ON s.id = fcl.subject_id 
+    WHERE fcl.faculty_user_id = ?
+    ORDER BY s.code, fcl.section
+");
+$stmtLoads->execute([$user['id']]);
+$myLoads = $stmtLoads->fetchAll(PDO::FETCH_ASSOC);
 
-if (!empty($my_sections)) {
-    $inQuery = implode(',', array_fill(0, count($my_sections), '?'));
-    
-    // 2. Fetch Section Averages
-    $stmtStats = $db->prepare("
-        SELECT sp.section, 
-               COUNT(sp.user_id) AS total,
-               AVG(sp.current_gwa) AS avg_gwa
-        FROM student_profiles sp
-        JOIN users u ON u.id = sp.user_id
-        WHERE sp.section IN ($inQuery) AND u.role = 'student'
-        GROUP BY sp.section
-        ORDER BY sp.section
-    ");
-    $stmtStats->execute($my_sections);
-    $section_stats_raw = $stmtStats->fetchAll(PDO::FETCH_ASSOC);
+// ---------------------------------------------------------
+// 2. ASSIGNED CLASSES OVERVIEW (Portfolio-Level Data)
+// ---------------------------------------------------------
+$uniqueStudents = [];
+$overallGradesSum = 0; $overallGradesCount = 0;
+$overallAttention = 0;
+$overallExpected = 0; $overallEncoded = 0;
+$portfolioTable = [];
 
-    foreach ($section_stats_raw as $row) {
-        $row['high_risk'] = 0;
-        $row['mod_risk'] = 0;
-        $section_stats[$row['section']] = $row;
-    }
-
-    // 3. Calculate At-Risk strictly for THIS faculty's classes using normalization
-    $stmtGrades = $db->prepare("
-        SELECT sp.section, g.student_id, g.prelim
+foreach ($myLoads as $load) {
+    $stmtClassGrades = $db->prepare("
+        SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade
         FROM grades g
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        JOIN faculty_class_loads fcl ON fcl.subject_id = g.subject_id AND fcl.section = sp.section
-        WHERE fcl.faculty_user_id = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
     ");
-    $stmtGrades->execute([$user['id']]);
-    $gradeRows = $stmtGrades->fetchAll();
+    $stmtClassGrades->execute([$load['subject_id'], $load['section'], $currentSy, $currentSem]);
+    $grades = $stmtClassGrades->fetchAll(PDO::FETCH_ASSOC);
 
-    $student_risk_map = []; 
-    foreach ($gradeRows as $r) {
-        $sec = $r['section'];
-        $sid = $r['student_id'];
-        
-        $point = normalizeTermGrade($r['prelim']);
-        
-        if ($point !== null) {
-            $risk = computeRiskFromAvg($point);
-            if ($risk !== 'LOW') {
-                if (!isset($student_risk_map[$sec][$sid])) {
-                    $student_risk_map[$sec][$sid] = $risk;
-                } else {
-                    if ($risk === 'HIGH') $student_risk_map[$sec][$sid] = 'HIGH';
+    $classStudents = count($grades);
+    $overallExpected += $classStudents;
+
+    $classSum = 0; $classCount = 0; $classAttention = 0;
+
+    foreach ($grades as $g) {
+        $uniqueStudents[$g['student_id']] = true;
+
+        // Determine the "Latest Available Period" for this student
+        $latestVal = null;
+        if ($g['final_grade'] !== null && trim((string)$g['final_grade']) !== '') $latestVal = $g['final_grade'];
+        elseif ($g['prefinal'] !== null && trim((string)$g['prefinal']) !== '') $latestVal = $g['prefinal'];
+        elseif ($g['midterm'] !== null && trim((string)$g['midterm']) !== '') $latestVal = $g['midterm'];
+        elseif ($g['prelim'] !== null && trim((string)$g['prelim']) !== '') $latestVal = $g['prelim'];
+
+        if ($latestVal !== null) {
+            $overallEncoded++;
+            $classCount++;
+
+            // Check for failing text grades (INC, FA, etc.)
+            if (in_array(strtoupper(trim((string)$latestVal)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                $classAttention++;
+                $overallAttention++;
+            } else {
+                $pt = normalizeTermGrade($latestVal);
+                if ($pt !== null) {
+                    $classSum += $pt;
+                    $overallGradesSum += $pt;
+                    $overallGradesCount++;
+                    $risk = computeRiskFromAvg($pt);
+                    if ($risk === 'HIGH' || $risk === 'MODERATE') {
+                        $classAttention++;
+                        $overallAttention++;
+                    }
                 }
             }
         }
     }
 
-    foreach ($student_risk_map as $sec => $students) {
-        foreach ($students as $sid => $worstRisk) {
-            if ($worstRisk === 'HIGH') {
-                $section_stats[$sec]['high_risk']++;
+    $portfolioTable[] = [
+        'code' => $load['code'],
+        'section' => $load['section'],
+        'students' => $classStudents,
+        'mean' => $classCount > 0 ? $classSum / $classCount : null,
+        'attention' => $classAttention,
+        'completeness' => $classStudents > 0 ? ($classCount / $classStudents) * 100 : 0
+    ];
+}
+
+$uniqueStudentsCount = count($uniqueStudents);
+$overallMean = $overallGradesCount > 0 ? $overallGradesSum / $overallGradesCount : null;
+$overallCompletenessPct = $overallExpected > 0 ? ($overallEncoded / $overallExpected) * 100 : 0;
+
+// ---------------------------------------------------------
+// 3. SELECTED CLASS ANALYSIS (Drill-Down Data)
+// ---------------------------------------------------------
+$loadFilter = $_GET['load'] ?? '';
+$subjFilter = null; $secFilter = null;
+
+if (!empty($myLoads)) {
+    if ($loadFilter === '') {
+        $subjFilter = $myLoads[0]['subject_id'];
+        $secFilter = $myLoads[0]['section'];
+        $loadFilter = $subjFilter . '|' . $secFilter;
+    } else {
+        $parts = explode('|', $loadFilter);
+        if (count($parts) === 2) {
+            $subjFilter = $parts[0];
+            $secFilter = $parts[1];
+        }
+    }
+}
+
+// Default values for selected class
+$enrolledCount = 0; $latestMean = null; $latestPeriodName = 'Preliminary';
+$attentionCount = 0; $completenessPct = 0;
+$periods = ['Prelim', 'Midterm', 'Pre-Final', 'Final'];
+$periodMeans = ['Prelim' => null, 'Midterm' => null, 'Pre-Final' => null, 'Final' => null];
+$periodEncoded = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
+$riskMovement = [
+    'Prelim'    => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
+    'Midterm'   => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
+    'Pre-Final' => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
+    'Final'     => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0]
+];
+$significantChanges = [];
+
+if ($subjFilter && $secFilter) {
+    $stmtGrades = $db->prepare("
+        SELECT g.student_id, u.first_name, u.last_name,
+               g.prelim, g.midterm, g.prefinal, g.final_grade
+        FROM grades g
+        JOIN users u ON u.id = g.student_id
+        JOIN student_profiles sp ON sp.user_id = g.student_id
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+    ");
+    $stmtGrades->execute([$subjFilter, $secFilter, $currentSy, $currentSem]);
+    $grades = $stmtGrades->fetchAll(PDO::FETCH_ASSOC);
+
+    $enrolledCount = count($grades);
+    $rawSums = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
+
+    foreach ($grades as $g) {
+        $stuName = formatNameLastFirst($g['first_name'], '', $g['last_name']);
+        $pPts = ['Prelim' => null, 'Midterm' => null, 'Pre-Final' => null, 'Final' => null];
+
+        // Process each period
+        $pMap = ['Prelim' => 'prelim', 'Midterm' => 'midterm', 'Pre-Final' => 'prefinal', 'Final' => 'final_grade'];
+        foreach ($pMap as $pName => $dbCol) {
+            if ($g[$dbCol] !== null && trim((string)$g[$dbCol]) !== '') {
+                $periodEncoded[$pName]++;
+                
+                if ($dbCol === 'final_grade' && in_array(strtoupper(trim($g[$dbCol])), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                     $riskMovement[$pName]['HIGH']++;
+                     continue;
+                }
+
+                $pt = normalizeTermGrade($g[$dbCol]);
+                if ($pt !== null) {
+                    $pPts[$pName] = $pt;
+                    $rawSums[$pName] += $pt;
+                    $risk = computeRiskFromAvg($pt);
+                    $riskMovement[$pName][$risk]++;
+                }
             } else {
-                $section_stats[$sec]['mod_risk']++;
+                $riskMovement[$pName]['NONE']++;
+            }
+        }
+
+        // Track Significant Changes (Midterm vs Prelim)
+        if ($pPts['Prelim'] !== null && $pPts['Midterm'] !== null) {
+            $diff = $pPts['Midterm'] - $pPts['Prelim'];
+            if (abs($diff) >= 0.50) { 
+                $significantChanges[] = [
+                    'name' => $stuName,
+                    'prelim' => $pPts['Prelim'],
+                    'midterm' => $pPts['Midterm'],
+                    'diff' => $diff,
+                    'current_risk' => computeRiskFromAvg($pPts['Midterm'])
+                ];
             }
         }
     }
 
-    // 4. Top 10 Students by GWA
-    $stmtTop = $db->prepare("
-        SELECT u.name, sp.section, sp.current_gwa
-        FROM users u
-        JOIN student_profiles sp ON u.id = sp.user_id
-        WHERE sp.section IN ($inQuery) AND u.role = 'student' AND sp.current_gwa IS NOT NULL
-        ORDER BY sp.current_gwa DESC
-        LIMIT 10
-    ");
-    $stmtTop->execute($my_sections);
-    $top_students = $stmtTop->fetchAll();
-
-    // 5. My Subject Averages
-    $stmt = $db->prepare("SELECT id AS load_id, subject_id, section FROM faculty_class_loads WHERE faculty_user_id = ? ORDER BY section, subject_id");
-    $stmt->execute([$user['id']]);
-    $my_loads = $stmt->fetchAll();
-
-    $subjectStmt = $db->prepare("SELECT title FROM subjects WHERE id = ?");
-    $gradeStmt = $db->prepare("
-        SELECT g.prelim
-        FROM grades g
-        JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1
-    ");
-
-    $subject_load_stats = [];
-    foreach ($my_loads as $load) {
-        $subjectStmt->execute([$load['subject_id']]);
-        $title = $subjectStmt->fetchColumn();
-
-        $gradeStmt->execute([$load['subject_id'], $load['section']]);
-        $points = array_filter(
-            array_map(fn($r) => normalizeTermGrade($r['prelim']), $gradeStmt->fetchAll()),
-            fn($p) => $p !== null
-        );
-        if (empty($points)) continue;
-
-        $subject_load_stats[] = [
-            'label' => $title . ' (' . $load['section'] . ')',
-            'avg'   => round(array_sum($points) / count($points), 2),
-        ];
+    foreach ($periods as $p) {
+        if ($periodEncoded[$p] > 0) {
+            $periodMeans[$p] = round($rawSums[$p] / $periodEncoded[$p], 2);
+        }
     }
-}
 
-$subject_load_stats = $subject_load_stats ?? [];
-
-$chart1_labels = [];
-$chart1_data = [];
-
-foreach ($section_stats as $stat) {
-    $chart1_labels[] = $stat['section'];
-    $chart1_data[] = round((float)$stat['avg_gwa'], 2);
-}
-
-$chart2_labels = [];
-$chart2_data = [];
-
-foreach ($top_students as $stu) {
-    $nameParts = explode(' ', trim($stu['name']));
-    if (count($nameParts) > 1) {
-        $displayName = substr($nameParts[0], 0, 1) . '. ' . end($nameParts);
-    } else {
-        $displayName = $nameParts[0];
+    // Determine Latest Period metrics for Selected Class summary cards
+    if ($periodEncoded['Final'] > 0) {
+        $latestPeriodName = 'Final';
+        $latestMean = $periodMeans['Final'];
+        $attentionCount = $riskMovement['Final']['HIGH'] + $riskMovement['Final']['MODERATE'];
+        $completenessPct = ($periodEncoded['Final'] / $enrolledCount) * 100;
+    } elseif ($periodEncoded['Pre-Final'] > 0) {
+        $latestPeriodName = 'Pre-Final';
+        $latestMean = $periodMeans['Pre-Final'];
+        $attentionCount = $riskMovement['Pre-Final']['HIGH'] + $riskMovement['Pre-Final']['MODERATE'];
+        $completenessPct = ($periodEncoded['Pre-Final'] / $enrolledCount) * 100;
+    } elseif ($periodEncoded['Midterm'] > 0) {
+        $latestPeriodName = 'Midterm';
+        $latestMean = $periodMeans['Midterm'];
+        $attentionCount = $riskMovement['Midterm']['HIGH'] + $riskMovement['Midterm']['MODERATE'];
+        $completenessPct = ($periodEncoded['Midterm'] / $enrolledCount) * 100;
+    } elseif ($periodEncoded['Prelim'] > 0) {
+        $latestPeriodName = 'Preliminary';
+        $latestMean = $periodMeans['Prelim'];
+        $attentionCount = $riskMovement['Prelim']['HIGH'] + $riskMovement['Prelim']['MODERATE'];
+        $completenessPct = ($periodEncoded['Prelim'] / $enrolledCount) * 100;
     }
-    
-    $chart2_labels[] = $displayName . ' (' . $stu['section'] . ')';
-    $chart2_data[] = round((float)$stu['current_gwa'], 2);
+
+    usort($significantChanges, fn($a, $b) => $a['diff'] <=> $b['diff']);
 }
 
-$pageTitle = 'Performance Trends';
+$chartLineData = [
+    $periodMeans['Prelim'], 
+    $periodMeans['Midterm'], 
+    $periodMeans['Pre-Final'], 
+    $periodMeans['Final']
+];
+
+$pageTitle = 'Class Performance Trends';
 $navItems = [
     ['Home',               'index.php',     '🏠'],
     ['Dashboard',          'dashboard.php', '📊'],
@@ -162,255 +243,331 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+<style>
+.analytics-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.class-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.analytics-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+@media (max-width: 1400px) { .analytics-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1200px) { .class-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analytics-chart-grid { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .analytics-stat-grid { grid-template-columns: 1fr; } .class-stat-grid { grid-template-columns: 1fr; } }
+</style>
 
 <div class="main-content">
-    <div class="header" style="margin-bottom: 24px;">
+    <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
-            <h1>Performance Trends</h1>
-            <p style="color: var(--text-gray); font-size: 0.95rem;">Visualized metrics and trajectory analysis across assigned section cohorts.</p>
+            <h1 style="text-transform: uppercase; letter-spacing: 0.5px;">Class Performance Trends</h1>
+            <p style="color: var(--text-gray);">Performance progression and risk movement across grading periods for the selected class.</p>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Current Academic Term</div>
+            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= $currentSy ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</div>
         </div>
     </div>
 
-    <?php if (empty($my_sections)): ?>
-        <div class="card"><p class="empty-state">No section class loads assigned to your account.</p></div>
+    <?php if (empty($myLoads)): ?>
+        <div class="card"><p class="empty-state">No section class loads assigned to your account for the current term.</p></div>
     <?php else: ?>
 
-    <div class="card" style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
-            <div>
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Section Average GWA Comparison</h3>
-                <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0;">S.Y. 2026-2027, 1st Semester</p>
-            </div>
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: var(--text-dark);">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-low); margin-right:6px; vertical-align:middle;"></span>Cum Laude+ (≥3.25)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-mod); margin-right:6px; vertical-align:middle;"></span>Very Satisfactory (≥2.50)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--risk-high); margin-right:6px; vertical-align:middle;"></span>Below 2.50</span>
-            </div>
+    <!-- ========================================== -->
+    <!-- SECTION 1: ASSIGNED CLASSES OVERVIEW       -->
+    <!-- ========================================== -->
+    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">Assigned Classes Overview</h2>
+    <div style="margin-bottom: 16px; font-size: 0.85rem; color: var(--text-gray);">
+        <em>Note: These indicators summarize student academic performance and grade-record completeness across your assigned class loads. They do not constitute a formal evaluation of teaching performance.</em>
+    </div>
+
+    <div class="analytics-stat-grid">
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
+            <h4>Class Loads</h4>
+            <h2 style="color: var(--text-dark);"><?= count($myLoads) ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Assigned subject-sections</p>
         </div>
-        <p style="color: var(--text-gray); font-size: 0.75rem; margin: 0 0 12px;">Bar color reflects each section's average tier; dashed lines mark the exact GWA cutoffs.</p>
-        <div style="position: relative; height: 280px; width: 100%;">
-            <canvas id="sectionChart"></canvas>
+        <div class="stat-card" style="border-left-color: var(--text-dark);">
+            <h4>Unique Students</h4>
+            <h2 style="color: var(--text-dark);"><?= $uniqueStudentsCount ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Distinct learners reached</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--risk-low);">
+            <h4>Overall Mean Grade</h4>
+            <h2 style="color: var(--risk-low);"><?= $overallMean !== null ? number_format($overallMean, 2) : '—' ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Across latest encoded periods</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--risk-mod);">
+            <h4>Requiring Attention</h4>
+            <h2 style="color: <?= $overallAttention > 0 ? 'var(--risk-mod)' : 'var(--text-dark)' ?>;"><?= $overallAttention ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Students at Moderate/High risk</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--text-gray);">
+            <h4>Grade Completeness</h4>
+            <h2 style="color: var(--text-dark);"><?= number_format($overallCompletenessPct, 1) ?>%</h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Latest period encoded</p>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
-            <div>
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">🏆 Top Students — Honor Tier Breakdown</h3>
-                <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); border: 1px solid rgba(217, 119, 6, 0.3); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">Projected Honor Eligibility</span>
-            </div>
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 0.85rem; color: var(--text-dark);">
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--gold); margin-right:6px; vertical-align:middle;"></span>Summa (≥3.75)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--honor-magna); margin-right:6px; vertical-align:middle;"></span>Magna (≥3.50)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--accent-blue); margin-right:6px; vertical-align:middle;"></span>Dean's Lister (≥3.25)</span>
-                <span><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--text-gray); margin-right:6px; vertical-align:middle;"></span>Below 3.25</span>
-            </div>
-        </div>
-        <p style="color: var(--text-gray); font-size: 0.75rem; margin: 0 0 12px;">Bar color shows each student's own projected tier; dashed lines mark the exact GWA cutoffs.</p>
-        <div style="position: relative; height: 320px; width: 100%;">
-            <canvas id="topStudentsChart"></canvas>
+    <div class="card" style="margin-bottom: 40px;">
+        <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Assigned Class-Load Comparison</div>
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <thead>
+                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Students</th>
+                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Latest Mean</th>
+                        <th style="padding: 12px; text-align: center; color: var(--risk-mod); white-space: nowrap;">Attention Required</th>
+                        <th style="padding: 12px; text-align: center; color: var(--accent-blue); white-space: nowrap;">Completeness</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($portfolioTable as $pt): ?>
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;"><?= htmlspecialchars($pt['code']) ?> <span style="color: var(--text-gray); font-weight: normal; margin-left: 6px;">— <?= htmlspecialchars($pt['section']) ?></span></td>
+                        <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $pt['students'] ?></td>
+                        <td style="padding: 12px; text-align: center; color: var(--text-dark); font-weight: 600;"><?= $pt['mean'] !== null ? number_format($pt['mean'], 2) : '—' ?></td>
+                        <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?php if($pt['attention']>0): ?><span class="badge" style="background: var(--risk-mod);"><?= $pt['attention'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?></td>
+                        <td style="padding: 12px; text-align: center; color: var(--text-dark); font-weight: 600;"><?= number_format($pt['completeness'], 1) ?>%</td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 20px;">
-        <div style="margin-bottom: 4px;">
-            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">My Subject Averages</h3>
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 32px 0;">
+
+    <!-- ========================================== -->
+    <!-- SECTION 2: SELECTED CLASS ANALYSIS         -->
+    <!-- ========================================== -->
+    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 16px; font-weight: 700; text-transform: uppercase;">Selected Class Analysis</h2>
+
+    <form method="GET" action="trend.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Assigned Class Load</label>
+            <select name="load" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit; min-width: 250px;">
+                <?php foreach($myLoads as $l): 
+                    $val = $l['subject_id'] . '|' . $l['section'];
+                    $label = $l['code'] . ' — ' . $l['section'];
+                ?>
+                    <option value="<?= htmlspecialchars($val) ?>" <?= $loadFilter === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
-        <p style="color: var(--text-gray); font-size: 0.8rem; margin: 0 0 16px;">
-            Average prelim grade in the subjects <em>you specifically teach</em>, per section — unlike the chart above, this reflects only your own class loads, not students' overall standing across all their subjects.
-            Current-term snapshot only; becomes a real trend line once a second term of grades exists.
-        </p>
-        <?php if (empty($subject_load_stats)): ?>
-            <p class="empty-state">No current-term grades encoded yet for your class loads.</p>
-        <?php else: ?>
-        <div style="position: relative; height: <?= max(200, count($subject_load_stats) * 40) ?>px; width: 100%;">
-            <canvas id="myLoadsChart"></canvas>
+        <div style="display: flex; gap: 8px; align-items: center; height: 100%;">
+            <button type="submit" style="background: var(--accent-blue); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
+                Analyze Class
+            </button>
         </div>
-        <?php endif; ?>
+    </form>
+
+    <div class="class-stat-grid">
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
+            <h4>Students Enrolled</h4>
+            <h2 style="color: var(--text-dark);"><?= $enrolledCount ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">In selected class</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--risk-low);">
+            <h4>Latest Period Mean</h4>
+            <h2 style="color: var(--risk-low);"><?= $latestMean !== null ? number_format($latestMean, 2) : '—' ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($latestPeriodName) ?> grades</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--risk-mod);">
+            <h4>Requiring Attention</h4>
+            <h2 style="color: <?= $attentionCount > 0 ? 'var(--risk-mod)' : 'var(--text-dark)' ?>;"><?= $attentionCount ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Moderate & High Risk</p>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--text-gray);">
+            <h4>Data Completeness</h4>
+            <h2 style="color: var(--text-dark);"><?= number_format($completenessPct, 1) ?>%</h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($latestPeriodName) ?> period encoded</p>
+        </div>
     </div>
 
-    <div class="card">
-        <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">At-Risk Count per Section <span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 400;">(In your assigned subjects)</span></h3>
+    <?php if ($periodEncoded['Midterm'] == 0 && $periodEncoded['Prelim'] > 0): ?>
+        <div style="background: rgba(13, 110, 253, 0.1); border-left: 4px solid var(--accent-blue); padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; color: var(--text-dark); font-size: 0.9rem;">
+            <strong>Baseline Analysis:</strong> Trend analysis will become available when at least two grading periods have been encoded. Current Preliminary performance is shown as the baseline.
+        </div>
+    <?php endif; ?>
+
+    <div class="analytics-chart-grid">
+        <div class="card" style="position: relative; height: 380px;">
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Performance Across Grading Periods</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Tracking the cohort's average grade point progression.</p>
+            <div style="position: relative; height: 280px; width: 100%;"><canvas id="progressionChart"></canvas></div>
+        </div>
         
-        <?php foreach ($section_stats as $stat): 
-            $total_risk = (int)$stat['high_risk'] + (int)$stat['mod_risk'];
-            $risk_pct = $stat['total'] > 0 ? ($total_risk / (int)$stat['total']) * 100 : 0;
-            $fill_color = (int)$stat['high_risk'] > 0 ? 'var(--risk-high)' : 'var(--risk-mod)';
-            if ($total_risk == 0) { $fill_color = 'var(--risk-low)'; $risk_pct = 0; }
-        ?>
-        <div style="display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem;">
-            <span style="width: 70px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($stat['section']) ?></span>
-            <span style="width: 80px; color: var(--accent-blue); font-weight: 600;">Avg: <?= number_format($stat['avg_gwa'] ?? 0, 2) ?></span>
-            
-            <div style="flex: 1; max-width: 280px; height: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; margin: 0 16px; overflow: hidden;">
-                <?php if($total_risk > 0): ?>
-                    <div style="width: <?= $risk_pct ?>%; height: 100%; background: <?= $fill_color ?>; border-radius: 4px;"></div>
-                <?php endif; ?>
-            </div>
-            
-            <span style="color: <?= $total_risk > 0 ? $fill_color : 'var(--risk-low)' ?>; font-weight: 600; font-size: 0.85rem;">
-                <?= $total_risk ?> at-risk 
-                <span style="color: var(--text-gray); font-weight: normal;">(<?= (int)$stat['high_risk'] ?> HIGH, <?= (int)$stat['mod_risk'] ?> MODERATE)</span>
-            </span>
+        <div class="card" style="position: relative; height: 380px;">
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Risk Distribution Across Grading Periods</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Monitoring whether the class is accumulating academic risk over time.</p>
+            <div style="position: relative; height: 280px; width: 100%;"><canvas id="riskMovementChart"></canvas></div>
         </div>
-        <?php endforeach; ?>
+    </div>
+
+    <div class="analytics-chart-grid">
+        <!-- Grade Encoding Progress -->
+        <div class="card">
+            <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Grade Encoding Progress</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Total encoded records per period out of <?= $enrolledCount ?> enrolled students.</p>
+            
+            <?php foreach ($periods as $p): 
+                $pct = $enrolledCount > 0 ? ($periodEncoded[$p] / $enrolledCount) * 100 : 0;
+                $color = $pct === 100 ? 'var(--risk-low)' : ($pct > 0 ? 'var(--risk-mod)' : 'var(--border-color)');
+            ?>
+            <div style="display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem;">
+                <span style="width: 80px; font-weight: 600; color: var(--text-dark);"><?= $p ?></span>
+                <div style="flex: 1; max-width: 280px; height: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; margin: 0 16px; overflow: hidden;">
+                    <div style="width: <?= $pct ?>%; height: 100%; background: <?= $color ?>; border-radius: 4px;"></div>
+                </div>
+                <span style="color: var(--text-dark); font-weight: 600; font-size: 0.85rem;">
+                    <?= $periodEncoded[$p] ?> / <?= $enrolledCount ?> <span style="color: var(--text-gray); font-weight: normal;">encoded</span>
+                </span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Significant Changes Table -->
+        <div class="card">
+            <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Students With Significant Changes</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Students dropping or improving by ≥ 0.50 points between Prelim and Midterm.</p>
+            
+            <?php if ($periodEncoded['Midterm'] == 0): ?>
+                <p class="empty-state" style="margin-top: 40px;">Requires Midterm data to compare.</p>
+            <?php elseif (empty($significantChanges)): ?>
+                <p class="empty-state" style="margin-top: 40px;">No students shifted by ≥ 0.50 points.</p>
+            <?php else: ?>
+            <div style="overflow-y: auto; max-height: 220px; padding-right: 8px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color);">
+                            <th style="padding: 8px; text-align: left; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Student</th>
+                            <th style="padding: 8px; text-align: center; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Change</th>
+                            <th style="padding: 8px; text-align: left; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Current Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($significantChanges as $stu): 
+                            $isDrop = $stu['diff'] < 0; // Note: on UDM scale 1.00 is best. So diff < 0 means dropping numerically (approaching 1.00) which is IMPROVING.
+                            // If diff > 0 (e.g. 2.50 to 3.00), grade is WORSE.
+                            $diffColor = $stu['diff'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
+                            $diffSign = $stu['diff'] > 0 ? '↓ ' : '↑ +'; 
+                            
+                            $riskRaw = $stu['current_risk'];
+                            $riskColor = $riskRaw === 'HIGH' ? 'var(--risk-high)' : ($riskRaw === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)');
+                        ?>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 8px; color: var(--text-dark); font-weight: 600;"><?= htmlspecialchars($stu['name']) ?></td>
+                            <td style="padding: 10px 8px; text-align: center; font-weight: 700; color: <?= $diffColor ?>;">
+                                <?= $diffSign . number_format(abs($stu['diff']), 2) ?>
+                            </td>
+                            <td style="padding: 10px 8px; color: <?= $riskColor ?>; font-weight: 600; font-size: 0.85rem;">
+                                <?= htmlspecialchars($riskRaw) ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
     </div>
 
     <?php endif; ?>
 </div>
 
+<?php if (!empty($myLoads)): ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-function getChartColors() {
+function getChartTheme() {
     const root = getComputedStyle(document.documentElement);
     return {
         text: root.getPropertyValue('--text-gray').trim(),
-        textDark: root.getPropertyValue('--text-dark').trim(),
         border: root.getPropertyValue('--border-color').trim(),
         blue: root.getPropertyValue('--accent-blue').trim(),
-        gold: root.getPropertyValue('--risk-mod').trim(),
-        red: root.getPropertyValue('--risk-high').trim(),
-        green: root.getPropertyValue('--risk-low').trim(),
-        summa: root.getPropertyValue('--gold').trim(),
-        magna: root.getPropertyValue('--honor-magna').trim()
+        none: '#64748B', high: '#DC2626', mod: '#D97706', low: '#059669'
     };
 }
+let theme = getChartTheme();
 
-let colors = getChartColors();
-
-// CHART 1: Section Average GWA
-const rawChart1Data = <?= json_encode($chart1_data) ?>;
-const ctx1 = document.getElementById('sectionChart').getContext('2d');
-const chart1 = new Chart(ctx1, {
-    type: 'bar',
+// 1. Progression Line Chart
+const ctxProg = document.getElementById('progressionChart').getContext('2d');
+const progChart = new Chart(ctxProg, {
+    type: 'line',
     data: {
-        labels: <?= json_encode($chart1_labels) ?>,
+        labels: <?= json_encode($periods) ?>,
         datasets: [{
-            label: 'Average GWA',
-            data: rawChart1Data,
-            backgroundColor: rawChart1Data.map(v => v >= 3.25 ? colors.green : (v >= 2.50 ? colors.gold : colors.red)),
-            borderRadius: 6,
-            barPercentage: 0.45
+            label: 'Class Mean GWA',
+            data: <?= json_encode($chartLineData) ?>,
+            borderColor: theme.blue,
+            backgroundColor: 'rgba(108, 142, 239, 0.1)',
+            borderWidth: 3,
+            pointBackgroundColor: theme.blue,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            fill: true,
+            tension: 0.1,
+            spanGaps: true
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            annotation: {
-                annotations: {
-                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: colors.summa, borderWidth: 2, borderDash: [4, 4] },
-                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: colors.magna, borderWidth: 2, borderDash: [4, 4] },
-                    cumLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 2, borderDash: [4, 4] }
-                }
-            }
-        },
+        plugins: { legend: { display: false } },
         scales: {
-            x: { ticks: { color: colors.text }, grid: { color: colors.border } },
-            y: { min: 0, max: 4.0, ticks: { stepSize: 0.5, color: colors.text, callback: v => v.toFixed(2) }, grid: { color: colors.border }, title: { display: true, text: 'Average GWA (4.00 = Highest)', color: colors.text } }
+            x: { ticks: { color: theme.text }, grid: { color: theme.border } },
+            y: { 
+                min: 1.0, max: 4.0, 
+                ticks: { stepSize: 0.5, color: theme.text }, 
+                grid: { color: theme.border },
+                title: { display: true, text: 'Grade Point (4.00 = Highest)', color: theme.text }
+            }
         }
     }
 });
 
-// CHART 2: Top Students
-const rawChart2Data = <?= json_encode($chart2_data) ?>;
-const ctx2 = document.getElementById('topStudentsChart').getContext('2d');
-const chart2 = new Chart(ctx2, {
+// 2. Stacked Risk Movement Chart
+const rawRiskData = <?= json_encode(array_values($riskMovement)) ?>;
+const ctxRisk = document.getElementById('riskMovementChart').getContext('2d');
+const riskChart = new Chart(ctxRisk, {
     type: 'bar',
     data: {
-        labels: <?= json_encode($chart2_labels) ?>,
-        datasets: [{
-            label: 'Projected GWA',
-            data: rawChart2Data,
-            backgroundColor: rawChart2Data.map(v => v >= 3.75 ? colors.summa : (v >= 3.50 ? colors.magna : (v >= 3.25 ? colors.blue : colors.text))),
-            borderRadius: 6,
-            barPercentage: 0.55
-        }]
+        labels: <?= json_encode($periods) ?>,
+        datasets: [
+            { label: 'High Risk', data: rawRiskData.map(r => r.HIGH), backgroundColor: theme.high, stack: 'Stack 0' },
+            { label: 'Moderate Risk', data: rawRiskData.map(r => r.MODERATE), backgroundColor: theme.mod, stack: 'Stack 0' },
+            { label: 'Low Risk', data: rawRiskData.map(r => r.LOW), backgroundColor: theme.low, stack: 'Stack 0' },
+            { label: 'No Data', data: rawRiskData.map(r => r.NONE), backgroundColor: theme.none, stack: 'Stack 0' }
+        ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            annotation: {
-                annotations: {
-                    summaLine: { type: 'line', yMin: 3.75, yMax: 3.75, borderColor: colors.summa, borderWidth: 1.5, borderDash: [3, 3] },
-                    magnaLine: { type: 'line', yMin: 3.50, yMax: 3.50, borderColor: colors.magna, borderWidth: 1.5, borderDash: [3, 3] },
-                    dlLine: { type: 'line', yMin: 3.25, yMax: 3.25, borderColor: colors.blue, borderWidth: 1.5, borderDash: [5, 5] }
-                }
-            }
-        },
+        plugins: { legend: { position: 'bottom', labels: { color: theme.text, usePointStyle: true, boxWidth: 8 } } },
         scales: {
-            x: { ticks: { font: { size: 9 }, color: colors.text }, grid: { color: colors.border } },
-            y: { min: 2.0, max: 4.0, ticks: { stepSize: 0.25, color: colors.text, callback: v => v.toFixed(2) }, grid: { color: colors.border }, title: { display: true, text: 'GWA (4.00 = Highest)', color: colors.text } }
+            x: { stacked: true, ticks: { color: theme.text }, grid: { display: false } },
+            y: { stacked: true, ticks: { stepSize: 1, color: theme.text }, grid: { color: theme.border }, title: { display: true, text: 'Number of Students', color: theme.text } }
         }
     }
 });
 
-// CHART 3: My Loads
-const loadLabels = <?= json_encode(array_column($subject_load_stats, 'label')) ?>;
-const loadData = <?= json_encode(array_column($subject_load_stats, 'avg')) ?>;
-let chart3 = null;
-
-if (document.getElementById('myLoadsChart')) {
-    chart3 = new Chart(document.getElementById('myLoadsChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: loadLabels,
-            datasets: [{
-                label: 'Average Prelim (Point Scale)',
-                data: loadData,
-                backgroundColor: loadData.map(v => v >= 2.50 ? colors.green : (v >= 1.75 ? colors.gold : colors.red)),
-                borderRadius: 4,
-                barPercentage: 0.6
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { min: 0, max: 4.0, ticks: { stepSize: 0.5, color: colors.text }, grid: { color: colors.border }, title: { display: true, text: 'Average Prelim Grade', color: colors.text } },
-                y: { ticks: { color: colors.text }, grid: { color: colors.border } }
-            }
-        }
-    });
-}
-
-// Auto-redraw charts on theme toggle
 const observer = new MutationObserver(() => {
-    colors = getChartColors();
+    theme = getChartTheme();
     
-    [chart1, chart2, chart3].forEach(chart => {
-        if (chart) {
-            chart.options.scales.x.ticks.color = colors.text;
-            chart.options.scales.x.grid.color = colors.border;
-            chart.options.scales.y.ticks.color = colors.text;
-            chart.options.scales.y.grid.color = colors.border;
-            if (chart.options.scales.y.title) chart.options.scales.y.title.color = colors.text;
-            if (chart.options.scales.x.title) chart.options.scales.x.title.color = colors.text;
-        }
-    });
+    progChart.options.scales.x.ticks.color = theme.text;
+    progChart.options.scales.x.grid.color = theme.border;
+    progChart.options.scales.y.ticks.color = theme.text;
+    progChart.options.scales.y.grid.color = theme.border;
+    progChart.options.scales.y.title.color = theme.text;
+    progChart.data.datasets[0].borderColor = theme.blue;
+    progChart.data.datasets[0].pointBackgroundColor = theme.blue;
+    progChart.update();
 
-    if (chart1) {
-        chart1.data.datasets[0].backgroundColor = rawChart1Data.map(v => v >= 3.25 ? colors.green : (v >= 2.50 ? colors.gold : colors.red));
-        chart1.options.plugins.annotation.annotations.cumLine.borderColor = colors.blue;
-        chart1.update();
-    }
-    if (chart2) {
-        chart2.data.datasets[0].backgroundColor = rawChart2Data.map(v => v >= 3.75 ? colors.summa : (v >= 3.50 ? colors.magna : (v >= 3.25 ? colors.blue : colors.text)));
-        chart2.options.plugins.annotation.annotations.dlLine.borderColor = colors.blue;
-        chart2.update();
-    }
-    if (chart3) {
-        chart3.data.datasets[0].backgroundColor = loadData.map(v => v >= 2.50 ? colors.green : (v >= 1.75 ? colors.gold : colors.red));
-        chart3.update();
-    }
+    riskChart.options.scales.x.ticks.color = theme.text;
+    riskChart.options.scales.y.ticks.color = theme.text;
+    riskChart.options.scales.y.grid.color = theme.border;
+    riskChart.options.scales.y.title.color = theme.text;
+    riskChart.options.plugins.legend.labels.color = theme.text;
+    riskChart.update();
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
+<?php endif; ?>
 
 <?php require_once '../includes/footer.php'; ?>
