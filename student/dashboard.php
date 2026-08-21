@@ -72,39 +72,63 @@ foreach ($current_subjects as &$subj) {
     
     $subj['prelim_point'] = $prelimPoint;
     $subj['predicted_final'] = $predicted_final;
-    $subj['final_risk'] = $predicted_final !== null ? computeRiskFromAvg($predicted_final) : 'LOW';
+    // No silent default to 'LOW' when there's no data to judge — that implies
+    // safety the system hasn't actually verified. A blank/insufficient state
+    // is handled separately in the template via $subj['predicted_final'] === null.
+    $subj['final_risk'] = $predicted_final !== null ? computeRiskFromAvg($predicted_final) : null;
     
     if ($predicted_final !== null) {
         $prediction_rows[] = ['grade' => $predicted_final, 'units' => (int) $subj['units']];
     }
 
+    // FIXED: Removed the Point Grade from the Triage Alert
     if ($prelimPoint !== null) {
         $subjRisk = computeRiskFromAvg($prelimPoint);
         if ($subjRisk === 'HIGH') {
-            $triage_alerts[] = "🚨 <strong>High Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "% (" . number_format($prelimPoint, 2) . "). A significant intervention is required.";
+            $triage_alerts[] = "🚨 <strong>High Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.";
             $at_risk_count++;
         } elseif ($subjRisk === 'MODERATE') {
-            $triage_alerts[] = "⚠️ <strong>Moderate Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "% (" . number_format($prelimPoint, 2) . "). This is dragging down your projected GWA.";
+            $triage_alerts[] = "⚠️ <strong>Moderate Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.";
             $at_risk_count++;
         }
     }
 }
 unset($subj);
 
-// --- OVERRIDE LOGIC: Prefer ML data over local heuristics ---
-$heuristic_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa ?? 0.0;
-$heuristic_risk = computeRiskFromAvg($heuristic_gwa);
+// --- OVERRIDE LOGIC: Prefer AI data; fall back to a real calculation only
+// when one is actually possible; otherwise disclose that there isn't enough
+// data yet instead of manufacturing a number. ---
+$heuristic_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa; // null, not 0.0, when nothing is known
+$has_fallback_data = $heuristic_gwa !== null;
+$heuristic_risk = $has_fallback_data ? computeRiskFromAvg($heuristic_gwa) : null;
 
-$display_predicted_gwa = $ml_prediction && $ml_prediction['predicted_gwa'] !== null ? (float)$ml_prediction['predicted_gwa'] : $heuristic_gwa;
-$display_risk = $ml_prediction && $ml_prediction['risk_level'] !== null ? $ml_prediction['risk_level'] : $heuristic_risk;
-$display_honor = $ml_prediction && $ml_prediction['latin_honor'] !== null ? $ml_prediction['latin_honor'] : getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
-$prediction_source = $ml_prediction ? $ml_prediction['prediction_source'] : 'heuristic (local)';
+$has_ai_prediction = $ml_prediction && $ml_prediction['predicted_gwa'] !== null;
+
+if ($has_ai_prediction) {
+    $display_predicted_gwa = (float) $ml_prediction['predicted_gwa'];
+    $display_risk = $ml_prediction['risk_level'] !== null ? $ml_prediction['risk_level'] : computeRiskFromAvg($display_predicted_gwa);
+    $display_honor = $ml_prediction['latin_honor'] ?? getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
+    $prediction_source = 'decision_tree';
+} elseif ($has_fallback_data) {
+    $display_predicted_gwa = $heuristic_gwa;
+    $display_risk = $heuristic_risk;
+    $display_honor = getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
+    $prediction_source = 'calculation_fallback';
+} else {
+    // Neither an AI prediction nor enough recorded grades exist yet — most
+    // commonly a newly-registered student. Showing 0.00 / a risk level here
+    // would fabricate a result from data that doesn't exist.
+    $display_predicted_gwa = null;
+    $display_risk = null;
+    $display_honor = null;
+    $prediction_source = 'insufficient_data';
+}
 // -------------------------------------------------------------
 
 if ($at_risk_count > 0) {
     $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
 }
-if ($historical_gwa !== null && $display_predicted_gwa > 0) {
+if ($historical_gwa !== null && $display_predicted_gwa !== null) {
     $diff = round($display_predicted_gwa - $historical_gwa, 2);
     
     // In UDM, 4.00 is highest. Positive diff is improvement.
@@ -158,22 +182,22 @@ $riskBg = match($display_risk) {
     default => 'var(--text-gray)'
 }; 
 
-// Tooltips accurately reflect classification, not fake probability
+// Tooltips accurately reflect classification and disclose which engine produced it
 $riskTooltip = "";
 if ($display_risk === 'HIGH') {
-    $riskTooltip = $ml_prediction 
+    $riskTooltip = $prediction_source === 'decision_tree'
         ? "High Risk: The AI model evaluated your trajectory and classified it as High Risk, typically driven by historical failed subjects or a low GWA trajectory."
-        : "High Risk: Heuristic analysis flagged your projected GWA as critically low (< 1.75) or detected multiple past failures.";
+        : "High Risk: Based on your current recorded grades, your projected GWA is critically low (below 1.75) or you have multiple past failed subjects on record.";
 } elseif ($display_risk === 'MODERATE') {
-    $riskTooltip = $ml_prediction 
+    $riskTooltip = $prediction_source === 'decision_tree'
         ? "Moderate Risk: The AI model evaluated your trajectory as Moderate Risk. Minor interventions and focus are recommended to secure your standing."
-        : "Moderate Risk: Heuristic analysis shows your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
+        : "Moderate Risk: Based on your current recorded grades, your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
 } elseif ($display_risk === 'LOW') {
-    $riskTooltip = $ml_prediction 
+    $riskTooltip = $prediction_source === 'decision_tree'
         ? "Low Risk: Excellent. The AI model projects a highly stable trajectory."
-        : "Low Risk: Heuristic analysis shows your projected GWA is well within the safe, highly satisfactory threshold.";
+        : "Low Risk: Based on your current recorded grades, your projected GWA is well within the safe, highly satisfactory threshold.";
 } else {
-    $riskTooltip = "No prediction data available yet.";
+    $riskTooltip = "There isn't enough recorded academic data yet to generate a prediction.";
 }
 
 $honor_color = match ($display_honor) {
@@ -215,16 +239,22 @@ require_once '../includes/sidebar.php';
         </div>
         <div>
             <?php if ($prediction_source === 'decision_tree'): ?>
-                <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Decision Tree prediction is active">
+                <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="AI-based prediction is active">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    AI Decision Tree Active
-                    <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the UDM-RADAR Decision Tree model based on the available academic inputs.</span>
+                    AI-Based Prediction
+                    <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the UDM-RADAR AI model based on your available academic inputs.</span>
+                </span>
+            <?php elseif ($prediction_source === 'calculation_fallback'): ?>
+                <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Estimate based on current grades">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    Estimate Based on Current Grades
+                    <span class="tooltip-text" role="tooltip">This is a real calculation from your recorded grades. The AI-based prediction hasn't run for your account yet.</span>
                 </span>
             <?php else: ?>
-                <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Heuristic analysis is active">
+                <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Insufficient data for a prediction">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    Heuristic Analysis Active
-                    <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the system's rule-based academic calculations because no current Decision Tree prediction was available.</span>
+                    Insufficient Data
+                    <span class="tooltip-text" role="tooltip">There aren't enough recorded grades yet to generate a prediction or estimate.</span>
                 </span>
             <?php endif; ?>
         </div>
@@ -238,9 +268,13 @@ require_once '../includes/sidebar.php';
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
             <h4>Predicted Final GWA</h4>
-            <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa > 0 ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
+            <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
+                <?php if ($display_honor !== null): ?>
+                    Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
+                <?php else: ?>
+                    Latin Honor Status: <strong style="color: var(--text-gray);">N/A</strong>
+                <?php endif; ?>
             </p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $riskBg ?>;">
@@ -251,7 +285,7 @@ require_once '../includes/sidebar.php';
                     <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($riskTooltip) ?></span>
                 </span>
             </div>
-            <h2 style="color: <?= $riskBg ?>; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($display_risk) ?></h2>
+            <h2 style="color: <?= $riskBg ?>; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($display_risk ?? 'N/A') ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Classification</p>
         </div>
     </div>
@@ -318,10 +352,10 @@ require_once '../includes/sidebar.php';
                     <th style="padding: 12px; text-align: center; color: var(--text-dark);">Units</th>
                     <th style="padding: 12px; text-align: center; color: var(--text-dark);">Current Prelim</th>
                     <th style="padding: 12px; text-align: center; color: var(--accent-blue);">
-                        Heuristic Subject Estimate
-                        <span class="custom-tooltip" tabindex="0" aria-label="Uses current Preliminary performance and historical GWA. Separate from the overall ML prediction." style="margin-left: 4px;">
+                        Projected Subject Grade
+                        <span class="custom-tooltip" tabindex="0" aria-label="A calculation based on your current Preliminary score and prior academic performance. Separate from the overall AI-based prediction." style="margin-left: 4px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: text-bottom;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                            <span class="tooltip-text" role="tooltip">This subject-level estimate uses the student's current Preliminary performance and historical weighted GWA. It is separate from the overall Decision Tree GWA prediction.</span>
+                            <span class="tooltip-text" role="tooltip">This is a calculation based on the currently recorded Preliminary score and prior academic performance, not the AI model — the AI model does not produce subject-by-subject predictions.</span>
                         </span>
                     </th>
                     <th style="padding: 12px; text-align: center; color: var(--text-dark);">Subject Risk</th>
@@ -329,11 +363,11 @@ require_once '../includes/sidebar.php';
             </thead>
             <tbody>
                 <?php foreach ($current_subjects as $subj): 
-                    $pRisk = $subj['prelim_point'] !== null ? computeRiskFromAvg($subj['prelim_point']) : 'LOW';
-                    $fRisk = $subj['predicted_final'] !== null ? computeRiskFromAvg($subj['predicted_final']) : 'LOW';
+                    $pRisk = $subj['prelim_point'] !== null ? computeRiskFromAvg($subj['prelim_point']) : null;
+                    $fRisk = $subj['predicted_final'] !== null ? computeRiskFromAvg($subj['predicted_final']) : null;
                     
-                    $prelimCol = $pRisk === 'HIGH' ? 'var(--risk-high)' : ($pRisk === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)');
-                    $finalCol  = $fRisk === 'HIGH' ? 'var(--risk-high)' : ($fRisk === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)');
+                    $prelimCol = match($pRisk) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
+                    $finalCol  = match($fRisk) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
                     
                     $rowRiskBg = match($subj['final_risk']) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
                 ?>
@@ -342,10 +376,10 @@ require_once '../includes/sidebar.php';
                     <td style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars($subj['title']) ?></td>
                     <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= htmlspecialchars($subj['units']) ?></td>
                     
+                    <!-- FIXED: Removed Point Equivalent from UI entirely -->
                     <td style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
                         <?php if ($subj['prelim_raw'] !== null): ?>
-                            <?= round((float)$subj['prelim_raw']) ?>% <br>
-                            <span style="font-size: 0.75rem; color: var(--text-gray);">(<?= number_format($subj['prelim_point'], 2) ?>)</span>
+                            <?= round((float)$subj['prelim_raw']) ?>%
                         <?php else: ?>
                             <span style="color: var(--text-gray);">—</span>
                         <?php endif; ?>

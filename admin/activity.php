@@ -156,7 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     
-                    // pending_grade_batches correctly uses 'approved'
                     $db->prepare("UPDATE pending_grade_batches SET status='approved', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
                     $success = 'Batch successfully approved and grades have been updated.';
                 }
@@ -235,16 +234,23 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-.tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
 .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
 .tab-content { display: none; animation: fadeIn 0.3s ease; }
 .tab-content.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+
+/* Drill-down Hover Animations */
+.kpi-drilldown { cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.kpi-drilldown:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+[data-theme="dark"] .kpi-drilldown:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; backdrop-filter: blur(4px); }
 .modal-overlay.open { opacity: 1; visibility: visible; }
-.modal-box { background: var(--card-bg); padding: 24px; border-radius: 12px; width: 100%; max-width: 800px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; margin: auto; transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; }
+.modal-box { background: var(--card-bg); padding: 24px; border-radius: 12px; width: 100%; max-width: 800px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; margin: auto; transform: scale(0.95) translateY(15px); transition: transform 0.3s ease; border: 1px solid var(--border-color); }
 .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
-.modal-close { position: absolute; top: 20px; right: 20px; background: none; border: 1px solid var(--border-color); color: var(--text-dark); cursor: pointer; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; font-weight: 600; transition: background 0.2s; }
+.modal-close { position: absolute; top: 20px; right: 20px; background: none; border: 1px solid var(--border-color); color: var(--text-dark); cursor: pointer; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-family: inherit; transition: background 0.2s; }
+.modal-close:hover { background: var(--bg-color); }
 </style>
 
 <div class="main-content">
@@ -258,29 +264,35 @@ require_once '../includes/sidebar.php';
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight: 600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight: 600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
+    <!-- KPI STAT GRID (Clickable with smooth auto-scroll) -->
     <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
-        <div class="stat-card" style="border-left-color: var(--accent-blue); cursor: pointer; transition: transform 0.2s;" onclick="switchTab('inbox')">
+        <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="switchTab('inbox', true)" title="Click to open Inbox">
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Open Reports</h4>
             <h2 style="margin: 8px 0 0; color: var(--text-dark); font-size: 2rem;"><?= $countInbox ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Incoming queries</div>
         </div>
-        <div class="stat-card" style="border-left-color: var(--risk-mod); cursor: pointer; transition: transform 0.2s;" onclick="switchTab('approvals')">
+        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-mod) !important;" onclick="switchTab('approvals', true)" title="Click to open Approvals">
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Pending Approvals</h4>
             <h2 style="margin: 8px 0 0; color: var(--risk-mod); font-size: 2rem;"><?= $countApprovals ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Batches & corrections</div>
         </div>
-        <div class="stat-card" style="border-left-color: var(--risk-high); cursor: pointer; transition: transform 0.2s;" onclick="switchTab('support')">
-            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Support Reviews</h4>
-            <h2 style="margin: 8px 0 0; color: var(--risk-high); font-size: 2rem;"><?= $countSupportReviews ?></h2>
+        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-high) !important;" onclick="switchTab('support', true)" title="Click to review Academic Support">
+            <h4>Support Reviews</h4>
+            <h2 style="color: var(--risk-high);"><?= $countSupportReviews ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Action required</div>
         </div>
-        <div class="stat-card" style="border-left-color: var(--risk-low); cursor: pointer; transition: transform 0.2s;" onclick="switchTab('support')">
-            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Awaiting Acknowledgment</h4>
-            <h2 style="margin: 8px 0 0; color: var(--risk-low); font-size: 2rem;"><?= $countAwaitingAck ?></h2>
+        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-low) !important;" onclick="switchTab('support', true)" title="Click to view Acknowledged Cases">
+            <h4>Awaiting Acknowledgment</h4>
+            <h2 style="color: var(--risk-low);"><?= $countAwaitingAck ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Notice sent to student</div>
         </div>
     </div>
 
-    <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
-        <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Inbox</button>
-        <button id="btn-approvals" class="tab-btn" onclick="switchTab('approvals')">Approvals</button>
-        <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support</button>
+    <!-- WORKSPACE TABS -->
+    <div id="workspace-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
+        <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Inbox (<?= $countInbox ?>)</button>
+        <button id="btn-approvals" class="tab-btn" onclick="switchTab('approvals')">Approvals (<?= $countApprovals ?>)</button>
+        <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support (<?= $countSupportReviews ?>)</button>
         <button id="btn-history" class="tab-btn" onclick="switchTab('history')">History & Audit</button>
     </div>
 
@@ -530,7 +542,7 @@ require_once '../includes/sidebar.php';
     </div>
 </div>
 
-<!-- Modals for Batch Reviews (Rendered outside layout grid) -->
+<!-- Modals for Batch Reviews -->
 <?php foreach ($pendingBatches as $b): 
     $payloadData = json_decode($b['payload'], true);
 ?>
@@ -567,13 +579,36 @@ require_once '../includes/sidebar.php';
 <?php endforeach; ?>
 
 <script>
-function switchTab(tabId) {
+function switchTab(tabId, shouldScroll = false) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById('tab-' + tabId).classList.add('active');
+    
+    const targetContent = document.getElementById('tab-' + tabId);
     const activeBtn = document.getElementById('btn-' + tabId);
-    if(activeBtn) activeBtn.classList.add('active');
+    
+    if (targetContent) targetContent.classList.add('active');
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (shouldScroll) {
+        const tabsEl = document.getElementById('workspace-tabs');
+        if (tabsEl) {
+            const y = tabsEl.getBoundingClientRect().top + window.scrollY - 20;
+            window.scrollTo({top: y, behavior: 'smooth'});
+        }
+    }
 }
+
+// Auto-route on page load via URL query (e.g. activity.php?tab=approvals)
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get('tab');
+    const allowedTabs = ['inbox', 'approvals', 'support', 'history'];
+
+    if (allowedTabs.includes(requestedTab)) {
+        switchTab(requestedTab, false);
+    }
+});
+
 document.querySelectorAll('.safe-submit-form').forEach(f => {
     f.addEventListener('submit', function() {
         const btns = this.querySelectorAll('button[type="submit"]');

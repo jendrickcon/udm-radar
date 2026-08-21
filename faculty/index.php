@@ -77,7 +77,7 @@ $navItems = [
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
     ['Encode Grades',      'grades.php',    '📝'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Concerns & Reports', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
