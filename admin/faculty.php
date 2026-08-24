@@ -135,9 +135,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $error = 'Session expired — please refresh the page and try again.';
     } else {
         $delId = (int) ($_POST['delete_id'] ?? 0);
-        $stmt = $db->prepare("DELETE FROM users WHERE id = ? AND role = 'faculty'");
+        // FIXED: Deactivates account instead of breaking database history
+        $stmt = $db->prepare("UPDATE users SET is_active = 0 WHERE id = ? AND role = 'faculty'");
         $stmt->execute([$delId]);
-        $success = 'Faculty account removed.';
+        $success = 'Faculty account deactivated. Teaching history preserved.';
     }
 }
 
@@ -305,7 +306,12 @@ require_once '../includes/sidebar.php';
                 ?>
                 <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" onclick="openFacultyModal(<?= $fid ?>)" style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($f['user_id']) ?></td>
-                    <td style="padding: 12px; font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars(formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name'])) ?></td>
+                    <td style="padding: 12px; font-weight:600; color:var(--accent-blue);">
+                        <?= htmlspecialchars(formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name'])) ?>
+                        <?php if (!$f['is_active']): ?>
+                            <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:2px 6px; border-radius:4px; font-size:0.7rem; margin-left:6px; vertical-align: middle;">Inactive</span>
+                        <?php endif; ?>
+                    </td>
                     <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($f['email'] ?? '—') ?></td>
                     <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['sections_handled'] ?></td>
                     <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['subjects_handled'] ?></td>

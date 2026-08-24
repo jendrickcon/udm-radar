@@ -7,8 +7,6 @@ requireRole('faculty');
 $user = currentUser();
 $db   = getDB();
 
-// ── 0. FACULTY WORKLOAD QUERIES ───────────────────────────────────────────
-
 $stmtConcernCount = $db->prepare("
     SELECT COUNT(DISTINCT f.id)
     FROM feedback_reports f
@@ -41,12 +39,10 @@ $supportReviewCount = (int) $stmtSupportReviewCount->fetchColumn();
 
 $facultyActionCount = $openConcernCount + $pendingBatchCount + $supportReviewCount;
 
-// ── 1. Faculty's assigned sections ────────────────────────────────────────
 $stmt = $db->prepare("SELECT DISTINCT section FROM faculty_class_loads WHERE faculty_user_id = ? ORDER BY section");
 $stmt->execute([$user['id']]);
 $my_sections = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-// ── 2. Class loads: each row is one (subject → section) assignment ─────────
 $stmt = $db->prepare("
     SELECT s.id, s.code, s.title, fcl.section
     FROM faculty_class_loads fcl
@@ -57,7 +53,6 @@ $stmt = $db->prepare("
 $stmt->execute([$user['id']]);
 $my_class_loads = $stmt->fetchAll();
 
-// ── 3. Per-section subject list (for tab column headers) ──────────────────
 $section_subject_map = [];
 foreach ($my_class_loads as $load) {
     $sec     = $load['section'];
@@ -71,7 +66,6 @@ foreach ($my_class_loads as $load) {
     }
 }
 
-// ── 4. All students in faculty's assigned sections ─────────────────────────
 $students = [];
 if (!empty($my_sections)) {
     $inSec = implode(',', array_fill(0, count($my_sections), '?'));
@@ -100,7 +94,6 @@ if (!empty($my_sections)) {
     unset($s);
 }
 
-// ── 5. Grades scoped to exact (subject, section) load pairs ───────────────
 $subject_grades = []; 
 if (!empty($my_class_loads)) {
     $conds  = [];
@@ -132,10 +125,10 @@ if (!empty($my_class_loads)) {
     }
 }
 
-// ── 6. Build section_data (at-risk = subject-specific) ────────────────────
 $section_data    = [];
 foreach ($my_sections as $sec) {
-    $section_data[$sec] = ['students' => [], 'gwa_sum' => 0, 'at_risk' => 0, 'irregular' => 0];
+    // FIXED: gwa_count added to dictionary to track valid math
+    $section_data[$sec] = ['students' => [], 'gwa_sum' => 0, 'gwa_count' => 0, 'at_risk' => 0, 'irregular' => 0];
 }
 
 $at_risk_total   = 0;
@@ -161,6 +154,7 @@ foreach ($students as &$s) {
     if ($gwa > 0) {
         $gwa_sum  += $gwa; $gwa_count++;
         $section_data[$sec]['gwa_sum'] += $gwa;
+        $section_data[$sec]['gwa_count']++;
     }
     $section_data[$sec]['students'][] = $s;
 }
@@ -239,7 +233,7 @@ require_once '../includes/sidebar.php';
 
     <div class="header" style="margin-bottom:24px;">
         <div>
-            <h1>Section Overview — S.Y. 2026-2027, 1st Semester</h1>
+            <h1>Section Overview</h1>
             <p style="color:var(--text-gray); font-size:0.95rem;">
                 Click a section card to open its student roster.
                 <em style="color:var(--text-gray); font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
@@ -247,7 +241,6 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- TIER 1: FACULTY WORKLOAD BANNER -->
     <?php if ($facultyActionCount > 0): ?>
         <div class="card warning-banner" style="margin-bottom: 24px; padding: 16px 24px; border-left: 4px solid var(--risk-mod); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
@@ -279,7 +272,6 @@ require_once '../includes/sidebar.php';
         </div>
     <?php endif; ?>
 
-    <!-- TIER 2: KPI CARDS (Static for Faculty View) -->
     <div class="stat-grid" style="margin-bottom:24px;">
         <div class="stat-card" style="border-left-color: var(--text-dark) !important;">
             <h4>Total Students</h4>
@@ -299,11 +291,12 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- TIER 3: SECTION CARDS -->
     <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
         <?php foreach ($section_data as $sec_name => $data):
             $count    = count($data['students']);
-            $avg      = $count > 0 ? round($data['gwa_sum'] / $count, 2) : 0;
+            $gwaCount = $data['gwa_count'] ?? 0;
+            // FIXED: Using gwaCount denominator
+            $avg      = $gwaCount > 0 ? round($data['gwa_sum'] / $gwaCount, 2) : 0;
             $risk_col = $data['at_risk'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
         ?>
         <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border-color);border-radius:8px;">
@@ -312,7 +305,7 @@ require_once '../includes/sidebar.php';
                 <span style="font-size:0.8rem;color:var(--text-gray);"><?= $count ?> students</span>
             </div>
             <div style="padding:16px;text-align:center;">
-                <h2 style="color:var(--accent-blue);font-size:2rem;margin-bottom:2px;"><?= number_format($avg, 2) ?></h2>
+                <h2 style="color:var(--accent-blue);font-size:2rem;margin-bottom:2px;"><?= $avg > 0 ? number_format($avg, 2) : '—' ?></h2>
                 <p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:12px;">Avg GWA</p>
                 <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:12px;border-top:1px solid var(--border-color);padding-top:8px;">
                     <span style="color:<?= $risk_col ?>;font-weight:600;">At-Risk: <?= $data['at_risk'] ?></span>
@@ -327,7 +320,6 @@ require_once '../includes/sidebar.php';
         <?php endforeach; ?>
     </div>
 
-    <!-- TIER 4: EXPANDABLE ROSTER PANEL -->
     <div id="section-roster-card" class="card" style="display:none;border:2px solid var(--accent-blue);margin-bottom:24px; padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <div>
@@ -358,7 +350,7 @@ require_once '../includes/sidebar.php';
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
                         <th style="width:50px;text-align:center; padding:12px;">Rank</th>
                         <th style="text-align:left; padding:12px;">Student Name</th>
-                        <th style="text-align:left; padding:12px;">Student No.</th>
+                        <!-- FIXED: Removed redundant 'Student No.' column -->
                         <th style="text-align:center; padding:12px;">Cumulative GWA</th>
                         <th style="text-align:center; padding:12px;">Distinction Threshold</th>
                         <th style="text-align:center; padding:12px;">Overall Risk</th>
@@ -370,7 +362,6 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- TIER 5: TOP PERFORMERS (Opportunity Discovery) -->
     <div class="card">
         <div style="margin-bottom:16px;">
             <h3 style="color:var(--text-dark);font-weight:700; font-size:1.1rem; margin:0 0 4px 0;">Top Academic Performers in Your Assigned Sections</h3>
@@ -443,7 +434,6 @@ require_once '../includes/sidebar.php';
 
 </div>
 
-<!-- Grade Breakdown Modal -->
 <div class="modal-overlay" id="grade-modal-overlay" onclick="if(event.target===this) closeGradeModal();">
     <div class="modal-box" style="max-width: 650px;">
         <button class="modal-close" onclick="closeGradeModal()">✕ Close</button>
@@ -542,11 +532,18 @@ function renderClassTab(secName) {
             let currentGradeStr = '—';
             let termLabel = '';
             
-            // FIXED: Explicitly format percentages (0-100) with % sign, and decimals (1.00-4.00) with toFixed(2)
-            if (g && g.final_grade !== null && g.final_grade !== undefined) { currentGradeStr = parseFloat(g.final_grade).toFixed(2); termLabel = 'FIN'; }
-            else if (g && g.prefinal !== null && g.prefinal !== undefined) { currentGradeStr = Math.round(parseFloat(g.prefinal)) + '%'; termLabel = 'PRE-F'; }
-            else if (g && g.midterm !== null && g.midterm !== undefined) { currentGradeStr = Math.round(parseFloat(g.midterm)) + '%'; termLabel = 'MID'; }
-            else if (g && g.prelim !== null && g.prelim !== undefined) { currentGradeStr = Math.round(parseFloat(g.prelim)) + '%'; termLabel = 'PRE'; }
+            // FIXED: Avoid parseFloat returning NaN by performing string check FIRST
+            if (g && g.final_grade !== null && g.final_grade !== undefined && g.final_grade !== '') { 
+                if (['INC','DRP','P','DO','DU','FA','UD'].includes(String(g.final_grade).toUpperCase())) {
+                    currentGradeStr = String(g.final_grade).toUpperCase();
+                } else {
+                    currentGradeStr = parseFloat(g.final_grade).toFixed(2);
+                }
+                termLabel = 'FIN'; 
+            }
+            else if (g && g.prefinal !== null && g.prefinal !== undefined && g.prefinal !== '') { currentGradeStr = Math.round(parseFloat(g.prefinal)) + '%'; termLabel = 'PRE-F'; }
+            else if (g && g.midterm !== null && g.midterm !== undefined && g.midterm !== '') { currentGradeStr = Math.round(parseFloat(g.midterm)) + '%'; termLabel = 'MID'; }
+            else if (g && g.prelim !== null && g.prelim !== undefined && g.prelim !== '') { currentGradeStr = Math.round(parseFloat(g.prelim)) + '%'; termLabel = 'PRE'; }
 
             if (currentGradeStr !== '—') {
                 const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
@@ -555,10 +552,9 @@ function renderClassTab(secName) {
                     <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">${termLabel}</span>
                 </td>`;
                 
-                // Track risk and point average strictly using point logic
-                if (termLabel === 'FIN') {
+                if (termLabel === 'FIN' && !['INC','DRP','P','DO','DU','FA','UD'].includes(currentGradeStr)) {
                     gradeSum += parseFloat(g.final_grade);
-                } else {
+                } else if (termLabel !== 'FIN') {
                     let pointEquivalent = 0;
                     let pct = parseFloat(currentGradeStr);
                     if (pct >= 99) pointEquivalent = 4.00; else if (pct >= 97) pointEquivalent = 3.75; else if (pct >= 95) pointEquivalent = 3.50; else if (pct >= 92) pointEquivalent = 3.25;
@@ -603,9 +599,12 @@ function openGradeModal(uid, secName) {
     document.getElementById('grade-modal-name').innerText = student.full_name;
 
     let html = '';
-    // FIXED: Formats raw percentage explicitly for term grades
-    const formatPct = (val) => val !== null && val !== undefined ? Math.round(parseFloat(val)) + '%' : '<span style="color:var(--text-gray);">—</span>';
-    const formatPt = (val) => val !== null && val !== undefined ? parseFloat(val).toFixed(2) : '<span style="color:var(--text-gray);">—</span>';
+    const formatPct = (val) => val !== null && val !== undefined && val !== '' ? Math.round(parseFloat(val)) + '%' : '<span style="color:var(--text-gray);">—</span>';
+    const formatPt = (val) => {
+        if (val === null || val === undefined || val === '') return '<span style="color:var(--text-gray);">—</span>';
+        if (['INC','DRP','P','DO','DU','FA','UD'].includes(String(val).toUpperCase())) return String(val).toUpperCase();
+        return parseFloat(val).toFixed(2);
+    };
     
     subjects.forEach(subj => {
         const g = grades[subj.id];
@@ -635,7 +634,7 @@ function renderOverallTab(secName) {
 
     const tbody = document.getElementById('roster-body-overall');
     if (!students.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-gray);padding:24px;">No students.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-gray);padding:24px;">No students.</td></tr>';
         return;
     }
 
@@ -671,7 +670,6 @@ function renderOverallTab(secName) {
                 <div style="font-weight:600; color:var(--text-dark); margin-bottom: 2px;">${s.full_name}</div>
                 <div style="color:var(--text-gray); font-size: 0.8rem;">${s.student_number || '—'}</div>
             </td>
-            <td style="color:var(--text-gray); padding:12px;">${s.student_number || '—'}</td>
             <td style="font-weight:700;color:var(--accent-blue); text-align:center; padding:12px;">${gwa > 0 ? gwa.toFixed(2) : '—'}</td>
             <td style="text-align:center; padding:12px;"><span style="background:${honor.bg};color:${honor.color ?? 'white'};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${honor.text}</span></td>
             <td style="text-align:center; padding:12px;"><span style="background:${riskBg};color:white;padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;">${risk}</span></td>

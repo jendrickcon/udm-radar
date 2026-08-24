@@ -12,6 +12,75 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $error = '';
 
+// --- ADMIN VALIDATION & RECALCULATION HELPERS ---
+function validateAdminGrade($termType, $val) {
+    if ($val === null || trim((string)$val) === '') return true;
+    $valStr = strtoupper(trim((string)$val));
+    
+    if (in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
+        if (is_numeric($val)) {
+            $f = (float)$val;
+            if ($f >= 0 && $f <= 100) return true;
+        }
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) return true;
+        return false;
+    } elseif ($termType === 'final_grade') {
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) return true;
+        if (is_numeric($val)) {
+            $f = (float)$val;
+            $formatted = number_format($f, 2);
+            $validPoints = ['4.00','3.75','3.50','3.25','3.00','2.75','2.50','2.25','2.00','1.75','1.50','1.25','1.00'];
+            if (in_array($formatted, $validPoints, true)) return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+function recalculateGradeRowRisk($db, $gradeId) {
+    $row = $db->query("SELECT prelim, midterm, prefinal, final_grade FROM grades WHERE id = " . (int)$gradeId)->fetch();
+    if (!$row) return null;
+    
+    $latestVal = null; $latestType = '';
+    if ($row['final_grade'] !== null && trim((string)$row['final_grade']) !== '') { $latestVal = $row['final_grade']; $latestType = 'final_grade'; }
+    elseif ($row['prefinal'] !== null && trim((string)$row['prefinal']) !== '') { $latestVal = $row['prefinal']; $latestType = 'prefinal'; }
+    elseif ($row['midterm'] !== null && trim((string)$row['midterm']) !== '') { $latestVal = $row['midterm']; $latestType = 'midterm'; }
+    elseif ($row['prelim'] !== null && trim((string)$row['prelim']) !== '') { $latestVal = $row['prelim']; $latestType = 'prelim'; }
+
+    if ($latestVal !== null) {
+        $valStr = strtoupper(trim((string)$latestVal));
+        if ($latestType === 'final_grade') {
+            if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return 'HIGH';
+            if (is_numeric($latestVal)) return computeRiskFromAvg((float)$latestVal);
+        } else {
+            if (is_numeric($latestVal)) {
+                $pt = normalizeTermGrade((float)$latestVal);
+                if ($pt !== null) return computeRiskFromAvg($pt);
+            }
+        }
+    }
+    return null;
+}
+
+function recalculateStudentGWA($db, $studentId) {
+    $stmt = $db->prepare("SELECT final_grade FROM grades WHERE student_id = ? AND final_grade IS NOT NULL AND final_grade != ''");
+    $stmt->execute([$studentId]);
+    $grades = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    $sum = 0; $count = 0;
+    foreach ($grades as $g) {
+        $valStr = strtoupper(trim((string)$g));
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) continue;
+        if (is_numeric($g)) {
+            $sum += (float)$g;
+            $count++;
+        }
+    }
+    $gwa = $count > 0 ? round($sum / $count, 2) : null;
+    $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?")->execute([$gwa, $studentId]);
+}
+// ------------------------------------------------
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propose_grade') {
     if (!checkCsrf()) {
         $error = 'Session expired — please refresh and try again.';
@@ -38,23 +107,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propo
                     'prefinal'    => $_POST['edit_prefinal'] !== '' ? $_POST['edit_prefinal'] : null,
                     'final_grade' => $_POST['edit_final']    !== '' ? $_POST['edit_final']    : null,
                 ];
-
-                $logStmt = $db->prepare("
-                    INSERT INTO pending_corrections (proposed_by, target_type, target_id, field_changed, old_value, new_value, reason, linked_feedback_id)
-                    VALUES (?, 'grade', ?, ?, ?, ?, ?, ?)
-                ");
-                $proposedCount = 0;
+                
+                // FIXED: Validation of Admin Proposals BEFORE entering the database
                 foreach ($fields as $field => $newVal) {
-                    $oldVal = $old[$field];
-                    if ((string) $oldVal !== (string) $newVal) {
-                        $logStmt->execute([$user['id'], $gradeId, $field, $oldVal, $newVal, $reason, $linkedFeedbackId]);
-                        $proposedCount++;
+                    if ($newVal !== null && !validateAdminGrade($field, $newVal)) {
+                        $error = "Validation Error: Invalid value provided for $field. Percentages must be 0-100; Final Grades must use the 1.00-4.00 scale or valid status.";
+                        break;
                     }
                 }
 
-                $success = $proposedCount > 0
-                    ? "{$proposedCount} field(s) proposed for correction — pending confirmation."
-                    : 'No changes proposed.';
+                if (!$error) {
+                    $logStmt = $db->prepare("
+                        INSERT INTO pending_corrections (proposed_by, target_type, target_id, field_changed, old_value, new_value, reason, linked_feedback_id)
+                        VALUES (?, 'grade', ?, ?, ?, ?, ?, ?)
+                    ");
+                    $proposedCount = 0;
+                    foreach ($fields as $field => $newVal) {
+                        $oldVal = $old[$field];
+                        if ((string) $oldVal !== (string) $newVal) {
+                            $logStmt->execute([$user['id'], $gradeId, $field, $oldVal, $newVal, $reason, $linkedFeedbackId]);
+                            $proposedCount++;
+                        }
+                    }
+
+                    $success = $proposedCount > 0
+                        ? "{$proposedCount} field(s) proposed for correction — pending confirmation."
+                        : 'No changes proposed.';
+                }
             }
         }
 
@@ -94,20 +173,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
                 $field  = $corr['field_changed'];
                 $newVal = $corr['new_value'];
+                
+                // FIXED: Strict Grade Validation upon confirmation
+                if (!validateAdminGrade($field, $newVal)) {
+                    throw new Exception("Validation Error: Invalid value '{$newVal}'. Percentages must be 0-100; Final Grades must use the 1.00-4.00 scale or valid status.");
+                }
 
                 $db->prepare("UPDATE grades SET `$field` = ? WHERE id = ?")->execute([$newVal, $corr['target_id']]);
-
-                $stmt = $db->prepare("SELECT prelim, final_grade FROM grades WHERE id = ?");
-                $stmt->execute([$corr['target_id']]);
-                $fresh = $stmt->fetch();
-                if ($fresh['final_grade'] !== null) {
-                    $newRisk = computeRiskFromAvg(normalizePointGrade($fresh['final_grade']));
-                } elseif ($fresh['prelim'] !== null) {
-                    $newRisk = computeRiskFromAvg(normalizeTermGrade($fresh['prelim']));
-                } else {
-                    $newRisk = $gradeRow['risk_level'];
+                
+                // FIXED: Safely recalculate risk based on the latest available term for this row
+                $newRisk = recalculateGradeRowRisk($db, $corr['target_id']);
+                if ($newRisk !== null) {
+                    $db->prepare("UPDATE grades SET risk_level = ? WHERE id = ?")->execute([$newRisk, $corr['target_id']]);
                 }
-                $db->prepare("UPDATE grades SET risk_level = ? WHERE id = ?")->execute([$newRisk, $corr['target_id']]);
+
+                // FIXED: Automatically calculate new GWA and mark prediction slate
+                recalculateStudentGWA($db, $gradeRow['student_id']);
+                $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$gradeRow['student_id']]);
 
                 $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")
                    ->execute([$user['id'], $corrId]);
@@ -146,7 +228,7 @@ $sections = $db->query("
     FROM student_profiles sp
     LEFT JOIN predictions p ON p.student_id = sp.user_id
         AND p.generated_at = (SELECT MAX(p2.generated_at) FROM predictions p2 WHERE p2.student_id = sp.user_id)
-    WHERE sp.section IS NOT NULL AND sp.section != ''
+    WHERE sp.section IS NOT NULL AND sp.section != '' AND sp.status != 'Archived'
     GROUP BY sp.section
     ORDER BY sp.section
 ")->fetchAll();
@@ -191,7 +273,7 @@ require_once '../includes/sidebar.php';
 .row-clickable:hover { background:var(--bg-color); }
 
 .grade-row-form { display:grid; grid-template-columns: repeat(4, 70px) 1fr auto; gap:6px; align-items:center; }
-.grade-row-form input[type=number] { width:100%; padding:5px 6px; border:1px solid var(--border-color); border-radius:5px; font-size:0.82rem; background: var(--bg-color); color: var(--text-dark); }
+.grade-row-form input[type=text] { width:100%; padding:5px 6px; border:1px solid var(--border-color); border-radius:5px; font-size:0.82rem; background: var(--bg-color); color: var(--text-dark); }
 .small-btn { padding:5px 10px; border-radius:5px; border:none; font-weight:600; font-size:0.78rem; cursor:pointer; font-family:inherit; }
 
 .pending-badge { background:rgba(217, 119, 6, 0.1); color:var(--risk-mod); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700; }
@@ -360,6 +442,7 @@ function openHistory(studentId, name) {
 
 function renderGradeRow(g, studentId) {
     const risk = g.risk || 'LOW';
+    // FIXED: Inputs changed to type="text" to gracefully accept string inputs like "INC"
     return `
     <form method="POST" action="grades.php" class="grade-row-form" style="padding:8px 0; border-bottom:1px solid var(--border-color);"
           onsubmit="return confirmProposal(this)">
@@ -370,10 +453,10 @@ function renderGradeRow(g, studentId) {
         <input type="hidden" name="open_student" value="${studentId}">
         <input type="hidden" name="linked_feedback_id" value="${openFeedbackId || ''}">
 
-        <input type="number" step="0.01" name="edit_prelim" value="${g.prelim ?? ''}" placeholder="Prelim %" title="Prelim (%)">
-        <input type="number" step="0.01" name="edit_midterm" value="${g.midterm ?? ''}" placeholder="Mid %" title="Midterm (%)">
-        <input type="number" step="0.01" name="edit_prefinal" value="${g.prefinal ?? ''}" placeholder="Pre-F %" title="Pre-Final (%)">
-        <input type="number" step="0.01" min="0" max="4" name="edit_final" value="${g.finalGrade ?? ''}" placeholder="Final" title="Final Grade (1.00-4.00)">
+        <input type="text" name="edit_prelim" value="${g.prelim ?? ''}" placeholder="Prelim" title="Prelim (0-100)">
+        <input type="text" name="edit_midterm" value="${g.midterm ?? ''}" placeholder="Mid" title="Midterm (0-100)">
+        <input type="text" name="edit_prefinal" value="${g.prefinal ?? ''}" placeholder="Pre-F" title="Pre-Final (0-100)">
+        <input type="text" name="edit_final" value="${g.finalGrade ?? ''}" placeholder="Final" title="Final Grade (1.00-4.00 or Status)">
 
         <span style="font-size:0.8rem; color:var(--text-dark);" title="${g.title}">
             <strong>${g.code}</strong>

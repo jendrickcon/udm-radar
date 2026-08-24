@@ -39,6 +39,11 @@ if (!function_exists('formatPercentage')) {
 if (!function_exists('formatFinalGrade')) {
     function formatFinalGrade(float|int|string|null $val): string {
         if ($val === null || $val === '') return '—';
+        $str = strtoupper(trim((string)$val));
+        // Special academic statuses are not numeric grades — display them
+        // as-is rather than letting (float) silently turn them into 0.00.
+        if (in_array($str, ['INC', 'DO', 'DU', 'FA', 'UD'], true)) return $str;
+        if (!is_numeric($str)) return $str; // defensive fallback for anything unexpected
         return number_format((float)$val, 2);
     }
 }
@@ -141,7 +146,23 @@ require_once '../includes/sidebar.php';
                         $prelim   = $g['prelim'] !== null ? (float)$g['prelim'] : null;
                         $midterm  = $g['midterm'] !== null ? (float)$g['midterm'] : null;
                         $prefinal = $g['prefinal'] !== null ? (float)$g['prefinal'] : null;
-                        $finalGrade = $g['final_grade'] !== null ? (float)$g['final_grade'] : null;
+
+                        // final_grade can be a real point-scale number OR a
+                        // special status (INC/DO/DU/FA/UD). Casting straight
+                        // to (float) turns a status into 0.00 silently, which
+                        // then feeds computeRiskFromAvg() as if the student
+                        // were failing outright. Detect the status first.
+                        $finalGradeRaw = $g['final_grade'];
+                        $finalGradeStatus = null;
+                        $finalGrade = null;
+                        if ($finalGradeRaw !== null) {
+                            $fgStr = strtoupper(trim((string)$finalGradeRaw));
+                            if (in_array($fgStr, ['INC', 'DO', 'DU', 'FA', 'UD'], true)) {
+                                $finalGradeStatus = $fgStr;
+                            } elseif (is_numeric($fgStr)) {
+                                $finalGrade = (float) $fgStr;
+                            }
+                        }
 
                         $sum = 0; $count = 0;
                         if ($prelim !== null)   { $sum += $prelim; $count++; }
@@ -151,6 +172,12 @@ require_once '../includes/sidebar.php';
                         $liveRisk = 'N/A';
                         if ($finalGrade !== null) {
                             $liveRisk = computeRiskFromAvg($finalGrade);
+                        } elseif ($finalGradeStatus !== null) {
+                            // A special status isn't a graded average to run
+                            // risk math on — surface it as its own state
+                            // rather than falling through to a stale
+                            // prelim/midterm/prefinal-based projection.
+                            $liveRisk = 'N/A';
                         } elseif ($count > 0) {
                             $avgPercent = $sum / $count;
                             $projectedGrade = convertPercentageToPoint($avgPercent);
@@ -158,7 +185,9 @@ require_once '../includes/sidebar.php';
                         }
 
                         $subjTooltip = "No Data: Insufficient grading data to calculate risk.";
-                        if ($liveRisk === 'HIGH') {
+                        if ($finalGradeStatus !== null) {
+                            $subjTooltip = "Status: $finalGradeStatus. This is a recorded academic status, not a numeric grade — risk is not calculated for this subject until it's resolved.";
+                        } elseif ($liveRisk === 'HIGH') {
                             $subjTooltip = "High Risk: Your current subject grade point is below 1.75 (79% or lower). Significant focus is required to prevent failure.";
                         } elseif ($liveRisk === 'MODERATE') {
                             $subjTooltip = "Moderate Risk: Your current subject grade point is between 1.75 and 2.25 (80% - 85%). Improvement is recommended.";
@@ -176,7 +205,13 @@ require_once '../includes/sidebar.php';
                         <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prefinal) ?></td>
                         
                         <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);">
-                            <?= $finalGrade !== null ? formatFinalGrade($finalGrade) : '<span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>' ?>
+                            <?php if ($finalGrade !== null): ?>
+                                <?= formatFinalGrade($finalGrade) ?>
+                            <?php elseif ($finalGradeStatus !== null): ?>
+                                <span style="color:var(--text-gray); font-size:0.85rem;"><?= htmlspecialchars($finalGradeStatus) ?></span>
+                            <?php else: ?>
+                                <span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>
+                            <?php endif; ?>
                         </td>
                         <td class="compact-cell" style="padding: 12px; text-align: left;">
                             <span class="badge custom-tooltip tooltip-top-right <?= $riskBadgeClass($liveRisk) ?>" style="display: inline-flex; align-items: center; gap: 5px;" tabindex="0">

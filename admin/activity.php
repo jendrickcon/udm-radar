@@ -13,6 +13,75 @@ if (empty($_SESSION['csrf_token'])) {
 $error = '';
 $success = '';
 
+// --- ADMIN VALIDATION & RECALCULATION HELPERS ---
+function validateAdminGrade($termType, $val) {
+    if ($val === null || trim((string)$val) === '') return true;
+    $valStr = strtoupper(trim((string)$val));
+    
+    if (in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
+        if (is_numeric($val)) {
+            $f = (float)$val;
+            if ($f >= 0 && $f <= 100) return true;
+        }
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) return true;
+        return false;
+    } elseif ($termType === 'final_grade') {
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) return true;
+        if (is_numeric($val)) {
+            $f = (float)$val;
+            $formatted = number_format($f, 2);
+            $validPoints = ['4.00','3.75','3.50','3.25','3.00','2.75','2.50','2.25','2.00','1.75','1.50','1.25','1.00'];
+            if (in_array($formatted, $validPoints, true)) return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+function recalculateGradeRowRisk($db, $gradeId) {
+    $row = $db->query("SELECT prelim, midterm, prefinal, final_grade FROM grades WHERE id = " . (int)$gradeId)->fetch();
+    if (!$row) return null;
+    
+    $latestVal = null; $latestType = '';
+    if ($row['final_grade'] !== null && trim((string)$row['final_grade']) !== '') { $latestVal = $row['final_grade']; $latestType = 'final_grade'; }
+    elseif ($row['prefinal'] !== null && trim((string)$row['prefinal']) !== '') { $latestVal = $row['prefinal']; $latestType = 'prefinal'; }
+    elseif ($row['midterm'] !== null && trim((string)$row['midterm']) !== '') { $latestVal = $row['midterm']; $latestType = 'midterm'; }
+    elseif ($row['prelim'] !== null && trim((string)$row['prelim']) !== '') { $latestVal = $row['prelim']; $latestType = 'prelim'; }
+
+    if ($latestVal !== null) {
+        $valStr = strtoupper(trim((string)$latestVal));
+        if ($latestType === 'final_grade') {
+            if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return 'HIGH';
+            if (is_numeric($latestVal)) return computeRiskFromAvg((float)$latestVal);
+        } else {
+            if (is_numeric($latestVal)) {
+                $pt = normalizeTermGrade((float)$latestVal);
+                if ($pt !== null) return computeRiskFromAvg($pt);
+            }
+        }
+    }
+    return null;
+}
+
+function recalculateStudentGWA($db, $studentId) {
+    $stmt = $db->prepare("SELECT final_grade FROM grades WHERE student_id = ? AND final_grade IS NOT NULL AND final_grade != ''");
+    $stmt->execute([$studentId]);
+    $grades = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    $sum = 0; $count = 0;
+    foreach ($grades as $g) {
+        $valStr = strtoupper(trim((string)$g));
+        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) continue;
+        if (is_numeric($g)) {
+            $sum += (float)$g;
+            $count++;
+        }
+    }
+    $gwa = $count > 0 ? round($sum / $count, 2) : null;
+    $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?")->execute([$gwa, $studentId]);
+}
+// ------------------------------------------------
+
 // =========================================================
 // Handle Form Submissions (Admin Approvals & Resolutions)
 // =========================================================
@@ -28,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $db->beginTransaction();
             try {
-                // Fetch dynamic old status
                 $stmtOld = $db->prepare("SELECT status FROM feedback_reports WHERE id = ?");
                 $stmtOld->execute([$fid]);
                 $oldStatus = $stmtOld->fetchColumn() ?: 'open';
@@ -82,9 +150,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } elseif (strpos($corr['target_type'], 'grade') !== false) {
                         if (!in_array($column, $allowedTerms)) throw new Exception("Invalid grading period.");
                         
+                        // FIXED: Strict Grading Scale Validation 
+                        if (!validateAdminGrade($column, $corr['new_value'])) {
+                            throw new Exception("Validation Error: Invalid value '{$corr['new_value']}' for {$column}. Percentages must be 0-100; Final Grades must use the 1.00-4.00 scale or a valid completion status.");
+                        }
+                        
                         $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$corr['new_value'], $corr['target_id']]);
                         $gradeRow = $db->query("SELECT student_id FROM grades WHERE id = " . (int)$corr['target_id'])->fetch();
-                        if ($gradeRow) $logTargetId = $gradeRow['student_id'];
+                        if ($gradeRow) {
+                            $logTargetId = $gradeRow['student_id'];
+                            
+                            // FIXED: Automatically recalculate Risk, GWA, and mark Prediction stale
+                            $newRisk = recalculateGradeRowRisk($db, $corr['target_id']);
+                            $db->prepare("UPDATE grades SET risk_level = ? WHERE id = ?")->execute([$newRisk, $corr['target_id']]);
+                            recalculateStudentGWA($db, $logTargetId);
+                            $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$logTargetId]);
+                        }
                     }
 
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
@@ -133,6 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     $getGradeStmt = $db->prepare("SELECT id, `$termType` FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
                     $updateGradeStmt = $db->prepare("UPDATE grades SET `$termType` = ? WHERE id = ?");
+                    $updateRiskStmt = $db->prepare("UPDATE grades SET risk_level = ? WHERE id = ?");
                     $logStmt = $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)");
 
                     foreach ($payload as $item) {
@@ -141,12 +223,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $reason = $item['reason'];
                         $finalGrade = trim($approvedGrades[$sid] ?? $facultyProposed);
                         
+                        // FIXED: Strict Grading Scale Validation for Batch Items
+                        if (!validateAdminGrade($termType, $finalGrade)) {
+                            throw new Exception("Validation Error: Invalid value '{$finalGrade}' for student #{$sid}. Percentages must be 0-100; Final Grades must use the 1.00-4.00 scale or valid status.");
+                        }
+
                         $getGradeStmt->execute([$sid, $batch['subject_id']]);
                         $gradeRow = $getGradeStmt->fetch();
                         
                         if ($gradeRow && $finalGrade !== '') {
                             $oldVal = $gradeRow[$termType] ?? '(empty)';
                             $updateGradeStmt->execute([$finalGrade, $gradeRow['id']]);
+                            
+                            // FIXED: Automatically recalculate Risk, GWA, and mark Prediction stale
+                            $newRisk = recalculateGradeRowRisk($db, $gradeRow['id']);
+                            $updateRiskStmt->execute([$newRisk, $gradeRow['id']]);
+                            recalculateStudentGWA($db, $sid);
+                            $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$sid]);
                             
                             $note = 'Batch Approval: ' . $reason;
                             if ($finalGrade !== $facultyProposed) {
@@ -264,7 +357,7 @@ require_once '../includes/sidebar.php';
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight: 600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight: 600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
-    <!-- KPI STAT GRID (Clickable with smooth auto-scroll) -->
+    <!-- KPI STAT GRID -->
     <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
         <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="switchTab('inbox', true)" title="Click to open Inbox">
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Open Reports</h4>
@@ -446,20 +539,32 @@ require_once '../includes/sidebar.php';
     <!-- TAB 3: ACADEMIC SUPPORT -->
     <div id="tab-support" class="tab-content">
         <div class="card" style="padding: 0; overflow: hidden;">
-            <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);">
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0 0 4px 0;">Academic Support Oversight</h3>
-                <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Read-only oversight of system-flagged cases and faculty interventions.</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);">
+                <div>
+                    <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0 0 4px 0;">Academic Support Oversight</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Read-only oversight of system-flagged cases and faculty interventions.</p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="export_intervention_audit.php" style="background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Export CSV
+                    </a>
+                    <a href="export_intervention_audit_pdf.php" style="background: var(--accent-blue); color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.2s;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Download PDF
+                    </a>
+                </div>
             </div>
             <div style="max-height: 500px; overflow-y: auto; padding: 0;">
                 <?php if (empty($supportCases)): ?>
                     <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No support cases have been generated.</p>
                 <?php else: ?>
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                        <thead style="position: sticky; top: 0; background: var(--table-header-bg); z-index: 5;">
+                        <thead>
                             <tr>
-                                <th style="border-bottom: 1px solid var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">Status</th>
-                                <th style="border-bottom: 1px solid var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">Student</th>
-                                <th style="border-bottom: 1px solid var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">System Context</th>
+                                <th style="position: sticky; top: 0; background: var(--card-bg); z-index: 5; box-shadow: inset 0 -2px 0 var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">Status</th>
+                                <th style="position: sticky; top: 0; background: var(--card-bg); z-index: 5; box-shadow: inset 0 -2px 0 var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">Student</th>
+                                <th style="position: sticky; top: 0; background: var(--card-bg); z-index: 5; box-shadow: inset 0 -2px 0 var(--border-color); padding: 12px 24px; text-align: left; color: var(--text-dark);">System Context</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -598,7 +703,6 @@ function switchTab(tabId, shouldScroll = false) {
     }
 }
 
-// Auto-route on page load via URL query (e.g. activity.php?tab=approvals)
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get('tab');

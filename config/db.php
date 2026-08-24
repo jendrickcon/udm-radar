@@ -1,6 +1,6 @@
 <?php
-// config/db.php — MySQL connection (replaces config.py)
-// Place this file inside C:\xampp\htdocs\udm-radar\config\
+// config/db.php — MySQL connection
+// Note: Ensure this file is added to .gitignore in your repository.
 
 define('DB_HOST',   'localhost');
 define('DB_USER',   'root');        // default XAMPP user
@@ -15,9 +15,13 @@ function getDB(): PDO {
       $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false, // FIXED: Enforces strict native prepared statements
       ]);
     } catch (PDOException $e) {
-      die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
+      // FIXED: Logs the actual error securely to the server, but returns a generic 500 to the user
+      error_log('Database connection failed: ' . $e->getMessage());
+      http_response_code(500);
+      exit('Database connection unavailable.');
     }
   }
   return $pdo;

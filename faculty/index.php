@@ -7,8 +7,9 @@ requireRole('faculty');
 $user = currentUser();
 $db = getDB();
 
-$currentSy = '2026-2027'; 
-$currentSem = '1';
+$currentTerm = getCurrentTerm();
+$currentSy = $currentTerm['school_year']; 
+$currentSem = (string) $currentTerm['semester'];
 
 // 1. Fetch Faculty Basic Info
 $stmt = $db->prepare("SELECT first_name, middle_name, last_name, email, user_id FROM users WHERE id = ?");
@@ -22,7 +23,7 @@ $stmtLoads = $db->prepare("
     FROM faculty_class_loads fcl 
     JOIN subjects s ON s.id = fcl.subject_id 
     WHERE fcl.faculty_user_id = ?
-    ORDER BY s.code, fcl.section
+    ORDER BY s.title, fcl.section
 ");
 $stmtLoads->execute([$user['id']]);
 $myLoads = $stmtLoads->fetchAll(PDO::FETCH_ASSOC);
@@ -63,7 +64,7 @@ foreach ($myLoads as $load) {
     if ($classTotal > 0 && $classEncoded < $classTotal) $attentionClasses++;
 
     $classPreview[] = [
-        'code' => $load['code'],
+        'title' => $load['title'], // FIXED: Use title instead of code
         'section' => $load['section'],
         'students' => $classTotal,
         'pct' => $classPct
@@ -149,11 +150,12 @@ require_once '../includes/sidebar.php';
                     <?php foreach($classPreview as $cp): ?>
                     <a href="grades.php" style="text-decoration: none; color: inherit; display: block;">
                         <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
-                            <div>
-                                <span style="font-weight: 700; color: var(--accent-blue); margin-right: 8px;"><?= htmlspecialchars($cp['code']) ?></span>
-                                <span style="color: var(--text-dark); font-weight: 600;"><?= htmlspecialchars($cp['section']) ?></span>
+                            <!-- FIXED: Styling ensures long titles get truncated with ellipsis if they overflow -->
+                            <div style="flex: 1; min-width: 0; display: flex; align-items: baseline;">
+                                <span style="font-weight: 700; color: var(--accent-blue); margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="<?= htmlspecialchars($cp['title']) ?>"><?= htmlspecialchars($cp['title']) ?></span>
+                                <span style="color: var(--text-dark); font-weight: 600; flex-shrink: 0;">— <?= htmlspecialchars($cp['section']) ?></span>
                             </div>
-                            <div style="text-align: right;">
+                            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
                                 <span style="font-size: 0.85rem; color: var(--text-gray); margin-right: 12px;"><?= $cp['students'] ?> students</span>
                                 <span style="font-size: 0.85rem; font-weight: 600; color: <?= $cp['pct'] === 100 ? 'var(--risk-low)' : 'var(--risk-mod)' ?>;"><?= $cp['pct'] ?>% Prelim encoded</span>
                             </div>
@@ -167,7 +169,6 @@ require_once '../includes/sidebar.php';
 </div>
 
 <style>
-/* Add a subtle hover effect to the clickable class rows */
 .card a:hover div { background: var(--table-header-bg); border-color: var(--accent-blue); }
 </style>
 

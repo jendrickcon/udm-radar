@@ -25,7 +25,10 @@ $stmtHist = $db->prepare("
 ");
 $stmtHist->execute([$user['id']]);
 $historical_rows = array_map(
-    fn($r) => ['grade' => (float) $r['final_grade'], 'units' => (int) $r['units']],
+    // Pass grade through as-is (string or number) — computeWeightedGWA()
+    // now handles special statuses (INC/DO/DU/FA/UD) itself. Casting to
+    // (float) here would corrupt those to 0.00 before the guard ever runs.
+    fn($r) => ['grade' => $r['final_grade'], 'units' => (int) $r['units']],
     $stmtHist->fetchAll()
 );
 $historical_gwa = computeWeightedGWA($historical_rows); 
@@ -223,7 +226,7 @@ $navItems = [
     ['Dashboard',          'dashboard.php', '📊'],
     ['Grades & History',   'grades.php',    '📝'],
     ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Feedback & Support', 'feedback.php', '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 

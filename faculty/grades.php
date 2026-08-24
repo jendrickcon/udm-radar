@@ -27,6 +27,13 @@ if (($_GET['action'] ?? '') === 'fetch_roster') {
     $hasPendingBatch = false;
     
     if ($selectedSubjId && $selectedSection) {
+        $stmtOwn = $db->prepare("SELECT id FROM faculty_class_loads WHERE faculty_user_id = ? AND subject_id = ? AND section = ?");
+        $stmtOwn->execute([$user['id'], $selectedSubjId, $selectedSection]);
+        if (!$stmtOwn->fetchColumn()) {
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
         $stmtRoster = $db->prepare("
             SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade,
                    sp.student_number, sp.section, u.first_name, u.middle_name, u.last_name,
@@ -71,17 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
         $reasons = $_POST['reasons'] ?? [];
         $batchNote = trim($_POST['batch_note'] ?? '');
 
-        // STRICT ALLOWLIST: Removed 'final_grade' to prevent direct manual overrides
         if (!$subjId || !$section || !in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
             $error = 'Invalid class or term selection.';
         } else {
-            // SECURITY: Verify the faculty actually teaches this load
             $stmtOwn = $db->prepare("SELECT id FROM faculty_class_loads WHERE faculty_user_id = ? AND subject_id = ? AND section = ?");
             $stmtOwn->execute([$user['id'], $subjId, $section]);
             if (!$stmtOwn->fetchColumn()) {
                 $error = 'Unauthorized: You are not assigned to this class load.';
             } else {
-                // Fetch current grades to accurately separate initial encodings from modifications
                 $stmtCurr = $db->prepare("
                     SELECT g.student_id, g.$termType 
                     FROM grades g 
@@ -95,32 +99,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
                 foreach ($newGrades as $studentId => $gradeVal) {
                     $gradeVal = trim((string)$gradeVal);
                     if ($gradeVal !== '') {
-                        if (!isValidGrade($gradeVal)) {
-                            $error = "Invalid grade format entered: '{$gradeVal}'. Must be 1.00-4.00, INC, DRP, or P.";
+                        
+                        $gradeValUpper = strtoupper($gradeVal);
+                        $isValid = false;
+                        
+                        if (in_array($gradeValUpper, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) {
+                            $isValid = true;
+                            $gradeVal = $gradeValUpper;
+                        } elseif (is_numeric($gradeVal)) {
+                            $floatVal = (float)$gradeVal;
+                            if ($floatVal >= 0 && $floatVal <= 100) {
+                                $isValid = true;
+                            }
+                        }
+
+                        if (!$isValid) {
+                            $error = "Invalid grade format entered: '{$gradeVal}'. Term scores must be a 0-100 percentage or valid status (INC, DRP, P, etc.).";
                             break;
                         }
                         
                         $oldGrade = $currentGrades[$studentId] ?? null;
                         $isUpdate = ($oldGrade !== null && $oldGrade !== '');
                         
-                        // Ignore if the faculty submitted the exact same grade that already exists
-                        if ($isUpdate && $gradeVal === $oldGrade) {
-                            continue;
-                        }
-                        // Handle strict float matching for numeric grades (e.g., 1.5 == 1.50)
-                        if ($isUpdate && is_numeric($gradeVal) && is_numeric($oldGrade) && number_format((float)$gradeVal, 2) === number_format((float)$oldGrade, 2)) {
-                            continue; 
-                        }
+                        if ($isUpdate && $gradeVal === $oldGrade) continue;
+                        if ($isUpdate && is_numeric($gradeVal) && is_numeric($oldGrade) && number_format((float)$gradeVal, 2) === number_format((float)$oldGrade, 2)) continue; 
 
                         $reason = trim($reasons[$studentId] ?? '');
                         
-                        // Rule 1: Changing an existing grade -> Individual Reason STRICTLY REQUIRED
                         if ($isUpdate && $reason === '') {
                             $error = "An individual reason is required when modifying an existing grade for Student #$studentId.";
                             break;
                         }
                         
-                        // Rule 2: New grade -> Individual reason optional, default to batch note or generic text
                         if (!$isUpdate && $reason === '') {
                             $reason = $batchNote !== '' ? $batchNote : 'Initial grade encoding';
                         }
@@ -149,7 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             }
         }
         
-        // Preserve selection after POST so the JS automatically reloads the view
         $_GET['class'] = $subjId . '_' . $section;
         $_GET['term'] = $termType;
     }
@@ -159,22 +168,19 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// 3. Fetch Faculty's Assigned Classes
 $stmtClasses = $db->prepare("
     SELECT fcl.subject_id, fcl.section, s.code, s.title 
     FROM faculty_class_loads fcl 
     JOIN subjects s ON s.id = fcl.subject_id 
     WHERE fcl.faculty_user_id = ?
-    ORDER BY s.code, fcl.section
+    ORDER BY s.title, fcl.section
 ");
 $stmtClasses->execute([$user['id']]);
 $myClasses = $stmtClasses->fetchAll();
 
-// 4. Initial Load State
 $selectedClass = $_GET['class'] ?? '';
 $selectedTerm  = $_GET['term'] ?? 'prelim';
 
-// Security fallback: if term defaults to final_grade from URL, revert to prelim
 if (!in_array($selectedTerm, ['prelim', 'midterm', 'prefinal'])) {
     $selectedTerm = 'prelim';
 }
@@ -195,13 +201,9 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-/* Forces scrollbar to always exist, permanently curing horizontal UI twitch */
 html { overflow-y: scroll; }
-
 .animate-fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 @keyframes fadeUp { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-
-/* Smooth transition specifically for the table rows */
 #roster-tbody { transition: opacity 0.2s ease; }
 </style>
 
@@ -220,7 +222,6 @@ html { overflow-y: scroll; }
         <p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p>
     <?php endif; ?>
 
-    <!-- Selection Panel -->
     <div class="card" style="margin-bottom: 24px;">
         <form method="GET" action="grades.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1; max-width: 380px;">
@@ -230,8 +231,9 @@ html { overflow-y: scroll; }
                     <?php foreach ($myClasses as $c): 
                         $val = $c['subject_id'] . '_' . $c['section'];
                     ?>
+                        <!-- FIXED: Dropdown uses Title instead of Code -->
                         <option value="<?= htmlspecialchars($val) ?>" <?= $selectedClass === $val ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($c['code'] . ' - ' . $c['section'] . ' (' . $c['title'] . ')') ?>
+                            <?= htmlspecialchars($c['title'] . ' — ' . $c['section']) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -248,10 +250,8 @@ html { overflow-y: scroll; }
         </form>
     </div>
 
-    <!-- Messages Container -->
     <div id="message-container" style="display: none; margin-bottom: 24px;"></div>
 
-    <!-- Main Table Card -->
     <div id="roster-card" class="card animate-fade-up" style="display: none; padding: 0; overflow: hidden;">
         <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
@@ -259,7 +259,7 @@ html { overflow-y: scroll; }
                 <div style="font-size: 0.85rem; color: var(--text-gray); display:flex; flex-direction:column; gap:4px;">
                     <span style="font-weight:600; color:var(--accent-blue);" id="roster-subj-title"></span>
                     <span>Section: <strong style="color:var(--text-dark);" id="roster-section"></strong></span>
-                    <span style="margin-top:4px;">Leave fields blank if no grade update is required.</span>
+                    <span style="margin-top:4px;">Leave fields blank if no grade update is required. Term scores must be percentage-based (0-100).</span>
                 </div>
             </div>
             <span style="background:rgba(30, 77, 183, 0.1); color:var(--accent-blue); padding:4px 10px; border-radius:6px; font-size:0.8rem; font-weight:700;">
@@ -285,9 +285,7 @@ html { overflow-y: scroll; }
                             <th style="padding: 14px 24px; text-align: left; color: var(--text-dark);">Individual Reason</th>
                         </tr>
                     </thead>
-                    <tbody id="roster-tbody">
-                        <!-- AJAX rows injected here -->
-                    </tbody>
+                    <tbody id="roster-tbody"></tbody>
                 </table>
             </div>
             
@@ -313,8 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const rosterCard = document.getElementById('roster-card');
     const tbody = document.getElementById('roster-tbody');
     
-    let isInitialLoad = true;
-
     function showMessage(html) {
         rosterCard.style.display = 'none';
         msgContainer.innerHTML = html;
@@ -337,6 +333,11 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`grades.php?action=fetch_roster&class=${encodeURIComponent(classSelect.value)}&term=${encodeURIComponent(termSelect.value)}`)
             .then(res => res.json())
             .then(data => {
+                if (data.error) {
+                    showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--risk-high); font-weight:600;">${data.error}</div>`);
+                    return;
+                }
+                
                 tbody.style.opacity = '1';
                 tbody.style.pointerEvents = 'auto';
                 
@@ -347,7 +348,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         rosterCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }, 50);
                 }
-                isInitialLoad = false;
             })
             .catch(err => {
                 tbody.style.opacity = '1';
@@ -386,16 +386,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let currentDisplay = '—';
             if (isUpdate) {
-                if (['INC','DRP','P'].includes(String(currentRaw).toUpperCase())) {
+                if (['INC','DRP','P','DO','DU','FA','UD'].includes(String(currentRaw).toUpperCase())) {
                     currentDisplay = String(currentRaw).toUpperCase();
                 } else {
-                    currentDisplay = parseFloat(currentRaw).toFixed(2);
+                    currentDisplay = Math.round(parseFloat(currentRaw)) + '%';
                 }
             }
             
             let formattedName = `${s.last_name}, ${s.first_name} ${s.middle_name || ''}`.trim();
-            
-            // Dynamic JS requirement based on existing vs new grade
             let placeholder = isUpdate ? 'Required for changes...' : 'Optional...';
             let reqLogic = isUpdate ? `oninput="document.getElementById('reason_${s.student_id}').required = (this.value.trim() !== '' && this.value.trim() !== '${currentRaw}');"` : '';
             
@@ -405,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 12px; font-weight: 600; color: var(--text-dark);">${formattedName}</td>
                     <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-gray);">${currentDisplay}</td>
                     <td style="padding: 12px;">
-                        <input type="text" name="grades[${s.student_id}]" placeholder="e.g. 1.50" 
+                        <input type="text" name="grades[${s.student_id}]" placeholder="e.g. 85" 
                                style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); text-align: center; font-family: inherit;"
                                ${reqLogic}>
                     </td>

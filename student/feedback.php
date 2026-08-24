@@ -63,22 +63,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((int)$stmtDup->fetchColumn() > 0) {
                     throw new Exception('You already have an active grade dispute for this exact subject and grading period.');
                 }
-            } else {
-                $subjectId = null; 
-                $gradePeriod = null;
-            }
-            if (empty($title) || empty($message)) throw new Exception("Title and message are required.");
 
-            // Derive Context for Grade Disputes
-            $section = null; $sy = null; $sem = null;
-            if ($subjectId) {
+                // SECURITY: Verify the student is actually currently enrolled
+                // in this subject before accepting the dispute. Without this,
+                // a tampered subject_id in the submitted form would silently
+                // fall through to null context below and still insert a
+                // ticket against an arbitrary subject the student has no
+                // relationship to. Reject outright instead of degrading.
                 $stmtS = $db->prepare("SELECT sp.section, g.school_year, g.semester FROM student_profiles sp JOIN grades g ON sp.user_id = g.student_id WHERE sp.user_id = ? AND g.subject_id = ? AND g.is_current = 1 LIMIT 1");
                 $stmtS->execute([$user['id'], $subjectId]);
                 $ctx = $stmtS->fetch(PDO::FETCH_ASSOC);
-                if ($ctx) {
-                    $section = $ctx['section']; $sy = $ctx['school_year']; $sem = $ctx['semester'];
+                if (!$ctx) {
+                    throw new Exception("You are not currently enrolled in the selected subject.");
                 }
+                $section = $ctx['section']; $sy = $ctx['school_year']; $sem = $ctx['semester'];
+            } else {
+                $subjectId = null; 
+                $gradePeriod = null;
+                $section = null; $sy = null; $sem = null;
             }
+            if (empty($title) || empty($message)) throw new Exception("Title and message are required.");
 
             $stmt = $db->prepare("INSERT INTO feedback_reports (submitted_by, category, subject_id, section, school_year, semester, grade_period, title, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$user['id'], $category, $subjectId, $section, $sy, $sem, $gradePeriod, $title, $message]);
@@ -122,17 +126,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         elseif ($action === 'acknowledge_notice') {
             $caseId = (int)$_POST['case_id'];
             
-            // SECURITY: Verify case ownership before modifying actions
-            $stmtCheck = $db->prepare("SELECT id FROM academic_support_cases WHERE id = ? AND student_id = ?");
+            // SECURITY: Verify case ownership AND that it's actually in the
+            // action_taken state before modifying anything. Ownership alone
+            // let a resubmitted/replayed acknowledge request re-run the
+            // UPDATE/INSERT below unconditionally, writing a duplicate
+            // 'action_taken' -> 'acknowledged' history row for an already-
+            // acknowledged case even though student_acknowledged_at's own
+            // IS NULL guard correctly no-ops on the timestamp itself.
+            $stmtCheck = $db->prepare("SELECT id FROM academic_support_cases WHERE id = ? AND student_id = ? AND status = 'action_taken'");
             $stmtCheck->execute([$caseId, $user['id']]);
-            if (!$stmtCheck->fetchColumn()) throw new Exception("Unauthorized: Support case does not belong to your profile.");
+            if (!$stmtCheck->fetchColumn()) throw new Exception("This notice has already been acknowledged, or does not belong to your profile.");
 
             $db->beginTransaction();
             
             $stmtAck = $db->prepare("UPDATE support_actions SET student_acknowledged_at = CURRENT_TIMESTAMP WHERE case_id = ? AND student_acknowledged_at IS NULL");
             $stmtAck->execute([$caseId]);
+            if ($stmtAck->rowCount() === 0) {
+                // Nothing was actually unacknowledged — don't proceed to
+                // flip status/write history for a no-op action.
+                $db->rollBack();
+                throw new Exception("This notice has already been acknowledged.");
+            }
             
-            $stmtUpd = $db->prepare("UPDATE academic_support_cases SET status = 'acknowledged' WHERE id = ?");
+            $stmtUpd = $db->prepare("UPDATE academic_support_cases SET status = 'acknowledged' WHERE id = ? AND status = 'action_taken'");
             $stmtUpd->execute([$caseId]);
             
             $stmtHist = $db->prepare("INSERT INTO support_status_history (case_id, changed_by, old_status, new_status, note) VALUES (?, ?, 'action_taken', 'acknowledged', 'Student acknowledged receipt.')");
@@ -201,7 +217,7 @@ $navItems = [
     ['Home',               'index.php',     '🏠'],
     ['Dashboard',          'dashboard.php', '📊'],
     ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
+    ['Feedback & Support', 'feedback.php', '💬'],
     ['Feedback & Support', 'feedback.php',  '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];

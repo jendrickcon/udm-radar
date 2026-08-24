@@ -35,6 +35,18 @@ $dbYears = $db->query("SELECT DISTINCT year_level FROM student_profiles WHERE ye
 $yearFilter = $_GET['year_level'] ?? '';
 if ($yearFilter !== '' && !in_array($yearFilter, $dbYears, true)) $yearFilter = '';
 
+// New Filters for Path B
+$allowedPeriods = ['prelim' => 'Preliminary', 'midterm' => 'Midterm', 'prefinal' => 'Pre-Final'];
+$periodFilter = $_GET['period'] ?? 'prelim';
+if (!array_key_exists($periodFilter, $allowedPeriods)) $periodFilter = 'prelim';
+$periodName = $allowedPeriods[$periodFilter];
+
+$dbSubjects = $db->query("SELECT id, code, title FROM subjects ORDER BY code")->fetchAll(PDO::FETCH_ASSOC);
+$subjectFilter = $_GET['subject_id'] ?? '';
+
+$dbSections = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL ORDER BY section")->fetchAll(PDO::FETCH_COLUMN);
+$sectionFilter = $_GET['section'] ?? '';
+
 // Determine Mode
 $isCurrentTerm = ($syFilter === '2026-2027' && $semFilter === '1');
 
@@ -51,7 +63,7 @@ $distinctions = [
     'Insufficient Data' => 0
 ];
 $chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
-$subjectStats = []; $histSubjects = [];
+$subjectWideStats = []; $subjectSectionStats = []; $histSubjects = [];
 $totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0; 
 $histPassedCount = 0; $overallHistPassRate = 0.0;
 
@@ -59,7 +71,7 @@ $histPassedCount = 0; $overallHistPassRate = 0.0;
 // MODE A: CURRENT TERM ANALYTICS (Progress & Predictions)
 // ---------------------------------------------------------
 if ($isCurrentTerm) {
-    // 1. Fetch Current Students & Predictions
+    // 1. Fetch Current Students & Predictions (Restored for Visual Analytics)
     $sqlStudents = "
         SELECT sp.user_id, sp.section, sp.current_gwa, sp.status, sp.year_level,
                p.predicted_gwa, p.risk_level, p.latin_honor, p.prediction_source
@@ -69,18 +81,17 @@ if ($isCurrentTerm) {
             WHERE p2.student_id = sp.user_id 
             ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
         )
-        WHERE sp.section IS NOT NULL
+        WHERE sp.section IS NOT NULL AND sp.status != 'Archived'
     ";
     $paramsStudents = [];
-    if ($yearFilter !== '') {
-        $sqlStudents .= " AND sp.year_level = ?";
-        $paramsStudents[] = $yearFilter;
-    }
+    if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = $yearFilter; }
+    if ($sectionFilter !== '') { $sqlStudents .= " AND sp.section = ?"; $paramsStudents[] = $sectionFilter; }
+    
     $stmtStudents = $db->prepare($sqlStudents);
     $stmtStudents->execute($paramsStudents);
     $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
 
-    // 2. Aggregate Current Data
+    // 2. Aggregate Current Data for KPIs and Charts
     $totalStudents = count($students);
 
     foreach ($students as $s) {
@@ -131,7 +142,7 @@ if ($isCurrentTerm) {
     $atRiskCount = $riskTotals['HIGH'] + $riskTotals['MODERATE'];
     $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0.0;
 
-    // Chart Data
+    // Chart Data Generation
     $chartSecLabels = array_keys($sectionData);
     foreach ($chartSecLabels as $sec) {
         $t = $sectionData[$sec]['total'];
@@ -141,46 +152,84 @@ if ($isCurrentTerm) {
         $chartSecNone[] = $t > 0 ? round(($sectionData[$sec]['risks']['NONE'] / $t) * 100, 1) : 0;
     }
 
-    // 3. Subject Prelim Overview
+    // 3. Subject Bottleneck Queries (The new Path B Operational Tables)
     $sqlSubjects = "
-        SELECT s.id, s.code, s.title, g.prelim
+        SELECT s.id, s.code, s.title, sp.section, sp.year_level, g.{$periodFilter} AS term_score
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ?
+        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
     ";
     $paramsSubjects = [$syFilter, $semFilter];
-    if ($yearFilter !== '') {
-        $sqlSubjects .= " AND sp.year_level = ?";
-        $paramsSubjects[] = $yearFilter;
-    }
+    
+    if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = $yearFilter; }
+    if ($sectionFilter !== '') { $sqlSubjects .= " AND sp.section = ?"; $paramsSubjects[] = $sectionFilter; }
+    if ($subjectFilter !== '') { $sqlSubjects .= " AND s.id = ?"; $paramsSubjects[] = $subjectFilter; }
+    
     $stmtSubjects = $db->prepare($sqlSubjects);
     $stmtSubjects->execute($paramsSubjects);
     $rawGrades = $stmtSubjects->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($rawGrades as $r) {
         $id = $r['id'];
-        if (!isset($subjectStats[$id])) {
-            $subjectStats[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'high_risk' => 0, 'mod_risk' => 0];
+        $sec = $r['section'] ?? 'Unassigned';
+        $secKey = $id . '_' . $sec;
+
+        // Subject-Wide Aggregation
+        if (!isset($subjectWideStats[$id])) {
+            $subjectWideStats[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'high_risk' => 0, 'mod_risk' => 0];
         }
-        $subjectStats[$id]['enrolled']++;
-        if ($r['prelim'] !== null) {
-            $subjectStats[$id]['graded']++;
-            $subjectStats[$id]['raw_sum'] += (float)$r['prelim'];
-            $pt = normalizeTermGrade($r['prelim']);
+        $subjectWideStats[$id]['enrolled']++;
+
+        // Subject + Section Aggregation (Path B Requirement)
+        if (!isset($subjectSectionStats[$secKey])) {
+            $subjectSectionStats[$secKey] = [
+                'id' => $id, 'code' => $r['code'], 'title' => $r['title'], 'section' => $sec, 'year_level' => $r['year_level'],
+                'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'high_risk' => 0, 'mod_risk' => 0
+            ];
+        }
+        $subjectSectionStats[$secKey]['enrolled']++;
+
+        if ($r['term_score'] !== null && trim((string)$r['term_score']) !== '') {
+            $val = (float)$r['term_score'];
+            $subjectWideStats[$id]['graded']++;
+            $subjectWideStats[$id]['raw_sum'] += $val;
+            
+            $subjectSectionStats[$secKey]['graded']++;
+            $subjectSectionStats[$secKey]['raw_sum'] += $val;
+
+            $pt = normalizeTermGrade($r['term_score']);
             if ($pt !== null) {
                 $risk = computeRiskFromAvg($pt);
-                if ($risk === 'HIGH') $subjectStats[$id]['high_risk']++;
-                elseif ($risk === 'MODERATE') $subjectStats[$id]['mod_risk']++;
-                if ($pt > 0) $subjectStats[$id]['passed']++; // Correct passing logic
+                if ($risk === 'HIGH') {
+                    $subjectWideStats[$id]['high_risk']++;
+                    $subjectSectionStats[$secKey]['high_risk']++;
+                } elseif ($risk === 'MODERATE') {
+                    $subjectWideStats[$id]['mod_risk']++;
+                    $subjectSectionStats[$secKey]['mod_risk']++;
+                }
+                if ($pt > 0) { 
+                    $subjectWideStats[$id]['passed']++;
+                    $subjectSectionStats[$secKey]['passed']++;
+                }
             }
         }
     }
-    usort($subjectStats, fn($a, $b) => $b['high_risk'] <=> $a['high_risk']);
+    
+    // Sort Subject-Wide by High Risk
+    usort($subjectWideStats, fn($a, $b) => $b['high_risk'] <=> $a['high_risk']);
+    
+    // Sort Subject-Section by Attention Rate (High + Mod / Graded)
+    usort($subjectSectionStats, function($a, $b) {
+        $rateA = $a['graded'] > 0 ? (($a['high_risk'] + $a['mod_risk']) / $a['graded']) : 0;
+        $rateB = $b['graded'] > 0 ? (($b['high_risk'] + $b['mod_risk']) / $b['graded']) : 0;
+        if ($rateA === $rateB) return $b['graded'] <=> $a['graded']; // Fallback to volume
+        return $rateB <=> $rateA;
+    });
 }
 
 // ---------------------------------------------------------
-// MODE B: HISTORICAL TERM ANALYTICS (Completed Outcomes)
+// MODE B: HISTORICAL TERM (Completed Outcomes)
 // ---------------------------------------------------------
 else {
     $sqlHistorical = "
@@ -188,13 +237,13 @@ else {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ?
+        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
     ";
     $paramsHistorical = [$syFilter, $semFilter];
-    if ($yearFilter !== '') {
-        $sqlHistorical .= " AND sp.year_level = ?";
-        $paramsHistorical[] = $yearFilter;
-    }
+    
+    if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = $yearFilter; }
+    if ($subjectFilter !== '') { $sqlHistorical .= " AND s.id = ?"; $paramsHistorical[] = $subjectFilter; }
+    
     $stmtHistorical = $db->prepare($sqlHistorical);
     $stmtHistorical->execute($paramsHistorical);
     $rawHistGrades = $stmtHistorical->fetchAll(PDO::FETCH_ASSOC);
@@ -254,16 +303,49 @@ require_once '../includes/sidebar.php';
 
 <style>
 .analytics-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+/* Subject & Section accordion: smooth rotating arrow + fade-in content,
+   matching the fadeIn keyframe used in activity.php's tab system rather
+   than an instant glyph swap. */
+.accordion-arrow {
+    display: inline-block;
+    color: var(--text-gray);
+    font-size: 0.9rem;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#subject-section-details summary::-webkit-details-marker { display: none; }
+#subject-section-details[open] .accordion-arrow { transform: rotate(90deg); }
+#subject-section-details .accordion-fade { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
 .analytics-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+.table-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 @media (max-width: 1200px) { .analytics-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analytics-chart-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .analytics-stat-grid { grid-template-columns: 1fr; } }
 </style>
 
 <div class="main-content">
-    <div class="header" style="margin-bottom: 24px;">
+    <div class="header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
         <div>
             <h1 style="text-transform: uppercase; letter-spacing: 0.5px;">BSIT Program Analytics</h1>
-            <p style="color: var(--text-gray);">Program-level academic patterns and decision-support indicators.</p>
+            <p style="color: var(--text-gray);">Program-level academic patterns and curriculum bottleneck identification.</p>
+        </div>
+        <div>
+            <!--
+                Page-wide export, placed at the top matching the Program
+                Snapshot button on admin/index.php, not buried near one table.
+                Endpoint/scope still pending: whether this folds in the
+                Subject & Section Bottleneck data (replacing
+                export_subject_performance_pdf.php) or sits alongside it as a
+                separate broader document covering Honors Distribution,
+                Subject-level data, and Historical Outcomes — the parts of
+                this page that aren't already covered by the Program Snapshot
+                PDF on the dashboard.
+            -->
+            <button type="button" onclick="triggerProgramAnalyticsExportPdf()" style="padding: 10px 16px; background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: inherit; white-space: nowrap;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                Download PDF Report
+            </button>
         </div>
     </div>
 
@@ -271,7 +353,7 @@ require_once '../includes/sidebar.php';
     <form method="GET" action="analytics.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
         
         <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Academic Term Performance</label>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Academic Scope</label>
             <div style="display: flex; gap: 8px;">
                 <select name="sy" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                     <?php foreach($dbSys as $sy): ?>
@@ -284,15 +366,42 @@ require_once '../includes/sidebar.php';
                 </select>
             </div>
         </div>
-        
+
+        <?php if ($isCurrentTerm): ?>
         <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Current Profile Year Level</label>
-            <select name="year_level" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                <option value="">All Available Year Levels</option>
-                <?php foreach($dbYears as $yl): ?>
-                    <option value="<?= htmlspecialchars($yl) ?>" <?= $yearFilter === (string)$yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Grading Period</label>
+            <select name="period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                <?php foreach($allowedPeriods as $key => $label): ?>
+                    <option value="<?= htmlspecialchars($key) ?>" <?= $periodFilter === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
                 <?php endforeach; ?>
             </select>
+        </div>
+        <?php endif; ?>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Curriculum Isolation</label>
+            <div style="display: flex; gap: 8px;">
+                <select name="year_level" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <option value="">All Years</option>
+                    <?php foreach($dbYears as $yl): ?>
+                        <option value="<?= htmlspecialchars($yl) ?>" <?= $yearFilter === (string)$yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <select name="subject_id" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <option value="">All Subjects</option>
+                    <?php foreach($dbSubjects as $subj): ?>
+                        <option value="<?= htmlspecialchars($subj['id']) ?>" <?= $subjectFilter === (string)$subj['id'] ? 'selected' : '' ?>><?= htmlspecialchars($subj['code']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if ($isCurrentTerm): ?>
+                <select name="section" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <option value="">All Sections</option>
+                    <?php foreach($dbSections as $sec): ?>
+                        <option value="<?= htmlspecialchars($sec) ?>" <?= $sectionFilter === (string)$sec ? 'selected' : '' ?>><?= htmlspecialchars($sec) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
         </div>
         
         <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; height: 100%;">
@@ -318,7 +427,7 @@ require_once '../includes/sidebar.php';
         </div>
         <?php endif; ?>
 
-        <!-- Current 4-Card Analytical Overview -->
+        <!-- RESTORED: Current 4-Card Analytical Overview -->
         <div class="analytics-stat-grid">
             <div class="stat-card" style="border-left-color: var(--accent-blue);">
                 <h4>Students Analyzed</h4>
@@ -347,7 +456,7 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <!-- Visual Analytics Charts -->
+        <!-- RESTORED: Visual Analytics Charts -->
         <div class="analytics-chart-grid">
             <div class="card" style="position: relative; height: 380px;">
                 <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Risk Distribution by Section</div>
@@ -370,7 +479,7 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <!-- Section Comparison Table -->
+        <!-- RESTORED: Section Comparison Table -->
         <div class="card" style="margin-bottom: 24px;">
             <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Section Comparison Table</div>
             <?php if (empty($sectionData)): ?>
@@ -412,52 +521,135 @@ require_once '../includes/sidebar.php';
             <?php endif; ?>
         </div>
 
-        <!-- Subject Performance Overview (Current) -->
+        <!-- Compact Subject-Wide Overview — shown first: this is the
+             summary-level table most visits want. The detailed
+             Subject & Section table below is a deliberate drill-down. -->
         <div class="card" style="margin-bottom: 24px;">
-            <div class="table-title" style="margin-bottom: 8px; color: var(--text-dark);">Current Preliminary Performance</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Identifying subjects with concentrated preliminary risk and detecting missing grade data.</p>
-            <?php if (empty($subjectStats)): ?>
+            <div class="table-title" style="margin-bottom: 4px; color: var(--text-dark);">Curriculum-Wide Overview (<?= $periodName ?>)</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Consolidated subject performance across all matching sections.</p>
+            <?php if (empty($subjectWideStats)): ?>
                 <p class="empty-state">No subjects found matching the current filter scope.</p>
             <?php else: ?>
             <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 1000px;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
                     <thead>
                         <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap; width: 1%;">Subject</th>
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Title</th>
-                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">Students</th>
-                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">Mean Prelim Grade</th>
-                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">Current Prelim Pass Rate</th>
-                            <th style="padding: 12px; text-align: center; color: var(--risk-mod); white-space: nowrap; width: 1%;">Moderate Prelim Risk</th>
-                            <th style="padding: 12px; text-align: center; color: var(--risk-high); white-space: nowrap; width: 1%;">High Prelim Risk</th>
-                            <th style="padding: 12px; text-align: center; color: var(--accent-blue); white-space: nowrap; width: 1%;">Prelim Data Completeness</th>
+                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Total Graded</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Mean Score</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Pass Rate</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Total At Risk</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($subjectStats as $id => $s): 
-                            $meanGrade = $s['graded'] > 0 ? round($s['raw_sum'] / $s['graded']) . '%' : '—';
+                        <?php foreach ($subjectWideStats as $id => $s): 
+                            $meanGrade = $s['graded'] > 0 ? round($s['raw_sum'] / $s['graded'], 1) . '%' : '—';
                             $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : '—';
-                            $completeness = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= htmlspecialchars($s['code']) ?></td>
-                            <td title="<?= htmlspecialchars($s['title']) ?>" style="padding: 12px; color: var(--text-gray); max-width: 0; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($s['title']) ?></td>
-                            <td style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= $s['enrolled'] ?></td>
-                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= $meanGrade ?></td>
-                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= $passRate ?></td>
-                            <td style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">
-                                <?php if($s['mod_risk'] > 0): ?><span class="badge" style="background: var(--risk-mod);"><?= $s['mod_risk'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?>
-                            </td>
-                            <td style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">
-                                <?php if($s['high_risk'] > 0): ?><span class="badge" style="background: var(--risk-high);"><?= $s['high_risk'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?>
-                            </td>
-                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--accent-blue); white-space: nowrap; width: 1%;"><?= $completeness ?></td>
+                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;"><?= htmlspecialchars($s['code']) ?></td>
+                            <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $s['graded'] ?> / <?= $s['enrolled'] ?></td>
+                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= $meanGrade ?></td>
+                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= $passRate ?></td>
+                            <td style="padding: 12px; text-align: center; color: var(--risk-high); font-weight: 700;"><?= ($s['high_risk'] + $s['mod_risk']) ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
             <?php endif; ?>
+        </div>
+
+        <!-- Detailed Subject & Section Bottleneck Table — collapsed by
+             default. With ~10 sections this can run 60-80 rows on an
+             unfiltered page load; defaulting it open forced every visit to
+             scroll past the longest table on the page before reaching
+             anything else. It's still one click away, and the row count is
+             shown up front so nothing is hidden, just not force-expanded. -->
+        <div class="card" style="margin-bottom: 24px;">
+            <details id="subject-section-details" ontoggle="onSubjectSectionToggle(this)">
+                <summary style="cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <div>
+                        <div class="table-title" style="margin-bottom: 4px; color: var(--text-dark); display: inline;">Subject & Section Performance Report</div>
+                        <span style="font-size: 0.8rem; color: var(--text-gray); margin-left: 8px;">(<?= count($subjectSectionStats) ?> combinations — click to expand)</span>
+                        <p style="font-size: 0.8rem; color: var(--text-gray); margin: 4px 0 0;">Identifying class-specific bottlenecks requiring attention based on <?= $periodName ?> scores.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); triggerSubjectExportCsv();" style="background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; white-space: nowrap;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export Subject Report (CSV)
+                        </button>
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); triggerSubjectExportPdf();" style="background: var(--accent-blue); color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.2s; white-space: nowrap;" title="Top 15 bottleneck combinations, ranked">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            Download PDF (Top 15)
+                        </button>
+                        <!-- Arrow lives here now, next to the buttons as its own
+                             flex item, instead of as ::after on <summary> itself
+                             — previously that made it a 4th flex child that
+                             space-between shoved away from the title it was
+                             meant to sit beside, and put visible daylight
+                             between the two buttons in the process. -->
+                        <span class="accordion-arrow" aria-hidden="true">▸</span>
+                    </div>
+                </summary>
+
+                <div class="accordion-fade" style="margin-top: 16px;">
+            <?php if (empty($subjectSectionStats)): ?>
+                <p class="empty-state">No section bottlenecks found matching the current filter scope.</p>
+            <?php else: ?>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 1100px;">
+                    <thead>
+                        <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Section</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Enrolled</th>
+                            <th style="padding: 12px; text-align: center; color: var(--accent-blue); white-space: nowrap;">Data Coverage</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Mean Score</th>
+                            <th style="padding: 12px; text-align: center; color: var(--risk-mod); white-space: nowrap;">Mod Risk</th>
+                            <th style="padding: 12px; text-align: center; color: var(--risk-high); white-space: nowrap;">High Risk</th>
+                            <th style="padding: 12px; text-align: center; color: var(--risk-high); white-space: nowrap;">Attention Count</th>
+                            <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Attention Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($subjectSectionStats as $secKey => $s): 
+                            $meanGrade = $s['graded'] > 0 ? round($s['raw_sum'] / $s['graded'], 1) . '%' : '—';
+                            $coverage = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
+                            $attentionCount = $s['high_risk'] + $s['mod_risk'];
+                            $attentionRate = $s['graded'] > 0 ? number_format(($attentionCount / $s['graded']) * 100, 1) . '%' : '—';
+                            $isLimData = ($s['enrolled'] > 0 && ($s['graded'] / $s['enrolled']) < 0.8) && $s['graded'] > 0;
+                        ?>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;">
+                                <div style="line-height: 1.2;">
+                                    <?= htmlspecialchars($s['code']) ?><br>
+                                    <span style="font-weight: 400; font-size: 0.8rem; color: var(--text-gray);"><?= htmlspecialchars($s['title']) ?></span>
+                                </div>
+                            </td>
+                            <td style="padding: 12px; font-weight: 700; color: var(--accent-blue); white-space: nowrap;"><?= htmlspecialchars($s['section']) ?></td>
+                            <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $s['enrolled'] ?></td>
+                            <td style="padding: 12px; text-align: center; font-weight: 600; color: <?= $isLimData ? 'var(--risk-mod)' : 'var(--accent-blue)' ?>;">
+                                <?= $coverage ?>
+                                <?= $isLimData ? '<br><span style="font-size: 0.7rem;">(Limited Data)</span>' : '' ?>
+                            </td>
+                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= $meanGrade ?></td>
+                            <td style="padding: 12px; text-align: center; color: var(--text-dark);">
+                                <?php if($s['mod_risk'] > 0): ?><span class="badge" style="background: var(--risk-mod);"><?= $s['mod_risk'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?>
+                            </td>
+                            <td style="padding: 12px; text-align: center; color: var(--text-dark);">
+                                <?php if($s['high_risk'] > 0): ?><span class="badge" style="background: var(--risk-high);"><?= $s['high_risk'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?>
+                            </td>
+                            <td style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);"><?= $attentionCount ?></td>
+                            <td style="padding: 12px; text-align: center; font-weight: 700; color: <?= $attentionCount > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?>;"><?= $attentionRate ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+                </div>
+            </details>
         </div>
         
     <!-- ========================================== -->
@@ -469,7 +661,7 @@ require_once '../includes/sidebar.php';
             <strong>Historical outcome view:</strong> Section and year-level comparisons are unavailable because the current database does not preserve each student’s section and year level for prior academic terms. The results below summarize official subject outcomes for the selected school year and semester.
         </div>
 
-        <!-- Historical 4-Card Overview -->
+        <!-- RESTORED: Historical 4-Card Overview -->
         <div class="analytics-stat-grid">
             <div class="stat-card" style="border-left-color: var(--accent-blue);">
                 <h4>Students Represented</h4>
@@ -493,10 +685,13 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <!-- Subject Performance Overview (Historical) -->
         <div class="card" style="margin-bottom: 24px;">
-            <div class="table-title" style="margin-bottom: 8px; color: var(--text-dark);">Completed Subject Outcomes</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Historical analysis based on official Final Grades.</p>
+            <div class="table-toolbar">
+                <div>
+                    <div class="table-title" style="margin-bottom: 4px; color: var(--text-dark);">Completed Subject Outcomes</div>
+                    <p style="font-size: 0.8rem; color: var(--text-gray); margin: 0;">Historical analysis based on official Final Grades.</p>
+                </div>
+            </div>
             <?php if (empty($histSubjects)): ?>
                 <p class="empty-state">No subject outcomes found for the selected historical term.</p>
             <?php else: ?>
@@ -539,7 +734,31 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
 </div>
 
+<script>
+function triggerSubjectExportCsv() {
+    window.location.href = 'export_subject_performance.php' + window.location.search;
+}
+function triggerSubjectExportPdf() {
+    window.location.href = 'export_subject_performance_pdf.php' + window.location.search;
+}
+function triggerProgramAnalyticsExportPdf() {
+    // Endpoint name/scope pending — see comment near the header button.
+    window.location.href = 'export_program_analytics_pdf.php' + window.location.search;
+}
+
+// Auto-scroll the expanded table into view, matching the plain
+// scrollIntoView pattern used in grades.php's roster panel — my earlier
+// version added a manual getBoundingClientRect threshold check that ended
+// up skipping the scroll almost every time, since a clicked summary is
+// usually already near the top of the viewport. Keeping this simple.
+function onSubjectSectionToggle(detailsEl) {
+    if (!detailsEl.open) return;
+    detailsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+
 <?php if ($isCurrentTerm && !empty($sectionData)): ?>
+<!-- RESTORED: Chart.js Logic -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 function getChartTheme() {
