@@ -481,7 +481,6 @@ $students = $db->query("
         AND asc2.status IN ('needs_review', 'action_taken', 'acknowledged')
         ORDER BY asc2.created_at DESC, asc2.id DESC LIMIT 1
     )
-    WHERE sp.status != 'Archived'
     ORDER BY sp.section, u.last_name, u.first_name
 ")->fetchAll();
 
@@ -683,7 +682,7 @@ require_once '../includes/sidebar.php';
     <div class="card" id="database-section">
         <div class="table-toolbar">
             <input type="text" id="student-search" class="search-box" placeholder="Search by name, student no., or section…">
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <select id="filter-risk" class="filter-dropdown" onchange="currentPage=1; renderPage();">
                     <option value="">All Risks</option>
                     <option value="HIGH">High Risk</option>
@@ -697,6 +696,12 @@ require_once '../includes/sidebar.php';
                     <option value="needs_review">Needs Review</option>
                     <option value="action_taken">Notice Sent</option>
                 </select>
+
+                <!-- NEW: Export CSV Trigger Button Added Here -->
+                <button type="button" onclick="triggerCsvExport()" style="background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; font-family: inherit;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
             </div>
         </div>
         
@@ -878,8 +883,6 @@ require_once '../includes/sidebar.php';
         <div class="modal-stat-grid">
             <div class="modal-stat"><span>Current GWA</span><strong id="modal-gwa">—</strong></div>
             <div class="modal-stat"><span>Predicted GWA</span><strong id="modal-predicted">—</strong></div>
-            
-            <!-- FIXED UI Glitch: Restored standard text format without clashing badges -->
             <div class="modal-stat"><span>Risk Level</span><strong id="modal-risk">—</strong></div>
         </div>
 
@@ -974,6 +977,20 @@ function applyTableFilter(riskVal, supportVal) {
     if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// --- NEW: CSV Export Trigger Function ---
+function triggerCsvExport() {
+    const risk = document.getElementById('filter-risk')?.value || '';
+    const support = document.getElementById('filter-support')?.value || '';
+    const search = document.getElementById('student-search')?.value.trim() || '';
+    
+    const params = new URLSearchParams();
+    if (risk) params.append('risk', risk);
+    if (support) params.append('support', support);
+    if (search) params.append('search', search);
+    
+    window.location.href = 'export_risk_roster.php?' + params.toString();
+}
+
 const ROWS_PER_PAGE = 25;
 let currentPage = 1;
 function renderPage() {
@@ -1045,7 +1062,6 @@ function openStudentModal(uid) {
     document.getElementById('modal-gwa').innerText = d.currentGwa !== null ? d.currentGwa.toFixed(2) : '—';
     document.getElementById('modal-predicted').innerText = d.predicted !== null ? parseFloat(d.predicted).toFixed(2) : 'N/A';
     
-    // FIXED UI Glitch: Uses sleek colored text instead of clashing badges
     const riskEl = document.getElementById('modal-risk');
     if (d.risk === 'HIGH') {
         riskEl.innerText = 'HIGH';

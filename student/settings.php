@@ -39,7 +39,7 @@ $navItems = [
     ['Dashboard',          'dashboard.php', '📊'],
     ['Grades & History',   'grades.php',    '📝'],
     ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Feedback & Support', 'feedback.php', '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 

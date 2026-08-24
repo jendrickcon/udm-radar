@@ -1,164 +1,380 @@
-# UdM-RADAR — Complete Setup Guide
+# UDM-RADAR Setup Guide
 
-This walks through everything needed to run this project on a fresh Windows
-machine, from nothing installed to the app running in a browser. Written for
-someone doing this for the first time — skip ahead if a step is already done.
+This guide installs and runs the PHP application, MySQL or MariaDB database, Composer dependencies, and Python prediction service on a Windows development machine using XAMPP.
 
----
+## 1. Prerequisites
 
-## 1. Install XAMPP (Apache + MySQL + PHP + phpMyAdmin)
+Install:
 
-1. Download from **[apachefriends.org](https://www.apachefriends.org/)** —
-   pick the Windows installer, PHP 8.2.x.
-2. Run the installer. On the **"Select Components"** screen, you only need:
-   - ✅ Apache
-   - ✅ MySQL
-   - ✅ PHP
-   - ✅ phpMyAdmin
-   Uncheck Tomcat, Perl, and anything else — this project doesn't use them,
-   and skipping them makes the install faster and lighter.
-3. Install to the default location (`C:\xampp`).
-4. Open **XAMPP Control Panel** (search for it in the Start menu), click
-   **Start** next to both **Apache** and **MySQL**. Both rows should turn
-   green. If Apache fails to start, something else on your machine
-   (commonly Skype, or another dev server) is already using port 80 —
-   click **Config → httpd.conf** and change `Listen 80` to `Listen 8080`,
-   then remember to use `localhost:8080` everywhere below.
+- XAMPP with Apache, MySQL or MariaDB, PHP, and phpMyAdmin
+- Git
+- Visual Studio Code or another editor
+- Composer
+- Python 3 with `pip` and `venv`
 
-## 2. Install Git
+Recommended VS Code extensions:
 
-1. Download from **[git-scm.com](https://git-scm.com/downloads)**.
-2. Run the installer with defaults — the one screen worth checking is
-   **"Adjusting your PATH environment"**, make sure **"Git from the command
-   line and also from 3rd-party software"** is selected (it's the default).
-3. **Restart your terminal/VS Code completely** after installing — PATH
-   changes don't apply to already-open windows.
-4. Verify: open a terminal, run `git --version`. Should print a version
-   number, not an error.
+- PHP Intelephense
+- Python by Microsoft
+- SQLTools
+- SQLTools MySQL/MariaDB Driver
+- GitLens
 
-## 3. Install VS Code
+Use LF line endings where possible to avoid noisy cross-platform diffs.
 
-1. Download from **[code.visualstudio.com](https://code.visualstudio.com/)**.
-2. Install with defaults.
+## 2. Clone the Repository
 
-### Recommended extensions
+Open PowerShell or the VS Code terminal:
 
-Open VS Code → Extensions panel (`Ctrl+Shift+X`) → search and install each:
-
-| Extension | Publisher | Why |
-|---|---|---|
-| **PHP Intelephense** | Ben Mewburn | Autocomplete, error-checking, go-to-definition for PHP |
-| **SQLTools** + **SQLTools MySQL/MariaDB driver** | Matheus Teixeira | Browse and query the database directly inside VS Code, no need to alt-tab to phpMyAdmin |
-| **GitLens** | GitKraken | See commit history/blame inline — useful once the repo has real history |
-| **Python** | Microsoft | Needed once you start working in `python_ml/` |
-
-### One VS Code setting worth changing
-
-`Ctrl+,` to open Settings, search **"files: eol"**, set it to `\n` (LF).
-Windows defaults to `\r\n` (CRLF), which can cause noisy whole-file diffs in
-Git if you and a teammate use different OSes. Not critical solo, but a good
-habit.
-
----
-
-## 4. Get the project running
-
-### Clone the repo
-
-Open a terminal in VS Code (`` Ctrl+` ``), navigate into XAMPP's web root,
-and clone there directly so Apache can serve it:
-
-```bash
+```powershell
 cd C:\xampp\htdocs
 git clone https://github.com/jendrickcon/udm-radar.git
 cd udm-radar
 ```
 
-### Set up config files
+If Apache uses a non-default document root, clone the repository into that configured web directory instead.
 
-The real config files are gitignored (see `README.md` for why) — copy the
-example templates and fill in real values:
+## 3. Configure PHP
 
-```bash
+Confirm the PHP version:
+
+```powershell
+C:\xampp\php\php.exe -v
+```
+
+PHP 8.2 is the expected local environment.
+
+Ensure required extensions are enabled in `C:\xampp\php\php.ini`, particularly those required by the repository and installed dependencies. Common requirements include:
+
+```text
+pdo_mysql
+mysqli
+mbstring
+fileinfo
+openssl
+zip
+gd
+```
+
+Restart Apache after changing `php.ini`.
+
+## 4. Configure Local Application Files
+
+Copy local configuration templates:
+
+```powershell
 copy config\db.example.php config\db.php
 copy config\mail.example.php config\mail.php
 ```
 
-(`copy` is the Windows/PowerShell equivalent of `cp`.) Default XAMPP values
-in `db.example.php` — `root` user, empty password — work out of the box for
-local development; you shouldn't need to change anything in `db.php` unless
-your MySQL setup differs from a fresh XAMPP install.
+Update `config\db.php` with the local database values. A typical XAMPP development configuration uses:
 
-### Import the database
+```text
+Host: localhost
+Database: udm_radar
+Username: root
+Password: empty unless changed locally
+```
 
-The repo includes one consolidated export — `database/udm_radar.sql` —
-containing the full schema and all current data in one file. You do **not**
-need to replay this project's build history (seed data, name migration,
-grade patches, etc.) — those were only relevant while the data was being
-built; a fresh setup just needs the one finished export.
+Do not commit real configuration files containing credentials.
 
-1. Open **[localhost/phpmyadmin](http://localhost/phpmyadmin)** in a browser
-   (Apache + MySQL must be running from step 1).
-2. Click **New** in the left sidebar → name the database `udm_radar` →
-   Create.
-3. Click into the new `udm_radar` database → **Import** tab → choose
-   `database/udm_radar.sql` from the cloned repo → **Go**.
+## 5. Install PHP Dependencies
 
-**Keeping this file current:** whenever you make a meaningful change to
-your live database (new patch applied, new data added), re-export it —
-phpMyAdmin's `udm_radar` database page → **Export** tab → **Quick** export
-method, **SQL** format → **Go** — and replace `database/udm_radar.sql` in
-the repo, then commit. That way the repo always reflects a working,
-importable snapshot, not a trail of incremental patches someone would have
-to reconstruct in order.
+If the repository does not already contain a usable `vendor/` directory, install dependencies from the project root:
 
-### Open the app
+```powershell
+composer install
+```
 
-Visit **[localhost/udm-radar/login.php](http://localhost/udm-radar/login.php)**.
-You should see the login page. If you get a blank page or a PHP error
-instead, check XAMPP Control Panel's Apache **Logs** button for the actual
-error message.
+The reporting layer uses Dompdf. Installation should be driven by the repository's `composer.json` and `composer.lock`, not by manually copying package folders.
 
----
+Verify that this file exists afterward:
 
-## 5. Python setup (for `python_ml/`, once that pipeline exists)
+```text
+vendor/autoload.php
+```
 
-The Decision Tree prediction pipeline isn't built yet as of this writing —
-this section is here so it's ready when it is.
+## 6. Create and Import the Database
 
-1. Check Python is installed: `python --version` in a terminal. If missing,
-   install from **[python.org](https://www.python.org/downloads/)** — on
-   the first installer screen, check **"Add python.exe to PATH"** before
-   clicking Install (easy to miss, and without it you'll get the same
-   "not recognized" error Git gave before installing).
-2. Create a virtual environment inside `python_ml/` so its packages don't
-   clash with anything else on your machine:
-   ```bash
-   cd python_ml
-   python -m venv venv
-   venv\Scripts\activate
-   ```
-   Your terminal prompt should now show `(venv)` at the start of the line.
-3. Install dependencies (once a `requirements.txt` exists in that folder):
-   ```bash
-   pip install -r requirements.txt
-   ```
-   Expected packages for this pipeline: `flask`, `scikit-learn`, `pandas`,
-   `numpy` — if there's no `requirements.txt` yet, `pip install flask
-   scikit-learn pandas numpy` covers the basics described in this project's
-   design (Flask API + `DecisionTreeClassifier`).
-4. Remember to `venv\Scripts\activate` again every time you open a new
-   terminal to work in this folder — the virtual environment doesn't stay
-   active across terminal sessions.
+Start Apache and MySQL in XAMPP Control Panel.
 
----
+Open:
 
-## Troubleshooting quick reference
+```text
+http://localhost/phpmyadmin
+```
 
-| Symptom | Likely cause |
-|---|---|
-| `git`/`python` "not recognized" | Not installed, or installed but terminal wasn't restarted after |
-| Apache won't start (red in XAMPP) | Port 80 already in use — see step 1.4 |
-| Blank white page at localhost/udm-radar | PHP error being swallowed — check Apache error log via XAMPP Control Panel |
-| `#1045 Access denied` on DB connect | `config/db.php` credentials don't match your actual MySQL setup |
-| Login page loads but login fails | Database not imported yet, or imported to a differently-named database than `udm_radar` |
+Create the database expected by `config/db.php`, normally:
+
+```text
+udm_radar
+```
+
+Import the current consolidated SQL file from the repository's `database/` directory.
+
+The imported database must include the current application tables, including the applicable versions of:
+
+```text
+users
+student_profiles
+subjects
+grades
+predictions
+faculty_class_loads
+pending_grade_batches
+pending_corrections
+feedback_reports
+feedback_messages
+feedback_status_history
+academic_support_cases
+support_actions
+support_status_history
+admin_change_log
+export_audit_log
+```
+
+Table names may vary only if the application code and consolidated schema have been updated together.
+
+### Database warning
+
+Do not treat an old base schema as sufficient if newer portal code depends on support, pending-approval, or export-audit tables. The repository's consolidated export should represent a complete runnable installation.
+
+## 7. Configure the Python Environment
+
+From the project root:
+
+```powershell
+cd python_ml
+python -m venv venv
+venv\Scripts\activate
+```
+
+Install the pinned dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Expected packages generally include:
+
+```text
+Flask
+pandas
+NumPy
+scikit-learn
+openpyxl
+joblib
+```
+
+Use the actual `requirements.txt` as the source of truth.
+
+## 8. Configure the Prediction Service
+
+Review the Python service configuration and the PHP endpoint that calls the service, such as:
+
+```text
+api/batch_predict.php
+```
+
+Confirm that both sides agree on:
+
+- service URL and port;
+- request field names;
+- response schema;
+- timeout behavior;
+- prediction source value;
+- model artifact location;
+- error logging.
+
+Do not place secrets directly in committed source files. Use the repository's local configuration pattern.
+
+## 9. Start the Application
+
+Start in this order:
+
+1. MySQL or MariaDB
+2. Apache
+3. Python virtual environment
+4. Flask prediction service
+
+A typical Python startup sequence is:
+
+```powershell
+cd C:\xampp\htdocs\udm-radar\python_ml
+venv\Scripts\activate
+python app.py
+```
+
+Use the actual Flask entry point present in `python_ml/` if the file name differs.
+
+Open the PHP application:
+
+```text
+http://localhost/udm-radar/login.php
+```
+
+If Apache was moved to port 8080, use:
+
+```text
+http://localhost:8080/udm-radar/login.php
+```
+
+## 10. Verify the Installation
+
+### Authentication
+
+- Login works for Student, Faculty, and Admin test accounts.
+- Each role is restricted to its own portal.
+- Logout destroys the authenticated session.
+
+### Database
+
+- Student profiles and class loads appear.
+- Current and historical grades load.
+- Support and feedback pages do not report missing tables.
+- Export audit logging succeeds.
+
+### Grading rules
+
+- Preliminary, Midterm, and Pre-Final display as percentages.
+- Final Grade displays as an official point value or supported textual status.
+- Missing data displays as `N/A`, No Data, or an em dash rather than `0.00`.
+
+### Prediction service
+
+- Batch prediction succeeds while Flask is running.
+- The PHP request ends cleanly when Flask is stopped.
+- Service errors are logged without exposing sensitive server details.
+- The latest prediction uses deterministic timestamp-and-ID ordering.
+
+### Exports
+
+Test:
+
+- Program Risk Roster CSV
+- Program Snapshot CSV and PDF
+- Program Analytics PDF
+- Subject Performance CSV and PDF
+- Intervention Audit Trail CSV and PDF
+
+Confirm that PDFs render without clipping and CSV files respect active filters.
+
+## 11. Current Model-Governance Development
+
+The intended controlled model lifecycle is:
+
+```text
+Upload dataset
+-> Validate schema and scale
+-> Train candidate model
+-> Evaluate candidate
+-> Compare against active model
+-> Promote explicitly
+-> Retain rollback version
+-> Log the event
+```
+
+Until every part is implemented, do not overwrite the only active model artifact manually. Back up the current model before testing retraining workflows.
+
+## 12. Development Safety
+
+Use test accounts and a copied database for destructive or adversarial testing.
+
+Before major testing:
+
+```text
+1. Export the database.
+2. Copy the project directory or create a Git branch.
+3. Record the initial model version.
+4. Use non-production student data.
+```
+
+Do not commit:
+
+- `config/db.php`
+- `config/mail.php`
+- local `.env` files
+- virtual environments
+- generated student reports
+- imported real student datasets
+- temporary model candidates
+- application or web-server logs containing private data
+
+## 13. Troubleshooting
+
+### Apache does not start
+
+Another application may be using port 80 or 443. Check XAMPP logs and the Apache configuration before changing ports.
+
+### MySQL connection is denied
+
+Verify that:
+
+- MySQL is running;
+- the database name matches `config/db.php`;
+- the username and password are correct;
+- the imported database exists.
+
+### Blank PHP page
+
+Check:
+
+```text
+C:\xampp\apache\logs\error.log
+```
+
+Temporarily enable local PHP error display only in a safe development environment.
+
+### `vendor/autoload.php` missing
+
+Run:
+
+```powershell
+composer install
+```
+
+### Dompdf export fails
+
+Check:
+
+- Composer dependencies;
+- PHP memory limit;
+- writable temporary directory;
+- local logo path;
+- HTML validity;
+- table pagination and supported CSS.
+
+### Python is not recognized
+
+Restart the terminal after installing Python. Confirm:
+
+```powershell
+python --version
+```
+
+If needed, use the Python launcher:
+
+```powershell
+py --version
+```
+
+### Flask service is unavailable
+
+Confirm that the virtual environment is active and the configured service port matches the PHP bridge.
+
+### Export says a required table is missing
+
+The database import is stale. Import the current consolidated schema rather than bypassing the prerequisite check.
+
+## 14. Updating the Consolidated Database Export
+
+After an approved schema change:
+
+1. Apply and test the migration locally.
+2. Export a clean consolidated schema/data snapshot appropriate for the repository.
+3. Remove unnecessary personal or sensitive records.
+4. Replace the old consolidated SQL file.
+5. Document the schema impact in the pull request.
+6. Verify a fresh installation using only the updated export.
+
+A new contributor should not need to reconstruct the database by guessing which historical patches to replay.

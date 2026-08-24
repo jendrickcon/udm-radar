@@ -45,11 +45,28 @@ foreach ($currentGrades as $g) {
     // Check if at least one grade period has been entered
     if ($g['prelim'] !== null || $g['midterm'] !== null || $g['prefinal'] !== null || $g['final_grade'] !== null) {
         $encodedCount++;
-        
-        // Find latest grade for attention logic
-        $latest = $g['final_grade'] ?? $g['prefinal'] ?? $g['midterm'] ?? $g['prelim'];
+
+        // Find latest grade for attention logic. final_grade is already on
+        // the 1.00-4.00 point scale; prelim/midterm/prefinal are raw 0-100
+        // percentages. These must not be run through the same conversion —
+        // normalizeTermGrade() expects a percentage, so feeding it an
+        // already-converted point value (e.g. 2.75) silently misreads it as
+        // "2.75%" and returns 0.00, the opposite of what a good final grade
+        // means. Track which field $latest came from and branch on that.
+        $latestSource = null;
+        if ($g['final_grade'] !== null) { $latest = $g['final_grade']; $latestSource = 'final_grade'; }
+        elseif ($g['prefinal'] !== null) { $latest = $g['prefinal']; $latestSource = 'term_pct'; }
+        elseif ($g['midterm'] !== null) { $latest = $g['midterm']; $latestSource = 'term_pct'; }
+        else { $latest = $g['prelim']; $latestSource = 'term_pct'; }
+
         if (in_array(strtoupper(trim((string)$latest)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
             $attentionSubjects++;
+        } elseif ($latestSource === 'final_grade') {
+            // Already point-scale — evaluate directly, no conversion.
+            $pt = is_numeric($latest) ? (float) $latest : null;
+            if ($pt !== null && computeRiskFromAvg($pt) !== 'LOW') {
+                $attentionSubjects++;
+            }
         } else {
             $pt = normalizeTermGrade($latest);
             if ($pt !== null && computeRiskFromAvg($pt) !== 'LOW') {
@@ -77,7 +94,7 @@ $navItems = [
     ['Dashboard',          'dashboard.php', '📊'],
     ['Grades & History',   'grades.php',    '📝'],
     ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Reports', 'feedback.php',  '💬'],
+    ['Feedback & Support', 'feedback.php', '💬'],
     ['Settings',           'settings.php',  '⚙️'],
 ];
 

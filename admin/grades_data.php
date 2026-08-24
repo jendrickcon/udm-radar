@@ -1,9 +1,5 @@
 <?php
-// admin/grades_data.php — JSON data endpoint for the grades.php drill-down.
-// Loading all ~10,000+ historical grade rows on one page load is exactly
-// what this redesign is trying to avoid, so student rosters and individual
-// grade histories are fetched on demand instead of embedded upfront.
-
+// admin/grades_data.php 
 require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../config/db.php';
@@ -14,19 +10,22 @@ header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? '';
 
-// ── List students in a section, with a lightweight risk summary ──────────
 if ($action === 'students') {
     $section = trim($_GET['section'] ?? '');
     if ($section === '') { echo json_encode(['error' => 'Missing section']); exit; }
 
+    // FIXED: Deterministic prediction selection via LIMIT 1
     $stmt = $db->prepare("
         SELECT sp.user_id, sp.student_number, sp.status, sp.current_gwa,
                u.first_name, u.middle_name, u.last_name,
                p.risk_level
         FROM student_profiles sp
         JOIN users u ON u.id = sp.user_id
-        LEFT JOIN predictions p ON p.student_id = sp.user_id
-            AND p.generated_at = (SELECT MAX(p2.generated_at) FROM predictions p2 WHERE p2.student_id = sp.user_id)
+        LEFT JOIN predictions p ON p.id = (
+            SELECT p2.id FROM predictions p2 
+            WHERE p2.student_id = sp.user_id 
+            ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
+        )
         WHERE sp.section = ?
         ORDER BY u.last_name, u.first_name
     ");
@@ -47,14 +46,10 @@ if ($action === 'students') {
     exit;
 }
 
-// ── Full grade history for one student, grouped by term ──────────────────
 if ($action === 'history') {
     $studentId = (int) ($_GET['student_id'] ?? 0);
     if (!$studentId) { echo json_encode(['error' => 'Missing student_id']); exit; }
 
-    // Only the current term is ever shown/editable here — historical
-    // (Y1-Y4 closed) records aren't relevant to a correction workflow and
-    // were making this modal unreadable with every past term expanded.
     $stmt = $db->prepare("
         SELECT g.id, g.school_year, g.semester, g.prelim, g.midterm, g.prefinal,
                g.final_grade, g.risk_level, s.code, s.title,
@@ -76,7 +71,8 @@ if ($action === 'history') {
             'prelim'     => $g['prelim']     !== null ? (float) $g['prelim']     : null,
             'midterm'    => $g['midterm']    !== null ? (float) $g['midterm']    : null,
             'prefinal'   => $g['prefinal']   !== null ? (float) $g['prefinal']   : null,
-            'finalGrade' => $g['final_grade']!== null ? (float) $g['final_grade']: null,
+            // FIXED: Preserves special statuses (INC, DO, DU) instead of forcing (float)
+            'finalGrade' => $g['final_grade']!== null ? (is_numeric($g['final_grade']) ? (float)$g['final_grade'] : $g['final_grade']) : null,
             'risk'       => $g['risk_level'],
             'hasPending' => (int) $g['pending_count'] > 0,
         ];

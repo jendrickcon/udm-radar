@@ -14,9 +14,6 @@ if (empty($_SESSION['csrf_token'])) {
 $success = '';
 $error = '';
 
-// =========================================================
-// Handle Form Submissions
-// =========================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $csrf = $_POST['csrf_token'] ?? '';
@@ -54,7 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($replyMessage)) throw new Exception("Reply message cannot be empty.");
             if (mb_strlen($replyMessage) > 2000) throw new Exception("Replies must not exceed 2,000 characters.");
 
-            // SECURITY: Verify Faculty authorization to access this specific ticket
             $stmtAuth = $db->prepare("
                 SELECT f.status 
                 FROM feedback_reports f
@@ -68,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($ticketStatus === false) throw new Exception("Unauthorized: You do not have access to this ticket.");
             if (in_array($ticketStatus, ['resolved', 'rejected'])) throw new Exception("Cannot reply to a closed ticket.");
 
-            // RATE LIMIT: Faculty Replies
             $stmtHourly = $db->prepare("SELECT COUNT(*) FROM feedback_messages WHERE sender_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
             $stmtHourly->execute([$user['id']]);
             if ((int)$stmtHourly->fetchColumn() >= 30) throw new Exception("You have reached the hourly reply limit (30).");
@@ -83,7 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (empty($message)) throw new Exception("A message to the student is required.");
             
-            // SECURITY & DUPLICATION: Verify ownership and ensure status is exactly needs_review
             $stmtOwner = $db->prepare("
                 SELECT asc_case.status
                 FROM academic_support_cases asc_case JOIN student_profiles sp ON sp.user_id = asc_case.student_id JOIN grades g ON g.student_id = asc_case.student_id AND g.is_current = 1 JOIN faculty_class_loads fcl ON fcl.subject_id = g.subject_id AND fcl.section = sp.section
@@ -109,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $title     = trim($_POST['title'] ?? '');
             $message   = trim($_POST['message'] ?? '');
 
-            // RATE LIMIT: Faculty Reports
             $stmtOpen = $db->prepare("SELECT COUNT(*) FROM feedback_reports WHERE submitted_by = ? AND status NOT IN ('resolved', 'rejected')");
             $stmtOpen->execute([$user['id']]);
             if ((int) $stmtOpen->fetchColumn() >= 5) throw new Exception('You already have five active reports pending Admin review.');
@@ -122,6 +115,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Title, category, and message are all required.");
             }
 
+            // FIXED: Verify the faculty actually teaches the subject they are reporting on
+            if ($subjectId) {
+                $stmtCheck = $db->prepare("SELECT id FROM faculty_class_loads WHERE faculty_user_id = ? AND subject_id = ?");
+                $stmtCheck->execute([$user['id'], $subjectId]);
+                if (!$stmtCheck->fetchColumn()) {
+                    throw new Exception("Unauthorized: You do not teach the selected subject.");
+                }
+            }
+
             $stmt = $db->prepare("INSERT INTO feedback_reports (submitted_by, category, subject_id, title, message) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$user['id'], $category, $subjectId, $title, $message]);
             $success = "Report submitted securely to Administration.";
@@ -132,9 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// =========================================================
-// Fetch Data
-// =========================================================
 $stmtInbox = $db->prepare("
     SELECT f.*, s.code AS subj_code, u.first_name, u.last_name, u.user_id AS student_no, sp.section AS student_section
     FROM feedback_reports f LEFT JOIN subjects s ON s.id = f.subject_id JOIN users u ON u.id = f.submitted_by JOIN student_profiles sp ON sp.user_id = u.id JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section
@@ -159,7 +158,6 @@ $stmtMyReports = $db->prepare("
 $stmtMyReports->execute([$user['id']]);
 $my_submissions = $stmtMyReports->fetchAll(PDO::FETCH_ASSOC);
 
-// ISOLATION FIX: Only query messages belonging to accessible tickets
 $accessibleTicketIds = [];
 foreach ($inbox as $msg) $accessibleTicketIds[] = $msg['id'];
 foreach ($my_submissions as $msg) $accessibleTicketIds[] = $msg['id'];
@@ -191,7 +189,7 @@ $navItems = [
     ['Class Analytics',    'analytics.php', '📋'],
     ['Performance Trends', 'trend.php',     '📈'],
     ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'], // Ensured message bubble icon
+    ['Concerns & Reports', 'feedback.php',  '💬'], 
     ['Settings',           'settings.php',  '⚙️'],
 ];
 
@@ -229,7 +227,6 @@ require_once '../includes/sidebar.php';
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
-    <!-- FIXED: Explicit button IDs for programmatic routing -->
     <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
         <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Student Concerns</button>
         <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support Cases</button>
@@ -336,7 +333,8 @@ require_once '../includes/sidebar.php';
         <div class="card" style="padding:0; overflow:hidden;">
             <div style="padding: 24px 24px 16px; border-bottom: 1px solid var(--border-color);">
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px;">Academic Support Cases</h3>
-                <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Human-in-the-Loop review for students system-flagged by performance trajectories or heuristics.</p>
+                <!-- FIXED: Replaced "heuristics" with calculation-based estimates -->
+                <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Human-in-the-Loop review for students system-flagged by performance trajectories or calculation-based estimates.</p>
             </div>
             
             <?php if (empty($support_cases)): ?>
@@ -405,7 +403,6 @@ require_once '../includes/sidebar.php';
     <div id="tab-reports" class="tab-content">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 24px; align-items: start;">
             
-            <!-- Submit Form -->
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Contact Administration</h3>
@@ -528,7 +525,6 @@ require_once '../includes/sidebar.php';
     </div>
 </div>
 
-<!-- Intervention Modal -->
 <div id="interventionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
     <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
         <h3 style="margin-top: 0; color: var(--text-dark);">Issue Academic Support Notice</h3>
@@ -551,7 +547,6 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
-// FIXED: Reliable tab switching logic with specific IDs
 function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -563,7 +558,6 @@ function switchTab(tabId) {
     if (activeBtn) activeBtn.classList.add('active');
 }
 
-// FIXED: Listen for ?tab= parameters in URL on load
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get('tab');
@@ -574,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Utility to open the Intervention Modal
 function openInterventionModal(caseId, studentName) {
     document.getElementById('modalCaseId').value = caseId;
     document.getElementById('modalStudentName').innerText = studentName;

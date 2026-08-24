@@ -24,13 +24,14 @@ $lastRunText = $latestPredQuery ? date('F j, Y \a\t g:i A', strtotime($latestPre
 $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
-$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles ORDER BY year_level")->fetchAll(), 'year_level');
+// FIXED: Exclude Archived students from filter dropdowns
+$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles WHERE status != 'Archived' ORDER BY year_level")->fetchAll(), 'year_level');
 
 if ($yearFilter !== '') {
-    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND year_level = ? ORDER BY section");
+    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND status != 'Archived' AND year_level = ? ORDER BY section");
     $sectionsStmt->execute([$yearFilter]);
 } else {
-    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL ORDER BY section");
+    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND status != 'Archived' ORDER BY section");
 }
 $sections = array_column($sectionsStmt->fetchAll(), 'section');
 
@@ -38,7 +39,7 @@ if ($sectionFilter !== '' && !in_array($sectionFilter, $sections, true)) {
     $sectionFilter = '';
 }
 
-// Deterministic latest prediction join using ID tie-breaker
+// FIXED: Exclude Archived students from the main dashboard population query
 $sql = "
     SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa,
            u.first_name, u.middle_name, u.last_name, p.risk_level, p.predicted_gwa
@@ -51,7 +52,7 @@ $sql = "
         ORDER BY p2.generated_at DESC, p2.id DESC
         LIMIT 1
     )
-    WHERE 1=1
+    WHERE sp.status != 'Archived'
 ";
 $params = [];
 if ($yearFilter !== '')    { $sql .= " AND sp.year_level = ?"; $params[] = $yearFilter; }
@@ -158,10 +159,23 @@ require_once '../includes/sidebar.php';
 </style>
 
 <div class="main-content">
-    <div class="header">
+    <div class="header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
         <div>
-            <h1>Admin Dashboard</h1>
-            <p>College-wide overview — College of Computing Studies.</p>
+            <h1 style="margin: 0 0 4px 0;">Admin Dashboard</h1>
+            <p style="margin: 0; color: var(--text-gray);">College-wide overview — College of Computing Studies.</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <!-- Keep the CSV Option -->
+            <button type="button" onclick="triggerSnapshotExportCsv()" style="padding: 10px 16px; background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export CSV
+            </button>
+            
+            <!-- The new Branded PDF Option -->
+            <button type="button" onclick="triggerSnapshotExportPdf()" style="padding: 10px 16px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2); transition: all 0.2s;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Download PDF Report
+            </button>
         </div>
     </div>
 
@@ -184,7 +198,6 @@ require_once '../includes/sidebar.php';
             </div>
 
             <?php $activityTarget = $pendingApprovals > 0 ? 'approvals' : ($openReports > 0 ? 'inbox' : 'support'); ?>
-            <!-- Button is now strictly styled to prevent fallback to purple HTML links -->
             <a href="activity.php?tab=<?= $activityTarget ?>" class="dashboard-banner-btn control-btn">
                 Open Activity Workspace
             </a>
@@ -202,9 +215,11 @@ require_once '../includes/sidebar.php';
                 Last run: <?= htmlspecialchars($lastRunText) ?>
             </p>
         </div>
-        <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2);">
-            ▶ Run Predictions
-        </button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2);">
+                ▶ Run Predictions
+            </button>
+        </div>
     </div>
 
     <!-- TIER 2: POPULATION DATA & FILTERS -->
@@ -305,6 +320,10 @@ require_once '../includes/sidebar.php';
                     <option value="Regular">Regular</option>
                     <option value="Irregular">Irregular</option>
                 </select>
+                <button type="button" onclick="triggerRosterExport()" style="background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; white-space: nowrap;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export Roster CSV
+                </button>
             </div>
         </div>
 
@@ -374,6 +393,31 @@ function applyTableFilter(type, val) {
     currentPage = 1;
     renderPage();
     document.getElementById('admin-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function triggerRosterExport() {
+    const riskVal = document.getElementById('filter-risk')?.value || '';
+    const statusVal = document.getElementById('filter-status')?.value || ''; 
+    const searchVal = document.getElementById('dashboard-search')?.value || '';
+
+    const params = new URLSearchParams();
+    if (riskVal) {
+        params.append('risk', riskVal); 
+    }
+    if (searchVal) {
+        params.append('search', searchVal);
+    }
+
+    window.location.href = 'export_risk_roster.php?' + params.toString();
+}
+
+// FIXED: Hooked up exactly to the updated PHP export files created in the prior step
+function triggerSnapshotExportCsv() {
+    window.location.href = 'export_program_snapshot.php' + window.location.search;
+}
+
+function triggerSnapshotExportPdf() {
+    window.location.href = 'export_program_snapshot_pdf.php' + window.location.search;
 }
 
 function runBatchPredictions() {
