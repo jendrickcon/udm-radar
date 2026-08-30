@@ -7,7 +7,7 @@ define('APP_SUBTITLE', 'Risk Analytics & Decision-support for Academic Records')
 
 // FIXED: Aligned with the repository setup instructions
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/udm-radar/'); 
+    define('BASE_URL', '/capstone/'); 
 }
 
 // Latin honor thresholds
