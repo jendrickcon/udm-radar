@@ -311,10 +311,7 @@ require_once '../includes/sidebar.php';
         <div class="card"><p class="empty-state">No section class loads assigned to your account for the current term.</p></div>
     <?php else: ?>
 
-    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">Assigned Classes Overview</h2>
-    <div style="margin-bottom: 16px; font-size: 0.85rem; color: var(--text-gray);">
-        <em>Note: These indicators summarize student academic performance and grade-record completeness across your assigned class loads.</em>
-    </div>
+    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 24px; font-weight: 700; text-transform: uppercase;">Assigned Classes Overview</h2>
 
     <div class="analytics-stat-grid">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">

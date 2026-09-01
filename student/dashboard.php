@@ -25,9 +25,6 @@ $stmtHist = $db->prepare("
 ");
 $stmtHist->execute([$user['id']]);
 $historical_rows = array_map(
-    // Pass grade through as-is (string or number) — computeWeightedGWA()
-    // now handles special statuses (INC/DO/DU/FA/UD) itself. Casting to
-    // (float) here would corrupt those to 0.00 before the guard ever runs.
     fn($r) => ['grade' => $r['final_grade'], 'units' => (int) $r['units']],
     $stmtHist->fetchAll()
 );
@@ -75,33 +72,33 @@ foreach ($current_subjects as &$subj) {
     
     $subj['prelim_point'] = $prelimPoint;
     $subj['predicted_final'] = $predicted_final;
-    // No silent default to 'LOW' when there's no data to judge — that implies
-    // safety the system hasn't actually verified. A blank/insufficient state
-    // is handled separately in the template via $subj['predicted_final'] === null.
     $subj['final_risk'] = $predicted_final !== null ? computeRiskFromAvg($predicted_final) : null;
     
     if ($predicted_final !== null) {
         $prediction_rows[] = ['grade' => $predicted_final, 'units' => (int) $subj['units']];
     }
 
-    // FIXED: Removed the Point Grade from the Triage Alert
     if ($prelimPoint !== null) {
         $subjRisk = computeRiskFromAvg($prelimPoint);
+        $displayTitle = displaySubjectTitle($subj['code'], $subj['title']);
         if ($subjRisk === 'HIGH') {
-            $triage_alerts[] = "🚨 <strong>High Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.";
+            $triage_alerts[] = [
+                'level' => 'HIGH',
+                'text' => "🚨 <strong>High Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.",
+            ];
             $at_risk_count++;
         } elseif ($subjRisk === 'MODERATE') {
-            $triage_alerts[] = "⚠️ <strong>Moderate Risk:</strong> Your grade in <strong>{$subj['title']}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.";
+            $triage_alerts[] = [
+                'level' => 'MODERATE',
+                'text' => "⚠️ <strong>Moderate Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.",
+            ];
             $at_risk_count++;
         }
     }
 }
 unset($subj);
 
-// --- OVERRIDE LOGIC: Prefer AI data; fall back to a real calculation only
-// when one is actually possible; otherwise disclose that there isn't enough
-// data yet instead of manufacturing a number. ---
-$heuristic_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa; // null, not 0.0, when nothing is known
+$heuristic_gwa = computeWeightedGWA($prediction_rows) ?? $historical_gwa;
 $has_fallback_data = $heuristic_gwa !== null;
 $heuristic_risk = $has_fallback_data ? computeRiskFromAvg($heuristic_gwa) : null;
 
@@ -118,15 +115,11 @@ if ($has_ai_prediction) {
     $display_honor = getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
     $prediction_source = 'calculation_fallback';
 } else {
-    // Neither an AI prediction nor enough recorded grades exist yet — most
-    // commonly a newly-registered student. Showing 0.00 / a risk level here
-    // would fabricate a result from data that doesn't exist.
     $display_predicted_gwa = null;
     $display_risk = null;
     $display_honor = null;
     $prediction_source = 'insufficient_data';
 }
-// -------------------------------------------------------------
 
 if ($at_risk_count > 0) {
     $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
@@ -134,7 +127,6 @@ if ($at_risk_count > 0) {
 if ($historical_gwa !== null && $display_predicted_gwa !== null) {
     $diff = round($display_predicted_gwa - $historical_gwa, 2);
     
-    // In UDM, 4.00 is highest. Positive diff is improvement.
     if ($diff < 0) { 
         $drop = number_format(abs($diff), 2);
         $risk_factors[] = ['type' => 'warning', 'text' => "Trajectory: Model projects a {$drop} point drop in your GWA based on current pacing."];
@@ -154,7 +146,10 @@ if (!empty($gradedSubjects)) {
         fn($s) => $s['prelim_point'] == $lowestGrade
     ));
 
-    $titles = array_column($weakestSubjects, 'title');
+    $titles = array_map(
+        fn($s) => displaySubjectTitle($s['code'], $s['title']),
+        $weakestSubjects
+    );
     $subjectList = count($titles) > 1
         ? implode(', ', array_slice($titles, 0, -1)) . ' and ' . end($titles)
         : $titles[0];
@@ -185,7 +180,6 @@ $riskBg = match($display_risk) {
     default => 'var(--text-gray)'
 }; 
 
-// Tooltips accurately reflect classification and disclose which engine produced it
 $riskTooltip = "";
 if ($display_risk === 'HIGH') {
     $riskTooltip = $prediction_source === 'decision_tree'
@@ -233,6 +227,28 @@ $navItems = [
 require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
+
+<style>
+/* CSS for the Scroll Fade Indicator */
+.triage-scroll { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+.triage-scroll::-webkit-scrollbar { width: 6px; }
+.triage-scroll::-webkit-scrollbar-track { background: transparent; }
+.triage-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 999px; }
+.triage-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-gray); }
+
+.triage-fade {
+    position: absolute;
+    left: 0; right: 4px; bottom: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, transparent, var(--card-bg));
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+.triage-fade.hidden { opacity: 0; }
+</style>
 
 <div class="main-content">
     <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
@@ -293,50 +309,67 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-        <div class="card" style="text-align: center;">
-            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left;">🎯 Honor Track Proximity</h3>
-            <p style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0 0 16px;">
-                Shows where your current GWA falls on the 1.00–4.00 scale relative to Latin Honor cutoffs.
-            </p>
-            <div style="position: relative; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center;">
-                <canvas id="honorGauge"></canvas>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
+        <div class="card" style="text-align: center; display: flex; flex-direction: column;">
+            <div>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left;">🎯 Honor Track Proximity</h3>
+                <p style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
+                    Shows where your current GWA falls on the 1.00–4.00 scale relative to Latin Honor cutoffs.
+                </p>
             </div>
-            <div style="margin-top: 4px;">
-                <span style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : '0.00' ?></span>
-                <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Current GWA</span>
-            </div>
-            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600;">
-                <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
-                <span style="color: #1d4ed8;">● Magna (<?= number_format(MAGNA_CUM_LAUDE, 2) ?>)</span>
-                <span style="color: #b45309;">● Summa (<?= number_format(SUMMA_CUM_LAUDE, 2) ?>)</span>
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                <div style="position: relative; margin-top: 20px; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center;">
+                    <canvas id="honorGauge"></canvas>
+                </div>
+                <div style="margin-top: 4px;">
+                    <span style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : '0.00' ?></span>
+                    <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Current GWA</span>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
+                    <span style="color: #1d4ed8;">● Magna (<?= number_format(MAGNA_CUM_LAUDE, 2) ?>)</span>
+                    <span style="color: #b45309;">● Summa (<?= number_format(SUMMA_CUM_LAUDE, 2) ?>)</span>
+                </div>
             </div>
         </div>
 
-        <div class="card">
+        <!-- FIXED: Removed padding-bottom: 0 and added position: relative for the scroll fade effect -->
+        <div class="card" style="display: flex; flex-direction: column; overflow: hidden; position: relative; padding-bottom: 0;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">🧠 Risk Factor Analysis</h3>
-            <div style="margin-bottom: 20px;">
-                <?php foreach ($risk_factors as $factor): 
-                    $icon = match ($factor['type']) { 'danger' => '🔴', 'warning' => '🟠', 'info' => '🎯', default => '🟢' };
-                    $borderColor = match ($factor['type']) { 'danger' => 'var(--risk-high)', 'warning' => 'var(--risk-mod)', 'info' => 'var(--accent-blue)', default => 'var(--risk-low)' };
-                    $bgTint = match ($factor['type']) { 'danger' => 'rgba(220, 38, 38, 0.1)', 'warning' => 'rgba(217, 119, 6, 0.1)', 'info' => 'var(--table-header-bg)', default => 'rgba(5, 150, 105, 0.1)' };
-                ?>
-                <div style="background: <?= $bgTint ?>; border-left: 3px solid <?= $borderColor ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: var(--text-dark);">
-                    <?= $icon ?> <?= $factor['text'] ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-
-            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">📊 Subject Triage (Focus Areas)</h3>
-            <?php if (empty($triage_alerts)): ?>
-                <p style="font-size: 0.85rem; color: var(--risk-low); font-weight: 600;">✓ All current subjects are within safe thresholds.</p>
-            <?php else: ?>
-                <?php foreach ($triage_alerts as $alert): ?>
-                    <div style="background: rgba(220, 38, 38, 0.1); padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: var(--risk-high); border: 1px solid rgba(220, 38, 38, 0.3);">
-                        <?= $alert ?>
+            
+            <div id="triage-scroll" class="triage-scroll" style="max-height: 400px; overflow-y: auto; padding-bottom: 24px; padding-right: 8px;">
+                <div style="margin-bottom: 20px;">
+                    <?php foreach ($risk_factors as $factor): 
+                        $icon = match ($factor['type']) { 'danger' => '🔴', 'warning' => '🟠', 'info' => '🎯', default => '🟢' };
+                        $borderColor = match ($factor['type']) { 'danger' => 'var(--risk-high)', 'warning' => 'var(--risk-mod)', 'info' => 'var(--accent-blue)', default => 'var(--risk-low)' };
+                        $bgTint = match ($factor['type']) { 'danger' => 'rgba(220, 38, 38, 0.1)', 'warning' => 'rgba(217, 119, 6, 0.1)', 'info' => 'var(--table-header-bg)', default => 'rgba(5, 150, 105, 0.1)' };
+                    ?>
+                    <div style="background: <?= $bgTint ?>; border-left: 3px solid <?= $borderColor ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: var(--text-dark);">
+                        <?= $icon ?> <?= $factor['text'] ?>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">📊 Subject Triage (Focus Areas)</h3>
+                <?php if (empty($triage_alerts)): ?>
+                    <p style="font-size: 0.85rem; color: var(--risk-low); font-weight: 600;">✓ All current subjects are within safe thresholds.</p>
+                <?php else: ?>
+                    <div>
+                        <?php foreach ($triage_alerts as $alert):
+                            $alertBg = $alert['level'] === 'HIGH' ? 'rgba(220, 38, 38, 0.1)' : 'rgba(217, 119, 6, 0.1)';
+                            $alertBorder = $alert['level'] === 'HIGH' ? 'rgba(220, 38, 38, 0.3)' : 'rgba(217, 119, 6, 0.3)';
+                            $alertColor = $alert['level'] === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
+                        ?>
+                            <div style="background: <?= $alertBg ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: <?= $alertColor ?>; border: 1px solid <?= $alertBorder ?>;">
+                                <?= $alert['text'] ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Dynamic Fade Indicator -->
+            <div id="triage-fade" class="triage-fade"></div>
         </div>
     </div>
 
@@ -376,10 +409,9 @@ require_once '../includes/sidebar.php';
                 ?>
                 <tr style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($subj['code']) ?></td>
-                    <td style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars($subj['title']) ?></td>
+                    <td style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
                     <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= htmlspecialchars($subj['units']) ?></td>
                     
-                    <!-- FIXED: Removed Point Equivalent from UI entirely -->
                     <td style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
                         <?php if ($subj['prelim_raw'] !== null): ?>
                             <?= round((float)$subj['prelim_raw']) ?>%
@@ -442,7 +474,7 @@ require_once '../includes/sidebar.php';
                 ?>
                 <tr style="border-bottom: 1px solid var(--border-color);" class="calc-row">
                     <td style="padding: 12px; font-weight: 600; color: var(--text-dark); text-align: left;"><?= htmlspecialchars($subj['code']) ?></td>
-                    <td style="padding: 12px; font-weight: 500; color: var(--text-dark); text-align: left;"><?= htmlspecialchars($subj['title']) ?></td>
+                    <td style="padding: 12px; font-weight: 500; color: var(--text-dark); text-align: left;"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
                     <td style="padding: 12px; color: var(--text-dark);" class="calc-units"><?= htmlspecialchars($subj['units']) ?></td>
                     
                     <td style="padding: 12px;"><input type="number" min="0" max="100" class="form-input calc-term-input calc-prelim" value="<?= $p_val ?>" <?= $p_val !== '' ? 'disabled' : '' ?> oninput="computeRowFinal(this)" style="background: <?= $p_bg ?>; color: var(--text-dark); text-align: center; padding: 6px;"></td>
@@ -616,6 +648,24 @@ const observer = new MutationObserver(() => {
     honorGaugeChart.data.datasets[0].backgroundColor[0] = themeColors.base; honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.blue; honorGaugeChart.update();
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// Scrolling Fade Observer Script
+(function () {
+    const scrollEl = document.getElementById('triage-scroll');
+    const fadeEl = document.getElementById('triage-fade');
+    if (!scrollEl || !fadeEl) return; 
+
+    function updateFade() {
+        const distanceFromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+        const atBottom = distanceFromBottom < 2; 
+        const overflowing = scrollEl.scrollHeight > scrollEl.clientHeight;
+        fadeEl.classList.toggle('hidden', atBottom || !overflowing);
+    }
+
+    scrollEl.addEventListener('scroll', updateFade, { passive: true });
+    window.addEventListener('resize', updateFade);
+    updateFade();
+})();
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
