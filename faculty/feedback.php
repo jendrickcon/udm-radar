@@ -195,6 +195,10 @@ $stmtCases = $db->prepare("
 ");
 $stmtCases->execute([$user['id']]);
 $support_cases = $stmtCases->fetchAll(PDO::FETCH_ASSOC);
+// $c['section'] used at display time below comes from r.* (support_case_referrals.section
+// is already an own column, selected via the r.* wildcard above — a snapshot of the
+// section at the time this referral was created, which is preferred over a live join
+// to student_profiles since a student may have since moved sections).
 
 $stmtMyReports = $db->prepare("
     SELECT f.*, s.code AS subj_code 
@@ -506,7 +510,7 @@ require_once '../includes/sidebar.php';
                                 
                                 <td style="padding: 10px 24px; vertical-align: middle; text-align: center;">
                                     <?php if ($c['status'] === 'needs_review'): ?>
-                                        <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_code'])) ?>')" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; white-space: nowrap;">
+                                        <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['section'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_title'])) ?>')" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; white-space: nowrap;">
                                             Review & Issue
                                         </button>
                                     <?php else: ?>
@@ -533,7 +537,7 @@ require_once '../includes/sidebar.php';
                 </div>
                 <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 16px;">Use the form below for general or system issues. Rate limit: 1 report every 5 minutes.</p>
                 
-                <form method="POST" action="feedback.php" class="safe-submit-form">
+                <form method="POST" action="feedback.php?tab=reports" class="safe-submit-form">
                     <input type="hidden" name="action" value="submit_report">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
                     
@@ -652,12 +656,19 @@ require_once '../includes/sidebar.php';
 <div id="interventionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
     <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
         <h3 style="margin-top: 0; color: var(--text-dark);">Issue Subject Notice</h3>
-        <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">Sending a notice to <strong id="modalStudentName" style="color: var(--accent-blue);"></strong> of <?= htmlspecialchars($msg['student_section'] ?? '') ?> regarding <strong id="modalSubjCode" style="color: var(--text-dark);"></strong>. This requires the student to acknowledge receipt.</p>
+        <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">Sending a notice to <strong id="modalStudentName" style="color: var(--accent-blue);"></strong> of <strong id="modalSection" style="color: var(--text-dark);"></strong> regarding <strong id="modalSubjTitle" style="color: var(--text-dark);"></strong>. This requires the student to acknowledge receipt.</p>
         
-        <form method="POST" action="feedback.php" class="safe-submit-form">
+        <form method="POST" action="feedback.php?tab=support" class="safe-submit-form">
             <input type="hidden" name="action" value="issue_notice">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="case_id" id="modalCaseId">
+            <!-- FIXED: name was "case_id" but the backend (issue_notice, above)
+                 reads $_POST['referral_id']. That mismatch meant every
+                 submission arrived with no referral_id at all, so the
+                 handler's $referralId <= 0 check failed every single time —
+                 "Invalid support referral" regardless of what was actually
+                 selected. id kept as modalCaseId to avoid renaming the JS
+                 function's DOM lookup; only the submitted field name changed. -->
+            <input type="hidden" name="referral_id" id="modalCaseId">
             
             <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:6px;">Message to Student</label>
             <textarea name="message_to_student" required rows="4" placeholder="e.g., Please schedule an advising session with me this week to discuss your trajectory in this class." style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); resize:vertical; font-family: inherit; margin-bottom: 16px;"></textarea>
@@ -692,6 +703,15 @@ function switchTab(tabId) {
     
     if (targetContent) targetContent.classList.add('active');
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Keep the URL in sync with the visible tab. Without this, a form with
+    // no explicit action="" (there are a few on this page) posts back to
+    // whatever URL the page happened to load with, which reset to the
+    // default "inbox" tab after every submission on this page regardless of
+    // which tab the user was actually working in — not just on errors.
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -704,10 +724,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function openInterventionModal(caseId, studentName, subjCode) {
+function openInterventionModal(caseId, studentName, section, subjTitle) {
     document.getElementById('modalCaseId').value = caseId;
     document.getElementById('modalStudentName').innerText = studentName;
-    document.getElementById('modalSubjCode').innerText = subjCode;
+    document.getElementById('modalSection').innerText = section;
+    document.getElementById('modalSubjTitle').innerText = subjTitle;
     document.getElementById('interventionModal').style.display = 'flex';
 }
 
