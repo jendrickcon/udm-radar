@@ -59,12 +59,25 @@ $isCurrentTerm = ($syFilter === $currentTerm['school_year'] && (int) $semFilter 
 $totalStudents = 0; $sectionData = []; $meanGwa = null; $gwaSum = 0; $gwaCount = 0;
 $atRiskPct = 0.0; $coveragePct = 0.0;
 $riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
-// Keys must be the exact prediction_source values the writer stores. This list
-// previously keyed on 'heuristic', which no code has ever written — the
-// fallback path writes 'calculation_fallback'. Because the tally is guarded by
-// isset(), the mismatch did not error; it silently reported 0 for every
-// non-model prediction while the real ones were dropped from the breakdown.
-$sourceTotals = ['decision_tree' => 0, 'calculation_fallback' => 0, 'none' => 0];
+// prediction_source has TWO calculation-based vocabularies in the stored data:
+//   'heuristic'            — legacy rows written before the source was renamed
+//   'calculation_fallback' — what the current fallback path writes
+// Both mean the same thing to a reader (an estimate derived from current
+// grades, not model output), so they are grouped for display under one
+// user-facing category while the stored value itself is left untouched — the
+// 502 legacy rows are provenance and are not rewritten.
+//
+// The tally previously keyed only on 'heuristic' and was guarded by isset(),
+// so it did not error; it silently reported 0 for every row written under the
+// newer vocabulary. The diagnostic breakdown is retained so the split between
+// the two vocabularies stays visible rather than being averaged away.
+$sourceTotals = [
+    'decision_tree'        => 0, // machine-learning projection
+    'calculation_fallback' => 0, // grouped display total (both fallback vocabularies)
+    'heuristic'            => 0, // diagnostic: legacy fallback rows only
+    'calc_fallback_new'    => 0, // diagnostic: current fallback rows only
+    'none'                 => 0,
+];
 $distinctions = [
     'Summa-level threshold' => 0, 'Magna-level threshold' => 0,
     'Cum Laude-level threshold' => 0, 'Not currently within a distinction threshold' => 0,
@@ -127,8 +140,19 @@ if ($isCurrentTerm) {
         $sectionData[$sec]['risks'][$risk]++;
         if ($risk !== 'NONE') $sectionData[$sec]['coverage_count']++;
 
-        $src = $s['prediction_source'] ?? 'none';
-        if (isset($sourceTotals[$src])) $sourceTotals[$src]++;
+        // Normalize before counting. An unrecognized or empty source is
+        // counted as 'none' rather than dropped, so the categories always sum
+        // to the population being described instead of quietly under-reporting.
+        $src = strtolower(trim((string) ($s['prediction_source'] ?? '')));
+
+        if ($src === 'decision_tree') {
+            $sourceTotals['decision_tree']++;
+        } elseif (in_array($src, ['heuristic', 'calculation_fallback'], true)) {
+            $sourceTotals['calculation_fallback']++;
+            $sourceTotals[$src === 'heuristic' ? 'heuristic' : 'calc_fallback_new']++;
+        } else {
+            $sourceTotals['none']++;
+        }
 
         if ($s['risk_level'] === null || $s['predicted_gwa'] === null) {
             $distinctions['Insufficient Data']++;
@@ -459,7 +483,7 @@ require_once '../includes/sidebar.php';
                 <h4>Prediction Coverage</h4>
                 <h2 style="color: var(--text-dark);"><?= number_format($coveragePct, 1) ?>%</h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                    <?= $sourceTotals['decision_tree'] ?> ML | <?= $sourceTotals['calculation_fallback'] ?> Calc. | <?= $sourceTotals['none'] ?> None
+                    <?= $sourceTotals['decision_tree'] ?> AI-Based Projection | <?= $sourceTotals['calculation_fallback'] ?> Calculation-Based Estimate | <?= $sourceTotals['none'] ?> Insufficient Data
                 </p>
             </div>
         </div>
