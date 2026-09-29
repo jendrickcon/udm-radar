@@ -182,11 +182,27 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'] ?? '')) {
         exit(json_encode(['error' => 'Forbidden. Students can only predict their own grades.']));
     }
 
+    // A faculty member may only request a prediction for a student they
+    // actually teach. This is a row-level check against a real enrollment, not
+    // a section-name string comparison.
+    //
+    // The previous version joined student_profiles.section to
+    // faculty_class_loads.section on the section code alone. Section codes are
+    // not unique across the curriculum — 'IT-31' identifies one cohort's 1st
+    // Year block and a later cohort's 3rd Year block — so the join matched any
+    // faculty member holding that code for any year level, and it would grant
+    // access to an entire cohort on the strength of an unrelated class load.
+    // Matching the student's own grade rows to the load's subject and section
+    // restricts the check to the specific class being taught.
     if ($role === 'faculty') {
         $stmtCheck = $db->prepare("
-            SELECT 1 FROM student_profiles sp
-            JOIN faculty_class_loads fcl ON sp.section = fcl.section
-            WHERE sp.user_id = ? AND fcl.faculty_user_id = ?
+            SELECT 1
+            FROM grades g
+            JOIN faculty_class_loads fcl
+              ON fcl.subject_id = g.subject_id
+             AND fcl.section    = (SELECT sp.section FROM student_profiles sp WHERE sp.user_id = g.student_id)
+            WHERE g.student_id = ? AND fcl.faculty_user_id = ?
+            LIMIT 1
         ");
         $stmtCheck->execute([$targetStudentId, $userId]);
         if (!$stmtCheck->fetchColumn()) {

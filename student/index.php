@@ -175,7 +175,15 @@ require_once '../includes/sidebar.php';
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <?php foreach($recentActivities as $act): 
                         $date = date('M d, Y', strtotime($act['generated_at']));
-                        $src = $act['prediction_source'] === 'decision_tree' ? 'AI Model Update' : 'Heuristic Estimate';
+                        // Labels mirror the canonical prediction semantics
+                        // documented in README.md. The fallback is a
+                        // calculation from current grades, not a heuristic
+                        // guess, and must not be presented as model output.
+                        $src = match ($act['prediction_source']) {
+                            'decision_tree' => 'AI Model Update',
+                            'calculation_fallback' => 'Estimate Based on Current Grades',
+                            default => 'Insufficient Data',
+                        };
                     ?>
                     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">

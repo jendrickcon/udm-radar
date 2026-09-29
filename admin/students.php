@@ -86,10 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
                     $db->prepare("UPDATE student_profiles SET status=? WHERE user_id=?")->execute([$newStatus, $uid]);
 
                     $logStmt = $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value) VALUES (?, 'student', ?, ?, ?, ?)");
-
-                    if ($propCourse !== '' && !in_array($propCourse, allowedCourses(), true)) {
-                        throw new Exception('Unrecognized program value.');
-                    }
                     $changedCount = 0;
                     foreach ($fieldsToCheck as $field => [$oldVal, $newVal]) {
                         if ((string) $oldVal !== (string) $newVal) {
@@ -585,17 +581,22 @@ foreach ($tempHistory as $sid => $years) {
         // term resolves to rather than being dropped or mislabelled as 1st.
         $termYearLevel = !empty($termYears) ? (int) max(array_keys($termYears)) : 0;
 
+        // Resolved once for the whole school year, and never mutated inside the
+        // loop below — doing so let a term with no resolvable curriculum year
+        // write its fallback into the sibling semester of the same school year,
+        // mislabelling a 2nd-semester term as 1st Year.
+        $labelYear = $termYearLevel > 0 ? $termYearLevel : 1;
+
         foreach ($sems as $sem => $subjectsByYear) {
             $yearLevel = [];
             foreach ($subjectsByYear as $subjects) {
                 foreach ($subjects as $entry) { $yearLevel[] = $entry; }
             }
             if (empty($yearLevel)) continue;
-            if ($termYearLevel === 0) $termYearLevel = 1; // no curriculum year anywhere in this term
 
-            $ordinalYear = match ($termYearLevel) {
+            $ordinalYear = match ($labelYear) {
                 1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th',
-                default => 'Unmapped',
+                default => $labelYear . 'th',
             };
             $ordinalSem = ($sem == 1) ? '1st Sem' : (($sem == 2) ? '2nd Sem' : 'Unknown Sem');
             $termKey = "$sy | {$ordinalYear} Year, $ordinalSem";

@@ -84,11 +84,24 @@ foreach ($raw_loads as $load) {
 $completeness_pct = $total_students_portfolio > 0 ? round(($total_encoded_portfolio / $total_students_portfolio) * 100) : 0;
 $total_assigned_classes = count($class_loads);
 
+// Counted through the faculty member's actual class loads (subject + section),
+// the same way the per-class roster above is built. Joining on the section
+// code alone counted every student holding that code, including cohorts of
+// other year levels who happen to share the same section label — which would
+// overstate "Unique Students Reached" against a population that spans more
+// than one curriculum year.
 $stmtUnique = $db->prepare("
-    SELECT COUNT(DISTINCT sp.user_id) 
+    SELECT COUNT(DISTINCT sp.user_id)
     FROM student_profiles sp
-    JOIN faculty_class_loads fcl ON sp.section = fcl.section
-    WHERE fcl.faculty_user_id = ?
+    WHERE EXISTS (
+        SELECT 1
+        FROM grades g
+        JOIN faculty_class_loads fcl
+          ON fcl.subject_id = g.subject_id
+         AND fcl.section    = sp.section
+        WHERE g.student_id = sp.user_id
+          AND fcl.faculty_user_id = ?
+    )
 ");
 $stmtUnique->execute([$user['id']]);
 $unique_students = $stmtUnique->fetchColumn() ?: 0;

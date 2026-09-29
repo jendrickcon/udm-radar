@@ -59,7 +59,12 @@ $isCurrentTerm = ($syFilter === $currentTerm['school_year'] && (int) $semFilter 
 $totalStudents = 0; $sectionData = []; $meanGwa = null; $gwaSum = 0; $gwaCount = 0;
 $atRiskPct = 0.0; $coveragePct = 0.0;
 $riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
-$sourceTotals = ['decision_tree' => 0, 'heuristic' => 0, 'none' => 0];
+// Keys must be the exact prediction_source values the writer stores. This list
+// previously keyed on 'heuristic', which no code has ever written — the
+// fallback path writes 'calculation_fallback'. Because the tally is guarded by
+// isset(), the mismatch did not error; it silently reported 0 for every
+// non-model prediction while the real ones were dropped from the breakdown.
+$sourceTotals = ['decision_tree' => 0, 'calculation_fallback' => 0, 'none' => 0];
 $distinctions = [
     'Summa-level threshold' => 0, 'Magna-level threshold' => 0,
     'Cum Laude-level threshold' => 0, 'Not currently within a distinction threshold' => 0,
@@ -406,7 +411,7 @@ require_once '../includes/sidebar.php';
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; height: 100%;">
             <a href="analytics.php" style="padding: 9px 16px; color: var(--text-gray); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Reset</a>
             <button type="submit" style="background: var(--accent-blue); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
@@ -423,7 +428,7 @@ require_once '../includes/sidebar.php';
     <!-- MODE A: CURRENT TERM (Progress Analysis)   -->
     <!-- ========================================== -->
     <?php if ($isCurrentTerm): ?>
-        
+
         <?php if ($totalStudents > 0 && $totalStudents < 10): ?>
         <div style="background: rgba(217, 119, 6, 0.1); border-left: 4px solid var(--risk-mod); padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; color: var(--text-dark); font-size: 0.9rem;">
             <strong>Small filtered population:</strong> This view contains only <?= $totalStudents ?> student records. Percentages and section comparisons should be interpreted cautiously.
@@ -446,7 +451,7 @@ require_once '../includes/sidebar.php';
                 <h4>At Risk Among Predicted</h4>
                 <h2 style="color: var(--risk-high);"><?= number_format($atRiskPct, 1) ?>%</h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                    <span style="color: var(--risk-high);"><?= $riskTotals['HIGH'] ?> High</span> | 
+                    <span style="color: var(--risk-high);"><?= $riskTotals['HIGH'] ?> High</span> |
                     <span style="color: var(--risk-mod);"><?= $riskTotals['MODERATE'] ?> Moderate</span>
                 </p>
             </div>
@@ -454,7 +459,7 @@ require_once '../includes/sidebar.php';
                 <h4>Prediction Coverage</h4>
                 <h2 style="color: var(--text-dark);"><?= number_format($coveragePct, 1) ?>%</h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                    <?= $sourceTotals['decision_tree'] ?> ML | <?= $sourceTotals['heuristic'] ?> Heur. | <?= $sourceTotals['none'] ?> None
+                    <?= $sourceTotals['decision_tree'] ?> ML | <?= $sourceTotals['calculation_fallback'] ?> Calc. | <?= $sourceTotals['none'] ?> None
                 </p>
             </div>
         </div>
