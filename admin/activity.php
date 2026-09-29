@@ -109,8 +109,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success = 'Correction rejected — no change applied.';
                 } else {
                     $column = $corr['field_changed']; $allowedTerms = ['prelim', 'midterm', 'prefinal', 'final_grade']; $logTargetId = $corr['target_id'];
-                    if (in_array($corr['target_type'], ['student_section', 'student_year_level'])) {
-                        $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
+                    // Student-identity fields are applied by matching the
+                    // correction's target_type to an explicit whitelist, so a
+                    // correction row can never steer `$column` at an
+                    // unintended column. The whitelist is the only thing that
+                    // decides whether a correction is applicable — a
+                    // correction type that is not listed here is treated as
+                    // "not applicable" rather than falling through silently.
+                    $studentFieldMap = [
+                        'student_section'    => 'section',
+                        'student_year_level' => 'year_level',
+                        'student_course'     => 'course',
+                    ];
+                    if (isset($studentFieldMap[$corr['target_type']])) {
+                        $db->prepare("UPDATE student_profiles SET `{$studentFieldMap[$corr['target_type']]}` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
                     } elseif ($corr['target_type'] === 'grade') {
                         if (!in_array($column, $allowedTerms)) throw new Exception("Invalid grading period.");
                         if (!validateAdminGrade($column, $corr['new_value'])) throw new Exception("Validation Error.");
@@ -119,6 +131,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
                     $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)")->execute([$user['id'], $logTargetId, $column, $corr['old_value'], $corr['new_value'], 'Confirmed correction']);
+
+                    // A confirmed year-level or program change invalidates the
+                    // student's cumulative GWA context (a shifted or
+                    // transferred student's curriculum placement is no longer
+                    // the one the stored average was computed against), so the
+                    // derived value is recomputed from the grade rows instead
+                    // of being left as a stale hand-set number.
+                    if (isset($studentFieldMap[$corr['target_type']])) {
+                        recalculateStudentGWA($db, (int) $corr['target_id']);
+                    }
                     if (!empty($corr['feedback_id'])) {
                         $stmtOld = $db->prepare("SELECT status FROM feedback_reports WHERE id = ?"); $stmtOld->execute([$corr['feedback_id']]); $oldStatus = $stmtOld->fetchColumn() ?: 'awaiting_admin';
                         $db->prepare("UPDATE feedback_reports SET status = 'resolved', resolved_by = ?, resolved_at = NOW() WHERE id = ?")->execute([$user['id'], $corr['feedback_id']]);

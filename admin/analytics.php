@@ -6,18 +6,11 @@ require_once '../config/db.php';
 requireRole('admin');
 $db = getDB();
 
-// ---------------------------------------------------------
-// Helper: Ordinal Year Labels (Type-Hinted)
-// ---------------------------------------------------------
-function ordinalYearLabel(int|string $year): string {
-    return match ((int) $year) {
-        1 => '1st Year',
-        2 => '2nd Year',
-        3 => '3rd Year',
-        4 => '4th Year',
-        default => $year . 'th Year',
-    };
-}
+// ordinalYearLabel() now lives in config/constants.php so the student
+// directory, the export headers, and this page all render a year level the
+// same way. The local copy that used to sit here was identical for years 1-4
+// and differed only in the fallback, which is exactly the kind of drift a
+// single shared definition prevents.
 
 // ---------------------------------------------------------
 // 0. Dynamic Filter Population & Strict Validation
@@ -31,9 +24,14 @@ $allowedSemesters = ['1', '2'];
 $semFilter = $_GET['semester'] ?? '1';
 if (!in_array($semFilter, $allowedSemesters, true)) $semFilter = '1';
 
-$dbYears = $db->query("SELECT DISTINCT year_level FROM student_profiles WHERE year_level IS NOT NULL ORDER BY year_level ASC")->fetchAll(PDO::FETCH_COLUMN);
+// The filter offers every curriculum year (1-4), not only the years that
+// currently have a student row. Deriving the list from the data meant a year
+// with no enrolled students simply vanished from the control, so an operator
+// could not select an empty cohort to confirm it was in fact empty, and the
+// control's shape changed as the population changed.
+$dbYears = CURRICULUM_YEAR_LEVELS;
 $yearFilter = $_GET['year_level'] ?? '';
-if ($yearFilter !== '' && !in_array($yearFilter, $dbYears, true)) $yearFilter = '';
+if ($yearFilter !== '' && !in_array((int) $yearFilter, $dbYears, true)) $yearFilter = '';
 
 // New Filters for Path B
 $allowedPeriods = ['prelim' => 'Preliminary', 'midterm' => 'Midterm', 'prefinal' => 'Pre-Final'];
@@ -48,7 +46,12 @@ $dbSections = $db->query("SELECT DISTINCT section FROM student_profiles WHERE se
 $sectionFilter = $_GET['section'] ?? '';
 
 // Determine Mode
-$isCurrentTerm = ($syFilter === '2026-2027' && $semFilter === '1');
+// "Current" is whatever term the calendar says we are in, not a hardcoded
+// school-year/semester pair. Pinning it meant the page stayed in progress-mode
+// for one specific term forever: once the calendar moved on, a genuinely
+// finished term kept rendering as if its grades were still in flight.
+$currentTerm = getCurrentTerm();
+$isCurrentTerm = ($syFilter === $currentTerm['school_year'] && (int) $semFilter === (int) $currentTerm['semester']);
 
 // ---------------------------------------------------------
 // Default values to prevent IDE warnings (P1116)
@@ -64,7 +67,7 @@ $distinctions = [
 ];
 $chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
 $subjectWideStats = []; $subjectSectionStats = []; $histSubjects = [];
-$totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0; 
+$totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0;
 $histPassedCount = 0; $overallHistPassRate = 0.0;
 
 // ---------------------------------------------------------
@@ -77,16 +80,16 @@ if ($isCurrentTerm) {
                p.predicted_gwa, p.risk_level, p.latin_honor, p.prediction_source
         FROM student_profiles sp
         LEFT JOIN predictions p ON p.id = (
-            SELECT id FROM predictions p2 
-            WHERE p2.student_id = sp.user_id 
+            SELECT id FROM predictions p2
+            WHERE p2.student_id = sp.user_id
             ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
         )
         WHERE sp.section IS NOT NULL AND sp.status != 'Archived'
     ";
     $paramsStudents = [];
-    if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = $yearFilter; }
+    if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = (int) $yearFilter; }
     if ($sectionFilter !== '') { $sqlStudents .= " AND sp.section = ?"; $paramsStudents[] = $sectionFilter; }
-    
+
     $stmtStudents = $db->prepare($sqlStudents);
     $stmtStudents->execute($paramsStudents);
     $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
@@ -103,10 +106,10 @@ if ($isCurrentTerm) {
                 'coverage_count' => 0
             ];
         }
-        
+
         $sectionData[$sec]['total']++;
         if ($s['status'] === 'Irregular') $sectionData[$sec]['irregular']++;
-        
+
         if ($s['current_gwa'] !== null && (float)$s['current_gwa'] > 0) {
             $gwaSum += (float)$s['current_gwa'];
             $gwaCount++;
@@ -137,7 +140,7 @@ if ($isCurrentTerm) {
     $meanGwa = $gwaCount > 0 ? $gwaSum / $gwaCount : null;
     $coverageCount = $totalStudents - $riskTotals['NONE'];
     $coveragePct = $totalStudents > 0 ? ($coverageCount / $totalStudents) * 100 : 0.0;
-    
+
     // Accurate At-Risk Denominator: Only count students with predictions
     $atRiskCount = $riskTotals['HIGH'] + $riskTotals['MODERATE'];
     $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0.0;
@@ -161,11 +164,11 @@ if ($isCurrentTerm) {
         WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
     ";
     $paramsSubjects = [$syFilter, $semFilter];
-    
-    if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = $yearFilter; }
+
+    if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = (int) $yearFilter; }
     if ($sectionFilter !== '') { $sqlSubjects .= " AND sp.section = ?"; $paramsSubjects[] = $sectionFilter; }
     if ($subjectFilter !== '') { $sqlSubjects .= " AND s.id = ?"; $paramsSubjects[] = $subjectFilter; }
-    
+
     $stmtSubjects = $db->prepare($sqlSubjects);
     $stmtSubjects->execute($paramsSubjects);
     $rawGrades = $stmtSubjects->fetchAll(PDO::FETCH_ASSOC);
@@ -194,7 +197,7 @@ if ($isCurrentTerm) {
             $val = (float)$r['term_score'];
             $subjectWideStats[$id]['graded']++;
             $subjectWideStats[$id]['raw_sum'] += $val;
-            
+
             $subjectSectionStats[$secKey]['graded']++;
             $subjectSectionStats[$secKey]['raw_sum'] += $val;
 
@@ -208,17 +211,17 @@ if ($isCurrentTerm) {
                     $subjectWideStats[$id]['mod_risk']++;
                     $subjectSectionStats[$secKey]['mod_risk']++;
                 }
-                if ($pt > 0) { 
+                if ($pt > 0) {
                     $subjectWideStats[$id]['passed']++;
                     $subjectSectionStats[$secKey]['passed']++;
                 }
             }
         }
     }
-    
+
     // Sort Subject-Wide by High Risk
     usort($subjectWideStats, fn($a, $b) => $b['high_risk'] <=> $a['high_risk']);
-    
+
     // Sort Subject-Section by Attention Rate (High + Mod / Graded)
     usort($subjectSectionStats, function($a, $b) {
         $rateA = $a['graded'] > 0 ? (($a['high_risk'] + $a['mod_risk']) / $a['graded']) : 0;
@@ -240,10 +243,10 @@ else {
         WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
     ";
     $paramsHistorical = [$syFilter, $semFilter];
-    
-    if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = $yearFilter; }
+
+    if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = (int) $yearFilter; }
     if ($subjectFilter !== '') { $sqlHistorical .= " AND s.id = ?"; $paramsHistorical[] = $subjectFilter; }
-    
+
     $stmtHistorical = $db->prepare($sqlHistorical);
     $stmtHistorical->execute($paramsHistorical);
     $rawHistGrades = $stmtHistorical->fetchAll(PDO::FETCH_ASSOC);
@@ -257,11 +260,11 @@ else {
              $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0];
         }
         $histSubjects[$id]['enrolled']++;
-        
+
         if ($r['final_grade'] !== null && trim($r['final_grade']) !== '') {
             $histSubjects[$id]['graded']++;
             $val = trim(strtoupper($r['final_grade']));
-            
+
             if (in_array($val, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
                 $histSubjects[$id]['failed']++;
             } elseif (is_numeric($val)) {
@@ -269,7 +272,7 @@ else {
                 $histSubjects[$id]['raw_sum'] += $pt;
                 $histGradesSum += $pt;
                 $histGradesCount++;
-                
+
                 if ($pt > 0) { // Correct passing logic
                     $histSubjects[$id]['passed']++;
                     $histPassedCount++;
@@ -280,7 +283,7 @@ else {
         }
     }
     usort($histSubjects, fn($a, $b) => $b['failed'] <=> $a['failed']);
-    
+
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
     $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0.0;
@@ -351,7 +354,7 @@ require_once '../includes/sidebar.php';
 
     <!-- Wired Interactive Filters -->
     <form method="GET" action="analytics.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
-        
+
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Academic Scope</label>
             <div style="display: flex; gap: 8px;">
@@ -377,14 +380,14 @@ require_once '../includes/sidebar.php';
             </select>
         </div>
         <?php endif; ?>
-        
+
         <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
             <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Curriculum Isolation</label>
             <div style="display: flex; gap: 8px;">
                 <select name="year_level" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                     <option value="">All Years</option>
                     <?php foreach($dbYears as $yl): ?>
-                        <option value="<?= htmlspecialchars($yl) ?>" <?= $yearFilter === (string)$yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
+                        <option value="<?= (int) $yl ?>" <?= $yearFilter === (string) $yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <select name="subject_id" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">

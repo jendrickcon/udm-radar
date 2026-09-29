@@ -23,8 +23,12 @@ $lName = $p['last_name'] ?? $user['last_name'] ?? '';
 $displayName = formatNameLastFirst($fName, $p['middle_name'] ?? null, $lName);
 
 // 2. Fetch Current Term Snapshot & Attention Items
-$currentSy = '2026-2027'; // Based on established timeline
-$currentSem = '1';
+// Resolved from the academic calendar rather than a literal, so the snapshot
+// header and the subject rows it describes always refer to the same term the
+// rest of the system is treating as in progress.
+$currentTerm = getCurrentTerm();
+$currentSy = $currentTerm['school_year'];
+$currentSem = (string) $currentTerm['semester'];
 
 $stmtGrades = $db->prepare("
     SELECT g.prelim, g.midterm, g.prefinal, g.final_grade, s.code, s.units

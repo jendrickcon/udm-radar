@@ -8,7 +8,9 @@ define('APP_SUBTITLE', 'Risk Analytics & Decision-support for Academic Records')
 // Base URL — every include/sidebar link and asset path is prefixed with this,
 // so pages work the same whether loaded from /login.php or /student/index.php.
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/capstone/'); // change if your XAMPP folder name differs
+    $scriptDir = isset($_SERVER['SCRIPT_NAME']) ? trim(dirname($_SERVER['SCRIPT_NAME']), '/\\') : '';
+    $firstFolder = explode('/', str_replace('\\', '/', $scriptDir))[0] ?? '';
+    define('BASE_URL', $firstFolder ? '/' . $firstFolder . '/' : '/udm-radar/');
 }
 
 // Latin honor thresholds
@@ -221,8 +223,60 @@ function formatNameShort(string $first, string $last): string {
     return trim($initial . ' ' . $last);
 }
 
+// Canonical enrollment-status vocabulary for student_profiles.status.
+// 'Regular' and 'Irregular' are the two working states; 'Graduated' and
+// 'Archived' exist so a cohort that finishes the curriculum, or a record that
+// is withdrawn from the working population, is represented explicitly instead
+// of being deleted. Every page that filters, labels, or exports a status reads
+// these lists rather than re-typing the string literals, so adding a state
+// later cannot silently diverge between portals.
+//
+// ACTIVE_STUDENT_STATUSES is the set a "current population" query should use;
+// note that 'Graduated' is deliberately excluded there while still being a
+// valid stored status — a graduate is a complete historical record, not a
+// student still being tracked for intervention.
+const STUDENT_STATUSES        = ['Regular', 'Irregular', 'Graduated', 'Archived'];
+const ACTIVE_STUDENT_STATUSES = ['Regular', 'Irregular'];
+
+// Canonical program vocabulary, matching student_profiles.course's enum.
+// The column is a fixed enum, so any value written into it — including a
+// proposed correction — must be checked against this list first.
+const COURSE_PROGRAMS = [
+    'BSIT - Software Development',
+    'BSIT - Data Science',
+    'BSIT - Cyber Security',
+];
+
+function allowedCourses(): array {
+    return COURSE_PROGRAMS;
+}
+
+// Shared ordinal label for a curriculum year (1 -> "1st Year"). Lives here
+// rather than in one admin page so the student directory, the analytics
+// filters, and any export that prints a year level all render it identically.
+function ordinalYearLabel(int|string|null $year): string {
+    return match ((int) $year) {
+        1 => '1st Year',
+        2 => '2nd Year',
+        3 => '3rd Year',
+        4 => '4th Year',
+        default => ($year === null || $year === '' ? '—' : $year . 'th Year'),
+    };
+}
+
+// Curriculum year levels that exist in the BSIT curriculum. Used by analytics
+// filters and section labelling so "year 4" is a known scope rather than an
+// assumption baked into each page.
+const CURRICULUM_YEAR_LEVELS = [1, 2, 3, 4];
+
 // Canonical "what semester is it right now" resolver — UdM's academic
 // calendar: July-December = 1st semester, January-May = 2nd semester.
+//
+// NOTE: the semester label below is the label of the term *containing* the
+// given date. A student's ongoing term is the one they are currently sitting
+// in, so callers that need "the term in progress" (grade encoding, the
+// student home snapshot) must use this rather than hardcoding a school year
+// and semester pair, which silently pins the whole system to one term.
 // June is treated as the tail end of 2nd sem (finals/graduation month).
 // School year label follows the semester that's starting in August, e.g.
 // August 2026 - May 2027 is school_year "2026-2027".

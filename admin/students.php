@@ -47,9 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
         $newStatus  = trim($_POST['edit_status'] ?? 'Regular');
         $propSection = trim($_POST['propose_section'] ?? '');
         $propYear    = trim($_POST['propose_year_level'] ?? '');
+        $propCourse  = trim($_POST['propose_course'] ?? '');
         $reason      = trim($_POST['propose_reason'] ?? '');
 
-        $stmt = $db->prepare("SELECT u.first_name, u.middle_name, u.last_name, sp.section, sp.year_level, sp.status FROM users u JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id = ?");
+        $stmt = $db->prepare("SELECT u.first_name, u.middle_name, u.last_name, sp.section, sp.year_level, sp.status, sp.course FROM users u JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id = ?");
         $stmt->execute([$uid]);
         $old = $stmt->fetch();
 
@@ -65,9 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
 
             $wantsSectionChange = ($propSection !== '' && $propSection !== $old['section']);
             $wantsYearChange    = ($propYear !== '' && (int) $propYear !== (int) $old['year_level']);
+            $wantsCourseChange  = ($propCourse !== '' && $propCourse !== $old['course']);
 
-            if (($wantsSectionChange || $wantsYearChange) && $reason === '') {
-                $error = 'A reason is required to propose a section or year level correction.';
+            if (($wantsSectionChange || $wantsYearChange || $wantsCourseChange) && $reason === '') {
+                $error = 'A reason is required to propose a section, year level, or program correction.';
+            }
+
+            // The program field is a fixed enum, so an unrecognized value is
+            // rejected here rather than allowed to reach the database as a
+            // correction that could never be applied.
+            if (!$error && $wantsCourseChange && !in_array($propCourse, allowedCourses(), true)) {
+                $error = 'Unrecognized program value for the proposed program correction.';
             }
 
             if (!$error) {
@@ -77,6 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
                     $db->prepare("UPDATE student_profiles SET status=? WHERE user_id=?")->execute([$newStatus, $uid]);
 
                     $logStmt = $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value) VALUES (?, 'student', ?, ?, ?, ?)");
+
+                    if ($propCourse !== '' && !in_array($propCourse, allowedCourses(), true)) {
+                        throw new Exception('Unrecognized program value.');
+                    }
                     $changedCount = 0;
                     foreach ($fieldsToCheck as $field => [$oldVal, $newVal]) {
                         if ((string) $oldVal !== (string) $newVal) {
@@ -85,15 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
                         }
                     }
 
+                    // The program is read-only in this form, so it is never
+                    // written here — a change can only ever be proposed and
+                    // applied after Admin confirmation.
+
                     $proposedCount = 0;
                     $propStmt = $db->prepare("INSERT INTO pending_corrections (proposed_by, target_type, target_id, field_changed, old_value, new_value, reason) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    
+
                     if ($wantsSectionChange) {
                         $propStmt->execute([$user['id'], 'student_section', $uid, 'section', $old['section'], $propSection, $reason]);
                         $proposedCount++;
                     }
                     if ($wantsYearChange) {
                         $propStmt->execute([$user['id'], 'student_year_level', $uid, 'year_level', $old['year_level'], $propYear, $reason]);
+                        $proposedCount++;
+                    }
+                    if ($wantsCourseChange) {
+                        $propStmt->execute([$user['id'], 'student_course', $uid, 'course', $old['course'], $propCourse, $reason]);
                         $proposedCount++;
                     }
 
@@ -138,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                 $requiresResolution = false;
                 $studentNo = '';
                 $rawName = '';
-                
+
                 $enrolledSubjects = [];
                 $currentSy = '';
                 $currentSem = 1;
@@ -148,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                     $pefRows = $xlsx->rows($pefIndex);
                     $rawName   = isset($pefRows[9][0]) ? trim($pefRows[9][0]) : '';
                     $studentNo = isset($pefRows[11][0]) ? trim($pefRows[11][0]) : '';
-                    
+
                     if (!$studentNo || !$rawName) {
                         $error = "Upload Rejected: Could not locate Student Anchor Data in PEF sheet.";
                     } else {
@@ -159,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                                 break;
                             }
                         }
-                        
+
                         if ($enrollStartIndex !== -1) {
                             $semStr = isset($pefRows[$enrollStartIndex + 1][0]) ? strtolower(trim((string)$pefRows[$enrollStartIndex + 1][0])) : '';
                             $currentSem = (strpos($semStr, 'second') !== false) ? 2 : 1;
@@ -186,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                     $requiresResolution = true;
                     $ccRows = $xlsx->rows($ccIndex);
                     $rawName = isset($ccRows[0][1]) ? trim((string)$ccRows[0][1]) : '';
-                    
+
                     if (!$rawName) {
                         $error = "Upload Rejected: PEF sheet missing and no Name anchor found in CC!B1.";
                     }
@@ -209,12 +230,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
                     foreach ($ccRows as $row) {
                         $cellA = isset($row[0]) ? trim(strtoupper((string)$row[0])) : '';
                         $cellI = isset($row[8]) ? trim(strtoupper((string)$row[8])) : '';
-                        
+
                         if (strpos($cellA, 'FIRST YEAR') !== false || strpos($cellI, 'FIRST YEAR') !== false) $currentYearLevel = 1;
                         elseif (strpos($cellA, 'SECOND YEAR') !== false || strpos($cellI, 'SECOND YEAR') !== false) $currentYearLevel = 2;
                         elseif (strpos($cellA, 'THIRD YEAR') !== false || strpos($cellI, 'THIRD YEAR') !== false) $currentYearLevel = 3;
                         elseif (strpos($cellA, 'FOURTH YEAR') !== false || strpos($cellI, 'FOURTH YEAR') !== false) $currentYearLevel = 4;
-                        
+
                         if ($currentYearLevel > $maxYearLevel) $maxYearLevel = $currentYearLevel;
 
                         $code1  = isset($row[0]) ? trim((string)$row[0]) : '';
@@ -318,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resol
                 'firstName'  => $resPayload['firstName'],
                 'middleName' => $resPayload['middleName'],
                 'lastName'   => $resPayload['lastName'],
-                'grades'     => $resPayload['grades'], 
+                'grades'     => $resPayload['grades'],
                 'maxYearLevel' => $confirmedYearLevel ?: $resPayload['maxYearLevel'],
                 'enrolled_subjects' => $resPayload['enrolled_subjects'] ?? [],
                 'current_sy' => $resPayload['current_sy'] ?? '',
@@ -351,7 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     $db->prepare("INSERT INTO users (user_id, password_hash, role, first_name, middle_name, last_name) VALUES (?, ?, 'student', ?, ?, ?)")
                        ->execute([$payload['studentNo'], password_hash(LOCKED_PASSWORD, PASSWORD_DEFAULT), $payload['firstName'], $payload['middleName'], $payload['lastName']]);
                     $uid = $db->lastInsertId();
-                    
+
                     $db->prepare("INSERT INTO student_profiles (user_id, student_number, course, year_level, status) VALUES (?, ?, ?, ?, 'Regular')")
                        ->execute([$uid, $payload['studentNo'], LOCKED_COURSE, $payload['maxYearLevel']]);
                 }
@@ -384,10 +405,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     $altCode = $item['altCode'] ?? null;
                     $stmtFindSubj->execute([$item['code'], $altCode]);
                     if ($subj = $stmtFindSubj->fetch()) {
-                        
+
                         $isNum = is_numeric($item['grade']);
                         $finalGrade = $isNum ? (float)$item['grade'] : strtoupper(trim($item['grade']));
-                        
+
                         $riskLevel = null;
                         if ($isNum && function_exists('computeRiskFromAvg')) {
                             $riskLevel = computeRiskFromAvg($finalGrade);
@@ -419,7 +440,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                         }
                     }
                 }
-                
+
                 if (!empty($payload['enrolled_subjects'])) {
                     if (!empty($payload['current_sy']) && !empty($payload['current_sem'])) {
                         $db->prepare("DELETE FROM grades WHERE student_id = ? AND is_current = 1 AND (school_year != ? OR semester != ?)")
@@ -439,7 +460,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                             }
                         }
                     }
-                    
+
                     if (!empty($payload['current_section'])) {
                         $sec = trim($payload['current_section']);
                         if (preg_match('/^IT\s*(\d+)$/i', $sec, $m)) {
@@ -464,20 +485,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 // ---------------------------------------------------------
 
 $students = $db->query("
-    SELECT sp.user_id, sp.student_number, sp.section, sp.year_level, sp.status, sp.current_gwa, 
+    SELECT sp.user_id, sp.student_number, sp.section, sp.course, sp.year_level, sp.status, sp.current_gwa,
            u.first_name, u.middle_name, u.last_name, u.email,
            p.risk_level AS latest_risk,
            asc_case.status AS support_status
-    FROM student_profiles sp 
-    JOIN users u ON u.id = sp.user_id 
+    FROM student_profiles sp
+    JOIN users u ON u.id = sp.user_id
     LEFT JOIN predictions p ON p.id = (
-        SELECT p2.id FROM predictions p2 
-        WHERE p2.student_id = sp.user_id 
+        SELECT p2.id FROM predictions p2
+        WHERE p2.student_id = sp.user_id
         ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
     )
     LEFT JOIN academic_support_cases asc_case ON asc_case.id = (
-        SELECT asc2.id FROM academic_support_cases asc2 
-        WHERE asc2.student_id = sp.user_id 
+        SELECT asc2.id FROM academic_support_cases asc2
+        WHERE asc2.student_id = sp.user_id
         AND asc2.status IN ('needs_review', 'action_taken', 'acknowledged')
         ORDER BY asc2.created_at DESC, asc2.id DESC LIMIT 1
     )
@@ -499,8 +520,8 @@ foreach ($gradeStmt->fetchAll() as $g) {
 }
 
 $predStmt = $db->query("
-    SELECT p1.student_id, p1.predicted_gwa, p1.risk_level, p1.latin_honor 
-    FROM predictions p1 
+    SELECT p1.student_id, p1.predicted_gwa, p1.risk_level, p1.latin_honor
+    FROM predictions p1
     WHERE p1.id = (
         SELECT p2.id FROM predictions p2 WHERE p2.student_id = p1.student_id ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
     )
@@ -510,33 +531,81 @@ foreach ($predStmt->fetchAll() as $p) {
     $predByStudent[$p['student_id']] = $p;
 }
 
+// Label each completed term by the curriculum year its subjects belong to,
+// not by the order the terms happen to appear. The previous version counted
+// school-year keys per student starting at 1st Year, so any student missing an
+// early term — an irregular, transferee, or shifted student — had every later
+// term labelled one or more years too low. Subjects already carry their own
+// year_level, so the label is derived from that instead of inferred.
 $histStmt = $db->query("
-    SELECT g.student_id, g.school_year, g.semester, s.code, s.title, g.final_grade
+    SELECT g.student_id, g.school_year, g.semester, s.code, s.title, s.year_level, g.final_grade
     FROM grades g JOIN subjects s ON s.id = g.subject_id
     WHERE g.is_current = 0 AND g.final_grade IS NOT NULL
     ORDER BY g.student_id, g.school_year ASC, g.semester ASC, s.code
 ");
+
 $tempHistory = [];
 foreach ($histStmt->fetchAll() as $h) {
     $sid = $h['student_id'];
     $sy = $h['school_year'] ?? 'Unknown Year';
     $sem = $h['semester'];
-    $tempHistory[$sid][$sy][$sem][] = ['code' => $h['code'], 'title' => cleanSubjectTitle($h['title']), 'grade' => $h['final_grade']];
+
+    // A subject's year_level is authoritative when present; school_year is a
+    // fallback only for rows that predate the curriculum column being filled in.
+    $curriculumYear = ($h['year_level'] !== null && (int) $h['year_level'] > 0)
+        ? (int) $h['year_level']
+        : 0; // 0 = unknown; labelled from the term's dominant year below
+
+    $tempHistory[$sid][$sy][$sem][$curriculumYear][] = [
+        'code'  => $h['code'],
+        'title' => cleanSubjectTitle($h['title']),
+        'grade' => $h['final_grade'],
+    ];
 }
 
 $historyByStudent = [];
 foreach ($tempHistory as $sid => $years) {
-    $yearLevel = 1;
     foreach ($years as $sy => $sems) {
-        $ordinalYear = ($yearLevel === 1) ? "1st" : (($yearLevel === 2) ? "2nd" : (($yearLevel === 3) ? "3rd" : "4th"));
-        foreach ($sems as $sem => $subjects) {
-            $ordinalSem = ($sem == 1) ? "1st Sem" : ($sem == 2 ? "2nd Sem" : "Unknown Sem");
-            $termKey = "$sy | {$ordinalYear} Year, $ordinalSem";
-            $historyByStudent[$sid][$termKey] = $subjects;
+        // Detect a term the registrar has already recounted for (final grades
+        // are re-encoded at the student's actual year level), so its labels
+        // follow the recorded year rather than the curriculum's nominal one.
+        $termYears = [];
+        foreach ($sems as $subjectsByYear) {
+            foreach ($subjectsByYear as $yl => $subjects) {
+                if ($yl > 0) $termYears[$yl] = true;
+            }
         }
-        $yearLevel++;
+
+        // A term is labelled by the highest curriculum year it contains. In a
+        // normal term that is simply the year every subject belongs to. In a
+        // term where a student is retaking a failed lower-year subject
+        // alongside their current load, the retake sits below the term's real
+        // level, so the highest year is the one that describes the term.
+        // Rows with no curriculum year are folded into whichever level the
+        // term resolves to rather than being dropped or mislabelled as 1st.
+        $termYearLevel = !empty($termYears) ? (int) max(array_keys($termYears)) : 0;
+
+        foreach ($sems as $sem => $subjectsByYear) {
+            $yearLevel = [];
+            foreach ($subjectsByYear as $subjects) {
+                foreach ($subjects as $entry) { $yearLevel[] = $entry; }
+            }
+            if (empty($yearLevel)) continue;
+            if ($termYearLevel === 0) $termYearLevel = 1; // no curriculum year anywhere in this term
+
+            $ordinalYear = match ($termYearLevel) {
+                1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th',
+                default => 'Unmapped',
+            };
+            $ordinalSem = ($sem == 1) ? '1st Sem' : (($sem == 2) ? '2nd Sem' : 'Unknown Sem');
+            $termKey = "$sy | {$ordinalYear} Year, $ordinalSem";
+
+            foreach ($yearLevel as $entry) {
+                $historyByStudent[$sid][$termKey][] = $entry;
+            }
+        }
     }
-    $historyByStudent[$sid] = array_reverse($historyByStudent[$sid], true);
+    krsort($historyByStudent[$sid], SORT_NATURAL);
 }
 
 $modalData = [];
@@ -544,12 +613,12 @@ $stats = ['total' => count($students), 'high' => 0, 'moderate' => 0, 'support' =
 
 foreach ($students as $s) {
     $uid = $s['user_id'];
-    
+
     if ($s['latest_risk'] === 'HIGH') $stats['high']++;
     if ($s['latest_risk'] === 'MODERATE') $stats['moderate']++;
     if ($s['support_status']) $stats['support']++;
     if ($s['support_status'] === 'needs_review') $stats['needs_review']++;
-    
+
     $modalData[$uid] = [
         'name'       => formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']),
         'firstName'  => $s['first_name'],
@@ -558,6 +627,7 @@ foreach ($students as $s) {
         'studentNo'  => $s['student_number'],
         'email'      => $s['email'],
         'section'    => $s['section'],
+        'course'     => $s['course'] ?? '',
         'yearLevel'  => $s['year_level'],
         'status'     => $s['status'],
         'currentGwa' => $s['current_gwa'] !== null ? (float) $s['current_gwa'] : null,
@@ -683,6 +753,12 @@ require_once '../includes/sidebar.php';
         <div class="table-toolbar">
             <input type="text" id="student-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <select id="filter-status" class="filter-dropdown" onchange="currentPage=1; renderPage();">
+                    <option value="">All Statuses</option>
+                    <?php foreach (STUDENT_STATUSES as $statusOption): ?>
+                        <option value="<?= htmlspecialchars($statusOption) ?>"><?= htmlspecialchars($statusOption) ?></option>
+                    <?php endforeach; ?>
+                </select>
                 <select id="filter-risk" class="filter-dropdown" onchange="currentPage=1; renderPage();">
                     <option value="">All Risks</option>
                     <option value="HIGH">High Risk</option>
@@ -704,14 +780,17 @@ require_once '../includes/sidebar.php';
                 </button>
             </div>
         </div>
-        
+
         <div style="overflow-x: auto;">
             <table id="students-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
                 <thead>
                     <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Student No.</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Program</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">GWA</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Latest Risk</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Support Case</th>
@@ -723,11 +802,15 @@ require_once '../includes/sidebar.php';
                         $uid = $s['user_id'];
                         $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
                         $riskVal = $s['latest_risk'] ?? 'N/A';
+                        $statusVal = $s['status'] ?? 'Regular';
                     ?>
-                    <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-support="<?= $s['support_status'] ?? 'None' ?>" onclick="openStudentModal(<?= $uid ?>)" style="border-bottom: 1px solid var(--border-color);">
+                    <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-status="<?= htmlspecialchars($statusVal) ?>" data-support="<?= $s['support_status'] ?? 'None' ?>" onclick="openStudentModal(<?= $uid ?>)" style="border-bottom: 1px solid var(--border-color);">
                         <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['student_number']) ?></td>
                         <td style="padding: 12px; font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
+                        <td style="padding: 12px; color: var(--text-dark); font-size:0.85rem;"><?= htmlspecialchars($s['course'] ?? '—') ?></td>
                         <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
+                        <td style="padding: 12px; color: var(--text-dark);"><?= $s['year_level'] !== null ? htmlspecialchars(ordinalYearLabel($s['year_level'])) : '—' ?></td>
+                        <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($statusVal) ?></td>
                         <td style="padding: 12px; color: var(--text-dark); font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
                         <td style="padding: 12px;"><?= getRiskBadgeHtml($riskVal) ?></td>
                         <td style="padding: 12px;"><?= getSupportBadgeHtml($s['support_status']) ?></td>
@@ -754,12 +837,12 @@ require_once '../includes/sidebar.php';
     <div class="modal-box" style="max-width: 500px;">
         <h2 style="color:var(--text-dark); margin-bottom:4px;">⚠️ Incomplete File Detected</h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">We found grades for <strong><?= htmlspecialchars($resolutionPayload['rawName']) ?></strong>, but the Student ID is missing from the file.</p>
-        
+
         <form method="POST" action="students.php">
             <input type="hidden" name="action" value="resolve_import">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="resolution_payload" value="<?= htmlspecialchars(json_encode($resolutionPayload)) ?>">
-            
+
             <?php if (!empty($matches)): ?>
                 <h4 style="margin-bottom:8px;">Is this one of these students?</h4>
                 <div style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:16px;">
@@ -805,7 +888,7 @@ require_once '../includes/sidebar.php';
         <button class="modal-close" onclick="document.getElementById('import-preview-modal').classList.remove('open');">✕ Cancel</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Review Import Data</h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">Verify the extracted Curriculum Checklist data below.</p>
-        
+
         <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
             <div>
                 <h3 style="color: var(--text-dark); margin:0 0 4px 0;"><?= htmlspecialchars($previewPayload['lastName'] . ', ' . $previewPayload['firstName'] . ' ' . $previewPayload['middleName']) ?></h3>
@@ -841,9 +924,9 @@ require_once '../includes/sidebar.php';
 
                     <?php if (!empty($previewPayload['grades'])): ?>
                         <tr><td colspan="4" style="background: rgba(255,255,255,0.03); padding: 8px 10px; font-size:0.8rem; font-weight:700; color:var(--text-gray); border-bottom: 1px solid var(--border-color);">HISTORICAL GRADES</td></tr>
-                        <?php 
+                        <?php
                         $baseYear = 2000 + (int)substr($previewPayload['studentNo'], 0, 2);
-                        foreach ($previewPayload['grades'] as $g): 
+                        foreach ($previewPayload['grades'] as $g):
                             $schoolYearStart = $baseYear + ($g['year_level'] - 1);
                             $syDisplay = $schoolYearStart . '-' . ($schoolYearStart + 1);
                         ?>
@@ -931,25 +1014,33 @@ require_once '../includes/sidebar.php';
                 <input type="text" name="edit_middle_name" id="edit-middle-name" placeholder="Middle Name" class="form-input">
                 <input type="text" name="edit_last_name" id="edit-last-name" placeholder="Last Name" required class="form-input" style="grid-column:span 2;">
                 <select name="edit_status" id="edit-status" class="form-input" style="grid-column:span 2;">
-                    <option value="Regular">Regular</option>
-                    <option value="Irregular">Irregular</option>
+                    <?php foreach (STUDENT_STATUSES as $statusOption): ?>
+                        <option value="<?= htmlspecialchars($statusOption) ?>"><?= htmlspecialchars($statusOption) ?></option>
+                    <?php endforeach; ?>
                 </select>
             </div>
 
             <div style="background:rgba(217, 119, 6, 0.1); border:1px solid var(--risk-mod); border-radius:8px; padding:14px; margin-bottom:16px;">
-                <p style="font-size:0.8rem; font-weight:700; color:var(--risk-mod); margin-bottom:2px;">Section &amp; Year Level</p>
+                <p style="font-size:0.8rem; font-weight:700; color:var(--risk-mod); margin-bottom:2px;">Program, Section &amp; Year Level</p>
                 <p style="font-size:0.75rem; color:var(--risk-mod); margin-bottom:12px;">Changing these proposes a correction — it will not take effect until confirmed.</p>
 
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:10px;">
                     <input type="text" name="propose_section" id="propose-section" placeholder="Current section" class="form-input">
                     <select name="propose_year_level" id="propose-year-level" class="form-input">
                         <option value="">— No change —</option>
-                        <option value="1">1st Year</option>
-                        <option value="2">2nd Year</option>
-                        <option value="3">3rd Year</option>
-                        <option value="4">4th Year</option>
+                        <?php foreach (CURRICULUM_YEAR_LEVELS as $yrOption): ?>
+                        <option value="<?= $yrOption ?>"><?= htmlspecialchars(ordinalYearLabel($yrOption)) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
+
+                <select name="propose_course" id="propose-course" class="form-input" style="width:100%; margin-bottom:10px;">
+                    <option value="">— No program change —</option>
+                    <?php foreach (allowedCourses() as $courseOption): ?>
+                        <option value="<?= htmlspecialchars($courseOption) ?>"><?= htmlspecialchars($courseOption) ?></option>
+                    <?php endforeach; ?>
+                </select>
+
                 <div id="propose-section-hint" style="font-size: 0.78rem; color: var(--risk-mod); display: none; margin-bottom: 10px;"></div>
                 <input type="text" name="propose_reason" id="propose-reason" placeholder="Reason (required only if proposing a change)" class="form-input" style="width:100%;">
             </div>
@@ -981,13 +1072,15 @@ function applyTableFilter(riskVal, supportVal) {
 function triggerCsvExport() {
     const risk = document.getElementById('filter-risk')?.value || '';
     const support = document.getElementById('filter-support')?.value || '';
+    const status = document.getElementById('filter-status')?.value || '';
     const search = document.getElementById('student-search')?.value.trim() || '';
-    
+
     const params = new URLSearchParams();
     if (risk) params.append('risk', risk);
     if (support) params.append('support', support);
+    if (status) params.append('status', status);
     if (search) params.append('search', search);
-    
+
     window.location.href = 'export_risk_roster.php?' + params.toString();
 }
 
@@ -997,47 +1090,49 @@ function renderPage() {
     const term = document.getElementById('student-search')?.value.trim().toLowerCase() || '';
     const riskFilter = document.getElementById('filter-risk')?.value || '';
     const supportFilter = document.getElementById('filter-support')?.value || '';
-    
+    const statusFilter = document.getElementById('filter-status')?.value || '';
+
     const allRows = Array.from(document.querySelectorAll('#students-tbody tr'));
-    
+
     const visible = allRows.filter(row => {
         const matchSearch = !term || row.dataset.search.includes(term);
         const matchRisk = !riskFilter || row.dataset.risk === riskFilter;
+        const matchStatus = !statusFilter || row.dataset.status === statusFilter;
         let matchSupport = true;
         if (supportFilter === 'active') {
             matchSupport = row.dataset.support === 'needs_review' || row.dataset.support === 'action_taken' || row.dataset.support === 'acknowledged';
         } else if (supportFilter) {
             matchSupport = row.dataset.support === supportFilter;
         }
-        return matchSearch && matchRisk && matchSupport;
+        return matchSearch && matchRisk && matchStatus && matchSupport;
     });
 
     allRows.forEach(r => r.style.display = 'none');
-    
+
     const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
     currentPage = Math.min(currentPage, totalPages);
-    
+
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
 
     const bar = document.getElementById('pagination-bar');
     if (!bar) return;
-    
+
     let html = '';
     html += `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goToPage(${currentPage-1})">‹ Prev</button>`;
-    
+
     let startPage = Math.max(1, currentPage - 2);
     let endPage = Math.min(totalPages, currentPage + 2);
-    
+
     if (startPage > 1) {
         html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
         if (startPage > 2) html += `<span style="color:var(--text-gray); margin: 0 4px;">...</span>`;
     }
-    
+
     for (let p = startPage; p <= endPage; p++) {
         html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
     }
-    
+
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) html += `<span style="color:var(--text-gray); margin: 0 4px;">...</span>`;
         html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
@@ -1045,7 +1140,7 @@ function renderPage() {
 
     html += `<button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goToPage(${currentPage+1})">Next ›</button>`;
     html += `<span style="color:var(--text-gray); font-size:0.8rem; margin-left:10px;">Showing ${visible.length} results</span>`;
-    
+
     bar.innerHTML = html;
 }
 function goToPage(p) { currentPage = p; renderPage(); }
@@ -1056,12 +1151,12 @@ let currentModalUid = null;
 function openStudentModal(uid) {
     const d = studentModalData[uid];
     if (!d) return;
-    currentModalUid = uid; 
+    currentModalUid = uid;
     document.getElementById('modal-name').innerText = d.name;
     document.getElementById('modal-subline').innerText = `${d.studentNo} · ${d.section || '—'} · Year ${d.yearLevel || '—'} · ${d.status || 'Regular'}`;
     document.getElementById('modal-gwa').innerText = d.currentGwa !== null ? d.currentGwa.toFixed(2) : '—';
     document.getElementById('modal-predicted').innerText = d.predicted !== null ? parseFloat(d.predicted).toFixed(2) : 'N/A';
-    
+
     const riskEl = document.getElementById('modal-risk');
     if (d.risk === 'HIGH') {
         riskEl.innerText = 'HIGH';
@@ -1076,7 +1171,7 @@ function openStudentModal(uid) {
         riskEl.innerText = 'No Data';
         riskEl.style.color = 'var(--text-gray)';
     }
-    
+
     const formatPct = (val) => val !== null && val !== undefined ? Math.round(parseFloat(val)) + '%' : '—';
     const formatFin = (val) => val !== null && val !== undefined ? parseFloat(val).toFixed(2) : '<span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>';
 
@@ -1085,11 +1180,11 @@ function openStudentModal(uid) {
         let numericMidterm = formatPct(g.midterm);
         let numericPrefinal = formatPct(g.prefinal);
         let finalGradeDisplay = formatFin(g.finalGrade);
-        
+
         let badgeColor = g.risk === 'HIGH' ? 'var(--risk-high)' : (g.risk === 'MODERATE' ? 'var(--risk-mod)' : (g.risk === 'LOW' ? 'var(--risk-low)' : 'var(--border-color)'));
         let badgeText = g.risk === 'HIGH' || g.risk === 'MODERATE' || g.risk === 'LOW' ? g.risk : 'N/A';
         let badgeTextColor = badgeText === 'N/A' ? 'var(--text-gray)' : 'white';
-        
+
         return `<tr style="border-bottom: 1px solid var(--border-color);">
             <td style="color: var(--text-dark); padding: 8px;">${g.title}</td>
             <td style="font-weight:600; color: var(--text-dark); padding: 8px; text-align: center;">${numericPrelim}</td>
@@ -1099,7 +1194,7 @@ function openStudentModal(uid) {
             <td style="padding: 8px; text-align: center;"><span style="background:${badgeColor}; color:${badgeTextColor}; padding:4px 10px; border-radius:4px; font-size:0.72rem; font-weight:700;">${badgeText}</span></td>
         </tr>`;
     }).join('') : '<tr><td colspan="6" style="text-align:center; color:var(--text-gray); padding:16px;">No current grades encoded yet.</td></tr>';
-    
+
     document.getElementById('modal-history-wrapper').style.maxHeight = '0px';
     document.getElementById('modal-history-container').innerHTML = '';
     document.getElementById('modal-history-toggle').innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History';
@@ -1110,7 +1205,7 @@ function toggleHistory() {
     const wrapper = document.getElementById('modal-history-wrapper');
     const container = document.getElementById('modal-history-container');
     const btn = document.getElementById('modal-history-toggle');
-    
+
     if (wrapper.style.maxHeight && wrapper.style.maxHeight !== '0px') {
         wrapper.style.maxHeight = '0px';
         btn.innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History';
@@ -1138,6 +1233,7 @@ function openEditModal(uid) {
     document.getElementById('edit-status').value = d.status || 'Regular';
     document.getElementById('propose-section').value = d.section || '';
     document.getElementById('propose-year-level').value = '';
+    document.getElementById('propose-course').value = '';
     document.getElementById('propose-reason').value = '';
     document.getElementById('edit-modal-overlay').classList.add('open');
 }
