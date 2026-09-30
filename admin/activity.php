@@ -114,15 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
                     $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)")->execute([$user['id'], $logTargetId, $column, $corr['old_value'], $corr['new_value'], 'Confirmed correction']);
 
-                    // A confirmed year-level or program change invalidates the
-                    // student's cumulative GWA context (a shifted or
-                    // transferred student's curriculum placement is no longer
-                    // the one the stored average was computed against), so the
-                    // derived value is recomputed from the grade rows instead
-                    // of being left as a stale hand-set number.
-                    if (isset($studentFieldMap[$corr['target_type']])) {
-                        recalculateStudentGwa($db, (int) $corr['target_id']);
-                    }
                     if (!empty($corr['feedback_id'])) {
                         $stmtOld = $db->prepare("SELECT status FROM feedback_reports WHERE id = ?"); $stmtOld->execute([$corr['feedback_id']]); $oldStatus = $stmtOld->fetchColumn() ?: 'awaiting_admin';
                         $db->prepare("UPDATE feedback_reports SET status = 'resolved', resolved_by = ?, resolved_at = NOW() WHERE id = ?")->execute([$user['id'], $corr['feedback_id']]);

@@ -86,7 +86,8 @@ $distinctions = [
 $chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
 $subjectWideStats = []; $subjectSectionStats = []; $histSubjects = [];
 $totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0;
-$histPassedCount = 0; $histTotalGradedCount = 0; $overallHistPassRate = 0.0;
+$histPassedCount = 0; $histFailedCount = 0; $histDroppedCount = 0; $histTotalGradedCount = 0; $histRecognizedOutcomeCount = 0;
+$overallHistPassRate = null;
 
 // ---------------------------------------------------------
 // MODE A: CURRENT TERM ANALYTICS (Progress & Predictions)
@@ -286,38 +287,84 @@ else {
         $histStudents[$r['student_id']] = true;
         $id = $r['id'];
         if (!isset($histSubjects[$id])) {
-             $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0, 'numeric_count' => 0];
+             $histSubjects[$id] = [
+                 'code' => $r['code'],
+                 'title' => $r['title'],
+                 'enrolled' => 0,
+                 'graded' => 0,
+                 'raw_sum' => 0.0,
+                 'numeric_count' => 0,
+                 'numeric_pass_count' => 0,
+                 'nonnumeric_pass_count' => 0,
+                 'failing_count' => 0,
+                 'dropped_count' => 0,
+                 'missing_or_invalid_count' => 0,
+                 'recognized_outcome_count' => 0,
+                 'passed' => 0,
+                 'failed' => 0,
+             ];
         }
         $histSubjects[$id]['enrolled']++;
 
-        if ($r['final_grade'] !== null && trim((string)$r['final_grade']) !== '') {
-            $canon = canonicalizeFinalGrade($r['final_grade']);
-            if ($canon !== null) {
-                $histSubjects[$id]['graded']++;
-                $histTotalGradedCount++;
+        $rawGrade = $r['final_grade'];
+        if ($rawGrade === null || trim((string)$rawGrade) === '') {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
 
-                if (isNumericFinalGrade($canon)) {
-                    $pt = (float)$canon;
-                    $histSubjects[$id]['raw_sum'] += $pt;
-                    $histSubjects[$id]['numeric_count']++;
-                    $histGradesSum += $pt;
-                    $histGradesCount++;
-                }
+        $canon = canonicalizeFinalGrade($rawGrade);
+        if ($canon === null) {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
 
-                if (isPassingFinalGrade($canon)) {
-                    $histSubjects[$id]['passed']++;
-                    $histPassedCount++;
-                } elseif (isFailingFinalGrade($canon)) {
-                    $histSubjects[$id]['failed']++;
-                }
+        if ($canon === 'DRP') {
+            $histSubjects[$id]['dropped_count']++;
+            $histSubjects[$id]['graded']++;
+            $histDroppedCount++;
+            $histTotalGradedCount++;
+            continue;
+        }
+
+        // Recognized pass/fail outcome
+        $histSubjects[$id]['graded']++;
+        $histTotalGradedCount++;
+
+        if (isNumericFinalGrade($canon)) {
+            $pt = (float)$canon;
+            $histSubjects[$id]['raw_sum'] += $pt;
+            $histSubjects[$id]['numeric_count']++;
+            $histGradesSum += $pt;
+            $histGradesCount++;
+
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['numeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
+                $histSubjects[$id]['failed']++;
+                $histFailedCount++;
+            }
+        } else {
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['nonnumeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
+                $histSubjects[$id]['failed']++;
+                $histFailedCount++;
             }
         }
+        $histSubjects[$id]['recognized_outcome_count'] = $histSubjects[$id]['passed'] + $histSubjects[$id]['failed'];
     }
     usort($histSubjects, fn($a, $b) => $b['failed'] <=> $a['failed']);
 
+    $histRecognizedOutcomeCount = $histPassedCount + $histFailedCount;
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
-    $overallHistPassRate = $histTotalGradedCount > 0 ? ($histPassedCount / $histTotalGradedCount) * 100 : 0.0;
+    $overallHistPassRate = $histRecognizedOutcomeCount > 0 ? ($histPassedCount / $histRecognizedOutcomeCount) * 100 : null;
 }
 
 $pageTitle = 'Program Analytics';
@@ -714,7 +761,7 @@ require_once '../includes/sidebar.php';
             </div>
             <div class="stat-card" style="border-left-color: var(--text-gray);">
                 <h4>Overall Pass Rate</h4>
-                <h2 style="color: var(--text-dark);"><?= number_format($overallHistPassRate, 1) ?>%</h2>
+                <h2 style="color: var(--text-dark);"><?= $overallHistPassRate !== null ? number_format($overallHistPassRate, 1) . '%' : 'N/A' ?></h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= $histPassedCount ?> passing grades recorded</p>
             </div>
         </div>
@@ -745,7 +792,7 @@ require_once '../includes/sidebar.php';
                     <tbody>
                         <?php foreach ($histSubjects as $id => $s): 
                             $meanGrade = ($s['numeric_count'] ?? $s['graded']) > 0 ? number_format($s['raw_sum'] / ($s['numeric_count'] ?? $s['graded']), 2) : '—';
-                            $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : '—';
+                            $passRate = $s['recognized_outcome_count'] > 0 ? number_format(($s['passed'] / $s['recognized_outcome_count']) * 100, 1) . '%' : '—';
                             $completeness = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">

@@ -239,6 +239,111 @@ foreach (['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', 'PASSED', '0.00', null, 'xy
     assertEqual(isExcludedFromGwa($ex), true, "isExcludedFromGwa(" . var_export($ex, true) . ") = true");
 }
 
+// -------------------------------------------------------------------------
+// 9. Historical Pass-Rate Outcome Buckets & Denominator Verification
+// -------------------------------------------------------------------------
+echo "\n=== 9. Historical Pass-Rate Outcome Buckets & Denominator Verification ===\n";
+
+function computeHistoricalSubjectAnalytics(array $gradeEntries): array {
+    $stats = [
+        'enrolled' => count($gradeEntries),
+        'graded' => 0,
+        'raw_sum' => 0.0,
+        'numeric_count' => 0,
+        'numeric_pass_count' => 0,
+        'nonnumeric_pass_count' => 0,
+        'failing_count' => 0,
+        'dropped_count' => 0,
+        'missing_or_invalid_count' => 0,
+        'recognized_outcome_count' => 0,
+        'passed' => 0,
+        'failed' => 0,
+        'mean_grade' => null,
+        'pass_rate' => null,
+    ];
+
+    foreach ($gradeEntries as $rawGrade) {
+        if ($rawGrade === null || trim((string)$rawGrade) === '') {
+            $stats['missing_or_invalid_count']++;
+            continue;
+        }
+        $canon = canonicalizeFinalGrade($rawGrade);
+        if ($canon === null) {
+            $stats['missing_or_invalid_count']++;
+            continue;
+        }
+        if ($canon === 'DRP') {
+            $stats['dropped_count']++;
+            $stats['graded']++;
+            continue;
+        }
+
+        $stats['graded']++;
+        if (isNumericFinalGrade($canon)) {
+            $pt = (float)$canon;
+            $stats['raw_sum'] += $pt;
+            $stats['numeric_count']++;
+            if (isPassingFinalGrade($canon)) {
+                $stats['numeric_pass_count']++;
+                $stats['passed']++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $stats['failing_count']++;
+                $stats['failed']++;
+            }
+        } else {
+            if (isPassingFinalGrade($canon)) {
+                $stats['nonnumeric_pass_count']++;
+                $stats['passed']++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $stats['failing_count']++;
+                $stats['failed']++;
+            }
+        }
+    }
+    $stats['recognized_outcome_count'] = $stats['passed'] + $stats['failed'];
+    $stats['mean_grade'] = $stats['numeric_count'] > 0 ? round($stats['raw_sum'] / $stats['numeric_count'], 2) : null;
+    $stats['pass_rate'] = $stats['recognized_outcome_count'] > 0 
+        ? round(($stats['passed'] / $stats['recognized_outcome_count']) * 100, 2) 
+        : null;
+
+    return $stats;
+}
+
+// Scenario A: 8 passes, 1 failure, 1 DRP -> 8 / 9 = 88.89% (not 8 / 10 = 80.00%)
+$resA = computeHistoricalSubjectAnalytics(['2.00', '2.25', '2.50', '2.75', '3.00', '3.25', '3.50', '3.75', '1.50', 'DRP']);
+assertEqual($resA['passed'], 8, "Scenario A: 8 passes");
+assertEqual($resA['failed'], 1, "Scenario A: 1 failure (1.50)");
+assertEqual($resA['dropped_count'], 1, "Scenario A: 1 DRP");
+assertEqual($resA['recognized_outcome_count'], 9, "Scenario A: recognized_outcome_count = 9 (DRP excluded from denominator)");
+assertFloatEqual($resA['pass_rate'] ?? 0.0, 88.89, "Scenario A: Pass rate = 88.89% (not 80.00%)");
+
+// Scenario B: 1 P, 1 numeric pass, 1 numeric failure -> 2 / 3 = 66.67%
+$resB = computeHistoricalSubjectAnalytics(['P', '2.50', '1.25']);
+assertEqual($resB['nonnumeric_pass_count'], 1, "Scenario B: 1 non-numeric pass (P)");
+assertEqual($resB['numeric_pass_count'], 1, "Scenario B: 1 numeric pass (2.50)");
+assertEqual($resB['passed'], 2, "Scenario B: 2 total passes");
+assertEqual($resB['failed'], 1, "Scenario B: 1 failure (1.25)");
+assertEqual($resB['recognized_outcome_count'], 3, "Scenario B: recognized_outcome_count = 3");
+assertFloatEqual($resB['pass_rate'] ?? 0.0, 66.67, "Scenario B: Pass rate = 66.67%");
+assertEqual($resB['numeric_count'], 2, "Scenario B: numeric_count = 2 (P excluded from numeric mean)");
+assertFloatEqual($resB['mean_grade'] ?? 0.0, 1.88, "Scenario B: Mean grade = (2.50 + 1.25)/2 = 1.88");
+
+// Scenario C: 1 DRP only -> N/A or null, not 0%
+$resC = computeHistoricalSubjectAnalytics(['DRP']);
+assertEqual($resC['dropped_count'], 1, "Scenario C: 1 DRP");
+assertEqual($resC['passed'], 0, "Scenario C: 0 passes");
+assertEqual($resC['failed'], 0, "Scenario C: 0 failures");
+assertEqual($resC['recognized_outcome_count'], 0, "Scenario C: recognized_outcome_count = 0");
+assertNullValue($resC['pass_rate'], "Scenario C: Pass rate is null/NA, not 0%");
+
+// Scenario D: 1 unknown value and 1 pass -> 100%, with invalid reported separately
+$resD = computeHistoricalSubjectAnalytics(['invalid_code_xyz', '3.00']);
+assertEqual($resD['missing_or_invalid_count'], 1, "Scenario D: 1 invalid outcome");
+assertEqual($resD['passed'], 1, "Scenario D: 1 pass");
+assertEqual($resD['failed'], 0, "Scenario D: 0 failures");
+assertEqual($resD['recognized_outcome_count'], 1, "Scenario D: recognized_outcome_count = 1");
+assertFloatEqual($resD['pass_rate'] ?? 0.0, 100.00, "Scenario D: Pass rate = 100%");
+
 echo "\n========================================================================\n";
 echo "SUMMARY: Ran $testsRun tests, $failures failures.\n";
 echo "========================================================================\n";
