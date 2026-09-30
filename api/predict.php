@@ -76,9 +76,7 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     $failedSemesters = []; 
 
     foreach ($pastRecords as $row) {
-        $gStr = strtoupper(trim((string)$row['final_grade']));
-        // FIXED: Count textual statuses AND explicitly failing numerical grades (< 1.75)
-        if (in_array($gStr, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD']) || (is_numeric($gStr) && (float)$gStr > 0 && (float)$gStr < 1.75)) {
+        if (isFailingFinalGrade($row['final_grade'])) {
             $failedCount++;
             $failedSemesters[] = $row['school_year'] . '_' . $row['semester'];
         }

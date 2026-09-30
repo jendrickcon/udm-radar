@@ -110,12 +110,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
                 foreach ($newGrades as $studentId => $gradeVal) {
                     $gradeVal = trim((string)$gradeVal);
                     if ($gradeVal !== '') {
-                        $gradeValUpper = strtoupper($gradeVal);
-                        $isValid = in_array($gradeValUpper, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD']) || (is_numeric($gradeVal) && (float)$gradeVal >= 0 && (float)$gradeVal <= 100);
-                        if (!$isValid) {
+                        if (!isValidTermPercentage($gradeVal)) {
                             $error = "Invalid grade format entered: '{$gradeVal}'."; break;
                         }
-                        
+                        $gradeValUpper = strtoupper($gradeVal);
+                        if ($gradeValUpper === 'PASSED') $gradeValUpper = 'P';
                         $gradeVal = is_numeric($gradeVal) ? $gradeVal : $gradeValUpper;
                         $oldGrade = $currentGrades[$studentId] ?? null;
                         $isUpdate = ($oldGrade !== null && $oldGrade !== '');

@@ -63,7 +63,8 @@ foreach ($currentGrades as $g) {
         elseif ($g['midterm'] !== null) { $latest = $g['midterm']; $latestSource = 'term_pct'; }
         else { $latest = $g['prelim']; $latestSource = 'term_pct'; }
 
-        if (in_array(strtoupper(trim((string)$latest)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+        $latestStr = trim((string)$latest);
+        if (in_array(strtoupper($latestStr), FINAL_GRADE_FAILING_STATUSES, true) || in_array($latestStr, LEGACY_FINAL_GRADE_VALUES, true)) {
             $attentionSubjects++;
         } elseif ($latestSource === 'final_grade') {
             // Already point-scale — evaluate directly, no conversion.

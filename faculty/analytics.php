@@ -215,9 +215,9 @@ require_once '../includes/sidebar.php';
                             
                             <?php foreach($risk_students as $stu): 
                                 $s_col = $stu['risk_level'] === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
-                                $valDisp = $stu['latest_type'] === 'final_grade' && in_array(strtoupper(trim($stu['latest_raw'])), ['INC', 'DO', 'DU', 'FA', 'UD']) 
-                                           ? strtoupper(trim($stu['latest_raw'])) 
-                                           : ($stu['latest_type'] === 'final_grade' ? number_format((float)$stu['latest_raw'], 2) : round((float)$stu['latest_raw']) . '%');
+                                $valDisp = $stu['latest_type'] === 'final_grade' 
+                                           ? formatFinalGrade($stu['latest_raw']) 
+                                           : round((float)$stu['latest_raw']) . '%';
                             ?>
                             <div class="risk-student-grid" style="padding: 12px 14px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
                                 <div class="student-identity">

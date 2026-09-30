@@ -23,13 +23,8 @@ $resolutionPayload = null;
 $matches = [];
 
 // --- STRICT OFFICIAL FINAL GRADE VALIDATION ---
-function isValidOfficialFinalGrade($val) {
-    if ($val === null || trim((string)$val) === '') return false;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return true;
-    if (!is_numeric($val)) return false;
-    $f = (float)$val;
-    return in_array($f, [4.00, 3.75, 3.50, 3.25, 3.00, 2.75, 2.50, 2.25, 2.00, 1.75, 1.50, 1.25, 1.00, 0.00], true);
+function isValidOfficialFinalGrade($val): bool {
+    return isValidFinalGradeEntry($val);
 }
 
 // ---------------------------------------------------------
@@ -436,14 +431,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     $stmtFindSubj->execute([$item['code'], $altCode]);
                     if ($subj = $stmtFindSubj->fetch()) {
 
-                        $isNum = is_numeric($item['grade']);
-                        $finalGrade = $isNum ? (float)$item['grade'] : strtoupper(trim($item['grade']));
+                        $normGrade = normalizeFinalGradeInput($item['grade']);
+                        if ($normGrade === null) continue; // Skip invalid or legacy 0.00 entries on write
+                        $finalGrade = $normGrade;
 
                         $riskLevel = null;
-                        if ($isNum && function_exists('computeRiskFromAvg')) {
-                            $riskLevel = computeRiskFromAvg($finalGrade);
-                        } elseif (in_array($finalGrade, ['INC', 'DO', 'DU', 'FA', 'UD'])) {
+                        if (isFailingFinalGrade($finalGrade)) {
                             $riskLevel = 'HIGH';
+                        } elseif (isNumericFinalGrade($finalGrade) && function_exists('computeRiskFromAvg')) {
+                            $riskLevel = computeRiskFromAvg((float)$finalGrade);
                         }
 
                         $stmtCheckCurrentGrade->execute([$uid, $subj['id']]);
@@ -544,7 +540,7 @@ foreach ($gradeStmt->fetchAll() as $g) {
         'prelim'     => $g['prelim'] !== null && trim((string)$g['prelim']) !== '' ? (float) $g['prelim'] : null,
         'midterm'    => $g['midterm'] !== null && trim((string)$g['midterm']) !== '' ? (float) $g['midterm'] : null,
         'prefinal'   => $g['prefinal'] !== null && trim((string)$g['prefinal']) !== '' ? (float) $g['prefinal'] : null,
-        'finalGrade' => $g['final_grade'] !== null && trim((string)$g['final_grade']) !== '' ? $g['final_grade'] : null,
+        'finalGrade' => $g['final_grade'] !== null && trim((string)$g['final_grade']) !== '' ? formatFinalGrade($g['final_grade']) : null,
         'risk'       => $g['risk_level']
     ];
 }
@@ -589,7 +585,7 @@ foreach ($histStmt->fetchAll() as $h) {
     $tempHistory[$sid][$sy][$sem][$curriculumYear][] = [
         'code'  => $h['code'],
         'title' => cleanSubjectTitle($h['title']),
-        'grade' => $h['final_grade'],
+        'grade' => formatFinalGrade($h['final_grade']),
     ];
 }
 
@@ -978,7 +974,7 @@ require_once '../includes/sidebar.php';
         </div>
 
         <form method="POST" action="students.php" style="display: flex; flex-direction: column; gap: 12px;">
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin: 0; text-align: right;">Final grades use the official 0.00–4.00 point scale.</p>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin: 0; text-align: right;">Final grades use the official 1.00–4.00 point scale or valid status.</p>
             <div style="display: flex; justify-content: flex-end; gap: 12px;">
                 <input type="hidden" name="action" value="confirm_import">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">

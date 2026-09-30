@@ -68,7 +68,7 @@ foreach ($myLoads as $load) {
             $overallEncoded++;
 
             if ($latestType === 'final_grade') {
-                if (in_array(strtoupper(trim((string)$latestVal)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                if (in_array(strtoupper(trim((string)$latestVal)), FINAL_GRADE_FAILING_STATUSES, true) || in_array(trim((string)$latestVal), LEGACY_FINAL_GRADE_VALUES, true)) {
                     $classAttention++;
                     $overallAttention++;
                 } else {
@@ -192,7 +192,7 @@ if ($subjFilter && $secFilter) {
                 
                 if ($dbCol === 'final_grade') {
                     $val = trim(strtoupper($g[$dbCol]));
-                    if (in_array($val, ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                    if (in_array($val, FINAL_GRADE_FAILING_STATUSES, true) || in_array($val, LEGACY_FINAL_GRADE_VALUES, true)) {
                         $riskMovement[$pName]['HIGH']++;
                         continue;
                     }

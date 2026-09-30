@@ -147,7 +147,7 @@ if ($isCurrentTerm) {
             $histSubjects[$id]['graded']++;
             $val = trim(strtoupper($r['final_grade']));
 
-            if (in_array($val, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
+            if (in_array($val, FINAL_GRADE_FAILING_STATUSES, true) || in_array($val, LEGACY_FINAL_GRADE_VALUES, true)) {
                 $histSubjects[$id]['failed']++;
             } elseif (is_numeric($val)) {
                 $pt = (float)$val;

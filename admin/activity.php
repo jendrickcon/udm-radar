@@ -11,21 +11,12 @@ if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_byt
 $error = ''; $success = '';
 
 // --- ADMIN VALIDATION HELPER ---
-function validateAdminGrade($termType, $val) {
+function validateAdminGrade($termType, $val): bool {
     if ($val === null || trim((string)$val) === '') return true;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
-        if (is_numeric($val)) { $f = (float)$val; if ($f >= 0 && $f <= 100) return true; }
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) return true;
-        return false;
+    if (in_array($termType, ['prelim', 'midterm', 'prefinal'], true)) {
+        return isValidTermPercentage($val);
     } elseif ($termType === 'final_grade') {
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) return true;
-        if (is_numeric($val)) {
-            $f = (float)$val; $formatted = number_format($f, 2);
-            $validPoints = ['4.00','3.75','3.50','3.25','3.00','2.75','2.50','2.25','2.00','1.75','1.50','1.25','1.00'];
-            if (in_array($formatted, $validPoints, true)) return true;
-        }
-        return false;
+        return isValidFinalGradeEntry($val);
     }
     return false;
 }
@@ -42,8 +33,8 @@ function recalculateGradeRowRisk($db, $gradeId) {
     if ($latestVal !== null) {
         $valStr = strtoupper(trim((string)$latestVal));
         if ($latestType === 'final_grade') {
-            if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return 'HIGH';
-            if (is_numeric($latestVal)) return computeRiskFromAvg((float)$latestVal);
+            if (isFailingFinalGrade($latestVal)) return 'HIGH';
+            if (isNumericFinalGrade($latestVal)) return computeRiskFromAvg((float)$latestVal);
         } else {
             if (is_numeric($latestVal)) {
                 $pt = normalizeTermGrade((float)$latestVal);
@@ -61,7 +52,7 @@ function recalculateStudentGWA($db, $studentId) {
     $sum = 0; $count = 0;
     foreach ($grades as $g) {
         $valStr = strtoupper(trim((string)$g));
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) continue;
+        if (in_array($valStr, FINAL_GRADE_STATUSES, true)) continue;
         if (is_numeric($g)) { $sum += (float)$g; $count++; }
     }
     $gwa = $count > 0 ? round($sum / $count, 2) : null;
@@ -126,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } elseif ($corr['target_type'] === 'grade') {
                         if (!in_array($column, $allowedTerms)) throw new Exception("Invalid grading period.");
                         if (!validateAdminGrade($column, $corr['new_value'])) throw new Exception("Validation Error.");
-                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$corr['new_value'], $corr['target_id']]);
+                        $valToStore = $column === 'final_grade' ? normalizeFinalGradeInput($corr['new_value']) : $corr['new_value'];
+                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$valToStore, $corr['target_id']]);
                         $logTargetId = $db->query("SELECT student_id FROM grades WHERE id = " . (int)$corr['target_id'])->fetchColumn() ?: $corr['target_id'];
                     }
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
@@ -180,9 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sid = (int)$item['student_id'];
                         $facultyProposed = $item['grade'];
                         $reason = $item['reason'];
-                        $finalGrade = trim($approvedGrades[$sid] ?? $facultyProposed);
-                        
-                        if (!validateAdminGrade($termType, $finalGrade)) throw new Exception("Validation Error: Invalid value '{$finalGrade}' for student #{$sid}.");
+                        $rawProposed = trim($approvedGrades[$sid] ?? $facultyProposed);
+                        if (!validateAdminGrade($termType, $rawProposed)) throw new Exception("Validation Error: Invalid value '{$rawProposed}' for student #{$sid}.");
+                        $finalGrade = $termType === 'final_grade' ? (normalizeFinalGradeInput($rawProposed) ?? $rawProposed) : $rawProposed;
 
                         $getGradeStmt->execute([$sid, $batch['subject_id']]);
                         $gradeRow = $getGradeStmt->fetch();

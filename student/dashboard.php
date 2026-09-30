@@ -204,11 +204,11 @@ $honor_color = match ($display_honor) {
     default            => 'var(--text-gray)',
 };
 
-$valid_grades = [4.00, 3.75, 3.50, 3.25, 3.00, 2.75, 2.50, 2.25, 2.00, 1.75, 1.50, 1.25, 1.00];
+$valid_grades = FINAL_GRADE_POINTS;
 function renderTargetOptions($valid_grades) {
     $html = '<option value="">—</option>';
     foreach ($valid_grades as $g) {
-        $valStr = number_format($g, 2);
+        $valStr = formatFinalGrade($g);
         $html .= "<option value=\"$valStr\">$valStr</option>";
     }
     return $html;

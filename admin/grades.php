@@ -13,26 +13,12 @@ if (empty($_SESSION['csrf_token'])) {
 $error = '';
 
 // --- ADMIN VALIDATION & RECALCULATION HELPERS ---
-function validateAdminGrade($termType, $val) {
+function validateAdminGrade($termType, $val): bool {
     if ($val === null || trim((string)$val) === '') return true;
-    $valStr = strtoupper(trim((string)$val));
-    
-    if (in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
-        if (is_numeric($val)) {
-            $f = (float)$val;
-            if ($f >= 0 && $f <= 100) return true;
-        }
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) return true;
-        return false;
+    if (in_array($termType, ['prelim', 'midterm', 'prefinal'], true)) {
+        return isValidTermPercentage($val);
     } elseif ($termType === 'final_grade') {
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) return true;
-        if (is_numeric($val)) {
-            $f = (float)$val;
-            $formatted = number_format($f, 2);
-            $validPoints = ['4.00','3.75','3.50','3.25','3.00','2.75','2.50','2.25','2.00','1.75','1.50','1.25','1.00'];
-            if (in_array($formatted, $validPoints, true)) return true;
-        }
-        return false;
+        return isValidFinalGradeEntry($val);
     }
     return false;
 }
@@ -50,8 +36,8 @@ function recalculateGradeRowRisk($db, $gradeId) {
     if ($latestVal !== null) {
         $valStr = strtoupper(trim((string)$latestVal));
         if ($latestType === 'final_grade') {
-            if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return 'HIGH';
-            if (is_numeric($latestVal)) return computeRiskFromAvg((float)$latestVal);
+            if (isFailingFinalGrade($latestVal)) return 'HIGH';
+            if (isNumericFinalGrade($latestVal)) return computeRiskFromAvg((float)$latestVal);
         } else {
             if (is_numeric($latestVal)) {
                 $pt = normalizeTermGrade((float)$latestVal);
@@ -70,7 +56,7 @@ function recalculateStudentGWA($db, $studentId) {
     $sum = 0; $count = 0;
     foreach ($grades as $g) {
         $valStr = strtoupper(trim((string)$g));
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) continue;
+        if (in_array($valStr, FINAL_GRADE_STATUSES, true)) continue;
         if (is_numeric($g)) {
             $sum += (float)$g;
             $count++;
@@ -101,11 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propo
             if (!$old) {
                 $error = 'Grade record not found.';
             } else {
+                $rawFinal = $_POST['edit_final'] !== '' ? trim($_POST['edit_final']) : null;
+                $normFinal = $rawFinal !== null ? normalizeFinalGradeInput($rawFinal) : null;
                 $fields = [
                     'prelim'      => $_POST['edit_prelim']   !== '' ? $_POST['edit_prelim']   : null,
                     'midterm'     => $_POST['edit_midterm']  !== '' ? $_POST['edit_midterm']  : null,
                     'prefinal'    => $_POST['edit_prefinal'] !== '' ? $_POST['edit_prefinal'] : null,
-                    'final_grade' => $_POST['edit_final']    !== '' ? $_POST['edit_final']    : null,
+                    'final_grade' => $normFinal !== null ? $normFinal : $rawFinal,
                 ];
                 
                 // FIXED: Validation of Admin Proposals BEFORE entering the database
@@ -179,7 +167,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                     throw new Exception("Validation Error: Invalid value '{$newVal}'. Percentages must be 0-100; Final Grades must use the 1.00-4.00 scale or valid status.");
                 }
 
-                $db->prepare("UPDATE grades SET `$field` = ? WHERE id = ?")->execute([$newVal, $corr['target_id']]);
+                $valToStore = $field === 'final_grade' ? normalizeFinalGradeInput($newVal) : $newVal;
+                $db->prepare("UPDATE grades SET `$field` = ? WHERE id = ?")->execute([$valToStore, $corr['target_id']]);
                 
                 // FIXED: Safely recalculate risk based on the latest available term for this row
                 $newRisk = recalculateGradeRowRisk($db, $corr['target_id']);
