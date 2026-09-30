@@ -1,73 +1,121 @@
-# python_ml/decision_tree.py
-#
-# This module's only job is to turn the 4 input features into a predicted
-# numeric final GWA. It deliberately does NOT compute risk_level or
-# latin_honor — those are rule-based derivations of a GWA number, and
-# config/constants.php (computeRiskFromAvg(), getLatinHonor()) is the single
-# source of truth for those thresholds. 
+# python_ml/train_model.py
 import os
+import json
 import pickle
+import numpy as np
 import pandas as pd
+from datetime import datetime
+from sklearn.tree import DecisionTreeRegressor, export_text
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model.pkl')
+BASE_DIR = os.path.dirname(__file__)
+MODEL_PATH = os.path.join(BASE_DIR, 'model.pkl')
+DATA_PATH = os.path.join(BASE_DIR, 'training_data.csv')
+METRICS_PATH = os.path.join(BASE_DIR, 'model_metrics.json')
 
-# FIXED: Explicitly named "point_avg" to prevent percentage vs decimal confusion
-FEATURE_COLS = ['historical_gwa', 'current_prelim_point_avg', 'failed_subjects_count', 'irregular_semesters']
+FEATURE_COLS = ['historical_gwa', 'current_prelim_avg', 'failed_subjects_count', 'irregular_semesters']
 
-def extract_features(grade_data: dict) -> pd.DataFrame:
-    # FIXED: Throw explicit errors if core predictive features are missing entirely
-    if 'historical_gwa' not in grade_data or 'current_prelim_point_avg' not in grade_data:
-        raise ValueError("Missing critical academic data required for prediction (historical_gwa or current_prelim_point_avg).")
+def load_or_generate_dataset() -> pd.DataFrame:
+    """Loads existing training_data.csv or generates synthetic baseline if not present."""
+    if os.path.exists(DATA_PATH):
+        df = pd.read_csv(DATA_PATH)
+        # Harmonize column names if current_prelim_point_avg is used
+        if 'current_prelim_point_avg' in df.columns and 'current_prelim_avg' not in df.columns:
+            df['current_prelim_avg'] = df['current_prelim_point_avg']
+        elif 'current_prelim_avg' in df.columns and 'current_prelim_point_avg' not in df.columns:
+            df['current_prelim_point_avg'] = df['current_prelim_avg']
+        print(f"[+] Loaded existing training dataset: {DATA_PATH} ({len(df)} records)")
+        return df
 
-    return pd.DataFrame([{
-        'historical_gwa': float(grade_data.get('historical_gwa', 0)),
-        'current_prelim_point_avg': float(grade_data.get('current_prelim_point_avg', 0)),
-        'failed_subjects_count': int(grade_data.get('failed_subjects_count', 0)),
-        'irregular_semesters': int(grade_data.get('irregular_semesters', 0)),
-    }], columns=FEATURE_COLS)
+    print(f"[-] {DATA_PATH} not found. Generating synthetic baseline dataset...")
+    np.random.seed(42)
+    num_samples = 200
 
-def predict(grade_data: dict) -> dict:
-    """Returns {'predicted_gwa': float, 'source': 'decision_tree' | 'fallback_blend'}.
-    """
-    try:
-        hist_gwa = float(grade_data.get('historical_gwa', 0))
-        prelim   = float(grade_data.get('current_prelim_point_avg', 0))
-    except (TypeError, ValueError):
-        return {'error': 'Invalid numeric format for grading inputs'}
+    hist_gwa = np.random.uniform(1.25, 3.75, num_samples)
+    prelim_avg = np.clip(hist_gwa + np.random.normal(0, 0.35, num_samples), 1.0, 4.0)
+    failed_count = np.random.choice([0, 1, 2, 3, 4], size=num_samples, p=[0.70, 0.15, 0.08, 0.05, 0.02])
+    irregular_sem = np.where(failed_count > 0, np.random.choice([1, 2, 3], size=num_samples), 0)
 
-    if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) == 0:
-        return _fallback_predict(hist_gwa, prelim)
+    # Realistic continuous final GWA with non-linear penalties and natural variance
+    noise = np.random.normal(0, 0.18, num_samples)
+    final_gwa = (hist_gwa * 0.65) + (prelim_avg * 0.35) - (failed_count * 0.06) - (irregular_sem * 0.04) + noise
+    final_gwa = np.clip(final_gwa, 1.00, 4.00)
 
-    try:
-        with open(MODEL_PATH, 'rb') as f:
-            model = pickle.load(f)
-    except (EOFError, pickle.UnpicklingError):
-        return _fallback_predict(hist_gwa, prelim)
+    risk_labels = np.where(final_gwa < 1.75, 'HIGH', np.where(final_gwa < 2.50, 'MODERATE', 'LOW'))
 
-    try:
-        features = extract_features(grade_data)
-        pred_gwa = float(model.predict(features)[0])
-        # Clamp bounds strictly between highest and lowest possible grades
-        pred_gwa = max(1.00, min(4.00, pred_gwa))
+    df = pd.DataFrame({
+        'historical_gwa': np.round(hist_gwa, 2),
+        'current_prelim_avg': np.round(prelim_avg, 2),
+        'current_prelim_point_avg': np.round(prelim_avg, 2),
+        'failed_subjects_count': failed_count,
+        'irregular_semesters': irregular_sem,
+        'final_gwa': np.round(final_gwa, 2),
+        'risk_level': risk_labels
+    })
+    df.to_csv(DATA_PATH, index=False)
+    print(f"[*] Generated baseline dataset at: {DATA_PATH} ({num_samples} records)")
+    return df
 
-        return {
-            'predicted_gwa': round(pred_gwa, 2),
-            'source': 'decision_tree',
-        }
-    except Exception as e:
-        # If extraction or prediction fails, safely fallback
-        return _fallback_predict(hist_gwa, prelim)
+def train():
+    df = load_or_generate_dataset()
 
-def _fallback_predict(hist_gwa: float, prelim: float) -> dict:
-    # Safely guard against zero division or missing baseline data
-    if hist_gwa <= 0:
-        hist_gwa = prelim
-    if prelim <= 0:
-        prelim = hist_gwa
-        
-    pred_gwa = round((hist_gwa * 0.70) + (prelim * 0.30), 2)
-    pred_gwa = max(1.00, min(4.00, pred_gwa))
-    return {
-        'predicted_gwa': pred_gwa,
-        'source': 'fallback_blend',
+    if 'final_gwa' not in df.columns:
+        raise SystemExit("[-] Error: 'final_gwa' target column is missing from training data.")
+
+    # Harmonize column names
+    if 'current_prelim_avg' not in df.columns and 'current_prelim_point_avg' in df.columns:
+        df['current_prelim_avg'] = df['current_prelim_point_avg']
+
+    X = df[FEATURE_COLS]
+    y = df['final_gwa']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+
+    reg = DecisionTreeRegressor(
+        criterion='squared_error',
+        max_depth=4,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        random_state=42
+    )
+    reg.fit(X_train, y_train)
+
+    y_pred = reg.predict(X_test)
+    y_pred = [max(1.00, min(4.00, p)) for p in y_pred]
+
+    mae = float(mean_absolute_error(y_test, y_pred))
+    rmse = float(mean_squared_error(y_test, y_pred) ** 0.5)
+    r2 = float(r2_score(y_test, y_pred))
+
+    print("\n" + "="*50)
+    print("DECISION TREE REGRESSOR EVALUATION METRICS")
+    print("="*50)
+    print(f"Mean Absolute Error (MAE):      {mae:.4f} (GWA scale 1.00 - 4.00)")
+    print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+    print(f"R-Squared (R2 Score):           {r2:.4f}")
+
+    print("\nDecision Tree Rules:")
+    print(export_text(reg, feature_names=FEATURE_COLS))
+
+    # Serialize trained model artifact
+    with open(MODEL_PATH, 'wb') as f:
+        pickle.dump(reg, f)
+    print(f"[+] Serialized model successfully saved to: {MODEL_PATH}")
+
+    # Save metrics record
+    metrics = {
+        'mae': round(mae, 4),
+        'rmse': round(rmse, 4),
+        'r2': round(r2, 4),
+        'dataset_size': len(df),
+        'is_synthetic': True,
+        'trained_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'features': FEATURE_COLS
     }
+    with open(METRICS_PATH, 'w') as f:
+        json.dump(metrics, f, indent=2)
+    print(f"[+] Model metrics saved to: {METRICS_PATH}")
+
+if __name__ == '__main__':
+    train()

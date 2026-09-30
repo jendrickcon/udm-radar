@@ -18,9 +18,10 @@ FEATURE_COLS = ['historical_gwa', 'current_prelim_avg', 'failed_subjects_count',
 def extract_features(grade_data: dict) -> pd.DataFrame:
     # A one-row DataFrame with the training-time column names/order, so the
     # model doesn't warn about (or silently mis-align) unnamed feature columns.
+    prelim = grade_data.get('current_prelim_point_avg', grade_data.get('current_prelim_avg', 0))
     return pd.DataFrame([{
         'historical_gwa': float(grade_data.get('historical_gwa', 0)),
-        'current_prelim_avg': float(grade_data.get('current_prelim_avg', 0)),
+        'current_prelim_avg': float(prelim),
         'failed_subjects_count': int(grade_data.get('failed_subjects_count', 0)),
         'irregular_semesters': int(grade_data.get('irregular_semesters', 0)),
     }], columns=FEATURE_COLS)
@@ -33,7 +34,7 @@ def predict(grade_data: dict) -> dict:
     hard-fails just because model.pkl hasn't been generated.
     """
     hist_gwa = float(grade_data.get('historical_gwa', 0))
-    prelim   = float(grade_data.get('current_prelim_avg', 0))
+    prelim   = float(grade_data.get('current_prelim_point_avg', grade_data.get('current_prelim_avg', 0)))
 
     if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) == 0:
         return _fallback_predict(hist_gwa, prelim)
