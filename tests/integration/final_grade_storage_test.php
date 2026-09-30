@@ -69,7 +69,7 @@ echo "========================================================================\n
 // -------------------------------------------------------------------------
 echo "=== 1. Column Metadata in information_schema ===\n";
 $stmtCol = $db->prepare("
-    SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+    SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_COMMENT
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grades' AND COLUMN_NAME = 'final_grade'
 ");
@@ -79,20 +79,22 @@ $colMeta = $stmtCol->fetch();
 assertEqual($colMeta['DATA_TYPE'] ?? '', 'varchar', "final_grade DATA_TYPE is varchar");
 assertEqual((int)($colMeta['CHARACTER_MAXIMUM_LENGTH'] ?? 0), 10, "final_grade length is 10");
 assertEqual($colMeta['IS_NULLABLE'] ?? '', 'YES', "final_grade IS_NULLABLE is YES");
+assertEqual($colMeta['COLUMN_COMMENT'] ?? '', "Mixed point (4.00-1.00), textual status (INC, DRP, P, DO, DU, FA, UD), legacy 0.00, or NULL if in-progress", "final_grade column comment is descriptive");
 
 // -------------------------------------------------------------------------
 // 2. CHECK Constraint Verification
 // -------------------------------------------------------------------------
 echo "\n=== 2. CHECK Constraint in information_schema ===\n";
 $stmtChk = $db->prepare("
-    SELECT CONSTRAINT_NAME
+    SELECT CONSTRAINT_NAME, CHECK_CLAUSE
     FROM information_schema.CHECK_CONSTRAINTS
     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'grades' AND CONSTRAINT_NAME = 'chk_grades_final_grade_domain'
 ");
 $stmtChk->execute();
-$chkName = $stmtChk->fetchColumn();
+$chkRow = $stmtChk->fetch();
 
-assertEqual($chkName, 'chk_grades_final_grade_domain', "Constraint chk_grades_final_grade_domain exists");
+assertEqual($chkRow['CONSTRAINT_NAME'] ?? '', 'chk_grades_final_grade_domain', "Constraint chk_grades_final_grade_domain exists");
+assertTrue(str_contains(strtolower($chkRow['CHECK_CLAUSE'] ?? ''), 'binary'), "Constraint uses binary exact comparison");
 
 // -------------------------------------------------------------------------
 // 3. Valid Values Persistence (Textual Statuses & Numeric Points)
@@ -165,19 +167,40 @@ try {
 }
 
 // -------------------------------------------------------------------------
-// 5. Invalid Values Rejection by CHECK Constraint
+// 5. Invalid Values Rejection by CHECK Constraint (Hardened Noncanonical Variants)
 // -------------------------------------------------------------------------
-echo "\n=== 5. CHECK Constraint Rejection of Invalid Values ===\n";
+echo "\n=== 5. CHECK Constraint Rejection of Noncanonical Variants ===\n";
 
 $invalidValues = [
-    '5.00',
-    '3.60',
+    // Lowercase / mixed-case statuses (must be strictly uppercase)
+    'inc',
+    'Inc',
+    'drp',
+    'p',
+    'do',
+    'du',
+    'fa',
+    'ud',
+    // Aliases & unauthorized statuses
     'PASSED',
     'FAIL',
     'abc',
+    // Leading / trailing space padding
+    ' INC',
+    'INC ',
+    'P ',
+    '3.50 ',
+    // Alternate numeric formatting
+    '3.5',
+    '01.00',
+    '+1.00',
+    '75',
+    '5.00',
+    '3.60',
+    // Empty & whitespace
     '',
     '   ',
-    '75',
+    // Overflow
     'TOOLONGVALUE123',
 ];
 
