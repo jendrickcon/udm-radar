@@ -467,6 +467,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                     }
                 }
 
+                // Automatically refresh official cumulative GWA after historical grade modifications
+                recalculateStudentGwa($db, (int) $uid);
+
                 if (!empty($payload['enrolled_subjects'])) {
                     if (!empty($payload['current_sy']) && !empty($payload['current_sem'])) {
                         $db->prepare("DELETE FROM grades WHERE student_id = ? AND is_current = 1 AND (school_year != ? OR semester != ?)")

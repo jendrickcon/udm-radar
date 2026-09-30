@@ -17,19 +17,8 @@ $stmtProf = $db->prepare("
 $stmtProf->execute([$user['id']]);
 $profile = $stmtProf->fetch();
 
-$stmtHist = $db->prepare("
-    SELECT g.final_grade, s.units
-    FROM grades g
-    JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 0 AND g.final_grade IS NOT NULL
-");
-$stmtHist->execute([$user['id']]);
-$historical_rows = array_map(
-    fn($r) => ['grade' => $r['final_grade'], 'units' => (int) $r['units']],
-    $stmtHist->fetchAll()
-);
-$historical_gwa = computeWeightedGWA($historical_rows); 
-$current_gwa = $historical_gwa ?? (float) ($profile['current_gwa'] ?? 0);
+$current_gwa = computeStudentGwa($db, $user['id']);
+$historical_gwa = $current_gwa;
 
 // --- Fetch ML Prediction from Database ---
 $stmtPred = $db->prepare("

@@ -347,30 +347,72 @@ function getRiskColor(string $risk): string {
 
 
 // Canonical GWA math — UdM uses CREDIT-UNIT-WEIGHTED averages, not simple
-// averages. A 1-unit UID subject and a 3-unit ITE subject do NOT count
-// equally toward GWA. Every page that aggregates grades across more than
-// one subject must go through this instead of AVG().
-// $rows: array of ['grade' => float|string, 'units' => int]
-//
-// $r['grade'] may be a special academic status (INC, DO, DU, FA, UD) instead
-// of a numeric point grade — these are not zero and must not be averaged in
-// as zero. Casting them with (float) silently turns them into 0.00, which
-// then drags down GWA and can push computeRiskFromAvg() into HIGH for a
-// subject that isn't actually graded yet. Skip them entirely, the same way
-// a null grade is already skipped, rather than let them corrupt the average.
+/**
+ * Canonical GWA math — UdM uses CREDIT-UNIT-WEIGHTED averages, not simple averages.
+ * Formula: sum(Final Grade Point * Subject Units) / sum(Subject Units).
+ * 
+ * Inclusion/Exclusion Rules:
+ * - Included: Canonical numeric point grades 1.00 - 4.00 (including failing points 1.00, 1.25, 1.50).
+ * - Excluded: Non-numeric statuses (INC, DRP, P, DO, DU, FA, UD, PASSED), legacy 0.00, null, blanks.
+ * - Missing/non-positive units are safely ignored.
+ * - Returns null if total valid units is 0.
+ *
+ * @param array<int, array{grade: mixed, units: mixed}> $rows
+ */
 function computeWeightedGWA(array $rows): ?float {
     $totalPoints = 0.0;
     $totalUnits  = 0;
     foreach ($rows as $r) {
-        if ($r['grade'] === null || $r['units'] === null) continue;
-        $gradeStr = strtoupper(trim((string) $r['grade']));
-        if (in_array($gradeStr, FINAL_GRADE_FAILING_STATUSES, true)) continue;
-        if (!is_numeric($gradeStr)) continue; // defensive: skip anything else non-numeric too
-        $totalPoints += (float) $gradeStr * (int) $r['units'];
-        $totalUnits  += (int) $r['units'];
+        if (!isset($r['grade'], $r['units']) || $r['grade'] === null || $r['units'] === null) {
+            continue;
+        }
+        $units = is_numeric($r['units']) ? (int) $r['units'] : 0;
+        if ($units <= 0) {
+            continue;
+        }
+        if (isExcludedFromGwa($r['grade'])) {
+            continue;
+        }
+        if (!isNumericFinalGrade($r['grade'])) {
+            continue;
+        }
+        $pt = (float) canonicalizeFinalGrade($r['grade']);
+        $totalPoints += $pt * $units;
+        $totalUnits  += $units;
     }
-    if ($totalUnits === 0) return null;
+    if ($totalUnits === 0) {
+        return null;
+    }
     return round($totalPoints / $totalUnits, 2);
+}
+
+/**
+ * Computes official cumulative unit-weighted GWA for a single student from database historical records.
+ * Queries completed terms (is_current = 0) and applies canonical credit-unit weighting.
+ */
+function computeStudentGwa(PDO $db, int $studentId): ?float {
+    $stmt = $db->prepare("
+        SELECT g.final_grade AS grade, s.units
+        FROM grades g
+        JOIN subjects s ON s.id = g.subject_id
+        WHERE g.student_id = ?
+          AND g.is_current = 0
+          AND g.final_grade IS NOT NULL
+    ");
+    $stmt->execute([$studentId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return computeWeightedGWA($rows);
+}
+
+/**
+ * Recalculates and persists official cumulative GWA to student_profiles.current_gwa.
+ * Returns the computed GWA (or null if no valid historical grades exist).
+ */
+function recalculateStudentGwa(PDO $db, int $studentId): ?float {
+    $gwa = computeStudentGwa($db, $studentId);
+    $stmt = $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?");
+    $stmt->execute([$gwa, $studentId]);
+    return $gwa;
 }
 
 // Canonical risk-level thresholds, 1.0(worst)-4.0(best) scale.

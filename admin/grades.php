@@ -48,23 +48,6 @@ function recalculateGradeRowRisk($db, $gradeId) {
     return null;
 }
 
-function recalculateStudentGWA($db, $studentId) {
-    $stmt = $db->prepare("SELECT final_grade FROM grades WHERE student_id = ? AND final_grade IS NOT NULL AND final_grade != ''");
-    $stmt->execute([$studentId]);
-    $grades = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    $sum = 0; $count = 0;
-    foreach ($grades as $g) {
-        $valStr = strtoupper(trim((string)$g));
-        if (in_array($valStr, FINAL_GRADE_STATUSES, true)) continue;
-        if (is_numeric($g)) {
-            $sum += (float)$g;
-            $count++;
-        }
-    }
-    $gwa = $count > 0 ? round($sum / $count, 2) : null;
-    $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?")->execute([$gwa, $studentId]);
-}
 // ------------------------------------------------
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'propose_grade') {
@@ -176,8 +159,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                     $db->prepare("UPDATE grades SET risk_level = ? WHERE id = ?")->execute([$newRisk, $corr['target_id']]);
                 }
 
-                // FIXED: Automatically calculate new GWA and mark prediction slate
-                recalculateStudentGWA($db, $gradeRow['student_id']);
+                // Automatically calculate new GWA only when final_grade is modified
+                if ($field === 'final_grade') {
+                    recalculateStudentGwa($db, (int) $gradeRow['student_id']);
+                }
                 $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$gradeRow['student_id']]);
 
                 $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")

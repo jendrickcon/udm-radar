@@ -15,19 +15,7 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     }
 
     // 1. Calculate Historical GWA using official Unit-Weighted formula
-    $stmtHist = $db->prepare("
-        SELECT g.final_grade, s.units 
-        FROM grades g
-        JOIN subjects s ON s.id = g.subject_id
-        WHERE g.student_id = ? AND g.is_current = 0 AND g.final_grade IS NOT NULL
-    ");
-    $stmtHist->execute([$studentId]);
-    $historical_rows = array_map(
-        // FIXED: Do not cast to float here! Preserves "INC", "DO", "DU" so computeWeightedGWA can filter them out safely
-        fn($r) => ['grade' => $r['final_grade'], 'units' => (int) $r['units']],
-        $stmtHist->fetchAll()
-    );
-    $historicalGwa = computeWeightedGWA($historical_rows); 
+    $historicalGwa = computeStudentGwa($db, $studentId); 
 
     // 2. Calculate Current Prelim GWA using official Unit-Weighted formula
     $stmtCurr = $db->prepare("

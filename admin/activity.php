@@ -45,19 +45,6 @@ function recalculateGradeRowRisk($db, $gradeId) {
     return null;
 }
 
-function recalculateStudentGWA($db, $studentId) {
-    $stmt = $db->prepare("SELECT final_grade FROM grades WHERE student_id = ? AND final_grade IS NOT NULL AND final_grade != ''");
-    $stmt->execute([$studentId]);
-    $grades = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    $sum = 0; $count = 0;
-    foreach ($grades as $g) {
-        $valStr = strtoupper(trim((string)$g));
-        if (in_array($valStr, FINAL_GRADE_STATUSES, true)) continue;
-        if (is_numeric($g)) { $sum += (float)$g; $count++; }
-    }
-    $gwa = $count > 0 ? round($sum / $count, 2) : null;
-    $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?")->execute([$gwa, $studentId]);
-}
 // ------------------------------------------------
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -120,6 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $valToStore = $column === 'final_grade' ? normalizeFinalGradeInput($corr['new_value']) : $corr['new_value'];
                         $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$valToStore, $corr['target_id']]);
                         $logTargetId = $db->query("SELECT student_id FROM grades WHERE id = " . (int)$corr['target_id'])->fetchColumn() ?: $corr['target_id'];
+                        if ($column === 'final_grade' && $logTargetId) {
+                            recalculateStudentGwa($db, (int) $logTargetId);
+                        }
                     }
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
                     $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)")->execute([$user['id'], $logTargetId, $column, $corr['old_value'], $corr['new_value'], 'Confirmed correction']);
@@ -131,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // derived value is recomputed from the grade rows instead
                     // of being left as a stale hand-set number.
                     if (isset($studentFieldMap[$corr['target_type']])) {
-                        recalculateStudentGWA($db, (int) $corr['target_id']);
+                        recalculateStudentGwa($db, (int) $corr['target_id']);
                     }
                     if (!empty($corr['feedback_id'])) {
                         $stmtOld = $db->prepare("SELECT status FROM feedback_reports WHERE id = ?"); $stmtOld->execute([$corr['feedback_id']]); $oldStatus = $stmtOld->fetchColumn() ?: 'awaiting_admin';
@@ -188,7 +178,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             // 2. Recalculate Risk & GWA, delete old predictions
                             $newRisk = recalculateGradeRowRisk($db, $gradeRow['id']);
                             $updateRiskStmt->execute([$newRisk, $gradeRow['id']]);
-                            recalculateStudentGWA($db, $sid);
+                            if ($termType === 'final_grade') {
+                                recalculateStudentGwa($db, $sid);
+                            }
                             $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$sid]);
                             
                             // 3. Log the change to the System Audit Log
