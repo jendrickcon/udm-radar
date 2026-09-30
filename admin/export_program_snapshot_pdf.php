@@ -18,7 +18,7 @@ $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
 $params = [];
-$whereClause = "WHERE sp.status != 'Archived'";
+$whereClause = "WHERE sp.record_status = 'Active'";
 
 if ($yearFilter !== '') {
     $whereClause .= " AND sp.year_level = ?";

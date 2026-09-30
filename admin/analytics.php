@@ -102,7 +102,7 @@ if ($isCurrentTerm) {
             WHERE p2.student_id = sp.user_id
             ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
         )
-        WHERE sp.section IS NOT NULL AND sp.status != 'Archived'
+        WHERE sp.section IS NOT NULL AND sp.record_status = 'Active'
     ";
     $paramsStudents = [];
     if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = (int) $yearFilter; }
@@ -190,7 +190,7 @@ if ($isCurrentTerm) {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
     ";
     $paramsSubjects = [$syFilter, $semFilter];
 
@@ -269,7 +269,7 @@ else {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
     ";
     $paramsHistorical = [$syFilter, $semFilter];
 

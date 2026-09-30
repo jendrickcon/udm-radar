@@ -59,7 +59,7 @@ try {
     $stmt = $db->query("
         SELECT u.id FROM users u
         JOIN student_profiles sp ON u.id = sp.user_id
-        WHERE u.role = 'student' AND sp.status != 'Archived' AND u.is_active = 1
+        WHERE u.role = 'student' AND sp.record_status = 'Active' AND u.is_active = 1
     ");
     $students = $stmt->fetchAll(PDO::FETCH_COLUMN);
 

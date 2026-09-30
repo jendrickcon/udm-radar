@@ -24,14 +24,14 @@ $lastRunText = $latestPredQuery ? date('F j, Y \a\t g:i A', strtotime($latestPre
 $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
-// FIXED: Exclude Archived students from filter dropdowns
-$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles WHERE status != 'Archived' ORDER BY year_level")->fetchAll(), 'year_level');
+// FIXED: Exclude Archived/Graduated students from filter dropdowns
+$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles WHERE record_status = 'Active' ORDER BY year_level")->fetchAll(), 'year_level');
 
 if ($yearFilter !== '') {
-    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND status != 'Archived' AND year_level = ? ORDER BY section");
+    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND record_status = 'Active' AND year_level = ? ORDER BY section");
     $sectionsStmt->execute([$yearFilter]);
 } else {
-    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND status != 'Archived' ORDER BY section");
+    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND record_status = 'Active' ORDER BY section");
 }
 $sections = array_column($sectionsStmt->fetchAll(), 'section');
 
@@ -52,7 +52,7 @@ $sql = "
         ORDER BY p2.generated_at DESC, p2.id DESC
         LIMIT 1
     )
-    WHERE sp.status != 'Archived'
+    WHERE sp.record_status = 'Active'
 ";
 $params = [];
 if ($yearFilter !== '')    { $sql .= " AND sp.year_level = ?"; $params[] = $yearFilter; }

@@ -228,7 +228,7 @@ $sections = $db->query("
     FROM student_profiles sp
     LEFT JOIN predictions p ON p.student_id = sp.user_id
         AND p.generated_at = (SELECT MAX(p2.generated_at) FROM predictions p2 WHERE p2.student_id = sp.user_id)
-    WHERE sp.section IS NOT NULL AND sp.section != '' AND sp.status != 'Archived'
+    WHERE sp.section IS NOT NULL AND sp.section != '' AND sp.record_status = 'Active'
     GROUP BY sp.section
     ORDER BY sp.section
 ")->fetchAll();
