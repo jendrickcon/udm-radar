@@ -1,0 +1,281 @@
+# UDM-RADAR: Comprehensive Repository Audit & 5-Cohort Longitudinal Architecture
+
+**Project**: Universidad de Manila — Risk Analytics & Decision-support for Academic Records (UDM-RADAR)  
+**Live Temporal Anchor**: School Year 2026–2027, First Semester (1st Sem)  
+**Evaluation Scope**: Capstone Prototype Demonstration on Synthetic Longitudinal Data  
+**Document Version**: 2.0.0 (Post-Audit Synthesis)
+
+---
+
+## 1. Executive Summary & Context
+
+### 1.1 Institutional Context & Adviser Authorization
+During early system design, the research team planned to validate the predictive engine using historical academic records from the Universidad de Manila (UDM) Registrar. However, the Registrar determined that student grade histories constitute sensitive, private personal information under data privacy regulations and denied institutional data access. 
+
+The Capstone Adviser subsequently authorized the team to proceed with **synthetic (mock) academic records**. This decision maintains the complete operational viability of the UDM-RADAR platform—including Student, Faculty, and Admin portals, grade encoding and approvals, academic support case management, and administrative audit trails.
+
+### 1.2 Core Research Delimitation
+> [!IMPORTANT]
+> **Prototype Evaluation vs. Validated Real-World Predictive Accuracy**  
+> Synthetic data generation allows rigorous functional testing, workflow validation, edge-case resilience verification, and proof-of-concept machine learning prototyping. However, **synthetic records cannot establish real-world predictive validity for actual UDM students**. Any model trained on synthetic data learns the generative rules and statistical distributions introduced by the generator. All capstone documentation, presentation decks, and user interfaces must explicitly label predictive outputs as:  
+> `Prototype performance on synthetic academic records` *(never "Validated Institutional Predictions")*.
+
+### 1.3 Purpose of the 5-Cohort Expansion
+The existing database contains approximately 291 student accounts, of which 288 belong exclusively to 3rd-year sections `IT-31` through `IT-38` (Cohort 2024). Years 1 and 2 are completely absent, and Year 4 contains only 3 static records. 
+
+Expanding the synthetic environment to **5 longitudinal cohorts across Years 1 to 4 (Cohorts 2022–2026)** accomplishes key academic and technical goals:
+1. **Curricular Topology Demonstration**: Spans all 58 BSIT subjects across all 8 semesters.
+2. **Repeated Subject Offerings**: Demonstrates that the analytics module (`admin/analytics.php`) can track subject performance profiles across multiple academic years.
+3. **Multi-Horizon Prediction Testing**:
+   - **Freshmen (Cohort 2026)**: Evaluates the zero-history boundary ("Insufficient Academic Data" / fallback heuristic).
+   - **Sophomores (Cohort 2025)**: Evaluates early-warning predictions with 1 year of historical GWA.
+   - **Juniors (Cohort 2024)**: Evaluates mid-program projections with 2 years of historical GWA.
+   - **Seniors (Cohort 2023)**: Evaluates graduation readiness and isolates Capstone/OJT special requirements.
+   - **Graduated Baseline (Cohort 2022)**: Establishes a completed 4-year ground truth for historical comparison.
+4. **Non-Trivial Machine Learning**: Eliminates single-batch overfitting and avoids synthetic formulas that make prediction artificially trivial.
+
+---
+
+## 2. Environment & System Setup Verification
+
+In accordance with [SETUP.md](file:///C:/xampp/htdocs/udm-radar/SETUP.md) and [CONTRIBUTING.md](file:///C:/xampp/htdocs/udm-radar/CONTRIBUTING.md), the local development environment has been audited, repaired, and verified:
+
+```mermaid
+flowchart LR
+    A["PHP 8.2 & Apache (Port 80)"] -->|DB Connection| B[("MariaDB udm_radar (3306)")]
+    A -->|cURL JSON Bridge| C["Flask ML Service (Port 5000)"]
+    C -->|Loads Artifact| D["DecisionTreeRegressor (model.pkl)"]
+    A -->|Dompdf Rendering| E["PDF / CSV Reporting Engine"]
+```
+
+| Component | Target Requirement | Live State | Verification Result |
+| :--- | :--- | :--- | :--- |
+| **PHP Runtime** | PHP 8.2 (XAMPP) | PHP 8.2.12 | **PASS**: Executable in `C:\xampp\php\php.exe` |
+| **`php.ini` Settings** | `gd`, `zip`, `pdo_mysql`, `mbstring` | `gd` & `zip` un-commented; `pdo_mysql` active | **PASS**: Verified via CLI runtime check |
+| **Timezone** | `Asia/Manila` (PST, UTC+8) | Previously `Europe/Berlin`, corrected to `Asia/Manila` | **PASS**: Synchronized across PHP and MySQL |
+| **Memory Limit** | Min 256M for Dompdf | `512M` | **PASS**: Sufficient for multi-page PDF generation |
+| **Database** | MariaDB 10.4.32 | 17 core tables + `export_audit_logs` | **PASS**: Clean import of latest schema dump |
+| **Schema Integrity** | Discrete points / text statuses | `grades.final_grade` VARCHAR(10) | **PASS**: Prevents `INC`/`DO`/`DU` coercion to `0.00` |
+| **Composer / PDF** | Dompdf 3.1.6 | `vendor/autoload.php` present | **PASS**: Autoloader verified and active |
+| **Python ML Env** | Python 3.14 + venv | `python_ml/venv` with scikit-learn, pandas, flask | **PASS**: Flask daemon active on port 5000 (`/health` OK) |
+| **Syntax Audit** | Zero lint/parse errors | 48 project PHP files checked via `php -l` | **PASS**: 100% syntax compliance across codebase |
+
+---
+
+## 3. Codebase Architecture & Workflow Audit
+
+### 3.1 Academic Rules & Grading Conventions ([`config/constants.php`](file:///C:/xampp/htdocs/udm-radar/config/constants.php))
+- **Scale Definition**: UdM operates on a $1.00$ (Passing / $75\%$) to $4.00$ (Excellent / $99\text{--}100\%$) scale. Grades below $1.75$ are considered high risk / failing.
+- **Term Grades vs. Final Grade**:
+  - Preliminary, Midterm, and Pre-Final are strictly raw percentages ($0\text{--}100$).
+  - Final Grade is either an official point grade ($4.00, 3.75, \dots, 1.00$) or an authorized institutional status (`INC`, `DO`, `DU`, `DRP`, `PASSED`).
+- **Official Computation**:
+  $$\text{Final Percentage} = (\text{Prelim} \times 0.30) + (\text{Midterm} \times 0.30) + (\text{Pre-Final} \times 0.40)$$
+  Converted to point grade via `convertPercentageToPoint()`.
+- **Weighted GWA Calculation**:
+  $$\text{GWA} = \frac{\sum (\text{Point Grade}_i \times \text{Units}_i)}{\sum \text{Units}_i}$$
+  *Rule*: Non-numeric statuses (`INC`, `DO`, `DU`) are excluded from GWA weighting to avoid distorting the academic average.
+- **Risk Triage Cutoffs**:
+  - $\text{GWA} \ge 2.50 \implies \text{LOW Risk}$ (Very Satisfactory to Excellent)
+  - $1.75 \le \text{GWA} < 2.50 \implies \text{MODERATE Risk}$ (Satisfactory)
+  - $\text{GWA} < 1.75 \implies \text{HIGH Risk}$ (Fair / Failing)
+
+### 3.2 Dual-Mode Analytics Architecture ([`admin/analytics.php`](file:///C:/xampp/htdocs/udm-radar/admin/analytics.php))
+The analytics engine operates in two mutually exclusive modes based on the active term filter:
+- **Mode A: Live In-Progress Term (`2026-2027`, Sem 1)**:
+  - Joins `student_profiles` with `predictions` (latest timestamp/ID) and active enrolled grades (`is_current = 1`).
+  - Displays real-time risk distribution, Dean's List / Latin Honor readiness, and subject preliminary grade bottlenecks.
+- **Mode B: Historical Completed Terms (e.g., `2024-2025`, `2025-2026`)**:
+  - Queries finalized historical records (`is_current = 0`) where `final_grade IS NOT NULL`.
+  - Computes cohort passing rates, failure rates, non-numeric status frequencies, and average official point grades.
+
+### 3.3 Grade Workflow & Administrative Audit
+1. **Faculty Grade Encoding** ([`faculty/grades.php`](file:///C:/xampp/htdocs/udm-radar/faculty/grades.php)):
+   - Restricted by row-level authorization to assigned subject and section in `faculty_class_loads`.
+   - Preliminary, Midterm, and Pre-Final submissions enter `pending_grade_batches`.
+2. **Administrator Approval** ([`admin/grades.php`](file:///C:/xampp/htdocs/udm-radar/admin/grades.php)):
+   - Admin inspects pending batches, verifies term percentage bounds ($0\text{--}100$), and approves or rejects.
+   - On approval, writes to `grades`, recalculates student GWA, and logs actions into `admin_change_log`.
+3. **Intervention Lifecycle** ([`admin/activity.php`](file:///C:/xampp/htdocs/udm-radar/admin/activity.php)):
+   - High-risk predictions in `api/batch_predict.php` automatically create an `academic_support_cases` ticket (`status = 'needs_review'`).
+   - Admin/Faculty assign referrals (`support_case_referrals`), notify the student, and require student receipt acknowledgment (`support_status_history`).
+
+---
+
+## 4. Critical Audit Findings & Architectural Gaps
+
+During our in-depth audit of the prediction bridge, ML microservice, and administrative views, four critical defects and structural gaps were identified:
+
+```mermaid
+flowchart TD
+    subgraph Bug 1: Feature Contract Mismatch
+        PHP[api/predict.php sends: 'current_prelim_point_avg'] -->|POST JSON| Flask[python_ml/decision_tree.py]
+        Flask -->|Reads: 'current_prelim_avg'| DictGet[grade_data.get returns 0.0]
+        DictGet -->|Silent Defect| DistortedPred[Distorted GWA Prediction: 2.83 instead of 3.05]
+    end
+```
+
+### Gap 1: Silent ML Feature Contract Mismatch (High Severity)
+- **Root Cause**: In [`api/predict.php`](file:///C:/xampp/htdocs/udm-radar/api/predict.php#L92), the PHP bridge constructs the feature payload with key `'current_prelim_point_avg'`. However, [`python_ml/decision_tree.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/decision_tree.py#L23) reads `grade_data.get('current_prelim_avg', 0)`.
+- **Impact**: Because Python’s `.get()` falls back to `0.0`, the preliminary point average was silently dropped to zero during live inference! For example, a student with a historical GWA of `3.07` and a current prelim of `2.91` was predicted at `2.83` (assuming prelim $= 0$) instead of their true predicted GWA of `3.05`.
+- **Secondary Impact**: In [`python_ml/app.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/app.py#L29), candidate model upload checks for `current_prelim_point_avg`, whereas [`python_ml/training_data.csv`](file:///C:/xampp/htdocs/udm-radar/python_ml/training_data.csv#L1) contains `current_prelim_avg`, causing staging validation to reject the dataset.
+- **Required Fix**: Harmonize the feature naming across PHP, `app.py`, `decision_tree.py`, and `training_data.csv`. Support fallback key aliases defensively in `decision_tree.py`.
+
+### Gap 2: Overwritten Training Script (Medium Severity)
+- **Root Cause**: [`python_ml/train_model.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/train_model.py) was accidentally overwritten in a previous commit with the contents of `decision_tree.py`. The training logic (train/test split, regression metrics calculation, and serialization to `model.pkl`) was completely severed from the CLI.
+- **Required Fix**: Restore the training pipeline script with regression evaluation (MAE, RMSE, $R^2$), tree rule export, and candidate staging support.
+
+### Gap 3: Stale Lifecycle Filter Logic in Admin Pages (Medium Severity)
+- **Root Cause**: Database migration `001_add_student_record_status.sql` introduced `student_profiles.record_status` (`Active`, `Archived`, `Graduated`) to separate account lifecycle from academic progress (`status` = `Regular`/`Irregular`). While several queries were updated, filter dropdowns in [`admin/index.php`](file:///C:/xampp/htdocs/udm-radar/admin/index.php#L28) and [`admin/faculty.php`](file:///C:/xampp/htdocs/udm-radar/admin/faculty.php#L249) still query `WHERE status != 'Archived'`.
+- **Impact**: Graduated and archived students continue to appear in active section and year-level filter dropdowns.
+- **Required Fix**: Align all active-population filter queries to `WHERE record_status = 'Active'`.
+
+### Gap 4: Year-Level Isolation in Faculty Class Loads (Architecture Constraint)
+- **Root Cause**: The current `faculty_class_loads` table assigns all 4 faculty members strictly to 3rd-year subjects and sections (`IT-31` to `IT-38`).
+- **Impact**: Once 1st, 2nd, and 4th-year sections are populated, faculty members cannot encode grades or view students in those years due to row-level security checks in `api/predict.php` and `faculty/grades.php`.
+- **Required Fix**: Expand `faculty_class_loads` to distribute faculty teaching assignments across all 4 year levels.
+
+---
+
+## 5. The 5-Cohort Longitudinal Architecture
+
+To represent the full BSIT degree lifecycle, the synthetic academic environment is organized into **five distinct longitudinal cohorts** anchored to **School Year 2026–2027, 1st Semester**:
+
+```
+Academic Year Progression:
+SY 2022-2023 ───► SY 2023-2024 ───► SY 2024-2025 ───► SY 2025-2026 ───► SY 2026-2027 (LIVE ANCHOR)
+┌──────────────┐
+│ Cohort 2022  │ Y1S1 / Y1S2     Y2S1 / Y2S2     Y3S1 / Y3S2     Y4S1 / Y4S2     [GRADUATED / ARCHIVED]
+└──────────────┘
+               ┌──────────────┐
+               │ Cohort 2023  │ Y1S1 / Y1S2     Y2S1 / Y2S2     Y3S1 / Y3S2     [Y4S1 ACTIVE] (Seniors)
+               └──────────────┘
+                              ┌──────────────┐
+                              │ Cohort 2024  │ Y1S1 / Y1S2     Y2S1 / Y2S2     [Y3S1 ACTIVE] (Juniors - Existing 288)
+                              └──────────────┘
+                                             ┌──────────────┐
+                                             │ Cohort 2025  │ Y1S1 / Y1S2     [Y2S1 ACTIVE] (Sophomores)
+                                             └──────────────┘
+                                                            ┌──────────────┐
+                                                            │ Cohort 2026  │ [Y1S1 ACTIVE] (Freshmen)
+                                                            └──────────────┘
+```
+
+### 5.1 Cohort Topology & Curriculum Mapping
+
+The 58 curriculum subjects in the `subjects` table map across the 5 cohorts as follows:
+
+| Cohort | Academic Intake | Completed Terms (`is_current = 0`) | Live Active Term (`is_current = 1`) | Status in Live Anchor | Sections | Student Role / Demo Purpose |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Cohort 2022** | SY 2022–2023 1st Sem | 8 Terms (Y1S1 to Y4S2: 58 subjects) | None | `Graduated` / Inactive | `IT-41G`–`IT-43G` | Completed 4-year baseline; repeated subject analytics |
+| **Cohort 2023** | SY 2023–2024 1st Sem | 6 Terms (Y1S1 to Y3S2: 51 subjects) | Year 4 Sem 1 (6 subjects) | `Active` (4th Year) | `IT-41`, `IT-42`, `IT-43` | Senior graduation readiness, Capstone 2, 3-yr prediction |
+| **Cohort 2024** | SY 2024–2025 1st Sem | 4 Terms (Y1S1 to Y2S2: 35 subjects) | Year 3 Sem 1 (8 subjects) | `Active` (3rd Year) | `IT-31` to `IT-38` | Existing 288 students; midline prediction with 2-yr history |
+| **Cohort 2025** | SY 2025–2026 1st Sem | 2 Terms (Y1S1 to Y1S2: 17 subjects) | Year 2 Sem 1 (9 subjects) | `Active` (2nd Year) | `IT-21` to `IT-24` | Early bottleneck tracking (OOP, Discrete Math, DBMS 1) |
+| **Cohort 2026** | SY 2026–2027 1st Sem | 0 Terms (Freshmen Intake) | Year 1 Sem 1 (8 subjects) | `Active` (1st Year) | `IT-11` to `IT-14` | Zero-history boundary; tests fallback heuristic & alerts |
+
+### 5.2 Curricular Subject Distribution (58 Total Subjects)
+1. **Year 1, Sem 1 (8 subjects, 21 units)**: GED101, GED102 (Math Modern World), GED104 (Ethics), ITE111 (Intro Computing), ITE112 (Fund. of Programming), PE101, NST101, UID101 (Manila Studies).
+2. **Year 1, Sem 2 (9 subjects, 24 units)**: GED103, RZL101 (Rizal), MST101, ITE114 (Info Mgmt), ITE115 (Data Structures & Alg), ITE113 (Intermediate Prog), PE102, NST102, UID102.
+3. **Year 2, Sem 1 (9 subjects, 24 units)**: GED105, GED106, SSP101, ITE221 (DBMS 1), ITE222 (Discrete Math), ITE232 (Web Dev 1), ITE231 (OOP), PE103, UID103.
+4. **Year 2, Sem 2 (9 subjects, 24 units)**: GED107, GED108, AHM101, ITE216 (App Dev), ITE233 (Operating Systems), PE104, ITE223 (Integrative Prog 1), ITE234 (DBMS 2), UID104.
+5. **Year 3, Sem 1 (8 subjects, 22 units)**: ITE321 (Info Security 1), ITE322 (Networking 1), ITE323 (HCI), ITE331 (SAD), ITE332 (Seminar in IT), ITE341 (Stats & Probability), SD351 (Machine Learning), UID105.
+6. **Year 3, Sem 2 (8 subjects, 22 units)**: ITE324 (Info Security 2), ITE325 (Networking 2), ITE326 (Capstone 1), ITE327 (SysAdmin), ITE328 (Quant Methods), SD352 (Web Dev 2), SD353 (Software Dev), UID106.
+7. **Year 4, Sem 1 (6 subjects, 16 units)**: ITE431 (Sys Integration), ITE421 (Social Issues), ITE422 (Capstone 2), SD354 (Platform Tech), ITE441 (Technopreneurship), UID107.
+8. **Year 4, Sem 2 (1 subject, 6 units)**: ITE423 (Industry Immersion / OJT, 6 units).
+
+---
+
+## 6. Synthetic Data Generator Specification
+
+### 6.1 Avoiding the Trivial Machine-Learning Trap
+If the data generator sets final GWA using a direct equation like $\text{GWA} = 0.70 \times \text{HistGWA} + 0.30 \times \text{Prelim}$, the Decision Tree will merely memorize this linear formula with near-zero error. That produces an artificially simple, unrealistic machine learning model.
+
+To create realistic academic records, student generation must model:
+1. **Latent Academic Profiles (Archetypes)**:
+   - **High Achiever (15%)**: Baseline capability $3.25\text{--}3.85$. Low variance across semesters ($\sigma = 0.15$). High resilience in difficult subjects.
+   - **Solid Average (60%)**: Baseline capability $2.00\text{--}2.80$. Moderate variance ($\sigma = 0.25$). Passes most subjects; occasional fair grade in challenging courses.
+   - **Struggling / At-Risk (15%)**: Baseline capability $1.25\text{--}1.85$. High variance ($\sigma = 0.35$). Frequent borderline grades, repeated courses, and academic probation.
+   - **Dynamic Trajectories (10%)**:
+     - *Rebounders*: Start poorly in Year 1 ($1.25\text{--}1.60$) and steadily improve by Year 3 ($2.50\text{--}3.00$).
+     - *Late Burnouts*: Perform well in Year 1/2 ($3.00\text{--}3.50$) but experience performance declines in upper-year technical subjects ($1.50\text{--}1.80$).
+2. **Historical Subject Performance Profiles**:
+   - Inherent difficulty adjustment: Technical bottleneck courses (e.g., `ITE115` Data Structures, `ITE222` Discrete Math, `ITE231` OOP, `ITE341` Stats) apply a negative offset ($-0.20$ to $-0.35$ grade points) and higher variance.
+   - Foundational courses (`UID101`–`UID107`, PE, NSTP) have high completion rates and positive offsets ($+0.25$ grade points).
+3. **Term Score Evolution & Natural Noise**:
+   - Prelim scores correlate with final grades ($r \approx 0.65\text{--}0.75$), but are not deterministic.
+   - Students recover through midterms and pre-finals, or decline due to project deadlines.
+4. **Special Academic Statuses**:
+   - Realistic insertion of non-numeric outcomes: Incompletes (`INC`), Drops (`DO`), and Unofficial Drops (`DU`) on $1\text{--}3\%$ of historical records, testing that the system never casts them to numeric `0.00`.
+
+---
+
+## 7. Implementation Roadmap & Action Plan
+
+```mermaid
+sequenceDiagram
+    participant Dev as Development Team
+    participant Gen as Synthetic Data Generator
+    participant DB as MariaDB (udm_radar)
+    participant ML as Python Flask Microservice
+    participant UI as Portals & Reporting
+
+    Dev->>Gen: 1. Configure 5 Cohorts & Subject Profiles
+    Gen->>DB: 2. Populate Users, Profiles, Grades (Past & Active)
+    Dev->>DB: 3. Populate Faculty Class Loads across Y1-Y4
+    Dev->>ML: 4. Fix Feature Contract & Re-train Baseline Tree
+    Dev->>UI: 5. Align Admin Active-Status Filters
+    Dev->>UI: 6. Execute Batch Predictions & Verify Analytics
+```
+
+### Phase 1: Codebase Patching & Contract Harmonization
+1. **Fix `api/predict.php` & `decision_tree.py`**:
+   - Harmonize feature name to `current_prelim_point_avg` (with fallback to `current_prelim_avg`).
+   - Retain backward compatibility so model inference never defaults prelim to zero.
+2. **Restore `python_ml/train_model.py`**:
+   - Implement regression training script that outputs MAE, RMSE, and $R^2$.
+   - Train on the synchronized feature schema and save clean `model.pkl`.
+3. **Patch Administrative Filter Queries**:
+   - Update `admin/index.php` and `admin/faculty.php` from `status != 'Archived'` to `record_status = 'Active'`.
+
+### Phase 2: Synthetic Longitudinal Data Generator Execution
+1. **Retain Existing Cohort 2024**: Keep the 288 Year 3 active student records (`IT-31` to `IT-38`) intact to preserve ongoing work.
+2. **Synthesize Cohort 2022 (Graduated Baseline)**:
+   - 60 students, 8 completed semesters (SY 2022–2023 to SY 2025–2026).
+   - Set `record_status = 'Graduated'`, `is_active = 0`.
+3. **Synthesize Cohort 2023 (Seniors / 4th Year)**:
+   - 90 students across sections `IT-41`, `IT-42`, `IT-43`.
+   - 6 completed semesters (SY 2023–2024 to SY 2025–2026), 1 active term (SY 2026–2027 Sem 1).
+4. **Synthesize Cohort 2025 (Sophomores / 2nd Year)**:
+   - 120 students across sections `IT-21`, `IT-22`, `IT-23`, `IT-24`.
+   - 2 completed semesters (SY 2025–2026), 1 active term (SY 2026–2027 Sem 1).
+5. **Synthesize Cohort 2026 (Freshmen / 1st Year)**:
+   - 120 students across sections `IT-11`, `IT-12`, `IT-13`, `IT-14`.
+   - 0 completed semesters, 1 active term (SY 2026–2027 Sem 1).
+6. **Assign Multi-Year Faculty Class Loads**:
+   - Map existing faculty accounts (`Ronald Fernandez`, `John Rey Consulta`, etc.) across Year 1, 2, 3, and 4 sections.
+
+### Phase 3: Comprehensive End-to-End Verification
+1. **Prediction Execution**: Trigger `api/batch_predict.php` to generate predictions for all active students (Years 1 to 4).
+2. **Insufficient Data Verification**: Confirm Freshmen with 0 historical terms trigger `calculation_fallback` without crashing.
+3. **Dual-Mode Analytics Verification**: Confirm `admin/analytics.php` correctly toggles between Mode A (current term sections) and Mode B (historical subject performance profiles across past school years).
+4. **Export Validation**: Verify CSV and PDF downloads for Program Risk Roster, Subject Performance, and Program Analytics.
+
+---
+
+## 8. Work Package Remediation Ledger & Defect Registry
+
+| Work Package | Title | Status | Core Commit | Scope Boundaries Enforced |
+| :--- | :--- | :--- | :--- | :--- |
+| **WP-0** | Baseline Freeze & Verification | **Approved** | `1ee0b9e`, `d989c1b` | No model replacement, no DB migration. |
+| **WP-1** | Database Migrations & Table Recovery | **Approved** | `7563584`, `7e2c6d4` | Migrations 000–004 idempotent on scratch DB; live DB untouched. |
+| **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Completed (Correction Pass Applied)** | `b16282d`, `8f3d14e` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; live DB & dump untouched. |
+| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED** | — | Awaiting WP-2 approval. |
+| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **PAUSED** | — | Awaiting WP-3 completion. |
+
+### Registered Open Defects for Future Work Packages
+
+1. **[DEFECT-WP4-01] Historical Pass-Rate Misclassification (Unresolved, Deferred to WP-4)**:
+   - **Location**: `admin/analytics.php:400` and `admin/export_program_analytics_pdf.php:400`.
+   - **Description**: Historical analytics currently evaluates any numeric Final Grade greater than zero (`$pt > 0`) as "passed", causing failing numeric point grades below the 1.75 threshold (`1.00`, `1.25`, and `1.50`) to be counted as passing in historical subject passing rate reports.
+   - **Resolution Plan**: In WP-4, reconcile historical subject performance logic with institutional UDM risk thresholds (`FINAL_GRADE_POINTS < 1.75` as failing) following formal stakeholder sign-off on historical report parity.
+
