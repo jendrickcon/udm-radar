@@ -31,4 +31,7 @@ WHERE id IN (5, 6)
 
 -- ---------------------------------------------------------------------------
 -- ROLLBACK:
---   UPDATE feedback_reports SET status = '' WHERE id IN (5, 6) AND status = 'resolved';
+--   Do NOT execute a blanket UPDATE ... SET status = '' query. Setting status to an
+--   empty string writes invalid data and would corrupt ticket 6 if its status was valid.
+--   To safely roll back, restore the affected feedback_reports rows or table
+--   from the mandatory pre-migration database backup.
