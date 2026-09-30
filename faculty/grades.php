@@ -22,7 +22,7 @@ if ($feedbackId > 0) {
         JOIN users student_user ON student_user.id = f.submitted_by AND student_user.role = 'student'
         JOIN student_profiles sp ON sp.user_id = f.submitted_by
         JOIN faculty_class_loads fcl ON fcl.faculty_user_id = ? AND fcl.subject_id = f.subject_id AND fcl.section = sp.section
-        WHERE f.id = ? LIMIT 1
+        WHERE f.id = ? AND sp.record_status = 'Active' LIMIT 1
     ");
     $stmtFeedback->execute([$user['id'], $feedbackId]);
     $fb = $stmtFeedback->fetch(PDO::FETCH_ASSOC);
@@ -65,7 +65,7 @@ if (($_GET['action'] ?? '') === 'fetch_roster') {
             SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade, sp.student_number, sp.section, u.first_name, u.middle_name, u.last_name, s.code AS subj_code, s.title AS subj_title
             FROM grades g
             JOIN student_profiles sp ON sp.user_id = g.student_id JOIN users u ON u.id = g.student_id JOIN subjects s ON s.id = g.subject_id
-            WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 ORDER BY u.last_name, u.first_name
+            WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 AND sp.record_status = 'Active' ORDER BY u.last_name, u.first_name
         ");
         $stmtRoster->execute([$selectedSubjId, $selectedSection]);
         $students = $stmtRoster->fetchAll();
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             if (!$stmtOwn->fetchColumn()) {
                 $error = 'Unauthorized: You are not assigned to this class load.';
             } else {
-                $stmtCurr = $db->prepare("SELECT g.student_id, g.$termType FROM grades g JOIN student_profiles sp ON sp.user_id = g.student_id WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1");
+                $stmtCurr = $db->prepare("SELECT g.student_id, g.$termType FROM grades g JOIN student_profiles sp ON sp.user_id = g.student_id WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 AND sp.record_status = 'Active'");
                 $stmtCurr->execute([$subjId, $section]);
                 $currentGrades = $stmtCurr->fetchAll(PDO::FETCH_KEY_PAIR);
 

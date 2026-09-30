@@ -13,7 +13,7 @@ $stmtConcernCount = $db->prepare("
     JOIN users student_user ON student_user.id = f.submitted_by AND student_user.role = 'student'
     JOIN student_profiles sp ON sp.user_id = f.submitted_by
     JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section
-    WHERE fcl.faculty_user_id = ? AND f.status IN ('open', 'faculty_review')
+    WHERE fcl.faculty_user_id = ? AND f.status IN ('open', 'faculty_review') AND sp.record_status = 'Active'
 ");
 $stmtConcernCount->execute([$user['id']]);
 $openConcernCount = (int) $stmtConcernCount->fetchColumn();
@@ -32,7 +32,7 @@ $stmtSupportReviewCount = $db->prepare("
     JOIN student_profiles sp ON sp.user_id = support_case.student_id
     JOIN grades g ON g.student_id = support_case.student_id AND g.is_current = 1
     JOIN faculty_class_loads fcl ON fcl.subject_id = g.subject_id AND fcl.section = sp.section
-    WHERE fcl.faculty_user_id = ? AND support_case.status = 'needs_review'
+    WHERE fcl.faculty_user_id = ? AND support_case.status = 'needs_review' AND sp.record_status = 'Active'
 ");
 $stmtSupportReviewCount->execute([$user['id']]);
 $supportReviewCount = (int) $stmtSupportReviewCount->fetchColumn();
@@ -82,7 +82,7 @@ if (!empty($my_sections)) {
             ORDER BY p2.generated_at DESC, p2.id DESC
             LIMIT 1
         )
-        WHERE sp.section IN ($inSec) AND u.role = 'student'
+        WHERE sp.section IN ($inSec) AND u.role = 'student' AND sp.record_status = 'Active'
         ORDER BY sp.section, u.last_name, u.first_name
     ");
     $stmt->execute($my_sections);
@@ -111,7 +111,7 @@ if (!empty($my_class_loads)) {
                g.risk_level
         FROM grades g
         JOIN student_profiles sp ON g.student_id = sp.user_id
-        WHERE ($where) AND g.is_current = 1
+        WHERE ($where) AND g.is_current = 1 AND sp.record_status = 'Active'
     ");
     $stmt->execute($params);
     foreach ($stmt->fetchAll() as $gr) {

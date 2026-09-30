@@ -9,7 +9,7 @@ $db = getDB();
 
 $stmtLoads = $db->prepare("
     SELECT fcl.id AS load_id, s.id AS subj_id, s.code, s.title, fcl.section,
-           (SELECT COUNT(user_id) FROM student_profiles WHERE section = fcl.section) AS total_students
+           (SELECT COUNT(user_id) FROM student_profiles WHERE section = fcl.section AND record_status = 'Active') AS total_students
     FROM faculty_class_loads fcl
     JOIN subjects s ON fcl.subject_id = s.id
     WHERE fcl.faculty_user_id = ?
@@ -23,7 +23,7 @@ $stmtGrades = $db->prepare("
     FROM grades g
     JOIN student_profiles sp ON sp.user_id = g.student_id
     JOIN users u ON u.id = sp.user_id
-    WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1
+    WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 AND sp.record_status = 'Active'
     ORDER BY u.last_name, u.first_name
 ");
 
@@ -93,13 +93,14 @@ $total_assigned_classes = count($class_loads);
 $stmtUnique = $db->prepare("
     SELECT COUNT(DISTINCT sp.user_id)
     FROM student_profiles sp
-    WHERE EXISTS (
+    WHERE sp.record_status = 'Active' AND EXISTS (
         SELECT 1
         FROM grades g
         JOIN faculty_class_loads fcl
           ON fcl.subject_id = g.subject_id
          AND fcl.section    = sp.section
         WHERE g.student_id = sp.user_id
+          AND g.is_current = 1
           AND fcl.faculty_user_id = ?
     )
 ");

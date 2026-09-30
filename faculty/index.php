@@ -42,7 +42,7 @@ foreach ($myLoads as $load) {
         SELECT g.student_id, g.prelim 
         FROM grades g 
         JOIN student_profiles sp ON sp.user_id = g.student_id 
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1 AND sp.record_status = 'Active'
     ");
     $stmtGrades->execute([$load['subject_id'], $load['section'], $currentSy, $currentSem]);
     $grades = $stmtGrades->fetchAll(PDO::FETCH_ASSOC);

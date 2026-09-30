@@ -42,7 +42,7 @@ foreach ($myLoads as $load) {
         SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade
         FROM grades g
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1 AND sp.record_status = 'Active'
     ");
     $stmtClassGrades->execute([$load['subject_id'], $load['section'], $currentSy, $currentSem]);
     $grades = $stmtClassGrades->fetchAll(PDO::FETCH_ASSOC);
@@ -172,7 +172,7 @@ if ($subjFilter && $secFilter) {
         FROM grades g
         JOIN users u ON u.id = g.student_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1 AND sp.record_status = 'Active'
     ");
     $stmtGrades->execute([$subjFilter, $secFilter, $currentSy, $currentSem]);
     $grades = $stmtGrades->fetchAll(PDO::FETCH_ASSOC);
