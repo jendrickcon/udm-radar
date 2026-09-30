@@ -86,7 +86,7 @@ $distinctions = [
 $chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
 $subjectWideStats = []; $subjectSectionStats = []; $histSubjects = [];
 $totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0;
-$histPassedCount = 0; $overallHistPassRate = 0.0;
+$histPassedCount = 0; $histTotalGradedCount = 0; $overallHistPassRate = 0.0;
 
 // ---------------------------------------------------------
 // MODE A: CURRENT TERM ANALYTICS (Progress & Predictions)
@@ -286,26 +286,28 @@ else {
         $histStudents[$r['student_id']] = true;
         $id = $r['id'];
         if (!isset($histSubjects[$id])) {
-             $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0];
+             $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0, 'numeric_count' => 0];
         }
         $histSubjects[$id]['enrolled']++;
 
-        if ($r['final_grade'] !== null && trim($r['final_grade']) !== '') {
-            $histSubjects[$id]['graded']++;
-            $val = trim(strtoupper($r['final_grade']));
+        if ($r['final_grade'] !== null && trim((string)$r['final_grade']) !== '') {
+            $canon = canonicalizeFinalGrade($r['final_grade']);
+            if ($canon !== null) {
+                $histSubjects[$id]['graded']++;
+                $histTotalGradedCount++;
 
-            if (in_array($val, FINAL_GRADE_FAILING_STATUSES, true) || in_array($val, LEGACY_FINAL_GRADE_VALUES, true)) {
-                $histSubjects[$id]['failed']++;
-            } elseif (is_numeric($val)) {
-                $pt = (float)$val;
-                $histSubjects[$id]['raw_sum'] += $pt;
-                $histGradesSum += $pt;
-                $histGradesCount++;
+                if (isNumericFinalGrade($canon)) {
+                    $pt = (float)$canon;
+                    $histSubjects[$id]['raw_sum'] += $pt;
+                    $histSubjects[$id]['numeric_count']++;
+                    $histGradesSum += $pt;
+                    $histGradesCount++;
+                }
 
-                if ($pt > 0) { // Correct passing logic
+                if (isPassingFinalGrade($canon)) {
                     $histSubjects[$id]['passed']++;
                     $histPassedCount++;
-                } else {
+                } elseif (isFailingFinalGrade($canon)) {
                     $histSubjects[$id]['failed']++;
                 }
             }
@@ -315,7 +317,7 @@ else {
 
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
-    $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0.0;
+    $overallHistPassRate = $histTotalGradedCount > 0 ? ($histPassedCount / $histTotalGradedCount) * 100 : 0.0;
 }
 
 $pageTitle = 'Program Analytics';
@@ -742,7 +744,7 @@ require_once '../includes/sidebar.php';
                     </thead>
                     <tbody>
                         <?php foreach ($histSubjects as $id => $s): 
-                            $meanGrade = $s['graded'] > 0 ? number_format($s['raw_sum'] / $s['graded'], 2) : '—';
+                            $meanGrade = ($s['numeric_count'] ?? $s['graded']) > 0 ? number_format($s['raw_sum'] / ($s['numeric_count'] ?? $s['graded']), 2) : '—';
                             $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : '—';
                             $completeness = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
                         ?>

@@ -258,6 +258,27 @@ function isFailingFinalGrade(mixed $value): bool {
 }
 
 /**
+ * Returns true for passing Final Grades:
+ * - Canonical numeric point grades 1.75 - 4.00
+ * - Status 'P' (Passed)
+ * Returns false for failing grades (points < 1.75, failing statuses, legacy 0.00),
+ * DRP, null, or invalid values.
+ */
+function isPassingFinalGrade(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
+        return false;
+    }
+    if ($canon === 'P') {
+        return true;
+    }
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
+        return (float) $canon >= 1.75;
+    }
+    return false;
+}
+
+/**
  * Returns true for all textual statuses and legacy 0.00.
  * Returns false for canonical numeric point grades.
  */
