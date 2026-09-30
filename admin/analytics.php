@@ -269,7 +269,7 @@ else {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status IN ('Active', 'Graduated')
     ";
     $paramsHistorical = [$syFilter, $semFilter];
 
