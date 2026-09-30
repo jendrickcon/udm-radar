@@ -269,8 +269,9 @@ sequenceDiagram
 | **WP-0** | Baseline Freeze & Verification | **Approved** | `1ee0b9e`, `d989c1b` | No model replacement, no DB migration. |
 | **WP-1** | Database Migrations & Table Recovery | **Approved** | `7563584`, `7e2c6d4` | Migrations 000–004 idempotent on scratch DB; live DB untouched. |
 | **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Approved** | `b16282d`, `8f3d14e`, `401ac94` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; test suite preserved in repository. |
-| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Completed (Awaiting Sign-off)** | `44e788a`, `f077fa4`, `23cc61c`, `107c9b8`, `882f2fd` | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries, exclude DRP from pass-rate denominator, add audit tool. |
-| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED (Pending WP-4 Approval)** | — | Storage migration paused until canonical GWA parity and analytics are approved. |
+| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Approved** | `44e788a`, `f077fa4`, `23cc61c`, `107c9b8`, `882f2fd`, `6e9c939` | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries, exclude DRP from pass-rate denominator, add audit tool. |
+| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **Completed (Awaiting Sign-off)** | — | Migration 005 standardizes grades.final_grade to VARCHAR(10) with CHECK constraint chk_grades_final_grade_domain. Idempotent on scratch DB; live DB untouched. |
+| **Generator** | 5-Cohort Longitudinal Data Generator | **BLOCKED** | — | Generator remains blocked until all prerequisites through WP-9 are completed. |
 
 ### Registered Defect Remediation Log
 

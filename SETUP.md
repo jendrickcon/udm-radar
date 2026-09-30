@@ -113,7 +113,7 @@ udm_radar
 ### 6.1 Database Import & Migration Sequence (Phase 0 Upgrade Path)
 
 > [!WARNING]
-> **Fresh-Install Dependency Notice**: The committed `database/udm_radar.sql` file contains the baseline 10-table schema (Sep 29). Commits after `606d728` depend on features and tables introduced in subsequent migrations (`export_audit_logs`, `record_status`, `failure_reason`, and the 7 workflow/support tables). Until the canonical consolidated dump is regenerated in WP-9, setting up the database requires importing the baseline dump followed by migrations `000` through `004` in order:
+> **Fresh-Install Dependency Notice**: The committed `database/udm_radar.sql` file contains the baseline 10-table schema (Sep 29). Commits after `606d728` depend on features and tables introduced in subsequent migrations (`export_audit_logs`, `record_status`, `failure_reason`, the 7 workflow/support tables, and `final_grade` storage standardization). Until the canonical consolidated dump is regenerated in WP-9, setting up the database requires importing the baseline dump followed by migrations `000` through `005` in order:
 
 ```powershell
 # 1. Create database and import baseline schema
@@ -126,15 +126,20 @@ mysql -u root udm_radar < database\migrations\001_add_student_record_status.sql
 mysql -u root udm_radar < database\migrations\002_feedback_status_cleanup.sql
 mysql -u root udm_radar < database\migrations\003_export_audit_failure_info.sql
 mysql -u root udm_radar < database\migrations\004_create_workflow_and_support_tables.sql
+mysql -u root udm_radar < database\migrations\005_standardize_final_grade_storage.sql
 ```
 
-The upgraded database will include all 18 tables required by the active application portals:
+The upgraded database will include all 18 tables required by the active application portals, with `grades.final_grade` standardized to `VARCHAR(10)`:
+- **Migration 005**: Standardizes `grades.final_grade` from `DECIMAL(4,2)` to `VARCHAR(10) NULL DEFAULT NULL` with CHECK constraint `chk_grades_final_grade_domain`.
+- **Textual Status Support**: Institutional statuses (`INC`, `DRP`, `P`, `DO`, `DU`, `FA`, `UD`) and canonical numeric point grades (`4.00` to `1.00`) become reproducibly supported.
+- **Application Validation Authoritative**: Application write-path validation in PHP remains authoritative for new-entry policy (rejecting new `0.00` inputs while preserving historical `0.00`).
+- **Canonical Dump**: Remains unchanged; consolidated schema dump regeneration is scheduled for WP-9.
 
 ```text
 users
 student_profiles (with record_status)
 subjects
-grades
+grades (final_grade VARCHAR(10))
 predictions
 faculty_class_loads
 pending_grade_batches
@@ -162,6 +167,7 @@ mysql -u root udm_radar_scratch < database\migrations\001_add_student_record_sta
 mysql -u root udm_radar_scratch < database\migrations\002_feedback_status_cleanup.sql
 mysql -u root udm_radar_scratch < database\migrations\003_export_audit_failure_info.sql
 mysql -u root udm_radar_scratch < database\migrations\004_create_workflow_and_support_tables.sql
+mysql -u root udm_radar_scratch < database\migrations\005_standardize_final_grade_storage.sql
 ```
 
 Do not commit database backups or local dumps to Git (enforced in `.gitignore`).
