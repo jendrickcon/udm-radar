@@ -155,11 +155,14 @@ function normalizeGrade($grade): ?float {
 // =========================================================================
 
 /**
- * Trims input, uppercases statuses, maps PASSED to P, normalizes valid point
- * shorthand to two decimals (e.g. '4' -> '4.00', '3.5' -> '3.50'), and returns
- * null for empty, legacy (0, 0.0, 0.00), or invalid values.
+ * Canonicalizes any valid Final Grade (both canonical point/status and historical legacy forms).
+ * - Maps valid numeric points (e.g. '3.5', 3.5, '3.50', '1', 1.0) to canonical 'X.XX' (e.g. '3.50', '1.00').
+ * - Maps legacy zero forms ('0', '0.0', '0.00', 0, 0.0) to canonical '0.00'.
+ * - Maps 'PASSED' (and lowercase 'passed', 'p') to 'P'.
+ * - Maps canonical statuses (e.g. 'inc', 'drp') to uppercase ('INC', 'DRP').
+ * - Returns null for any invalid, out-of-scale, or unparseable input.
  */
-function normalizeFinalGradeInput(mixed $value): ?string {
+function canonicalizeFinalGrade(mixed $value): ?string {
     if ($value === null || !is_scalar($value)) {
         return null;
     }
@@ -167,19 +170,18 @@ function normalizeFinalGradeInput(mixed $value): ?string {
     if ($valStr === '') {
         return null;
     }
-    // Reject legacy 0.00 values for new entries
-    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true)) {
-        return null;
+    // Check legacy zero representations
+    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true) || (is_numeric($valStr) && (float) $valStr == 0.0)) {
+        return LEGACY_FINAL_GRADE_STORED; // '0.00'
     }
     $upper = strtoupper($valStr);
-    // Alias normalization
     if ($upper === 'PASSED') {
         return 'P';
     }
     if (in_array($upper, FINAL_GRADE_STATUSES, true)) {
         return $upper;
     }
-    // Check numeric point grades
+    // Check numeric point scale (1.00 - 4.00, stepped by 0.25)
     if (is_numeric($valStr)) {
         $f = (float) $valStr;
         $fmt = number_format($f, 2, '.', '');
@@ -188,6 +190,19 @@ function normalizeFinalGradeInput(mixed $value): ?string {
         }
     }
     return null;
+}
+
+/**
+ * Trims input, uppercases statuses, maps PASSED to P, normalizes valid point
+ * shorthand to two decimals (e.g. '4' -> '4.00', '3.5' -> '3.50'), and returns
+ * null for empty, legacy (0, 0.0, 0.00), or invalid values.
+ */
+function normalizeFinalGradeInput(mixed $value): ?string {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null || $canon === LEGACY_FINAL_GRADE_STORED) {
+        return null;
+    }
+    return $canon;
 }
 
 /**
@@ -203,15 +218,7 @@ function isValidFinalGradeEntry(mixed $value): bool {
  * Rejects all other values.
  */
 function isValidHistoricalFinalGrade(mixed $value): bool {
-    if ($value === null || !is_scalar($value)) {
-        return false;
-    }
-    if (isValidFinalGradeEntry($value)) {
-        return true;
-    }
-    $valStr = trim((string) $value);
-    return in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true)
-        || (is_numeric($valStr) && (float) $valStr == 0.0 && $valStr !== '');
+    return canonicalizeFinalGrade($value) !== null;
 }
 
 /**
@@ -219,11 +226,8 @@ function isValidHistoricalFinalGrade(mixed $value): bool {
  * Returns false for textual statuses and legacy 0.00.
  */
 function isNumericFinalGrade(mixed $value): bool {
-    if ($value === null) {
-        return false;
-    }
-    $norm = normalizeFinalGradeInput($value);
-    return $norm !== null && in_array($norm, FINAL_GRADE_POINTS, true);
+    $canon = canonicalizeFinalGrade($value);
+    return $canon !== null && in_array($canon, FINAL_GRADE_POINTS, true);
 }
 
 /**
@@ -231,32 +235,24 @@ function isNumericFinalGrade(mixed $value): bool {
  * Returns true for failing statuses: INC, DO, DU, FA, UD.
  * Returns true for legacy 0.00.
  * Returns false for P and DRP.
+ * Operates on normalized/canonicalized input.
  */
 function isFailingFinalGrade(mixed $value): bool {
-    if ($value === null || !is_scalar($value)) {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
         return false;
     }
-    $valStr = trim((string) $value);
-    if ($valStr === '') {
-        return false;
-    }
-    // Legacy 0.00 is failing
-    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true) || (is_numeric($valStr) && (float) $valStr == 0.0)) {
+    if ($canon === LEGACY_FINAL_GRADE_STORED) {
         return true;
     }
-    $upper = strtoupper($valStr);
-    // Failing textual statuses
-    if (in_array($upper, FINAL_GRADE_FAILING_STATUSES, true)) {
+    if (in_array($canon, FINAL_GRADE_FAILING_STATUSES, true)) {
         return true;
     }
-    // Explicit non-failing statuses
-    if ($upper === 'P' || $upper === 'PASSED' || $upper === 'DRP') {
+    if ($canon === 'P' || $canon === 'DRP') {
         return false;
     }
-    // Canonical numeric points below 1.75
-    $norm = normalizeFinalGradeInput($value);
-    if ($norm !== null && in_array($norm, FINAL_GRADE_POINTS, true)) {
-        return (float) $norm < 1.75;
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
+        return (float) $canon < 1.75;
     }
     return false;
 }
@@ -266,25 +262,17 @@ function isFailingFinalGrade(mixed $value): bool {
  * Returns false for canonical numeric point grades.
  */
 function isExcludedFromGwa(mixed $value): bool {
-    if ($value === null || !is_scalar($value)) {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
         return true;
     }
-    $valStr = trim((string) $value);
-    if ($valStr === '') {
+    if ($canon === LEGACY_FINAL_GRADE_STORED) {
         return true;
     }
-    // Legacy 0.00 is excluded from GWA
-    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true) || (is_numeric($valStr) && (float) $valStr == 0.0)) {
+    if (in_array($canon, FINAL_GRADE_STATUSES, true) || $canon === 'P') {
         return true;
     }
-    $upper = strtoupper($valStr);
-    // All canonical textual statuses are excluded from GWA
-    if (in_array($upper, FINAL_GRADE_STATUSES, true) || $upper === 'PASSED') {
-        return true;
-    }
-    // Canonical numeric points are included in GWA
-    $norm = normalizeFinalGradeInput($value);
-    if ($norm !== null && in_array($norm, FINAL_GRADE_POINTS, true)) {
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
         return false;
     }
     return true;
@@ -292,34 +280,21 @@ function isExcludedFromGwa(mixed $value): bool {
 
 /**
  * Formats a Final Grade value for display:
- * - Two decimal places for canonical numeric values
- * - Textual statuses unchanged
- * - Preserves legacy 0.00 visibly
+ * - Two decimal places for canonical numeric values (e.g. '3.5' -> '3.50', '1' -> '1.00')
+ * - Uppercase for textual statuses (e.g. 'inc' -> 'INC', 'passed' -> 'P')
+ * - Preserves legacy 0.00 visibly ('0.00')
  * - Returns '—' for null or empty values
  */
 function formatFinalGrade(mixed $value): string {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon !== null) {
+        return $canon;
+    }
     if ($value === null || !is_scalar($value)) {
         return '—';
     }
     $valStr = trim((string) $value);
-    if ($valStr === '') {
-        return '—';
-    }
-    // Preserve legacy 0.00 visibly
-    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true) || (is_numeric($valStr) && (float) $valStr == 0.0)) {
-        return LEGACY_FINAL_GRADE_STORED;
-    }
-    $upper = strtoupper($valStr);
-    if ($upper === 'PASSED') {
-        return 'P';
-    }
-    if (in_array($upper, FINAL_GRADE_STATUSES, true)) {
-        return $upper;
-    }
-    if (is_numeric($valStr)) {
-        return number_format((float) $valStr, 2, '.', '');
-    }
-    return $valStr;
+    return $valStr === '' ? '—' : $valStr;
 }
 
 // Shared disqualifying-grade check for honors eligibility — a student with
@@ -565,20 +540,23 @@ function isValidGrade($val): bool {
     return isValidFinalGradeEntry($val);
 }
 
-// Validates a raw 0-100 term percentage for Prelim/Midterm/Pre-Final entry,
-// or a recognized special academic status. Whole-number percentages are
-// expected (grades.php rounds/stores them as such), but this accepts one
-// decimal place too since faculty may reasonably type e.g. 87.5.
-function isValidTermPercentage($val): bool {
-    if ($val === '' || $val === null) return false;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($valStr, FINAL_GRADE_STATUSES, true) || $valStr === 'PASSED') return true;
-
-    if (is_numeric($valStr)) {
-        $f = (float)$valStr;
-        return $f >= 0 && $f <= 100;
+// Validates a raw 0-100 term percentage for Prelim/Midterm/Pre-Final entry.
+// Accepts only numeric percentages in the range [0.00, 100.00] with up to two decimal places.
+// Textual statuses (INC, DRP, P, DO, DU, FA, UD, PASSED) belong ONLY to final_grade
+// and are strictly rejected here.
+function isValidTermPercentage(mixed $val): bool {
+    if ($val === null || !is_scalar($val)) {
+        return false;
     }
-    return false;
+    $valStr = trim((string) $val);
+    if ($valStr === '') {
+        return false;
+    }
+    if (!preg_match('/^\d+(\.\d{1,2})?$/', $valStr)) {
+        return false;
+    }
+    $f = (float) $valStr;
+    return $f >= 0.0 && $f <= 100.0;
 }
 
 // Clean prefixes like "SD353 Software Development" -> "Software Development"

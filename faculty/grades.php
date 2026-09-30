@@ -113,9 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
                         if (!isValidTermPercentage($gradeVal)) {
                             $error = "Invalid grade format entered: '{$gradeVal}'."; break;
                         }
-                        $gradeValUpper = strtoupper($gradeVal);
-                        if ($gradeValUpper === 'PASSED') $gradeValUpper = 'P';
-                        $gradeVal = is_numeric($gradeVal) ? $gradeVal : $gradeValUpper;
                         $oldGrade = $currentGrades[$studentId] ?? null;
                         $isUpdate = ($oldGrade !== null && $oldGrade !== '');
                         
