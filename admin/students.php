@@ -133,8 +133,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archi
         $error = 'Session expired.';
     } else {
         $arcId = (int) ($_POST['archive_id'] ?? 0);
-        $db->prepare("UPDATE student_profiles SET status = 'Archived' WHERE user_id = ?")->execute([$arcId]);
-        $success = 'Student account securely archived. History is preserved.';
+
+        // Archiving is a LIFECYCLE change, not an academic one. It writes
+        // record_status and revokes account access; the Student's academic
+        // status (Regular/Irregular) is deliberately left untouched.
+        //
+        // Both writes are paired in one transaction so an archived record can
+        // never end up with a still-usable account, or vice versa.
+        //
+        // record_status does not exist until the migration in the remediation
+        // plan is applied, so this branches rather than failing outright.
+        try {
+            $db->beginTransaction();
+
+            $hasRecordStatus = (bool) $db->query("SHOW COLUMNS FROM student_profiles LIKE 'record_status'")->fetch();
+            if ($hasRecordStatus) {
+                $db->prepare("UPDATE student_profiles SET record_status = 'Archived' WHERE user_id = ?")->execute([$arcId]);
+            }
+
+            // Account access is revoked immediately. login.php requires
+            // is_active = 1 and protected pages re-check it per request, so an
+            // already-open session loses access on its next page load rather
+            // than riding out the archive.
+            $db->prepare("UPDATE users SET is_active = 0 WHERE id = ? AND role = 'student'")->execute([$arcId]);
+
+            $db->commit();
+            $success = 'Student record archived and account access revoked. History is preserved.';
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log("Archive failed for student $arcId: " . $e->getMessage());
+            $error = 'Could not archive this student record. No changes were applied.';
+        }
     }
 }
 

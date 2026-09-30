@@ -223,20 +223,42 @@ function formatNameShort(string $first, string $last): string {
     return trim($initial . ' ' . $last);
 }
 
-// Canonical enrollment-status vocabulary for student_profiles.status.
-// 'Regular' and 'Irregular' are the two working states; 'Graduated' and
-// 'Archived' exist so a cohort that finishes the curriculum, or a record that
-// is withdrawn from the working population, is represented explicitly instead
-// of being deleted. Every page that filters, labels, or exports a status reads
-// these lists rather than re-typing the string literals, so adding a state
-// later cannot silently diverge between portals.
+// ACADEMIC status vocabulary for student_profiles.status.
 //
-// ACTIVE_STUDENT_STATUSES is the set a "current population" query should use;
-// note that 'Graduated' is deliberately excluded there while still being a
-// valid stored status — a graduate is a complete historical record, not a
-// student still being tracked for intervention.
-const STUDENT_STATUSES        = ['Regular', 'Irregular', 'Graduated', 'Archived'];
-const ACTIVE_STUDENT_STATUSES = ['Regular', 'Irregular'];
+// This column describes CURricular PROGRESS ONLY:
+//   Regular   — regular curricular progression
+//   Irregular — delayed, repeated, or mixed-load progression
+//
+// It must NOT be used to represent whether a record is retained, archived, or
+// a graduate. Those are lifecycle concerns and belong to record_status below.
+// Mixing the two is what produced the silent-coercion defect this replaced:
+// 'Archived' was written into a column whose enum only permitted
+// 'Regular'/'Irregular', and MySQL (running with a non-strict sql_mode)
+// coerced it to 'Regular' instead of raising an error, quietly un-archiving
+// every record that was ever archived.
+const STUDENT_STATUSES = ['Regular', 'Irregular'];
+
+// Canonical grade_concern workflow states for feedback_reports.status.
+// Only a terminal state is set by Admin resolution; the earlier routing states
+// are tracked by the workflow itself.
+const FEEDBACK_TERMINAL_STATUSES = ['resolved', 'rejected'];
+
+// Canonical LIFECYCLE vocabulary for student_profiles.record_status.
+//
+//   Active    — currently enrolled Student record
+//   Archived  — retained historical record, no longer active
+//   Graduated — completed program record
+//
+// Deliberately a separate concept from academic status. A Student's academic
+// status (Regular/Irregular) never changes merely because their record is
+// archived or because they graduate.
+//
+// Note: record_status is the DATABASE AUTHORITY on lifecycle. It is not copied
+// into the session; session state would go stale the moment an Admin archives
+// a logged-in Student. `users.is_active` is the account-access flag and is what
+// authentication enforces (1 = may authenticate, 0 = may not).
+const RECORD_STATUSES       = ['Active', 'Archived', 'Graduated'];
+const RECORD_STATUS_DEFAULT = 'Active';
 
 // Canonical program vocabulary, matching student_profiles.course's enum.
 // The column is a fixed enum, so any value written into it — including a

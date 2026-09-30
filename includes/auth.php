@@ -15,9 +15,58 @@ session_set_cookie_params([
 
 session_start();
 
+// Re-verifies the account behind the session against the database, and
+// terminates the session if it is no longer permitted to authenticate.
+//
+// This exists because session state is a CLIENT-SIDE copy: an Admin archiving
+// or deactivating a Student while that Student is logged in would otherwise
+// leave the existing session fully usable, since nothing re-read the account.
+// The database is the authority, so every protected page checks it rather than
+// trusting what was true at login time.
+//
+// record_status is deliberately NOT consulted here. Lifecycle state stays in
+// the database; `users.is_active` is the single account-access flag, and this
+// is the one place it is enforced per request.
+function isSessionAccountActive(): bool {
+  static $checked = null; // one check per request, not one per call
+  if ($checked !== null) return $checked;
+
+  $userId = $_SESSION['user_id'] ?? null;
+  if (!$userId) return $checked = false;
+
+  try {
+    require_once __DIR__ . '/../config/db.php';
+    $db = getDB();
+    $stmt = $db->prepare("SELECT is_active FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $isActive = $stmt->fetchColumn();
+
+    // No row at all also fails closed.
+    return $checked = ($isActive !== false && (int) $isActive === 1);
+  } catch (Throwable $e) {
+    // Fail closed on an infrastructure failure rather than granting access on
+    // an unverifiable session, and record why server-side.
+    error_log('Session account-state check failed: ' . $e->getMessage());
+    return $checked = false;
+  }
+}
+
 function requireLogin(): void {
   if (empty($_SESSION['user_id'])) {
     header('Location: ' . BASE_URL . 'login.php');
+    exit;
+  }
+
+  if (!isSessionAccountActive()) {
+    // Destroy rather than merely redirect, so the stale session cannot be
+    // replayed against another endpoint.
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+      $p = session_get_cookie_params();
+      setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
+    session_destroy();
+    header('Location: ' . BASE_URL . 'login.php?error=deactivated');
     exit;
   }
 }
