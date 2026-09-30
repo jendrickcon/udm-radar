@@ -271,8 +271,9 @@ sequenceDiagram
 | **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Approved** | `b16282d`, `8f3d14e`, `401ac94` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; test suite preserved in repository. |
 | **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Approved** | `44e788a`, `f077fa4`, `23cc61c`, `107c9b8`, `882f2fd`, `6e9c939` | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries, exclude DRP from pass-rate denominator, add audit tool. |
 | **WP-3** | Database Column Migration (`VARCHAR(10)`) | **Approved** | `f0bc2c0`, `ed7b13c`, `023b48e`, `12ba47d` | Migration 005 standardizes grades.final_grade to VARCHAR(10) with exact-match BINARY CHECK constraint. Pre-migration audit, idempotent on scratch DB; live DB untouched. |
-| **WP-6** | Student Course Value and Curriculum-Track Repair | **Completed (Awaiting Sign-off)** | — | Migration 006 standardizes student_profiles.course to ENUM with CHECK constraint; repairs synthetic profiles to 'BSIT - Software Development'; updates application constants; audits elective consistency; live DB untouched. |
-| **Generator** | 5-Cohort Longitudinal Data Generator | **BLOCKED** | — | Generator remains blocked until all prerequisites through WP-9 are completed. |
+| **WP-6** | Student Course Value and Curriculum-Track Repair | **Approved** | `fa21e7d`, `6087663`, `ea63266`, `35e1a09`, `9085ae5` | Migration 006 standardizes student_profiles.course to ENUM with CHECK constraint; repairs synthetic profiles to 'BSIT - Software Development'; derives LOCKED_COURSE; audits elective consistency; live DB untouched. |
+| **WP-5** | Prediction Source & Feature Harmonization | **Paused pending privacy closeout** | — | Scope boundaries strictly enforced. |
+| **Generator** | 5-Cohort Longitudinal Data Generator | **BLOCKED** | — | Generator remains blocked until all prerequisites through WP-9 are completed. Official curriculum verification required before multi-track generation. |
 
 ### Registered Defect Remediation Log
 
@@ -290,7 +291,7 @@ sequenceDiagram
    - **Official Schema Count**: The application schema consists strictly of **18 base tables**. The migration backup table `_backup_student_profiles_course_wp6` (temporarily creating a 19th table in scratch) is a temporary migration artifact, exported to `backups/backup_student_profiles_course_wp6.sql` (checksum `9a5031f36656af748e655d61e96c816d`), and scheduled for deletion prior to WP-9 canonical dump consolidation.
    - **Population Distinctions**:
      - *Committed Baseline & Scratch*: 289 student profiles (288 Year 3 synthetic students in `IT-31` to `IT-38`, 1 Year 4 reference student UID 5 in `IT-43`).
-     - *Live Development Database*: 291 student profiles (290 blank `''`, 1 valid `'BSIT - Software Development'`). The two live-only profiles (UID 300 Joshua Dave T. Danganan, UID 301 Vincent Niño E. Carandang) are documented for pre-maintenance inspection; live records remain completely untouched.
+     - *Live Development Database*: 291 student profiles (290 blank `''`, 1 valid `'BSIT - Software Development'`). The two live-only profiles (Live-only profile A / User ID 300, Live-only profile B / User ID 301) are documented for pre-maintenance inspection; live records remain completely untouched.
    - **Synthetic Course Allocation & Curriculum Policy**: The existing synthetic records are assigned Software Development for internal prototype consistency. This is not evidence of actual UDM section-to-track allocation. Track and elective mappings (SD351 *Machine Learning*, SD352 *Web Development 2*, SD353 *Software Development*, SD354 *Platform Technologies*) represent verified repository baseline records from prototype development, but are classified as synthetic placeholder curricula. Official track-curriculum verification is registered as a mandatory prerequisite before multi-track cohort generation.
    - **Application Code Hardening**: Updated `LOCKED_COURSE` in `admin/students.php` to derive directly from canonical `COURSE_PROGRAMS[0]`, added course validation in `admin/activity.php`, and introduced `isValidCourse()` in `config/constants.php`. Verified 100% elective coherence for SD351 across all 289 profiles.
 
@@ -307,5 +308,21 @@ sequenceDiagram
      5. Backfill only `current_gwa` through the canonical calculation.
      6. Rerun parity verification to confirm 100% parity.
      7. Preserve before-and-after audit evidence.
+
+2. **[MAINT-WP9-CLEANUP] Mandatory Pre-Export Backup-Table Cleanup Gate**:
+   - **Context**: Migration and parity tools utilize temporary `_backup_%` tables during testing and verification (e.g. `_backup_student_profiles_course_wp6`, `_backup_student_profiles_gwa_wp4`).
+   - **Mandatory Pre-Export Gate Query**:
+     ```sql
+     SELECT TABLE_NAME
+     FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME LIKE '\_backup\_%';
+     ```
+   - **Gate Requirement**:
+     1. Verify all required evidence is preserved outside the database (e.g., in gitignored `backups/`).
+     2. Drop all temporary backup tables: `DROP TABLE IF EXISTS _backup_student_profiles_course_wp6, _backup_student_profiles_gwa_wp4;`.
+     3. Confirm the pre-export gate query returns **0 rows**.
+     4. Confirm `information_schema.TABLES` reports exactly **18 application base tables**.
+     5. Only then regenerate canonical dump [`database/udm_radar.sql`](file:///C:/xampp/htdocs/udm-radar/database/udm_radar.sql), ERD, and Data Dictionary.
 
 
