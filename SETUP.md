@@ -129,15 +129,16 @@ mysql -u root udm_radar < database\migrations\004_create_workflow_and_support_ta
 mysql -u root udm_radar < database\migrations\005_standardize_final_grade_storage.sql
 ```
 
-The upgraded database will include all 18 tables required by the active application portals, with `grades.final_grade` standardized to `VARCHAR(10)`:
+The upgraded database will include all 18 tables required by the active application portals, with `grades.final_grade` standardized to `VARCHAR(10)` and `student_profiles.course` standardized to canonical ENUM tracks:
 - **Migration 005**: Standardizes `grades.final_grade` from `DECIMAL(4,2)` to `VARCHAR(10) NULL DEFAULT NULL` with CHECK constraint `chk_grades_final_grade_domain`.
+- **Migration 006**: Repairs synthetic student course records, converting `student_profiles.course` to `ENUM('BSIT - Software Development', 'BSIT - Data Science', 'BSIT - Cyber Security') NOT NULL DEFAULT 'BSIT - Software Development'` with CHECK constraint `chk_student_profiles_course_valid` and pre-migration backup table `_backup_student_profiles_course_wp6`.
 - **Textual Status Support**: Institutional statuses (`INC`, `DRP`, `P`, `DO`, `DU`, `FA`, `UD`) and canonical numeric point grades (`4.00` to `1.00`) become reproducibly supported.
 - **Application Validation Authoritative**: Application write-path validation in PHP remains authoritative for new-entry policy (rejecting new `0.00` inputs while preserving historical `0.00`).
 - **Canonical Dump**: Remains unchanged; consolidated schema dump regeneration is scheduled for WP-9.
 
 ```text
 users
-student_profiles (with record_status)
+student_profiles (with record_status, canonical course tracks)
 subjects
 grades (final_grade VARCHAR(10))
 predictions
@@ -168,6 +169,7 @@ mysql -u root udm_radar_scratch < database\migrations\002_feedback_status_cleanu
 mysql -u root udm_radar_scratch < database\migrations\003_export_audit_failure_info.sql
 mysql -u root udm_radar_scratch < database\migrations\004_create_workflow_and_support_tables.sql
 mysql -u root udm_radar_scratch < database\migrations\005_standardize_final_grade_storage.sql
+mysql -u root udm_radar_scratch < database\migrations\006_repair_student_course_values.sql
 ```
 
 Do not commit database backups or local dumps to Git (enforced in `.gitignore`).

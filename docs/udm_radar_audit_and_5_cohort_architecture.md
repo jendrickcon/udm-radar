@@ -270,7 +270,8 @@ sequenceDiagram
 | **WP-1** | Database Migrations & Table Recovery | **Approved** | `7563584`, `7e2c6d4` | Migrations 000–004 idempotent on scratch DB; live DB untouched. |
 | **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Approved** | `b16282d`, `8f3d14e`, `401ac94` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; test suite preserved in repository. |
 | **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Approved** | `44e788a`, `f077fa4`, `23cc61c`, `107c9b8`, `882f2fd`, `6e9c939` | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries, exclude DRP from pass-rate denominator, add audit tool. |
-| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **Completed (Awaiting Sign-off)** | — | Migration 005 standardizes grades.final_grade to VARCHAR(10) with CHECK constraint chk_grades_final_grade_domain. Idempotent on scratch DB; live DB untouched. |
+| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **Approved** | `f0bc2c0`, `ed7b13c`, `023b48e`, `12ba47d` | Migration 005 standardizes grades.final_grade to VARCHAR(10) with exact-match BINARY CHECK constraint. Pre-migration audit, idempotent on scratch DB; live DB untouched. |
+| **WP-6** | Student Course Value and Curriculum-Track Repair | **Completed (Awaiting Sign-off)** | — | Migration 006 standardizes student_profiles.course to ENUM with CHECK constraint; repairs synthetic profiles to 'BSIT - Software Development'; updates application constants; audits elective consistency; live DB untouched. |
 | **Generator** | 5-Cohort Longitudinal Data Generator | **BLOCKED** | — | Generator remains blocked until all prerequisites through WP-9 are completed. |
 
 ### Registered Defect Remediation Log
@@ -281,6 +282,11 @@ sequenceDiagram
    - **Resolution**: Replaced with `isPassingFinalGrade()` and `isFailingFinalGrade()`. Point grades $< 1.75$ and failing textual statuses are correctly classified as failed.
    - **Pass-Rate Denominator Correction**: `DRP` (dropped), `NULL`, blanks, and unparseable codes are strictly excluded from the pass-rate denominator (`recognized_outcome_count = passed + failed`).
    - **Outcome Buckets**: 7 explicit buckets tracked (`numeric_count`, `numeric_pass_count`, `nonnumeric_pass_count`, `failing_count`, `dropped_count`, `missing_or_invalid_count`, `recognized_outcome_count`). Tested via Scenarios A, B, C, D in unit test suite.
+
+2. **[DEFECT-WP6-01] Synthetic Student Course Representation & Live Blank Values (RESOLVED in WP-6)**:
+   - **Location**: `student_profiles.course`, `admin/students.php`, `admin/activity.php`, `config/constants.php`.
+   - **Prior State**: Synthetic 3rd-year students held generic `'Bachelor of Science in Information Technology'` while Year 4 reference student held `'BSIT (Software Development)'`. In live `udm_radar`, an uncommitted ENUM modification under non-strict SQL mode silently coerced 290 student records into empty strings `''`.
+   - **Resolution**: Implemented Migration 006 with pre-migration verification, safety backup table `_backup_student_profiles_course_wp6`, standardizing all synthetic profiles to `'BSIT - Software Development'`, converting the column to `ENUM('BSIT - Software Development', 'BSIT - Data Science', 'BSIT - Cyber Security') NOT NULL DEFAULT 'BSIT - Software Development'` and attaching `chk_student_profiles_course_valid` to reject blanks even under non-strict SQL mode. Updated `LOCKED_COURSE` in `admin/students.php`, added course validation in `admin/activity.php`, and introduced `isValidCourse()` in `config/constants.php`. Verified that all 288 Year 3 students are enrolled in `SD351` elective, maintaining 100% track coherence.
 
 ### Registered Future Maintenance Tasks
 
