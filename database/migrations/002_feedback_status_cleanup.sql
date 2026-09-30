@@ -13,13 +13,11 @@
 -- Approved classification: resolved for both. Categories (data_issue) are
 -- deliberately NOT touched.
 --
--- The guard makes this idempotent: re-running after the fix updates nothing.
+-- Idempotent:
+--   - Guarded on status = '' so re-running after the fix updates nothing.
 --
--- NOTE: a CHECK constraint on feedback_reports.status is deliberately NOT
--- added here. The full workflow vocabulary (open, faculty_review,
--- awaiting_admin, resolved, rejected) still needs a repository-wide audit of
--- every routing path before it is constrained. See config/constants.php
--- FEEDBACK_STATUSES / FEEDBACK_TERMINAL_STATUSES.
+-- Apply:
+--   mysql -u root udm_radar < database/migrations/002_feedback_status_cleanup.sql
 
 UPDATE feedback_reports
 SET status = 'resolved'
@@ -30,3 +28,7 @@ WHERE id IN (5, 6)
 -- Verification query (run after applying):
 --   SELECT id, status, resolved_at FROM feedback_reports WHERE id IN (5, 6);
 -- Expected: both rows show status = 'resolved'.
+
+-- ---------------------------------------------------------------------------
+-- ROLLBACK:
+--   UPDATE feedback_reports SET status = '' WHERE id IN (5, 6) AND status = 'resolved';

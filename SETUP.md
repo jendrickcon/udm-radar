@@ -110,13 +110,28 @@ Create the database expected by `config/db.php`, normally:
 udm_radar
 ```
 
-Import the current consolidated SQL file from the repository's `database/` directory.
+### 6.1 Database Import & Migration Sequence (Phase 0 Upgrade Path)
 
-The imported database must include the current application tables, including the applicable versions of:
+> [!WARNING]
+> **Fresh-Install Dependency Notice**: The committed `database/udm_radar.sql` file contains the baseline 17-table schema (Sep 29). Commits after `606d728` depend on features introduced in subsequent migrations (`export_audit_logs`, `record_status`, and `failure_reason`). Until the canonical consolidated dump is regenerated in WP-9, setting up the database requires importing the baseline dump followed by migrations `000` through `003` in order:
+
+```powershell
+# 1. Create database and import baseline schema
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS udm_radar;"
+mysql -u root udm_radar < database\udm_radar.sql
+
+# 2. Apply sequential idempotent migrations
+mysql -u root udm_radar < database\migrations\000_create_export_audit_logs.sql
+mysql -u root udm_radar < database\migrations\001_add_student_record_status.sql
+mysql -u root udm_radar < database\migrations\002_feedback_status_cleanup.sql
+mysql -u root udm_radar < database\migrations\003_export_audit_failure_info.sql
+```
+
+The upgraded database will include all 18 tables required by the active application portals:
 
 ```text
 users
-student_profiles
+student_profiles (with record_status)
 subjects
 grades
 predictions
@@ -128,16 +143,26 @@ feedback_messages
 feedback_status_history
 academic_support_cases
 support_actions
+support_case_referrals
 support_status_history
 admin_change_log
-export_audit_log
+export_audit_logs (with failure_reason)
+otp_tokens
 ```
 
-Table names may vary only if the application code and consolidated schema have been updated together.
+### 6.2 Testing on Scratch Database
+Before running schema or data changes, always verify them on an isolated scratch database:
 
-### Database warning
+```powershell
+mysql -u root -e "DROP DATABASE IF EXISTS udm_radar_scratch; CREATE DATABASE udm_radar_scratch;"
+mysql -u root udm_radar_scratch < database\udm_radar.sql
+mysql -u root udm_radar_scratch < database\migrations\000_create_export_audit_logs.sql
+mysql -u root udm_radar_scratch < database\migrations\001_add_student_record_status.sql
+mysql -u root udm_radar_scratch < database\migrations\002_feedback_status_cleanup.sql
+mysql -u root udm_radar_scratch < database\migrations\003_export_audit_failure_info.sql
+```
 
-Do not treat an old base schema as sufficient if newer portal code depends on support, pending-approval, or export-audit tables. The repository's consolidated export should represent a complete runnable installation.
+Do not commit database backups or local dumps to Git (enforced in `.gitignore`).
 
 ## 7. Configure the Python Environment
 

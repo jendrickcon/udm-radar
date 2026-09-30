@@ -1,28 +1,28 @@
 -- 003_export_audit_failure_info.sql
 -- Remediation P1: enable the two-level export-audit failure model.
 --
--- Verified 2026-09-30: export_audit_logs exists with the columns the helper
--- inserts (user_id, report_type, format, filters_json, row_count, success) and
--- a probe INSERT succeeds. Zero rows is NOT a schema mismatch — no export has
--- ever run on this database. All eight exporters call logExportAudit().
+-- Adds failure_reason to export_audit_logs to record sanitized, user-safe
+-- descriptions of export generation failures or audit write warnings.
 --
--- What IS missing for the approved failure model:
---   * failure_reason — sanitized, user-safe description of a failed audit
---     insert or a failed export generation.
---   * format as a constrained enum — the helper only ever writes 'CSV'/'PDF'.
+-- Table requirements:
+--   - Requires export_audit_logs (created by migration 000).
+--   - format remains VARCHAR(20) NOT NULL (enforced by application code).
 --
--- Level 1 (audit insert fails after successful export): helper logs technical
---   detail to the server error log and returns false; the export completes.
--- Level 2 (export generation itself fails): exporters record a failed audit
---   event while the database is still available, storing a sanitized reason.
+-- Idempotent:
+--   - Uses IF NOT EXISTS to prevent duplicate-column errors on re-run.
+--   - Preserves all existing audit records.
 --
--- Rollback:
---   ALTER TABLE export_audit_logs MODIFY format VARCHAR(20) NOT NULL;
---   ALTER TABLE export_audit_logs DROP COLUMN failure_reason;
+-- Apply:
+--   mysql -u root udm_radar < database/migrations/003_export_audit_failure_info.sql
 
 ALTER TABLE export_audit_logs
-  ADD COLUMN failure_reason VARCHAR(255) DEFAULT NULL
+  ADD COLUMN IF NOT EXISTS failure_reason VARCHAR(255) DEFAULT NULL
     AFTER success;
 
-ALTER TABLE export_audit_logs
-  MODIFY format ENUM('CSV','PDF') NOT NULL;
+-- Verification queries:
+--   SHOW COLUMNS FROM export_audit_logs LIKE 'failure_reason';
+--   SELECT COUNT(*) FROM export_audit_logs;
+
+-- ---------------------------------------------------------------------------
+-- ROLLBACK:
+--   ALTER TABLE export_audit_logs DROP COLUMN IF EXISTS failure_reason;
