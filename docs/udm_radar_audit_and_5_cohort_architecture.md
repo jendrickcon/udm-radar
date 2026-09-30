@@ -268,9 +268,9 @@ sequenceDiagram
 | :--- | :--- | :--- | :--- | :--- |
 | **WP-0** | Baseline Freeze & Verification | **Approved** | `1ee0b9e`, `d989c1b` | No model replacement, no DB migration. |
 | **WP-1** | Database Migrations & Table Recovery | **Approved** | `7563584`, `7e2c6d4` | Migrations 000–004 idempotent on scratch DB; live DB untouched. |
-| **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Completed (Correction Pass Applied)** | `b16282d`, `8f3d14e` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; live DB & dump untouched. |
-| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED** | — | Awaiting WP-2 approval. |
-| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **PAUSED** | — | Awaiting WP-3 completion. |
+| **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Approved** | `b16282d`, `8f3d14e`, `401ac94` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; test suite preserved in repository. |
+| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Authorized (In Progress)** | — | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries. |
+| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED (Pending WP-4 Completion)** | — | Storage migration paused until canonical GWA parity and analytics are established. |
 
 ### Registered Open Defects for Future Work Packages
 
