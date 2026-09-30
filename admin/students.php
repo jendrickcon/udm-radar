@@ -141,28 +141,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archi
         // Both writes are paired in one transaction so an archived record can
         // never end up with a still-usable account, or vice versa.
         //
-        // record_status does not exist until the migration in the remediation
-        // plan is applied, so this branches rather than failing outright.
-        try {
-            $db->beginTransaction();
-
-            $hasRecordStatus = (bool) $db->query("SHOW COLUMNS FROM student_profiles LIKE 'record_status'")->fetch();
-            if ($hasRecordStatus) {
+        // Before migration 001_add_student_record_status.sql is applied the
+        // column does not exist. Failing whole is deliberate: proceeding would
+        // disable the account while the profile keeps no archived lifecycle
+        // value — a partially applied state that is harder to detect and roll
+        // back than a clean refusal.
+        $hasRecordStatus = (bool) $db->query("SHOW COLUMNS FROM student_profiles LIKE 'record_status'")->fetch();
+        if (!$hasRecordStatus) {
+            error_log('Archive blocked: student_profiles.record_status is missing. Apply database/migrations/001_add_student_record_status.sql.');
+            $error = 'Student archival is temporarily unavailable until the lifecycle migration is applied.';
+        } else {
+            try {
+                $db->beginTransaction();
                 $db->prepare("UPDATE student_profiles SET record_status = 'Archived' WHERE user_id = ?")->execute([$arcId]);
+
+                // Account access is revoked in the same transaction. login.php
+                // requires is_active = 1 and protected pages re-check it per
+                // request, so an already-open session loses access on its next
+                // page load rather than riding out the archive.
+                $db->prepare("UPDATE users SET is_active = 0 WHERE id = ? AND role = 'student'")->execute([$arcId]);
+
+                $db->commit();
+                $success = 'Student record archived and account access revoked. History is preserved.';
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                error_log("Archive failed for student $arcId: " . $e->getMessage());
+                $error = 'Could not archive this student record. No changes were applied.';
             }
-
-            // Account access is revoked immediately. login.php requires
-            // is_active = 1 and protected pages re-check it per request, so an
-            // already-open session loses access on its next page load rather
-            // than riding out the archive.
-            $db->prepare("UPDATE users SET is_active = 0 WHERE id = ? AND role = 'student'")->execute([$arcId]);
-
-            $db->commit();
-            $success = 'Student record archived and account access revoked. History is preserved.';
-        } catch (Throwable $e) {
-            if ($db->inTransaction()) $db->rollBack();
-            error_log("Archive failed for student $arcId: " . $e->getMessage());
-            $error = 'Could not archive this student record. No changes were applied.';
         }
     }
 }

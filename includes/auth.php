@@ -18,10 +18,11 @@ session_start();
 // Re-verifies the account behind the session against the database, and
 // terminates the session if it is no longer permitted to authenticate.
 //
-// This exists because session state is a CLIENT-SIDE copy: an Admin archiving
-// or deactivating a Student while that Student is logged in would otherwise
-// leave the existing session fully usable, since nothing re-read the account.
-// The database is the authority, so every protected page checks it rather than
+// This exists because session authentication state can become stale after the
+// underlying account is deactivated or archived — PHP stores session data
+// server-side, but nothing in an ordinary session re-reads the account, so an
+// already-authenticated session would keep working. The database is the
+// authority, so every protected page revalidates `users.is_active` rather than
 // trusting what was true at login time.
 //
 // record_status is deliberately NOT consulted here. Lifecycle state stays in

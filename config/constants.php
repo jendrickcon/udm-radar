@@ -239,8 +239,19 @@ function formatNameShort(string $first, string $last): string {
 const STUDENT_STATUSES = ['Regular', 'Irregular'];
 
 // Canonical grade_concern workflow states for feedback_reports.status.
-// Only a terminal state is set by Admin resolution; the earlier routing states
-// are tracked by the workflow itself.
+//
+// FEEDBACK_STATUSES is the full set a ticket can legitimately pass through;
+// it must be verified against the live workflows (student submission,
+// faculty review, admin routing, resolution) before any CHECK constraint is
+// added. FEEDBACK_TERMINAL_STATUSES is only the states Admin resolution sets —
+// it is deliberately a subset, not the whole vocabulary.
+const FEEDBACK_STATUSES = [
+    'open',
+    'faculty_review',
+    'awaiting_admin',
+    'resolved',
+    'rejected',
+];
 const FEEDBACK_TERMINAL_STATUSES = ['resolved', 'rejected'];
 
 // Canonical LIFECYCLE vocabulary for student_profiles.record_status.
