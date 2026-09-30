@@ -269,13 +269,30 @@ sequenceDiagram
 | **WP-0** | Baseline Freeze & Verification | **Approved** | `1ee0b9e`, `d989c1b` | No model replacement, no DB migration. |
 | **WP-1** | Database Migrations & Table Recovery | **Approved** | `7563584`, `7e2c6d4` | Migrations 000–004 idempotent on scratch DB; live DB untouched. |
 | **WP-2** | Canonical Final Grade Vocabulary & Helper Layer | **Approved** | `b16282d`, `8f3d14e`, `401ac94` | Shared helpers in `config/constants.php`; numeric-only term percentages; canonicalization; test suite preserved in repository. |
-| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Authorized (In Progress)** | — | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries. |
-| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED (Pending WP-4 Completion)** | — | Storage migration paused until canonical GWA parity and analytics are established. |
+| **WP-4** | GWA Parity, Analytics Reconciliation & Historical Reports | **Completed (Awaiting Sign-off)** | `44e788a`, `f077fa4`, `23cc61c`, `107c9b8`, `882f2fd` | Centralize unit-weighted GWA, resolve duplicate recalculations, fix historical pass rate, reconcile faculty lifecycle queries, exclude DRP from pass-rate denominator, add audit tool. |
+| **WP-3** | Database Column Migration (`VARCHAR(10)`) | **PAUSED (Pending WP-4 Approval)** | — | Storage migration paused until canonical GWA parity and analytics are approved. |
 
-### Registered Open Defects for Future Work Packages
+### Registered Defect Remediation Log
 
-1. **[DEFECT-WP4-01] Historical Pass-Rate Misclassification (Unresolved, Deferred to WP-4)**:
-   - **Location**: `admin/analytics.php:400` and `admin/export_program_analytics_pdf.php:400`.
-   - **Description**: Historical analytics currently evaluates any numeric Final Grade greater than zero (`$pt > 0`) as "passed", causing failing numeric point grades below the 1.75 threshold (`1.00`, `1.25`, and `1.50`) to be counted as passing in historical subject passing rate reports.
-   - **Resolution Plan**: In WP-4, reconcile historical subject performance logic with institutional UDM risk thresholds (`FINAL_GRADE_POINTS < 1.75` as failing) following formal stakeholder sign-off on historical report parity.
+1. **[DEFECT-WP4-01] Historical Pass-Rate Misclassification (RESOLVED in WP-4)**:
+   - **Location**: `admin/analytics.php` and `admin/export_program_analytics_pdf.php`.
+   - **Prior State**: Evaluated `$pt > 0` as passed, incorrectly treating failing grades (`1.00`, `1.25`, `1.50`) as passes.
+   - **Resolution**: Replaced with `isPassingFinalGrade()` and `isFailingFinalGrade()`. Point grades $< 1.75$ and failing textual statuses are correctly classified as failed.
+   - **Pass-Rate Denominator Correction**: `DRP` (dropped), `NULL`, blanks, and unparseable codes are strictly excluded from the pass-rate denominator (`recognized_outcome_count = passed + failed`).
+   - **Outcome Buckets**: 7 explicit buckets tracked (`numeric_count`, `numeric_pass_count`, `nonnumeric_pass_count`, `failing_count`, `dropped_count`, `missing_or_invalid_count`, `recognized_outcome_count`). Tested via Scenarios A, B, C, D in unit test suite.
+
+### Registered Future Maintenance Tasks
+
+1. **[MAINT-LIVE-GWA] Controlled Backfill of 29 Stale Cached GWA Values on Live Database**:
+   - **Context**: 29 live student profiles retain historical cached `current_gwa` values (26 due to legacy `0.00` inclusion, 3 due to legacy unweighted averaging).
+   - **Policy**: Live database was accessed strictly read-only for audit; no live rows were modified in WP-4.
+   - **Controlled Maintenance Procedure**:
+     1. Back up live `current_gwa` values from `student_profiles`.
+     2. Run the read-only parity report via `tools/audit_gwa_parity.php --db=udm_radar --allow-live-read-only`.
+     3. Review the affected synthetic student profiles.
+     4. Obtain formal stakeholder approval for the maintenance window.
+     5. Backfill only `current_gwa` through the canonical calculation.
+     6. Rerun parity verification to confirm 100% parity.
+     7. Preserve before-and-after audit evidence.
+
 

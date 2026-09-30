@@ -140,9 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $approvedGrades = $_POST['approved_grades'] ?? []; 
                     $payload = json_decode($batch['payload'], true); 
                     $termType = $batch['term_type'];
-                    $allowedTerms = ['prelim', 'midterm', 'prefinal', 'final_grade'];
+                    $allowedTerms = ['prelim', 'midterm', 'prefinal'];
                     
-                    if (!in_array($termType, $allowedTerms)) throw new Exception("Invalid batch grading period.");
+                    if (!in_array($termType, $allowedTerms, true)) throw new Exception("Invalid batch grading period.");
                     
                     $getGradeStmt = $db->prepare("SELECT id, `$termType` FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
                     $updateGradeStmt = $db->prepare("UPDATE grades SET `$termType` = ? WHERE id = ?");
@@ -155,29 +155,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $reason = $item['reason'];
                         $rawProposed = trim($approvedGrades[$sid] ?? $facultyProposed);
                         if (!validateAdminGrade($termType, $rawProposed)) throw new Exception("Validation Error: Invalid value '{$rawProposed}' for student #{$sid}.");
-                        $finalGrade = $termType === 'final_grade' ? (normalizeFinalGradeInput($rawProposed) ?? $rawProposed) : $rawProposed;
+                        $termVal = $rawProposed;
 
                         $getGradeStmt->execute([$sid, $batch['subject_id']]);
                         $gradeRow = $getGradeStmt->fetch();
                         
-                        if ($gradeRow && $finalGrade !== '') {
+                        if ($gradeRow && $termVal !== '') {
                             $oldVal = $gradeRow[$termType] ?? '(empty)';
                             
-                            // 1. Update the actual grade
-                            $updateGradeStmt->execute([$finalGrade, $gradeRow['id']]);
+                            // 1. Update the actual term grade
+                            $updateGradeStmt->execute([$termVal, $gradeRow['id']]);
                             
-                            // 2. Recalculate Risk & GWA, delete old predictions
+                            // 2. Recalculate Risk, delete old predictions (Grade batches are term percentages only; official GWA is unaffected)
                             $newRisk = recalculateGradeRowRisk($db, $gradeRow['id']);
                             $updateRiskStmt->execute([$newRisk, $gradeRow['id']]);
-                            if ($termType === 'final_grade') {
-                                recalculateStudentGwa($db, $sid);
-                            }
                             $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$sid]);
                             
                             // 3. Log the change to the System Audit Log
                             $note = 'Batch Approval: ' . $reason;
-                            if ($finalGrade !== $facultyProposed) { $note .= " (Admin modified from proposed $facultyProposed)"; }
-                            $logStmt->execute([$user['id'], $sid, "grade_{$termType}", $oldVal, $finalGrade, $note]);
+                            if ($termVal !== $facultyProposed) { $note .= " (Admin modified from proposed $facultyProposed)"; }
+                            $logStmt->execute([$user['id'], $sid, "grade_{$termType}", $oldVal, $termVal, $note]);
                         }
                     }
                     $db->prepare("UPDATE pending_grade_batches SET status='approved', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
