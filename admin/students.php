@@ -10,7 +10,7 @@ requireRole('admin');
 $user = currentUser();
 $db = getDB();
 
-const LOCKED_COURSE   = 'Bachelor of Science in Information Technology';
+const LOCKED_COURSE   = 'BSIT - Software Development';
 const LOCKED_PASSWORD = 'default1!';
 
 if (empty($_SESSION['csrf_token'])) {

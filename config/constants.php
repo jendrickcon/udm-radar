@@ -540,6 +540,10 @@ function allowedCourses(): array {
     return COURSE_PROGRAMS;
 }
 
+function isValidCourse(?string $course): bool {
+    return $course !== null && in_array(trim($course), COURSE_PROGRAMS, true);
+}
+
 // Shared ordinal label for a curriculum year (1 -> "1st Year"). Lives here
 // rather than in one admin page so the student directory, the analytics
 // filters, and any export that prints a year level all render it identically.

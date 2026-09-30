@@ -100,6 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'student_course'     => 'course',
                     ];
                     if (isset($studentFieldMap[$corr['target_type']])) {
+                        if ($corr['target_type'] === 'student_course' && !in_array($corr['new_value'], allowedCourses(), true)) {
+                            throw new Exception("Validation Error: Invalid program/course value '{$corr['new_value']}'. Must be one of: " . implode(', ', allowedCourses()));
+                        }
                         $db->prepare("UPDATE student_profiles SET `{$studentFieldMap[$corr['target_type']]}` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
                     } elseif ($corr['target_type'] === 'grade') {
                         if (!in_array($column, $allowedTerms)) throw new Exception("Invalid grading period.");
