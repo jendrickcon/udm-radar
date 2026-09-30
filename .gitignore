@@ -35,3 +35,7 @@ Thumbs.db
 *.log
 error_log
 .env
+
+# --- Database Backups & Temporary Dumps ---
+backups/
+*.sql.bak
