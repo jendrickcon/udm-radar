@@ -488,6 +488,36 @@ const PREDICTION_SOURCE_BOUNDARY_MAP = [
     'decision_tree'        => PREDICTION_SOURCE_DECISION_TREE,
 ];
 
+// =========================================================================
+// PREDICTION COMPLETENESS METADATA CONTRACT
+// =========================================================================
+const PREDICTION_COMPLETENESS_COMPLETE        = 'complete';
+const PREDICTION_COMPLETENESS_HISTORICAL_ONLY = 'historical_only';
+const PREDICTION_COMPLETENESS_PRELIM_ONLY     = 'prelim_only';
+const PREDICTION_COMPLETENESS_LEGACY_UNKNOWN  = 'legacy_unknown';
+
+const ALLOWED_PREDICTION_COMPLETENESS = [
+    PREDICTION_COMPLETENESS_COMPLETE,
+    PREDICTION_COMPLETENESS_HISTORICAL_ONLY,
+    PREDICTION_COMPLETENESS_PRELIM_ONLY,
+    PREDICTION_COMPLETENESS_LEGACY_UNKNOWN,
+];
+
+const PROVISIONAL_BASIS_HISTORICAL_GWA     = 'historical_gwa';
+const PROVISIONAL_BASIS_CURRENT_PRELIM_AVG = 'current_prelim_avg';
+
+const ALLOWED_PROVISIONAL_BASES = [
+    PROVISIONAL_BASIS_HISTORICAL_GWA,
+    PROVISIONAL_BASIS_CURRENT_PRELIM_AVG,
+];
+
+function isValidPredictionCompleteness(?string $val): bool {
+    if ($val === null) return false;
+    $s = trim($val);
+    if ($s === '') return false;
+    return in_array($s, ALLOWED_PREDICTION_COMPLETENESS, true);
+}
+
 /**
  * Validates whether a prediction source belongs to the approved canonical vocabulary.
  */
@@ -629,6 +659,7 @@ function getPredictionExplanationMetadata(array $prediction, string $audience = 
         'complete'        => 'Complete Records',
         'historical_only' => 'Historical Records Only (Provisional)',
         'prelim_only'     => 'Current Prelims Only (Provisional)',
+        'legacy_unknown'  => 'Historical Baseline Records',
         'missing_all', 'insufficient_data' => 'Insufficient Data',
         default           => $isPartial ? 'Provisional Estimate' : 'Standard Records',
     };
@@ -638,6 +669,7 @@ function getPredictionExplanationMetadata(array $prediction, string $audience = 
         'complete'        => 'Informed by both historical cumulative GWA and current term preliminary evaluations.',
         'historical_only' => 'Informed solely by prior semester coursework. Current semester preliminary grades have not yet been encoded.',
         'prelim_only'     => 'Informed solely by current semester preliminary course evaluations. No prior institutional coursework is on record.',
+        'legacy_unknown'  => 'Pre-audit historical baseline record preserved with original provenance.',
         'missing_all', 'insufficient_data' => 'No historical coursework or current preliminary grades are available to compute an estimate.',
         default           => $isPartial
             ? 'Based on partial academic inputs. Pending remaining course grade submissions.'
