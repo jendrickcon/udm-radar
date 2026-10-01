@@ -21,12 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // so this doesn't confirm to an outsider that the account exists.
             $error = "Invalid User ID or Password.";
         } elseif ($user && password_verify($password, $user['password_hash'])) {
+            session_regenerate_id(true);
             $_SESSION['user_id']    = $user['id'];
             $_SESSION['role']       = $user['role'];
             $_SESSION['name']       = $user['name'];
             $_SESSION['first_name'] = $user['first_name'];
             $_SESSION['last_name']  = $user['last_name'];
             $_SESSION['identifier'] = $user['user_id'];
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
             if ($user['role'] === 'student') {
                 header("Location: student/index.php");

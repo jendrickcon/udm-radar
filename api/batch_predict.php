@@ -15,12 +15,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit(json_encode(['status' => 'error', 'error' => 'Method Not Allowed. Must be POST.']));
 }
 
-// FIXED: Enforce CSRF Validation for AJAX calls
-$input = json_decode(file_get_contents('php://input'), true) ?? [];
-$submittedToken = $input['csrf_token'] ?? $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-$sessionToken = $_SESSION['csrf_token'] ?? '';
+// Enforce CSRF Validation for AJAX calls via centralized helper
+$rawInput = file_get_contents('php://input');
+if (($rawInput === '' || $rawInput === false) && php_sapi_name() === 'cli') {
+    $rawInput = @file_get_contents('php://stdin');
+}
+$input = json_decode($rawInput ?: '', true) ?? [];
+$submittedToken = $input['csrf_token'] ?? $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
 
-if ($sessionToken === '' || $submittedToken === '' || !hash_equals($sessionToken, $submittedToken)) {
+if (!validateCsrfToken($submittedToken)) {
     http_response_code(403);
     exit(json_encode(['status' => 'error', 'error' => 'CSRF validation failed.']));
 }
