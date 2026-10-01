@@ -207,8 +207,16 @@ PHP;
     ];
 }
 
-// Initial count of predictions in scratch DB
-$initialPredictionCount = (int) $db->query("SELECT COUNT(*) FROM predictions")->fetchColumn();
+// Record initial counts of 6 core tables in scratch DB
+$initialCounts = [
+    'predictions'           => (int) $db->query("SELECT COUNT(*) FROM predictions")->fetchColumn(),
+    'academic_support_cases'=> (int) $db->query("SELECT COUNT(*) FROM academic_support_cases")->fetchColumn(),
+    'support_case_referrals'=> (int) $db->query("SELECT COUNT(*) FROM support_case_referrals")->fetchColumn(),
+    'support_actions'       => (int) $db->query("SELECT COUNT(*) FROM support_actions")->fetchColumn(),
+    'support_status_history'=> (int) $db->query("SELECT COUNT(*) FROM support_status_history")->fetchColumn(),
+    'admin_change_log'      => (int) $db->query("SELECT COUNT(*) FROM admin_change_log")->fetchColumn(),
+];
+$initialPredictionCount = $initialCounts['predictions'];
 
 // Test A: Unauthenticated request (no session)
 $resA = invokeBatchPredictSubprocess([]);
@@ -297,6 +305,21 @@ assertCondition(($resG['http_code'] === 429), "Valid JSON body csrf_token passes
 assertCondition(str_contains($jsonG['error'] ?? '', 'already running'), "Valid JSON body csrf_token receives lock response rather than CSRF rejection");
 
 @unlink($lockFile);
+
+echo "\n=== 3. Database Invariant Verification (6 Core Tables) ===\n";
+$afterCounts = [
+    'predictions'           => (int) $db->query("SELECT COUNT(*) FROM predictions")->fetchColumn(),
+    'academic_support_cases'=> (int) $db->query("SELECT COUNT(*) FROM academic_support_cases")->fetchColumn(),
+    'support_case_referrals'=> (int) $db->query("SELECT COUNT(*) FROM support_case_referrals")->fetchColumn(),
+    'support_actions'       => (int) $db->query("SELECT COUNT(*) FROM support_actions")->fetchColumn(),
+    'support_status_history'=> (int) $db->query("SELECT COUNT(*) FROM support_status_history")->fetchColumn(),
+    'admin_change_log'      => (int) $db->query("SELECT COUNT(*) FROM admin_change_log")->fetchColumn(),
+];
+
+foreach ($initialCounts as $table => $beforeCount) {
+    $afterCount = $afterCounts[$table];
+    assertCondition($afterCount === $beforeCount, "Invariant preserved for table '$table' (before: $beforeCount, after: $afterCount)");
+}
 
 echo "\n========================================================================\n";
 echo "SUMMARY: Ran $testsRun tests, $failures failures.\n";

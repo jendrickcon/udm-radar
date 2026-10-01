@@ -69,6 +69,16 @@ echo "UDM-RADAR: PREDICTION SOURCE CONTRACT & SCHEMA INTEGRATION TESTS (WP-5)\n"
 echo "Database: $scratchDb\n";
 echo "========================================================================\n\n";
 
+// Record initial counts of 6 core tables
+$initialCounts = [
+    'predictions'           => (int) $db->query("SELECT COUNT(*) FROM predictions")->fetchColumn(),
+    'academic_support_cases'=> (int) $db->query("SELECT COUNT(*) FROM academic_support_cases")->fetchColumn(),
+    'support_case_referrals'=> (int) $db->query("SELECT COUNT(*) FROM support_case_referrals")->fetchColumn(),
+    'support_actions'       => (int) $db->query("SELECT COUNT(*) FROM support_actions")->fetchColumn(),
+    'support_status_history'=> (int) $db->query("SELECT COUNT(*) FROM support_status_history")->fetchColumn(),
+    'admin_change_log'      => (int) $db->query("SELECT COUNT(*) FROM admin_change_log")->fetchColumn(),
+];
+
 // -----------------------------------------------------------------------------
 // 1. Column Metadata in information_schema
 // -----------------------------------------------------------------------------
@@ -122,7 +132,7 @@ echo "\n=== 4. Direct SQL Constraint Enforcement: predictions ===\n";
 $db->beginTransaction();
 try {
     // 4.1 Valid sources can be inserted
-    $stmtIns = $db->prepare("INSERT INTO predictions (student_id, predicted_gwa, risk_level, prediction_source) VALUES (5, 2.75, 'LOW', ?)");
+    $stmtIns = $db->prepare("INSERT INTO predictions (student_id, predicted_gwa, risk_level, prediction_source, data_completeness, is_provisional) VALUES (5, 2.75, 'LOW', ?, 'complete', 0)");
     
     $stmtIns->execute(['decision_tree']);
     assertTest(true, "Successfully inserted valid source: 'decision_tree'");
@@ -135,7 +145,7 @@ try {
 
     // 4.2 Omission of prediction_source must be rejected (no silent default)
     try {
-        $db->query("INSERT INTO predictions (student_id, predicted_gwa, risk_level) VALUES (5, 2.75, 'LOW')");
+        $db->query("INSERT INTO predictions (student_id, predicted_gwa, risk_level, data_completeness, is_provisional) VALUES (5, 2.75, 'LOW', 'complete', 0)");
         assertTest(false, "Failed to reject INSERT omitting prediction_source");
     } catch (PDOException $e) {
         assertTest(true, "Database correctly rejected INSERT omitting prediction_source (no silent default)");
@@ -257,6 +267,24 @@ PYCODE;
     assertTest(str_contains((string)$output, 'PY_OK'), "Python decision_tree contract verified (canonical payload, alias, zero-injection guard, 50/50 fallback)");
 } else {
     echo "[SKIP] Python virtual environment not found at $pythonExe\n";
+}
+
+// -----------------------------------------------------------------------------
+// 7. Database Invariant Verification (6 Core Tables)
+// -----------------------------------------------------------------------------
+echo "\n=== 7. Database Invariant Verification (6 Core Tables) ===\n";
+$afterCounts = [
+    'predictions'           => (int) $db->query("SELECT COUNT(*) FROM predictions")->fetchColumn(),
+    'academic_support_cases'=> (int) $db->query("SELECT COUNT(*) FROM academic_support_cases")->fetchColumn(),
+    'support_case_referrals'=> (int) $db->query("SELECT COUNT(*) FROM support_case_referrals")->fetchColumn(),
+    'support_actions'       => (int) $db->query("SELECT COUNT(*) FROM support_actions")->fetchColumn(),
+    'support_status_history'=> (int) $db->query("SELECT COUNT(*) FROM support_status_history")->fetchColumn(),
+    'admin_change_log'      => (int) $db->query("SELECT COUNT(*) FROM admin_change_log")->fetchColumn(),
+];
+
+foreach ($initialCounts as $table => $beforeCount) {
+    $afterCount = $afterCounts[$table];
+    assertTest($afterCount === $beforeCount, "Invariant preserved for table '$table' (before: $beforeCount, after: $afterCount)");
 }
 
 echo "\n========================================================================\n";
