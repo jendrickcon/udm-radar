@@ -80,9 +80,30 @@ if (!file_exists($dumpFile)) {
     exit(1);
 }
 
+function executeSqlFile(string $mysqlBin, string $dbUser, string $dbName, string $filePath): int {
+    $cmd = sprintf('"%s" -u %s %s', $mysqlBin, escapeshellarg($dbUser), escapeshellarg($dbName));
+    $descriptors = [
+        0 => ['file', $filePath, 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $proc = proc_open($cmd, $descriptors, $pipes);
+    if (!is_resource($proc)) {
+        return -1;
+    }
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $code = proc_close($proc);
+    if ($code !== 0 && !empty($stderr)) {
+        fwrite(STDERR, "\nMySQL Error: " . trim($stderr) . "\n");
+    }
+    return $code;
+}
+
 echo "[2/4] Importing baseline canonical dump (database/udm_radar.sql)...\n";
-$cmd = sprintf('"%s" -u %s %s < "%s"', $mysqlBin, escapeshellarg($dbUser), escapeshellarg($dbName), $dumpFile);
-exec($cmd, $output, $retCode);
+$retCode = executeSqlFile($mysqlBin, $dbUser, $dbName, $dumpFile);
 if ($retCode !== 0) {
     fwrite(STDERR, "FATAL: Failed to import baseline canonical dump (exit code $retCode).\n");
     exit(1);
@@ -97,8 +118,7 @@ echo "[3/4] Applying migration chain (000 through 008)...\n";
 foreach ($migrationFiles as $mig) {
     $baseName = basename($mig);
     echo "  -> Applying $baseName... ";
-    $cmd = sprintf('"%s" -u %s %s < "%s"', $mysqlBin, escapeshellarg($dbUser), escapeshellarg($dbName), $mig);
-    exec($cmd, $output, $retCode);
+    $retCode = executeSqlFile($mysqlBin, $dbUser, $dbName, $mig);
     if ($retCode !== 0) {
         echo "FAILED\n";
         fwrite(STDERR, "FATAL: Migration failed: $baseName (exit code $retCode)\n");
