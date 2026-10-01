@@ -48,9 +48,6 @@ function getStudentPrediction(int $studentId, PDO $db): array {
         ];
     }
 
-    $histGwaVal = $historicalGwa ?? 0.0;
-    $prelimAvgVal = $currentPrelimAvg ?? 0.0;
-
     // 3. Count Failed Subjects & Irregular Semesters
     $stmtPast = $db->prepare("
         SELECT school_year, semester, final_grade 
@@ -73,24 +70,29 @@ function getStudentPrediction(int $studentId, PDO $db): array {
 
     $hasDisqGrade = hasDisqualifyingGrade($studentId, $db);
 
-    $payload = [
-        'historical_gwa'           => $histGwaVal,
-        'current_prelim_point_avg' => $prelimAvgVal, // FIXED: Synced with Python contract
-        'failed_subjects_count'    => $failedCount,
-        'irregular_semesters'      => $irregularSemesters
-    ];
-
-    // 4. Mathematical Base
+    // 4. Deterministic Calculation Fallback Base
     $predGwa = predictFinalGradeHeuristic($currentPrelimAvg, $historicalGwa) ?? 0.0;
-    $predictionSource = 'calculation_fallback'; // FIXED: Standardized label
+    $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
 
-    // 5. Call Flask Python Microservice safely
-    $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
-    $ch = curl_init($pythonUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    // 5. Call Flask Python Microservice ONLY if all required regression features are non-null
+    // Prevents silent zero injection (e.g. 0.0 historical GWA) into the Decision Tree model.
+    $canCallModel = ($historicalGwa !== null && $currentPrelimAvg !== null);
+    $payload = null;
+
+    if ($canCallModel) {
+        $payload = [
+            'historical_gwa'           => (float) $historicalGwa,
+            'current_prelim_point_avg' => (float) $currentPrelimAvg,
+            'failed_subjects_count'    => (int) $failedCount,
+            'irregular_semesters'      => (int) $irregularSemesters,
+        ];
+
+        $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
+        $ch = curl_init($pythonUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     
     // FIXED: Split timeouts to prevent indefinite hanging
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1); 
@@ -108,13 +110,15 @@ function getStudentPrediction(int $studentId, PDO $db): array {
         $mlResult = json_decode($response, true);
         if ($mlResult && isset($mlResult['predicted_gwa']) && is_numeric($mlResult['predicted_gwa'])) {
             $predGwa = max(1.00, min(4.00, (float) $mlResult['predicted_gwa']));
-            $predictionSource = ($mlResult['source'] ?? '') === 'decision_tree' ? 'decision_tree' : 'calculation_fallback';
+            $normalizedSource = normalizePredictionSourceBoundary($mlResult['source'] ?? null);
+            $predictionSource = $normalizedSource ?? PREDICTION_SOURCE_CALCULATION_FALLBACK;
         } elseif (!$mlResult) {
             error_log("ML API Invalid JSON Response for Student $studentId: " . $response);
         }
     } else {
         error_log("ML API Error $httpCode for Student $studentId: " . $response);
     }
+}
 
     // 6. Everything else is derived from predGwa
     $risk = computeRiskFromAvg($predGwa);
