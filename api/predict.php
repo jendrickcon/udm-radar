@@ -108,7 +108,8 @@ function getStudentPrediction(int $studentId, PDO $db): array {
         $mlResult = json_decode($response, true);
         if ($mlResult && isset($mlResult['predicted_gwa']) && is_numeric($mlResult['predicted_gwa'])) {
             $predGwa = max(1.00, min(4.00, (float) $mlResult['predicted_gwa']));
-            $predictionSource = ($mlResult['source'] ?? '') === 'decision_tree' ? 'decision_tree' : 'calculation_fallback';
+            $normalizedSource = normalizePredictionSourceBoundary($mlResult['source'] ?? null);
+            $predictionSource = $normalizedSource ?? PREDICTION_SOURCE_CALCULATION_FALLBACK;
         } elseif (!$mlResult) {
             error_log("ML API Invalid JSON Response for Student $studentId: " . $response);
         }

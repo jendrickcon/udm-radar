@@ -97,12 +97,12 @@ if ($has_ai_prediction) {
     $display_predicted_gwa = (float) $ml_prediction['predicted_gwa'];
     $display_risk = $ml_prediction['risk_level'] !== null ? $ml_prediction['risk_level'] : computeRiskFromAvg($display_predicted_gwa);
     $display_honor = $ml_prediction['latin_honor'] ?? getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
-    $prediction_source = 'decision_tree';
+    $prediction_source = normalizePredictionSourceBoundary($ml_prediction['prediction_source'] ?? PREDICTION_SOURCE_DECISION_TREE) ?? PREDICTION_SOURCE_DECISION_TREE;
 } elseif ($has_fallback_data) {
     $display_predicted_gwa = $heuristic_gwa;
     $display_risk = $heuristic_risk;
     $display_honor = getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
-    $prediction_source = 'calculation_fallback';
+    $prediction_source = PREDICTION_SOURCE_CALCULATION_FALLBACK;
 } else {
     $display_predicted_gwa = null;
     $display_risk = null;
@@ -170,16 +170,17 @@ $riskBg = match($display_risk) {
 }; 
 
 $riskTooltip = "";
+$isAiSource = getPredictionSourceFamily($prediction_source) === 'ai_model';
 if ($display_risk === 'HIGH') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "High Risk: The AI model evaluated your trajectory and classified it as High Risk, typically driven by historical failed subjects or a low GWA trajectory."
         : "High Risk: Based on your current recorded grades, your projected GWA is critically low (below 1.75) or you have multiple past failed subjects on record.";
 } elseif ($display_risk === 'MODERATE') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "Moderate Risk: The AI model evaluated your trajectory as Moderate Risk. Minor interventions and focus are recommended to secure your standing."
         : "Moderate Risk: Based on your current recorded grades, your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
 } elseif ($display_risk === 'LOW') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "Low Risk: Excellent. The AI model projects a highly stable trajectory."
         : "Low Risk: Based on your current recorded grades, your projected GWA is well within the safe, highly satisfactory threshold.";
 } else {
@@ -246,17 +247,17 @@ require_once '../includes/sidebar.php';
             <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and academic estimation.</p>
         </div>
         <div>
-            <?php if ($prediction_source === 'decision_tree'): ?>
+            <?php if (getPredictionSourceFamily($prediction_source) === 'ai_model'): ?>
                 <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="AI-based prediction is active">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    AI-Based Prediction
+                    <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?>
                     <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the UDM-RADAR AI model based on your available academic inputs.</span>
                 </span>
-            <?php elseif ($prediction_source === 'calculation_fallback'): ?>
+            <?php elseif (getPredictionSourceFamily($prediction_source) === 'calculation'): ?>
                 <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Estimate based on current grades">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    Estimate Based on Current Grades
-                    <span class="tooltip-text" role="tooltip">This is a real calculation from your recorded grades. The AI-based prediction hasn't run for your account yet.</span>
+                    <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?>
+                    <span class="tooltip-text" role="tooltip">This is a deterministic calculation from your recorded grades. The AI-based prediction model hasn't run for your account yet.</span>
                 </span>
             <?php else: ?>
                 <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Insufficient data for a prediction">

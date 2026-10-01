@@ -466,6 +466,96 @@ function predictFinalGradeHeuristic(?float $currentPrelim, ?float $historicalGWA
     return round($blend * 4) / 4; // snap to the .25 grading increments
 }
 
+// ============================================================================
+// PREDICTION PROVENANCE & SOURCE VOCABULARY (WP-5)
+// ============================================================================
+
+const PREDICTION_SOURCE_DECISION_TREE        = 'decision_tree';
+const PREDICTION_SOURCE_HEURISTIC            = 'heuristic';
+const PREDICTION_SOURCE_CALCULATION_FALLBACK = 'calculation_fallback';
+
+const ALLOWED_PREDICTION_SOURCES = [
+    PREDICTION_SOURCE_DECISION_TREE,
+    PREDICTION_SOURCE_HEURISTIC,
+    PREDICTION_SOURCE_CALCULATION_FALLBACK,
+];
+
+// Service-boundary normalization map: external / legacy labels to canonical storage
+const PREDICTION_SOURCE_BOUNDARY_MAP = [
+    'fallback_blend'       => PREDICTION_SOURCE_CALCULATION_FALLBACK,
+    'calculation_fallback' => PREDICTION_SOURCE_CALCULATION_FALLBACK,
+    'heuristic'            => PREDICTION_SOURCE_HEURISTIC,
+    'decision_tree'        => PREDICTION_SOURCE_DECISION_TREE,
+];
+
+/**
+ * Validates whether a prediction source belongs to the approved canonical vocabulary.
+ */
+function isValidPredictionSource(?string $source): bool {
+    if ($source === null) return false;
+    $s = trim($source);
+    if ($s === '') return false;
+    return in_array($s, ALLOWED_PREDICTION_SOURCES, true);
+}
+
+/**
+ * Normalizes external service boundary sources into the canonical database storage contract.
+ * Maps 'fallback_blend' -> 'calculation_fallback'.
+ * Rejects blank, null, or unrecognized sources by returning null.
+ */
+function normalizePredictionSourceBoundary(?string $source): ?string {
+    if ($source === null) return null;
+    $s = strtolower(trim($source));
+    if ($s === '') return null;
+    return PREDICTION_SOURCE_BOUNDARY_MAP[$s] ?? null;
+}
+
+/**
+ * Returns the high-level provenance family:
+ * - 'decision_tree'        => 'ai_model'
+ * - 'heuristic'            => 'calculation'
+ * - 'calculation_fallback' => 'calculation'
+ */
+function getPredictionSourceFamily(?string $source): string {
+    if ($source === null) return 'unknown';
+    $s = strtolower(trim($source));
+    if ($s === PREDICTION_SOURCE_DECISION_TREE) {
+        return 'ai_model';
+    }
+    if (in_array($s, [PREDICTION_SOURCE_HEURISTIC, PREDICTION_SOURCE_CALCULATION_FALLBACK], true)) {
+        return 'calculation';
+    }
+    return 'unknown';
+}
+
+/**
+ * User-facing display label for Student, Faculty, and general UI views.
+ */
+function getPredictionSourceDisplayLabel(?string $source): string {
+    if ($source === null) return 'Insufficient Data';
+    $s = strtolower(trim($source));
+    return match ($s) {
+        PREDICTION_SOURCE_DECISION_TREE        => 'AI Model Update',
+        PREDICTION_SOURCE_HEURISTIC            => 'Calculation-Based Estimate',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Estimate Based on Current Grades',
+        default                                => 'Insufficient Data',
+    };
+}
+
+/**
+ * Diagnostic label for Administrator, Academic Coordinator, and audit reporting.
+ */
+function getPredictionSourceDiagnosticLabel(?string $source): string {
+    if ($source === null) return 'No Prediction Data';
+    $s = strtolower(trim($source));
+    return match ($s) {
+        PREDICTION_SOURCE_DECISION_TREE        => 'Decision Tree (Active ML Model)',
+        PREDICTION_SOURCE_HEURISTIC            => 'Legacy Heuristic (50/50 Baseline Blend)',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Calculation Fallback (Deterministic Blend)',
+        default                                => 'Unrecognized Source (' . htmlspecialchars($source) . ')',
+    };
+}
+
 // Canonical name formatters — every faculty page that displays a split name
 // goes through these, so "Lastname, Firstname" and "F. Lastname" look
 // identical everywhere instead of each page rolling its own substr/explode.
