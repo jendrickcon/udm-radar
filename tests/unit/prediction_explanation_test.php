@@ -104,6 +104,21 @@ assertCondition($emptyMeta['source_label'] === 'Insufficient Data', "Empty predi
 assertCondition($emptyMeta['completeness_label'] === 'Insufficient Data', "Empty completeness defaults to 'Insufficient Data'");
 assertCondition($emptyMeta['source_family'] === 'unknown', "Empty source family is 'unknown'");
 
+echo "\n=== 6. Legacy Unknown Historical Baseline Verification ===\n";
+$predLegacy = [
+    'prediction_source' => PREDICTION_SOURCE_HEURISTIC,
+    'data_completeness' => PREDICTION_COMPLETENESS_LEGACY_UNKNOWN,
+    'is_provisional'    => 0,
+    'risk_level'        => 'LOW',
+    'generated_at'      => '2026-07-07 10:42:10',
+];
+$legacyMeta = getPredictionExplanationMetadata($predLegacy, 'student');
+assertCondition($legacyMeta['completeness_label'] === 'Historical Baseline Records', "legacy_unknown completeness label is 'Historical Baseline Records'");
+assertCondition($legacyMeta['completeness_label'] !== 'Complete Records', "legacy_unknown is strictly NOT labeled 'Complete Records'");
+assertCondition(strpos($legacyMeta['coverage_summary'], 'historical baseline') !== false, "legacy_unknown summary explicitly states pre-audit baseline");
+assertCondition($legacyMeta['is_provisional'] === false, "legacy_unknown is_provisional is false (not confirmed partial/provisional)");
+assertCondition($legacyMeta['data_completeness'] === 'legacy_unknown', "data_completeness is preserved as 'legacy_unknown'");
+
 echo "\n========================================================================\n";
 echo "SUMMARY: Ran $testsRun tests, $failures failures.\n";
 echo "========================================================================\n";

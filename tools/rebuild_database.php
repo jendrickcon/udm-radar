@@ -17,6 +17,11 @@
 
 declare(strict_types=1);
 
+const ALLOWED_TARGETS = [
+    'scratch' => 'udm_radar_scratch',
+    'demo'    => 'udm_radar_demo',
+];
+
 $target = null;
 foreach ($argv as $arg) {
     if (str_starts_with($arg, '--target=')) {
@@ -24,18 +29,20 @@ foreach ($argv as $arg) {
     }
 }
 
-if ($target !== 'scratch' && $target !== 'demo') {
-    fwrite(STDERR, "FATAL: Must specify valid target database: --target=scratch or --target=demo\n");
+if ($target === null || !array_key_exists($target, ALLOWED_TARGETS)) {
+    fwrite(STDERR, "FATAL: Must specify an allowed target database option: --target=scratch or --target=demo\n");
+    if ($target !== null) {
+        fwrite(STDERR, "Refused disallowed target: '$target'. Live, production, and arbitrary targets are strictly forbidden.\n");
+    } else {
+        fwrite(STDERR, "Target option missing. Refusing execution.\n");
+    }
     exit(1);
 }
 
-$dbName = match ($target) {
-    'scratch' => 'udm_radar_scratch',
-    'demo'    => 'udm_radar_demo',
-};
+$dbName = ALLOWED_TARGETS[$target];
 
-// Double-check security guard
-if ($dbName === 'udm_radar') {
+// Strict safeguard: live production database cannot be rebuilt under any circumstance
+if ($dbName === 'udm_radar' || in_array($target, ['live', 'production', 'udm_radar'], true)) {
     fwrite(STDERR, "FATAL: Live production database cannot be rebuilt.\n");
     exit(1);
 }
@@ -46,6 +53,7 @@ $dbPass = '';
 
 echo "========================================================================\n";
 echo "UDM-RADAR: DATABASE REBUILD TOOL\n";
+echo "Selected Target: $target\n";
 echo "Target Database: $dbName\n";
 echo "========================================================================\n\n";
 

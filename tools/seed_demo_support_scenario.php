@@ -191,10 +191,10 @@ $stmtHist->execute([$caseId, (int)$faculty['id']]);
 
 echo "[SUCCESS] Controlled synthetic demonstration scenario seeded successfully in '$targetDb'!\n\n";
 echo "=== Synthetic Demonstration Details ===\n";
-echo "  - Case ID:       $caseId (Status: action_taken)\n";
-echo "  - Student:       Demo Student A (Internal ID: {$student['id']}, Section: {$student['section']})\n";
-echo "  - Faculty:       Demo Faculty A (Internal ID: {$faculty['id']})\n";
-echo "  - Referral A:    ID $refAId (Status: acknowledged - student receipt confirmed)\n";
-echo "  - Referral B:    ID $refBId (Status: action_taken - awaiting student acknowledgment)\n";
+echo "  - Case:          Demo Case (Status: action_taken)\n";
+echo "  - Student:       Demo Student A\n";
+echo "  - Faculty:       Demo Faculty A\n";
+echo "  - Referral A:    Status: acknowledged (Student receipt confirmed)\n";
+echo "  - Referral B:    Status: action_taken (Awaiting student acknowledgment)\n";
 echo "\nClassification: Synthetic presentation scenario. Not natural institutional records.\n";
 echo "========================================================================\n";
