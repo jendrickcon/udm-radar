@@ -511,8 +511,15 @@ function normalizePredictionSourceBoundary(?string $source): ?string {
 }
 
 /**
+ * Compatibility alias for boundary normalization.
+ */
+function normalizePredictionSource(?string $source): ?string {
+    return normalizePredictionSourceBoundary($source);
+}
+
+/**
  * Returns the high-level provenance family:
- * - 'decision_tree'        => 'ai_model'
+ * - 'decision_tree'        => 'model'
  * - 'heuristic'            => 'calculation'
  * - 'calculation_fallback' => 'calculation'
  */
@@ -520,7 +527,7 @@ function getPredictionSourceFamily(?string $source): string {
     if ($source === null) return 'unknown';
     $s = strtolower(trim($source));
     if ($s === PREDICTION_SOURCE_DECISION_TREE) {
-        return 'ai_model';
+        return 'model';
     }
     if (in_array($s, [PREDICTION_SOURCE_HEURISTIC, PREDICTION_SOURCE_CALCULATION_FALLBACK], true)) {
         return 'calculation';
@@ -528,32 +535,50 @@ function getPredictionSourceFamily(?string $source): string {
     return 'unknown';
 }
 
+function predictionSourceFamily(?string $source): string {
+    return getPredictionSourceFamily($source);
+}
+
 /**
  * User-facing display label for Student, Faculty, and general UI views.
+ * - 'decision_tree'        => 'AI-Based Projection'
+ * - 'heuristic'            => 'Calculation-Based Estimate'
+ * - 'calculation_fallback' => 'Calculation-Based Estimate'
  */
 function getPredictionSourceDisplayLabel(?string $source): string {
     if ($source === null) return 'Insufficient Data';
     $s = strtolower(trim($source));
     return match ($s) {
-        PREDICTION_SOURCE_DECISION_TREE        => 'AI Model Update',
+        PREDICTION_SOURCE_DECISION_TREE        => 'AI-Based Projection',
         PREDICTION_SOURCE_HEURISTIC            => 'Calculation-Based Estimate',
-        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Estimate Based on Current Grades',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Calculation-Based Estimate',
         default                                => 'Insufficient Data',
     };
 }
 
+function predictionSourceLabel(?string $source): string {
+    return getPredictionSourceDisplayLabel($source);
+}
+
 /**
  * Diagnostic label for Administrator, Academic Coordinator, and audit reporting.
+ * - 'decision_tree'        => 'Decision Tree'
+ * - 'heuristic'            => 'Legacy Heuristic'
+ * - 'calculation_fallback' => 'Current Calculation Fallback'
  */
 function getPredictionSourceDiagnosticLabel(?string $source): string {
     if ($source === null) return 'No Prediction Data';
     $s = strtolower(trim($source));
     return match ($s) {
-        PREDICTION_SOURCE_DECISION_TREE        => 'Decision Tree (Active ML Model)',
-        PREDICTION_SOURCE_HEURISTIC            => 'Legacy Heuristic (50/50 Baseline Blend)',
-        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Calculation Fallback (Deterministic Blend)',
+        PREDICTION_SOURCE_DECISION_TREE        => 'Decision Tree',
+        PREDICTION_SOURCE_HEURISTIC            => 'Legacy Heuristic',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Current Calculation Fallback',
         default                                => 'Unrecognized Source (' . htmlspecialchars($source) . ')',
     };
+}
+
+function predictionSourceDiagnosticLabel(?string $source): string {
+    return getPredictionSourceDiagnosticLabel($source);
 }
 
 // Canonical name formatters — every faculty page that displays a split name

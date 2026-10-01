@@ -170,7 +170,7 @@ $riskBg = match($display_risk) {
 }; 
 
 $riskTooltip = "";
-$isAiSource = getPredictionSourceFamily($prediction_source) === 'ai_model';
+$isAiSource = getPredictionSourceFamily($prediction_source) === 'model';
 if ($display_risk === 'HIGH') {
     $riskTooltip = $isAiSource
         ? "High Risk: The AI model evaluated your trajectory and classified it as High Risk, typically driven by historical failed subjects or a low GWA trajectory."
@@ -247,7 +247,7 @@ require_once '../includes/sidebar.php';
             <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and academic estimation.</p>
         </div>
         <div>
-            <?php if (getPredictionSourceFamily($prediction_source) === 'ai_model'): ?>
+            <?php if (getPredictionSourceFamily($prediction_source) === 'model'): ?>
                 <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="AI-based prediction is active">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?>
@@ -276,9 +276,12 @@ require_once '../includes/sidebar.php';
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
-            <h4>Predicted Final GWA</h4>
+            <h4>Projected Semester GWA</h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
+                <?php if ($prediction_source !== null): ?>
+                    Projection source: <?= htmlspecialchars($prediction_source === PREDICTION_SOURCE_DECISION_TREE ? 'Decision Tree' : 'Calculation-Based Estimate') ?><br>
+                <?php endif; ?>
                 <?php if ($display_honor !== null): ?>
                     Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
                 <?php else: ?>
