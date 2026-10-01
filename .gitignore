@@ -5,6 +5,10 @@
 # --- Config files that may contain real credentials later ---
 config/db.php
 config/mail.php
+config/secrets.local.php
+config/*.local.php
+python_ml/.env.local
+.env.local
 
 # --- Data Privacy & Generated ML Artifacts ---
 *.csv

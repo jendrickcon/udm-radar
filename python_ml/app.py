@@ -10,10 +10,9 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score
 
-from decision_tree import predict
+import hmac
 
-# FIXED: Basic symmetric security token to prevent unauthorized ML training
-API_SECRET_KEY = "UDM_RADAR_ML_SECRET_2026"
+from decision_tree import predict
 
 app = Flask(__name__)
 # FIXED: Restricted CORS. Only allows requests originating from the local web server
@@ -28,10 +27,44 @@ CANDIDATE_METRICS_PATH = os.path.join(BASE_DIR, 'candidate_metrics.json')
 # FIXED: Synchronized with the updated feature contract
 FEATURE_COLS = ['historical_gwa', 'current_prelim_point_avg', 'failed_subjects_count', 'irregular_semesters']
 
+def get_governance_secret():
+    """
+    Retrieves the governance API secret from server environment or .env.local file.
+    Returns None if unconfigured, allowing governance endpoints to fail closed.
+    Never falls back to a hardcoded default string in source code.
+    """
+    secret = os.getenv('UDM_RADAR_ML_SECRET')
+    if secret and secret.strip():
+        return secret.strip()
+
+    for candidate in [
+        os.path.join(BASE_DIR, '.env.local'),
+        os.path.join(BASE_DIR, '..', '.env.local'),
+        os.path.join(BASE_DIR, '..', '.env')
+    ]:
+        if os.path.exists(candidate):
+            try:
+                with open(candidate, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('UDM_RADAR_ML_SECRET='):
+                            val = line.split('=', 1)[1].strip().strip('"\'')
+                            if val:
+                                return val
+            except Exception:
+                pass
+
+    return None
+
 def require_api_key(func):
     """Decorator to enforce shared-secret authentication on governance endpoints."""
     def wrapper(*args, **kwargs):
-        if request.headers.get('X-API-Key') != API_SECRET_KEY:
+        expected_secret = get_governance_secret()
+        if not expected_secret:
+            return jsonify({'error': 'ML Governance service unavailable: Server secret not configured.'}), 503
+
+        provided_key = request.headers.get('X-API-Key')
+        if not provided_key or not hmac.compare_digest(provided_key, expected_secret):
             return jsonify({'error': 'Unauthorized: Invalid or missing API Key'}), 401
         return func(*args, **kwargs)
     wrapper.__name__ = func.__name__

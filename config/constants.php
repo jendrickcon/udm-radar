@@ -779,3 +779,44 @@ function extractTrackCode($rawTitle) {
     }
     return null;
 }
+
+// =========================================================================
+// PYTHON ML SERVICE & GOVERNANCE CONFIGURATION
+// =========================================================================
+
+if (!defined('PYTHON_ML_BASE_URL')) {
+    define('PYTHON_ML_BASE_URL', getenv('PYTHON_ML_BASE_URL') ?: 'http://127.0.0.1:5000');
+}
+
+if (!defined('PYTHON_ML_API_URL')) {
+    define('PYTHON_ML_API_URL', PYTHON_ML_BASE_URL . '/predict');
+}
+
+/**
+ * Retrieves the ML governance secret key from protected server environment
+ * or gitignored local secrets configuration file.
+ * Returns null if unconfigured (enabling fail-closed protection).
+ * Never falls back to a hardcoded default string in source code.
+ */
+function getMlGovernanceSecret(): ?string {
+    // 1. Environment variable takes top precedence
+    $secret = getenv('UDM_RADAR_ML_SECRET');
+    if ($secret !== false && trim((string) $secret) !== '') {
+        return trim((string) $secret);
+    }
+
+    // 2. Local gitignored secrets configuration file
+    $localConfigFile = __DIR__ . '/secrets.local.php';
+    if (file_exists($localConfigFile)) {
+        $config = include $localConfigFile;
+        if (is_array($config) && !empty($config['UDM_RADAR_ML_SECRET'])) {
+            $val = trim((string) $config['UDM_RADAR_ML_SECRET']);
+            if ($val !== '') {
+                return $val;
+            }
+        }
+    }
+
+    // 3. Fail closed if not configured
+    return null;
+}
