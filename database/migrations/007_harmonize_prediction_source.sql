@@ -6,23 +6,30 @@
 --   - 'heuristic'            — Preserved legacy heuristic provenance (baseline 50/50 blend)
 --   - 'calculation_fallback' — Deterministic calculation fallback from current grades
 --
--- Target Requirements:
+-- Architecture & Data Integrity Design:
 --   1. Pre-constraint data audit:
 --      - If predictions.prediction_source already exists, audits all existing records.
 --      - Audits academic_support_cases.prediction_source records.
---      - Aborts with SQLSTATE 45000 if blank, NULL, 'fallback_blend', or unknown values exist.
---   2. Preserves all existing prediction rows and historical provenance:
---      - Legacy rows retain 'heuristic' provenance without rewrite or deletion.
---      - Machine learning rows retain 'decision_tree' provenance.
+--      - Aborts with SQLSTATE 45000 before any DDL if unexpected values, blanks, or NULLs exist.
+--   2. Explicit Provenance & Elimination of Permanent Defaults:
+--      - Existing baseline rows (405 rows) are explicitly populated with 'heuristic'.
+--      - The column is defined as VARCHAR(30) NOT NULL with NO permanent default.
+--      - Any future INSERT that omits prediction_source is strictly REJECTED by MariaDB
+--        (violating chk_predictions_source_valid in non-strict mode, and Error 1364 in strict mode).
 --   3. Idempotent schema evolution:
---      - Adds predictions.prediction_source ENUM('heuristic', 'decision_tree', 'calculation_fallback')
---        if the column is absent (e.g., baseline dump / fresh scratch), defaulting to 'heuristic'.
---      - Modifies predictions.prediction_source to the 3-value ENUM if already present.
+--      - Safely adds or standardizes column definition without data loss.
+--      - Drops default immediately after populating existing rows.
 --   4. Hardened domain integrity:
 --      - Adds table-level CHECK constraint chk_predictions_source_valid using BINARY exact comparison.
 --      - Adds table-level CHECK constraint chk_support_cases_source_valid on academic_support_cases.
 --      - Strictly rejects blank strings, lowercase variants, and unmapped 'fallback_blend'.
---   5. Verifiable and safe to execute multiple times.
+--   5. DDL Transactional Safety Disclosure:
+--      - In MySQL and MariaDB, DDL statements (ALTER TABLE, ADD CONSTRAINT) cause implicit commits.
+--      - DDL cannot be rolled back atomically via a standard SQL TRANSACTION block.
+--      - Safety is guaranteed by:
+--        a) Non-destructive pre-audit queries that terminate execution before any DDL is executed.
+--        b) Idempotent DDL clauses (DROP CONSTRAINT IF EXISTS).
+--        c) Documented compensatory rollback steps in case manual recovery is needed.
 --
 -- Apply:
 --   mysql -u root udm_radar_scratch < database/migrations/007_harmonize_prediction_source.sql
@@ -85,21 +92,29 @@ BEGIN
 
     -- -------------------------------------------------------------------------
     -- 3. Schema Alteration: predictions.prediction_source
+    --    Uses VARCHAR(30) NOT NULL without a permanent default so that omission
+    --    on INSERT is strictly rejected rather than silently defaulting.
     -- -------------------------------------------------------------------------
     IF v_col_exists = 0 THEN
-        -- Baseline schema without prediction_source: add column with default 'heuristic'
-        -- Existing rows are historical heuristic baseline predictions.
+        -- Baseline schema without prediction_source: add column with temporary default 'heuristic'
+        -- to populate existing historical baseline rows (405 rows) cleanly.
         ALTER TABLE `predictions`
-        ADD COLUMN `prediction_source` ENUM('heuristic', 'decision_tree', 'calculation_fallback')
-        NOT NULL DEFAULT 'heuristic'
+        ADD COLUMN `prediction_source` VARCHAR(30) NOT NULL DEFAULT 'heuristic'
         COMMENT 'Provenance of prediction: decision_tree (ML model), heuristic (legacy 50/50 blend), calculation_fallback (deterministic grade calculation).'
         AFTER `irregular_prob`;
-    ELSE
-        -- Column already exists (e.g. live development DB): standardize enum members
+
+        -- Immediately remove default so all future inserts must supply provenance explicitly
         ALTER TABLE `predictions`
-        MODIFY COLUMN `prediction_source` ENUM('heuristic', 'decision_tree', 'calculation_fallback')
-        NOT NULL DEFAULT 'heuristic'
+        ALTER COLUMN `prediction_source` DROP DEFAULT;
+    ELSE
+        -- Column already exists (e.g. live development DB enum): convert to VARCHAR(30) NOT NULL
+        ALTER TABLE `predictions`
+        MODIFY COLUMN `prediction_source` VARCHAR(30) NOT NULL
         COMMENT 'Provenance of prediction: decision_tree (ML model), heuristic (legacy 50/50 blend), calculation_fallback (deterministic grade calculation).';
+
+        -- Ensure no default remains
+        ALTER TABLE `predictions`
+        ALTER COLUMN `prediction_source` DROP DEFAULT;
     END IF;
 
     -- -------------------------------------------------------------------------
@@ -137,8 +152,8 @@ DROP PROCEDURE IF EXISTS migrate_007_harmonize_prediction_source;
 -- =============================================================================
 -- POST-MIGRATION VERIFICATION QUERIES (Reference / Verification)
 -- =============================================================================
--- 1. Verify predictions column definition:
---    SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+-- 1. Verify predictions column definition (should show DATA_TYPE=varchar, COLUMN_DEFAULT=NULL):
+--    SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
 --    FROM information_schema.COLUMNS
 --    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'predictions' AND COLUMN_NAME = 'prediction_source';
 --
@@ -154,9 +169,10 @@ DROP PROCEDURE IF EXISTS migrate_007_harmonize_prediction_source;
 --    GROUP BY prediction_source;
 --
 -- =============================================================================
--- SAFE ROLLBACK GUIDANCE
+-- SAFE COMPENSATORY ROLLBACK GUIDANCE
 -- =============================================================================
--- If rollback is required:
+-- MariaDB DDL statements cause implicit commits and cannot be undone via ROLLBACK.
+-- If manual rollback is required:
 --   ALTER TABLE `predictions` DROP CONSTRAINT IF EXISTS `chk_predictions_source_valid`;
 --   ALTER TABLE `academic_support_cases` DROP CONSTRAINT IF EXISTS `chk_support_cases_source_valid`;
 --   -- If returning to pre-007 state where prediction_source was 2-member enum:
