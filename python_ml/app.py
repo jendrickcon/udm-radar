@@ -47,8 +47,13 @@ def predict_endpoint():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
-    result = predict(data)
-    return jsonify(result)
+    try:
+        result = predict(data)
+        return jsonify(result)
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Prediction processing failure: {str(e)}'}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -79,6 +84,8 @@ def train_candidate():
         return jsonify({'error': f'Failed to parse CSV: {str(e)}'}), 400
 
     # FIXED: 3. Schema Enforcement
+    if 'current_prelim_avg' in df.columns and 'current_prelim_point_avg' not in df.columns:
+        df['current_prelim_point_avg'] = df['current_prelim_avg']
     required_cols = FEATURE_COLS + ['final_gwa']
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:

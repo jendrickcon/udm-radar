@@ -1,13 +1,9 @@
 # python_ml/decision_tree.py
 #
-# This module's only job is to turn the 4 input features into a predicted
-# numeric final GWA. It deliberately does NOT compute risk_level or
-# latin_honor — those are rule-based derivations of a GWA number, and
-# config/constants.php (computeRiskFromAvg(), getLatinHonor()) is the single
-# source of truth for those thresholds. Duplicating that logic here in Python
-# is how the honors-eligibility and risk-level bugs happened before; predict()
-# now returns predicted_gwa only, and api/predict.php derives everything else
-# from it exactly the way it already does for the heuristic fallback path.
+# Prediction logic using Decision Tree Regressor with canonical feature contract.
+# Canonical preliminary grade feature: 'current_prelim_point_avg'
+# Backward-compatibility alias: 'current_prelim_avg' (expected by model.pkl)
+
 import os
 import pickle
 import pandas as pd
@@ -16,25 +12,64 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model.pkl')
 FEATURE_COLS = ['historical_gwa', 'current_prelim_avg', 'failed_subjects_count', 'irregular_semesters']
 
 def extract_features(grade_data: dict) -> pd.DataFrame:
-    # A one-row DataFrame with the training-time column names/order, so the
-    # model doesn't warn about (or silently mis-align) unnamed feature columns.
-    prelim = grade_data.get('current_prelim_point_avg', grade_data.get('current_prelim_avg', 0))
+    """Extracts and validates features for the Decision Tree model.
+    
+    Validates presence of required features without silent 0.0 zero-injection.
+    Maps canonical 'current_prelim_point_avg' to internal model column 'current_prelim_avg'.
+    """
+    if not isinstance(grade_data, dict):
+        raise TypeError("grade_data must be a dictionary")
+
+    # 1. Resolve canonical prelim feature with alias
+    prelim = grade_data.get('current_prelim_point_avg')
+    if prelim is None:
+        prelim = grade_data.get('current_prelim_avg')
+    if prelim is None:
+        raise ValueError("Missing required feature: 'current_prelim_point_avg'")
+
+    # 2. Resolve historical GWA
+    hist_gwa = grade_data.get('historical_gwa')
+    if hist_gwa is None:
+        raise ValueError("Missing required feature: 'historical_gwa'")
+
+    # 3. Resolve historical counts
+    failed_count = grade_data.get('failed_subjects_count')
+    if failed_count is None:
+        raise ValueError("Missing required feature: 'failed_subjects_count'")
+
+    irreg_sems = grade_data.get('irregular_semesters')
+    if irreg_sems is None:
+        raise ValueError("Missing required feature: 'irregular_semesters'")
+
+    try:
+        hist_val = float(hist_gwa)
+        prelim_val = float(prelim)
+        failed_val = int(failed_count)
+        irreg_val = int(irreg_sems)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Invalid numeric feature value: {e}")
+
+    # Canonical DataFrame mapping to model.pkl feature names
     return pd.DataFrame([{
-        'historical_gwa': float(grade_data.get('historical_gwa', 0)),
-        'current_prelim_avg': float(prelim),
-        'failed_subjects_count': int(grade_data.get('failed_subjects_count', 0)),
-        'irregular_semesters': int(grade_data.get('irregular_semesters', 0)),
+        'historical_gwa': hist_val,
+        'current_prelim_avg': prelim_val,  # compatibility alias for model.pkl
+        'failed_subjects_count': failed_val,
+        'irregular_semesters': irreg_val,
     }], columns=FEATURE_COLS)
 
 def predict(grade_data: dict) -> dict:
     """Returns {'predicted_gwa': float, 'source': 'decision_tree' | 'fallback_blend'}.
-
-    Falls back to the same 70/30 historical/prelim blend used elsewhere in the
-    codebase if no trained model is available yet, so the Flask endpoint never
-    hard-fails just because model.pkl hasn't been generated.
+    
+    Enforces feature validation and fails if required features are absent.
+    Falls back to canonical 50/50 blend if model artifact is unavailable.
     """
-    hist_gwa = float(grade_data.get('historical_gwa', 0))
-    prelim   = float(grade_data.get('current_prelim_point_avg', grade_data.get('current_prelim_avg', 0)))
+    if not isinstance(grade_data, dict):
+        raise TypeError("grade_data must be a dictionary")
+
+    # Validate features before proceeding
+    features = extract_features(grade_data)
+    hist_gwa = float(features.iloc[0]['historical_gwa'])
+    prelim   = float(features.iloc[0]['current_prelim_avg'])
 
     if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) == 0:
         return _fallback_predict(hist_gwa, prelim)
@@ -45,7 +80,6 @@ def predict(grade_data: dict) -> dict:
     except (EOFError, pickle.UnpicklingError):
         return _fallback_predict(hist_gwa, prelim)
 
-    features = extract_features(grade_data)
     pred_gwa = float(model.predict(features)[0])
     pred_gwa = max(1.00, min(4.00, pred_gwa))
 
@@ -55,9 +89,15 @@ def predict(grade_data: dict) -> dict:
     }
 
 def _fallback_predict(hist_gwa: float, prelim: float) -> dict:
-    pred_gwa = round(hist_gwa * 0.70 + prelim * 0.30, 2)
-    pred_gwa = max(1.00, min(4.00, pred_gwa))
+    """Canonical deterministic calculation fallback: 50/50 blend snapped to 0.25 increment.
+    
+    Synchronized with config/constants.php::predictFinalGradeHeuristic().
+    Clamped between 1.00 and 4.00, snapped to 0.25 increment.
+    """
+    blend = (0.50 * prelim) + (0.50 * hist_gwa)
+    blend = max(1.00, min(4.00, blend))
+    pred_gwa = round(blend * 4) / 4
     return {
-        'predicted_gwa': pred_gwa,
+        'predicted_gwa': round(pred_gwa, 2),
         'source': 'fallback_blend',
     }
