@@ -80,7 +80,8 @@ try {
         } else {
             $successCount++;
             
-            if ($result['risk_level'] === 'HIGH') {
+            // Only verified complete predictions (not partial provisional estimates) trigger new support cases
+            if ($result['risk_level'] === 'HIGH' && empty($result['is_partial'])) {
                 $stmtPredId = $db->prepare("SELECT id FROM predictions WHERE student_id = ? ORDER BY generated_at DESC, id DESC LIMIT 1");
                 $stmtPredId->execute([$studentId]);
                 $predictionId = $stmtPredId->fetchColumn();

@@ -4,14 +4,18 @@ require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../config/db.php';
 
 // EVERYTHING must be wrapped inside this function!
-function getStudentPrediction(int $studentId, PDO $db): array {
+// Canonical prediction function with explicit partial data policy support
+function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): array {
     // 0. Security Check
     $stmtRole = $db->prepare("SELECT role FROM users WHERE id = ?");
     $stmtRole->execute([$studentId]);
     $role = $stmtRole->fetchColumn();
 
     if ($role !== 'student') {
-        return ['error' => "Invalid target: ID $studentId belongs to a $role. Predictions are for students only."];
+        return [
+            'status' => 'error',
+            'error'  => "Invalid target: ID $studentId belongs to a $role. Predictions are for students only."
+        ];
     }
 
     // 1. Calculate Historical GWA using official Unit-Weighted formula
@@ -36,15 +40,22 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     }
     $currentPrelimAvg = computeWeightedGWA($prelim_rows); 
 
-    // FIXED: Insufficient Data Failsafe
-    // Prevents Python from receiving zeros and hallucinating a 0.00 / HIGH Risk prediction
+    // ------------------------------------------------------------------------
+    // CASE D: Missing Both Features -> Strict Failsafe (No prediction generated)
+    // ------------------------------------------------------------------------
     if ($historicalGwa === null && $currentPrelimAvg === null) {
         return [
-            'error' => 'Insufficient academic data to generate a reliable prediction.',
-            'predicted_gwa' => null,
-            'risk_level' => null,
-            'latin_honor' => null,
-            'prediction_source' => 'none'
+            'status'             => 'insufficient_data',
+            'error'              => 'Insufficient academic data to generate a reliable prediction.',
+            'data_completeness'  => 'missing_all',
+            'is_partial'         => true,
+            'has_historical_gwa' => false,
+            'has_current_prelim' => false,
+            'predicted_gwa'      => null,
+            'risk_level'         => null,
+            'latin_honor'        => null,
+            'prediction_source'  => 'none',
+            'features_used'      => null
         ];
     }
 
@@ -70,31 +81,111 @@ function getStudentPrediction(int $studentId, PDO $db): array {
 
     $hasDisqGrade = hasDisqualifyingGrade($studentId, $db);
 
-    // 4. Deterministic Calculation Fallback Base
+    // ------------------------------------------------------------------------
+    // CASE B: Historical GWA only (no prelim grades in current term)
+    // ------------------------------------------------------------------------
+    if ($historicalGwa !== null && $currentPrelimAvg === null) {
+        $predGwa = round((float) $historicalGwa, 2);
+        $risk = computeRiskFromAvg($predGwa);
+        $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
+        $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+
+        if ($persist) {
+            $stmtSave = $db->prepare("
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
+                VALUES (?, ?, ?, ?, NULL, ?)
+            ");
+            $stmtSave->execute([
+                $studentId,
+                $predGwa,
+                $risk,
+                $latinHonor,
+                $predictionSource
+            ]);
+        }
+
+        return [
+            'status'             => 'partial_provisional',
+            'data_completeness'  => 'historical_only',
+            'is_partial'         => true,
+            'has_historical_gwa' => true,
+            'has_current_prelim' => false,
+            'provisional_basis'  => 'historical_gwa',
+            'predicted_gwa'      => $predGwa,
+            'risk_level'         => $risk,
+            'latin_honor'        => $latinHonor,
+            'prediction_source'  => $predictionSource,
+            'features_used'      => [
+                'historical_gwa'           => (float) $historicalGwa,
+                'current_prelim_point_avg' => null,
+                'failed_subjects_count'    => (int) $failedCount,
+                'irregular_semesters'      => (int) $irregularSemesters,
+            ]
+        ];
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE C: Current Prelim Average only (no prior term records)
+    // ------------------------------------------------------------------------
+    if ($historicalGwa === null && $currentPrelimAvg !== null) {
+        $predGwa = round((float) $currentPrelimAvg, 2);
+        $risk = computeRiskFromAvg($predGwa);
+        $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
+        $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+
+        if ($persist) {
+            $stmtSave = $db->prepare("
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
+                VALUES (?, ?, ?, ?, NULL, ?)
+            ");
+            $stmtSave->execute([
+                $studentId,
+                $predGwa,
+                $risk,
+                $latinHonor,
+                $predictionSource
+            ]);
+        }
+
+        return [
+            'status'             => 'partial_provisional',
+            'data_completeness'  => 'prelim_only',
+            'is_partial'         => true,
+            'has_historical_gwa' => false,
+            'has_current_prelim' => true,
+            'provisional_basis'  => 'current_prelim_avg',
+            'predicted_gwa'      => $predGwa,
+            'risk_level'         => $risk,
+            'latin_honor'        => $latinHonor,
+            'prediction_source'  => $predictionSource,
+            'features_used'      => [
+                'historical_gwa'           => null,
+                'current_prelim_point_avg' => (float) $currentPrelimAvg,
+                'failed_subjects_count'    => (int) $failedCount,
+                'irregular_semesters'      => (int) $irregularSemesters,
+            ]
+        ];
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE A: Complete Features (Both historical GWA and prelim average present)
+    // ------------------------------------------------------------------------
     $predGwa = predictFinalGradeHeuristic($currentPrelimAvg, $historicalGwa) ?? 0.0;
     $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
 
-    // 5. Call Flask Python Microservice ONLY if all required regression features are non-null
-    // Prevents silent zero injection (e.g. 0.0 historical GWA) into the Decision Tree model.
-    $canCallModel = ($historicalGwa !== null && $currentPrelimAvg !== null);
-    $payload = null;
+    $payload = [
+        'historical_gwa'           => (float) $historicalGwa,
+        'current_prelim_point_avg' => (float) $currentPrelimAvg,
+        'failed_subjects_count'    => (int) $failedCount,
+        'irregular_semesters'      => (int) $irregularSemesters,
+    ];
 
-    if ($canCallModel) {
-        $payload = [
-            'historical_gwa'           => (float) $historicalGwa,
-            'current_prelim_point_avg' => (float) $currentPrelimAvg,
-            'failed_subjects_count'    => (int) $failedCount,
-            'irregular_semesters'      => (int) $irregularSemesters,
-        ];
-
-        $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
-        $ch = curl_init($pythonUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    
-    // FIXED: Split timeouts to prevent indefinite hanging
+    $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
+    $ch = curl_init($pythonUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1); 
     curl_setopt($ch, CURLOPT_TIMEOUT, 3); 
 
@@ -103,7 +194,6 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    // FIXED: Safe error logging for failed Python connections
     if ($curlErr) {
         error_log("ML API cURL Error for Student $studentId: " . $curlErr);
     } elseif ($httpCode === 200 && $response) {
@@ -118,33 +208,41 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     } else {
         error_log("ML API Error $httpCode for Student $studentId: " . $response);
     }
-}
 
-    // 6. Everything else is derived from predGwa
     $risk = computeRiskFromAvg($predGwa);
     $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
 
-    // 7. Persist to predictions Table
-    // FIXED: Removed irregular_prob calculation/insertion
-    $stmtSave = $db->prepare("
-        INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
-        VALUES (?, ?, ?, ?, NULL, ?)
-    ");
-    $stmtSave->execute([
-        $studentId,
-        $predGwa,
-        $risk,
-        $latinHonor,
-        $predictionSource
-    ]);
+    if ($persist) {
+        $stmtSave = $db->prepare("
+            INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
+            VALUES (?, ?, ?, ?, NULL, ?)
+        ");
+        $stmtSave->execute([
+            $studentId,
+            $predGwa,
+            $risk,
+            $latinHonor,
+            $predictionSource
+        ]);
+    }
 
     return [
-        'predicted_gwa'     => $predGwa,
-        'risk_level'        => $risk,
-        'latin_honor'       => $latinHonor,
-        'prediction_source' => $predictionSource,
-        'features_used'     => $payload
+        'status'             => 'complete',
+        'data_completeness'  => 'complete',
+        'is_partial'         => false,
+        'has_historical_gwa' => true,
+        'has_current_prelim' => true,
+        'predicted_gwa'      => $predGwa,
+        'risk_level'         => $risk,
+        'latin_honor'        => $latinHonor,
+        'prediction_source'  => $predictionSource,
+        'features_used'      => $payload
     ];
+}
+
+// Function alias for compatibility
+function predictStudent(int $studentId, PDO $db, bool $persist = true): array {
+    return getStudentPrediction($studentId, $db, $persist);
 }
 
 // FIXED: Protected Direct Execution Wrapper
