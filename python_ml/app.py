@@ -20,9 +20,11 @@ CORS(app, resources={r"/*": {"origins": ["http://localhost", "http://127.0.0.1"]
 
 BASE_DIR = os.path.dirname(__file__)
 MODEL_PATH = os.path.join(BASE_DIR, 'model.pkl')
-CANDIDATE_PATH = os.path.join(BASE_DIR, 'candidate_model.pkl')
+CANDIDATES_DIR = os.path.join(BASE_DIR, 'candidates')
+os.makedirs(CANDIDATES_DIR, exist_ok=True)
+CANDIDATE_PATH = os.path.join(CANDIDATES_DIR, 'candidate_model.pkl')
 METRICS_PATH = os.path.join(BASE_DIR, 'model_metrics.json')
-CANDIDATE_METRICS_PATH = os.path.join(BASE_DIR, 'candidate_metrics.json')
+CANDIDATE_METRICS_PATH = os.path.join(CANDIDATES_DIR, 'candidate_metrics.json')
 
 # FIXED: Synchronized with the updated feature contract
 FEATURE_COLS = ['historical_gwa', 'current_prelim_point_avg', 'failed_subjects_count', 'irregular_semesters']

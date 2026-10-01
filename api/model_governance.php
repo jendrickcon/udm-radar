@@ -66,8 +66,18 @@ if ($action === 'status') {
     http_response_code(200);
     // Provide sanitized status overview
     $metricsPath = dirname(__DIR__) . '/python_ml/model_metrics.json';
-    $candidateMetricsPath = dirname(__DIR__) . '/python_ml/candidate_metrics.json';
-    $candidateModelPath = dirname(__DIR__) . '/python_ml/candidate_model.pkl';
+    $candidateMetricsPath = dirname(__DIR__) . '/python_ml/candidates/candidate_metrics.json';
+    $candidateModelPath = dirname(__DIR__) . '/python_ml/candidates/candidate_model.pkl';
+
+    if (!file_exists($candidateModelPath)) {
+        // Fallback check for root staging
+        $legacyModelPath = dirname(__DIR__) . '/python_ml/candidate_model.pkl';
+        $legacyMetricsPath = dirname(__DIR__) . '/python_ml/candidate_metrics.json';
+        if (file_exists($legacyModelPath)) {
+            $candidateModelPath = $legacyModelPath;
+            $candidateMetricsPath = $legacyMetricsPath;
+        }
+    }
 
     $activeMetrics = file_exists($metricsPath) ? json_decode(file_get_contents($metricsPath), true) : null;
     $candidateMetrics = file_exists($candidateMetricsPath) ? json_decode(file_get_contents($candidateMetricsPath), true) : null;

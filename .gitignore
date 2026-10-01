@@ -13,6 +13,8 @@ python_ml/.env.local
 # --- Data Privacy & Generated ML Artifacts ---
 *.csv
 python_ml/*.json
+python_ml/candidates/*.json
+python_ml/candidates/*.pkl
 *.pkl
 *.joblib
 
