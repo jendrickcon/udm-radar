@@ -4,14 +4,18 @@ require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../config/db.php';
 
 // EVERYTHING must be wrapped inside this function!
-function getStudentPrediction(int $studentId, PDO $db): array {
+// Canonical prediction function with explicit partial data policy support
+function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): array {
     // 0. Security Check
     $stmtRole = $db->prepare("SELECT role FROM users WHERE id = ?");
     $stmtRole->execute([$studentId]);
     $role = $stmtRole->fetchColumn();
 
     if ($role !== 'student') {
-        return ['error' => "Invalid target: ID $studentId belongs to a $role. Predictions are for students only."];
+        return [
+            'status' => 'error',
+            'error'  => "Invalid target: ID $studentId belongs to a $role. Predictions are for students only."
+        ];
     }
 
     // 1. Calculate Historical GWA using official Unit-Weighted formula
@@ -36,16 +40,41 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     }
     $currentPrelimAvg = computeWeightedGWA($prelim_rows); 
 
-    // FIXED: Insufficient Data Failsafe
-    // Prevents Python from receiving zeros and hallucinating a 0.00 / HIGH Risk prediction
+    // Contributing and expected subject counts
+    $stmtEnrolled = $db->prepare("
+        SELECT COUNT(*) FROM grades 
+        WHERE student_id = ? AND is_current = 1
+    ");
+    $stmtEnrolled->execute([$studentId]);
+    $expectedSubjectCount = (int) $stmtEnrolled->fetchColumn();
+    $inputSubjectCount = count($prelim_rows);
+    if ($expectedSubjectCount < $inputSubjectCount) {
+        $expectedSubjectCount = $inputSubjectCount;
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE D: Missing Both Features -> Strict Failsafe (No prediction generated)
+    // ------------------------------------------------------------------------
     if ($historicalGwa === null && $currentPrelimAvg === null) {
-        return [
-            'error' => 'Insufficient academic data to generate a reliable prediction.',
-            'predicted_gwa' => null,
-            'risk_level' => null,
-            'latin_honor' => null,
-            'prediction_source' => 'none'
+        $resD = [
+            'status'                 => 'insufficient_data',
+            'error'                  => 'Insufficient academic data to generate a reliable prediction.',
+            'data_completeness'      => 'missing_all',
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => false,
+            'has_current_prelim'     => false,
+            'predicted_gwa'          => null,
+            'risk_level'             => null,
+            'latin_honor'            => null,
+            'prediction_source'      => 'none',
+            'provisional_basis'      => null,
+            'input_subject_count'    => 0,
+            'expected_subject_count' => $expectedSubjectCount > 0 ? $expectedSubjectCount : null,
+            'features_used'          => null
         ];
+        $resD['explanation'] = getPredictionExplanationMetadata($resD, 'student');
+        return $resD;
     }
 
     // 3. Count Failed Subjects & Irregular Semesters
@@ -70,31 +99,143 @@ function getStudentPrediction(int $studentId, PDO $db): array {
 
     $hasDisqGrade = hasDisqualifyingGrade($studentId, $db);
 
-    // 4. Deterministic Calculation Fallback Base
+    // ------------------------------------------------------------------------
+    // CASE B: Historical GWA only (no prelim grades in current term)
+    // ------------------------------------------------------------------------
+    if ($historicalGwa !== null && $currentPrelimAvg === null) {
+        $predGwa = round((float) $historicalGwa, 2);
+        $risk = computeRiskFromAvg($predGwa);
+        $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
+        $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+        $dataCompleteness = PREDICTION_COMPLETENESS_HISTORICAL_ONLY;
+        $isProvisional = 1;
+        $provisionalBasis = PROVISIONAL_BASIS_HISTORICAL_GWA;
+        $inputCount = 0;
+        $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : null;
+
+        if ($persist) {
+            $stmtSave = $db->prepare("
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                         data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtSave->execute([
+                $studentId,
+                $predGwa,
+                $risk,
+                $latinHonor,
+                $predictionSource,
+                $dataCompleteness,
+                $isProvisional,
+                $provisionalBasis,
+                $inputCount,
+                $expectedCount
+            ]);
+        }
+
+        $resB = [
+            'status'                 => 'partial_provisional',
+            'data_completeness'      => $dataCompleteness,
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => true,
+            'has_current_prelim'     => false,
+            'provisional_basis'      => $provisionalBasis,
+            'input_subject_count'    => $inputCount,
+            'expected_subject_count' => $expectedCount,
+            'predicted_gwa'          => $predGwa,
+            'risk_level'             => $risk,
+            'latin_honor'            => $latinHonor,
+            'prediction_source'      => $predictionSource,
+            'features_used'          => [
+                'historical_gwa'           => (float) $historicalGwa,
+                'current_prelim_point_avg' => null,
+                'failed_subjects_count'    => (int) $failedCount,
+                'irregular_semesters'      => (int) $irregularSemesters,
+            ]
+        ];
+        $resB['explanation'] = getPredictionExplanationMetadata($resB, 'student');
+        return $resB;
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE C: Current Prelim Average only (no prior term records)
+    // ------------------------------------------------------------------------
+    if ($historicalGwa === null && $currentPrelimAvg !== null) {
+        $predGwa = round((float) $currentPrelimAvg, 2);
+        $risk = computeRiskFromAvg($predGwa);
+        $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
+        $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+        $dataCompleteness = PREDICTION_COMPLETENESS_PRELIM_ONLY;
+        $isProvisional = 1;
+        $provisionalBasis = PROVISIONAL_BASIS_CURRENT_PRELIM_AVG;
+        $inputCount = $inputSubjectCount;
+        $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : $inputCount;
+
+        if ($persist) {
+            $stmtSave = $db->prepare("
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                         data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtSave->execute([
+                $studentId,
+                $predGwa,
+                $risk,
+                $latinHonor,
+                $predictionSource,
+                $dataCompleteness,
+                $isProvisional,
+                $provisionalBasis,
+                $inputCount,
+                $expectedCount
+            ]);
+        }
+
+        $resC = [
+            'status'                 => 'partial_provisional',
+            'data_completeness'      => $dataCompleteness,
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => false,
+            'has_current_prelim'     => true,
+            'provisional_basis'      => $provisionalBasis,
+            'input_subject_count'    => $inputCount,
+            'expected_subject_count' => $expectedCount,
+            'predicted_gwa'          => $predGwa,
+            'risk_level'             => $risk,
+            'latin_honor'            => $latinHonor,
+            'prediction_source'      => $predictionSource,
+            'features_used'          => [
+                'historical_gwa'           => null,
+                'current_prelim_point_avg' => (float) $currentPrelimAvg,
+                'failed_subjects_count'    => (int) $failedCount,
+                'irregular_semesters'      => (int) $irregularSemesters,
+            ]
+        ];
+        $resC['explanation'] = getPredictionExplanationMetadata($resC, 'student');
+        return $resC;
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE A: Complete Features (Both historical GWA and prelim average present)
+    // ------------------------------------------------------------------------
     $predGwa = predictFinalGradeHeuristic($currentPrelimAvg, $historicalGwa) ?? 0.0;
     $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
 
-    // 5. Call Flask Python Microservice ONLY if all required regression features are non-null
-    // Prevents silent zero injection (e.g. 0.0 historical GWA) into the Decision Tree model.
-    $canCallModel = ($historicalGwa !== null && $currentPrelimAvg !== null);
-    $payload = null;
+    $payload = [
+        'historical_gwa'           => (float) $historicalGwa,
+        'current_prelim_point_avg' => (float) $currentPrelimAvg,
+        'failed_subjects_count'    => (int) $failedCount,
+        'irregular_semesters'      => (int) $irregularSemesters,
+    ];
 
-    if ($canCallModel) {
-        $payload = [
-            'historical_gwa'           => (float) $historicalGwa,
-            'current_prelim_point_avg' => (float) $currentPrelimAvg,
-            'failed_subjects_count'    => (int) $failedCount,
-            'irregular_semesters'      => (int) $irregularSemesters,
-        ];
-
-        $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
-        $ch = curl_init($pythonUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    
-    // FIXED: Split timeouts to prevent indefinite hanging
+    $pythonUrl = defined('PYTHON_ML_API_URL') ? PYTHON_ML_API_URL : 'http://127.0.0.1:5000/predict';
+    $ch = curl_init($pythonUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1); 
     curl_setopt($ch, CURLOPT_TIMEOUT, 3); 
 
@@ -103,7 +244,6 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    // FIXED: Safe error logging for failed Python connections
     if ($curlErr) {
         error_log("ML API cURL Error for Student $studentId: " . $curlErr);
     } elseif ($httpCode === 200 && $response) {
@@ -118,33 +258,59 @@ function getStudentPrediction(int $studentId, PDO $db): array {
     } else {
         error_log("ML API Error $httpCode for Student $studentId: " . $response);
     }
-}
 
-    // 6. Everything else is derived from predGwa
     $risk = computeRiskFromAvg($predGwa);
     $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
 
-    // 7. Persist to predictions Table
-    // FIXED: Removed irregular_prob calculation/insertion
-    $stmtSave = $db->prepare("
-        INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
-        VALUES (?, ?, ?, ?, NULL, ?)
-    ");
-    $stmtSave->execute([
-        $studentId,
-        $predGwa,
-        $risk,
-        $latinHonor,
-        $predictionSource
-    ]);
+    $dataCompleteness = PREDICTION_COMPLETENESS_COMPLETE;
+    $isProvisional = 0;
+    $provisionalBasis = null;
+    $inputCount = $inputSubjectCount;
+    $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : $inputCount;
 
-    return [
-        'predicted_gwa'     => $predGwa,
-        'risk_level'        => $risk,
-        'latin_honor'       => $latinHonor,
-        'prediction_source' => $predictionSource,
-        'features_used'     => $payload
+    if ($persist) {
+        $stmtSave = $db->prepare("
+            INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                     data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+            VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmtSave->execute([
+            $studentId,
+            $predGwa,
+            $risk,
+            $latinHonor,
+            $predictionSource,
+            $dataCompleteness,
+            $isProvisional,
+            $provisionalBasis,
+            $inputCount,
+            $expectedCount
+        ]);
+    }
+
+    $resA = [
+        'status'                 => 'complete',
+        'data_completeness'      => $dataCompleteness,
+        'is_partial'             => false,
+        'is_provisional'         => false,
+        'has_historical_gwa'     => true,
+        'has_current_prelim'     => true,
+        'provisional_basis'      => null,
+        'input_subject_count'    => $inputCount,
+        'expected_subject_count' => $expectedCount,
+        'predicted_gwa'          => $predGwa,
+        'risk_level'             => $risk,
+        'latin_honor'            => $latinHonor,
+        'prediction_source'      => $predictionSource,
+        'features_used'          => $payload
     ];
+    $resA['explanation'] = getPredictionExplanationMetadata($resA, 'student');
+    return $resA;
+}
+
+// Function alias for compatibility
+function predictStudent(int $studentId, PDO $db, bool $persist = true): array {
+    return getStudentPrediction($studentId, $db, $persist);
 }
 
 // FIXED: Protected Direct Execution Wrapper

@@ -22,7 +22,8 @@ $historical_gwa = $current_gwa;
 
 // --- Fetch ML Prediction from Database ---
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, latin_honor, prediction_source 
+    SELECT predicted_gwa, risk_level, latin_honor, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC 
@@ -109,6 +110,14 @@ if ($has_ai_prediction) {
     $display_honor = null;
     $prediction_source = 'insufficient_data';
 }
+
+$explanation = getPredictionExplanationMetadata($ml_prediction ?: [
+    'prediction_source' => $prediction_source,
+    'risk_level'        => $display_risk,
+    'generated_at'      => null,
+    'data_completeness' => $has_fallback_data ? 'complete' : 'insufficient_data',
+    'is_partial'        => empty($current_subjects),
+], 'student');
 
 if ($at_risk_count > 0) {
     $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
@@ -269,6 +278,24 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <div style="flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+                <span style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem;">Decision-Support Advisory Notice</span>
+                <?php if (!empty($explanation['is_provisional'])): ?>
+                    <span style="background: rgba(217, 119, 6, 0.12); color: var(--risk-mod); font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; border: 1px solid rgba(217, 119, 6, 0.25);">Provisional Estimate</span>
+                <?php endif; ?>
+            </div>
+            <div style="line-height: 1.45; margin-bottom: 6px; color: var(--text-dark);"><?= htmlspecialchars($explanation['disclaimer']) ?></div>
+            <div style="font-size: 0.76rem; color: var(--text-gray);">
+                <strong>Coverage:</strong> <?= htmlspecialchars($explanation['coverage_summary']) ?>
+                <span style="margin: 0 6px;">•</span>
+                <strong>Freshness:</strong> <?= htmlspecialchars($explanation['freshness_label']) ?>
+            </div>
+        </div>
+    </div>
+
     <div class="stat-grid dashboard-stat-grid" style="margin-bottom: 24px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Cumulative GWA</h4>
@@ -276,11 +303,11 @@ require_once '../includes/sidebar.php';
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
-            <h4>Projected Semester GWA</h4>
+            <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                 <?php if ($prediction_source !== null): ?>
-                    Projection source: <?= htmlspecialchars($prediction_source === PREDICTION_SOURCE_DECISION_TREE ? 'Decision Tree' : 'Calculation-Based Estimate') ?><br>
+                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><?= !empty($explanation['is_provisional']) ? ' (Provisional)' : '' ?><br>
                 <?php endif; ?>
                 <?php if ($display_honor !== null): ?>
                     Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>

@@ -420,6 +420,8 @@ function triggerSnapshotExportPdf() {
     window.location.href = 'export_program_snapshot_pdf.php' + window.location.search;
 }
 
+const csrfToken = <?= json_encode(getCsrfToken()) ?>;
+
 function runBatchPredictions() {
     const btn = document.getElementById('runBatchBtn');
     const originalText = btn.innerHTML;
@@ -431,8 +433,12 @@ function runBatchPredictions() {
     fetch('../api/batch_predict.php', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
-        }
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({
+            csrf_token: csrfToken
+        })
     })
     .then(response => response.json())
     .then(data => {

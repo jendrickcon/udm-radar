@@ -85,7 +85,8 @@ foreach ($currentGrades as $g) {
 
 // 3. Fetch Recent Activity (Latest Predictions)
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, prediction_source, generated_at 
+    SELECT predicted_gwa, risk_level, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis 
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC LIMIT 3
@@ -181,10 +182,13 @@ require_once '../includes/sidebar.php';
                         // calculation from current grades, not a heuristic
                         // guess, and must not be presented as model output.
                         $src = getPredictionSourceDisplayLabel($act['prediction_source'] ?? null);
+                        if (!empty($act['is_provisional'])) {
+                            $src .= ' (Provisional)';
+                        }
                     ?>
                     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span style="font-weight: 600; color: var(--accent-blue); font-size: 0.9rem;"><?= $src ?></span>
+                            <span style="font-weight: 600; color: var(--accent-blue); font-size: 0.9rem;"><?= htmlspecialchars($src) ?></span>
                             <span style="color: var(--text-gray); font-size: 0.8rem;"><?= $date ?></span>
                         </div>
                         <p style="margin: 0; font-size: 0.85rem; color: var(--text-dark);">

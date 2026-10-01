@@ -4,16 +4,25 @@
 /** @var string BASE_URL */
 
 // FIXED: Configure secure session-cookie settings before starting the session
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => '', 
-    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '', 
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Centralized CSRF token initialization: Ensure cryptographically secure token exists
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 // Re-verifies the account behind the session against the database, and
 // terminates the session if it is no longer permitted to authenticate.
@@ -92,13 +101,44 @@ function currentUser(): array {
   ];
 }
 
-// FIXED: Safe CSRF check that resolves gracefully if the token is missing entirely
-function checkCsrf(): bool {
-    $sessionToken = $_SESSION['csrf_token'] ?? '';
-    $submittedToken = $_POST['csrf_token'] ?? '';
+// ============================================================================
+// CENTRALIZED CSRF DEFENSE HELPERS
+// ============================================================================
 
-    return $sessionToken !== '' 
-        && $submittedToken !== '' 
-        && hash_equals($sessionToken, $submittedToken);
+/**
+ * Returns the active session CSRF token, initializing one if absent.
+ */
+function getCsrfToken(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Regenerates the CSRF token on privilege escalation / login.
+ */
+function regenerateCsrfToken(): string {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Timing-safe validation of a submitted CSRF token against the session token.
+ */
+function validateCsrfToken(?string $token): bool {
+    $sessionToken = $_SESSION['csrf_token'] ?? '';
+    if ($sessionToken === '' || $token === null || $token === '') {
+        return false;
+    }
+    return hash_equals($sessionToken, $token);
+}
+
+/**
+ * Checks CSRF token submitted via POST or HTTP_X_CSRF_TOKEN header.
+ */
+function checkCsrf(): bool {
+    $submittedToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+    return validateCsrfToken($submittedToken);
 }
 ?>

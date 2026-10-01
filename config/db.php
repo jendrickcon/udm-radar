@@ -2,10 +2,10 @@
 // config/db.php — MySQL connection
 // Note: Ensure this file is added to .gitignore in your repository.
 
-define('DB_HOST',   'localhost');
-define('DB_USER',   'root');        // default XAMPP user
-define('DB_PASS',   '');            // default XAMPP has no password
-define('DB_NAME',   'udm_radar');
+if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');        // default XAMPP user
+if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : ''); // default XAMPP has no password
+if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'udm_radar');
 
 function getDB(): PDO {
   static $pdo = null;

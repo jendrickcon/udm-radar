@@ -72,7 +72,7 @@ if (!empty($my_sections)) {
     $stmt  = $db->prepare("
         SELECT u.id AS user_id, u.first_name, u.middle_name, u.last_name, sp.section, sp.student_number,
                sp.status, sp.current_gwa,
-               p.risk_level, p.latin_honor
+               p.risk_level, p.latin_honor, p.is_provisional, p.data_completeness
         FROM users u
         JOIN student_profiles sp ON u.id = sp.user_id
         LEFT JOIN predictions p ON p.id = (
@@ -268,9 +268,16 @@ require_once '../includes/sidebar.php';
                 <?php if ($pendingBatchCount > 0): ?>
                     <a href="grades.php" class="dashboard-banner-btn control-btn" style="background: var(--card-bg) !important; color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;">View Grade Submissions</a>
                 <?php endif; ?>
-            </div>
         </div>
     <?php endif; ?>
+
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <div>
+            <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
+            <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Student risk assessments and projected academic outcomes are decision-support indicators intended to guide early mentoring and support referrals. They do not replace faculty evaluation or official grades.</div>
+        </div>
+    </div>
 
     <div class="stat-grid" style="margin-bottom:24px;">
         <div class="stat-card" style="border-left-color: var(--text-dark) !important;">

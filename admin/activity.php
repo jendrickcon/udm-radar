@@ -187,8 +187,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) { $db->rollBack(); $error = 'Batch processing failed: ' . $e->getMessage(); }
         }
         elseif ($action === 'close_support_case') {
-            $caseId = (int)$_POST['case_id'];
-            $db->prepare("UPDATE academic_support_cases SET status = 'closed' WHERE id = ?")->execute([$caseId]);
+            $caseId = (int)($_POST['case_id'] ?? 0);
+            $closureNote = trim($_POST['closure_note'] ?? 'Overall Academic Support Case has been formally closed.');
+            
+            $db->beginTransaction();
+            $stmtOldStatus = $db->prepare("SELECT status FROM academic_support_cases WHERE id = ? FOR UPDATE");
+            $stmtOldStatus->execute([$caseId]);
+            $oldStatus = $stmtOldStatus->fetchColumn();
+
+            if ($oldStatus && $oldStatus !== 'closed') {
+                $db->prepare("
+                    UPDATE academic_support_cases 
+                    SET status = 'closed', closed_by = ?, closed_at = NOW(), closure_note = ? 
+                    WHERE id = ?
+                ")->execute([$user['id'], $closureNote, $caseId]);
+
+                $db->prepare("
+                    UPDATE support_case_referrals 
+                    SET status = 'closed' 
+                    WHERE case_id = ? AND status != 'closed'
+                ")->execute([$caseId]);
+
+                $db->prepare("
+                    INSERT INTO support_status_history (case_id, changed_by, old_status, new_status, note)
+                    VALUES (?, ?, ?, 'closed', ?)
+                ")->execute([$caseId, $user['id'], $oldStatus, $closureNote]);
+            }
+            $db->commit();
             $success = "Overall Academic Support Case has been formally closed.";
         }
     }

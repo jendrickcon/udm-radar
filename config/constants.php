@@ -488,6 +488,36 @@ const PREDICTION_SOURCE_BOUNDARY_MAP = [
     'decision_tree'        => PREDICTION_SOURCE_DECISION_TREE,
 ];
 
+// =========================================================================
+// PREDICTION COMPLETENESS METADATA CONTRACT
+// =========================================================================
+const PREDICTION_COMPLETENESS_COMPLETE        = 'complete';
+const PREDICTION_COMPLETENESS_HISTORICAL_ONLY = 'historical_only';
+const PREDICTION_COMPLETENESS_PRELIM_ONLY     = 'prelim_only';
+const PREDICTION_COMPLETENESS_LEGACY_UNKNOWN  = 'legacy_unknown';
+
+const ALLOWED_PREDICTION_COMPLETENESS = [
+    PREDICTION_COMPLETENESS_COMPLETE,
+    PREDICTION_COMPLETENESS_HISTORICAL_ONLY,
+    PREDICTION_COMPLETENESS_PRELIM_ONLY,
+    PREDICTION_COMPLETENESS_LEGACY_UNKNOWN,
+];
+
+const PROVISIONAL_BASIS_HISTORICAL_GWA     = 'historical_gwa';
+const PROVISIONAL_BASIS_CURRENT_PRELIM_AVG = 'current_prelim_avg';
+
+const ALLOWED_PROVISIONAL_BASES = [
+    PROVISIONAL_BASIS_HISTORICAL_GWA,
+    PROVISIONAL_BASIS_CURRENT_PRELIM_AVG,
+];
+
+function isValidPredictionCompleteness(?string $val): bool {
+    if ($val === null) return false;
+    $s = trim($val);
+    if ($s === '') return false;
+    return in_array($s, ALLOWED_PREDICTION_COMPLETENESS, true);
+}
+
 /**
  * Validates whether a prediction source belongs to the approved canonical vocabulary.
  */
@@ -579,6 +609,124 @@ function getPredictionSourceDiagnosticLabel(?string $source): string {
 
 function predictionSourceDiagnosticLabel(?string $source): string {
     return getPredictionSourceDiagnosticLabel($source);
+}
+
+/**
+ * Generates audience-tailored, human-readable explanation and metadata for predictions.
+ *
+ * Provides:
+ * - Audience-appropriate source display label (Student/Faculty vs Admin diagnostic)
+ * - Source provenance family ('model', 'calculation', 'unknown')
+ * - Data completeness category and plain-language label
+ * - Input coverage summary describing what features informed the estimate
+ * - Freshness timestamp / relative freshness indicator
+ * - Provisional status flag
+ * - Ethical decision-support advisory disclaimer (non-punitive, non-official)
+ * - Actionable next-step guidance
+ *
+ * @param array  $prediction Associative array containing prediction attributes
+ *                           (e.g., prediction_source, data_completeness, is_partial, generated_at, risk_level, features_used)
+ * @param string $audience   Target audience: 'student', 'faculty', or 'admin' (default 'student')
+ * @return array Structured explanation metadata
+ */
+function getPredictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    $source = $prediction['prediction_source'] ?? null;
+    $completeness = $prediction['data_completeness'] ?? null;
+    $isPartial = !empty($prediction['is_partial']);
+    $generatedAt = $prediction['generated_at'] ?? null;
+    $risk = $prediction['risk_level'] ?? null;
+
+    if ($completeness === null) {
+        if ($isPartial) {
+            $completeness = 'partial';
+        } elseif ($source !== null && $source !== 'none') {
+            $completeness = 'complete';
+        } else {
+            $completeness = 'insufficient_data';
+        }
+    }
+
+    $sourceFamily = getPredictionSourceFamily($source);
+
+    // 1. Audience-appropriate source label
+    $sourceLabel = match ($audience) {
+        'admin' => getPredictionSourceDiagnosticLabel($source),
+        default => getPredictionSourceDisplayLabel($source),
+    };
+
+    // 2. Data Completeness Label
+    $completenessLabel = match ($completeness) {
+        'complete'        => 'Complete Records',
+        'historical_only' => 'Historical Records Only (Provisional)',
+        'prelim_only'     => 'Current Prelims Only (Provisional)',
+        'legacy_unknown'  => 'Historical Baseline Records',
+        'missing_all', 'insufficient_data' => 'Insufficient Data',
+        default           => $isPartial ? 'Provisional Estimate' : 'Standard Records',
+    };
+
+    // 3. Human-readable coverage summary
+    $coverageSummary = match ($completeness) {
+        'complete'        => 'Informed by both historical cumulative GWA and current term preliminary evaluations.',
+        'historical_only' => 'Informed solely by prior semester coursework. Current semester preliminary grades have not yet been encoded.',
+        'prelim_only'     => 'Informed solely by current semester preliminary course evaluations. No prior institutional coursework is on record.',
+        'legacy_unknown'  => 'Pre-audit historical baseline record preserved with original provenance.',
+        'missing_all', 'insufficient_data' => 'No historical coursework or current preliminary grades are available to compute an estimate.',
+        default           => $isPartial
+            ? 'Based on partial academic inputs. Pending remaining course grade submissions.'
+            : 'Based on available recorded coursework and term evaluations.',
+    };
+
+    // 4. Freshness
+    $freshnessLabel = 'Current Session';
+    if (!empty($generatedAt)) {
+        $ts = strtotime((string) $generatedAt);
+        if ($ts !== false) {
+            $freshnessLabel = date('M j, Y \a\t g:i A', $ts);
+        }
+    }
+
+    // 5. Non-punitive decision support disclaimer
+    $disclaimer = match ($audience) {
+        'student' => 'Notice: This projection is an advisory estimate for academic planning and early support. It is not an official grade, academic evaluation, or final graduation status.',
+        'faculty' => 'Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.',
+        'admin'   => 'Governance Notice: Statistical projections and heuristic fallbacks are decision-support diagnostics for academic coordination. Official standing is governed by institutional policies.',
+        default   => 'Notice: This projection is an advisory estimate for early intervention and does not constitute an official grade or permanent record.',
+    };
+
+    // 6. Actionable next-step guidance
+    $riskUpper = strtoupper(trim((string) $risk));
+    $actionAdvice = match ($riskUpper) {
+        'HIGH' => ($audience === 'student')
+            ? 'We strongly encourage meeting with your subject instructors or visiting the academic support office during consultation hours.'
+            : 'Consider initiating an academic referral or sending an early consultation notice to discuss support options.',
+        'MODERATE' => ($audience === 'student')
+            ? 'Focus on upcoming midterm deliverables and consider joining peer review sessions in flagged subjects.'
+            : 'Monitor upcoming assessment scores and offer targeted guidance before midterms.',
+        'LOW' => ($audience === 'student')
+            ? 'You are maintaining solid academic progress. Keep up your current study habits and pace.'
+            : 'Student is meeting academic benchmarks. Continue routine progress tracking.',
+        default => ($completeness === 'insufficient_data' || $completeness === 'missing_all')
+            ? 'Ensure all enrolled subjects and terms have recorded grades to receive an updated evaluation.'
+            : 'Review current term syllabus and requirements.',
+    };
+
+    return [
+        'source'             => $source,
+        'source_label'       => $sourceLabel,
+        'source_family'      => $sourceFamily,
+        'data_completeness'  => $completeness,
+        'completeness_label' => $completenessLabel,
+        'coverage_summary'   => $coverageSummary,
+        'freshness_label'    => $freshnessLabel,
+        'generated_at'       => $generatedAt,
+        'is_provisional'     => $isPartial || in_array($completeness, ['historical_only', 'prelim_only', 'partial'], true),
+        'disclaimer'         => $disclaimer,
+        'action_advice'      => $actionAdvice,
+    ];
+}
+
+function predictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    return getPredictionExplanationMetadata($prediction, $audience);
 }
 
 // Canonical name formatters — every faculty page that displays a split name
@@ -777,5 +925,46 @@ function extractTrackCode($rawTitle) {
     if (preg_match('/^(SD|CY|DS|ITE)\d{3}/i', trim($rawTitle), $m)) {
         return strtoupper($m[0]);
     }
+    return null;
+}
+
+// =========================================================================
+// PYTHON ML SERVICE & GOVERNANCE CONFIGURATION
+// =========================================================================
+
+if (!defined('PYTHON_ML_BASE_URL')) {
+    define('PYTHON_ML_BASE_URL', getenv('PYTHON_ML_BASE_URL') ?: 'http://127.0.0.1:5000');
+}
+
+if (!defined('PYTHON_ML_API_URL')) {
+    define('PYTHON_ML_API_URL', PYTHON_ML_BASE_URL . '/predict');
+}
+
+/**
+ * Retrieves the ML governance secret key from protected server environment
+ * or gitignored local secrets configuration file.
+ * Returns null if unconfigured (enabling fail-closed protection).
+ * Never falls back to a hardcoded default string in source code.
+ */
+function getMlGovernanceSecret(): ?string {
+    // 1. Environment variable takes top precedence
+    $secret = getenv('UDM_RADAR_ML_SECRET');
+    if ($secret !== false && trim((string) $secret) !== '') {
+        return trim((string) $secret);
+    }
+
+    // 2. Local gitignored secrets configuration file
+    $localConfigFile = __DIR__ . '/secrets.local.php';
+    if (file_exists($localConfigFile)) {
+        $config = include $localConfigFile;
+        if (is_array($config) && !empty($config['UDM_RADAR_ML_SECRET'])) {
+            $val = trim((string) $config['UDM_RADAR_ML_SECRET']);
+            if ($val !== '') {
+                return $val;
+            }
+        }
+    }
+
+    // 3. Fail closed if not configured
     return null;
 }
