@@ -105,7 +105,38 @@ try {
                         $currentSy,
                         $currentSem
                     ]);
+                    $newCaseId = (int)$db->lastInsertId();
                     $casesCreated++;
+
+                    // Automatically generate subject-level referrals for assigned faculty
+                    $stmtLoads = $db->prepare("
+                        SELECT g.subject_id, sp.section, fcl.faculty_user_id, g.prelim
+                        FROM grades g
+                        JOIN student_profiles sp ON sp.user_id = g.student_id
+                        JOIN faculty_class_loads fcl ON fcl.subject_id = g.subject_id AND fcl.section = sp.section
+                        WHERE g.student_id = ? AND g.is_current = 1 AND g.school_year = ? AND g.semester = ?
+                    ");
+                    $stmtLoads->execute([$studentId, $currentSy, $currentSem]);
+                    $loads = $stmtLoads->fetchAll();
+
+                    foreach ($loads as $ld) {
+                        $prelimVal = $ld['prelim'] !== null ? (float)$ld['prelim'] : 70.00;
+                        $subjRisk = $prelimVal < 75.0 ? 'HIGH' : ($prelimVal < 82.0 ? 'MODERATE' : 'LOW');
+                        
+                        $stmtInsertRef = $db->prepare("
+                            INSERT IGNORE INTO support_case_referrals
+                            (case_id, faculty_id, subject_id, section, subject_risk_level, latest_term_checked, latest_term_grade, status)
+                            VALUES (?, ?, ?, ?, ?, 'prelim', ?, 'needs_review')
+                        ");
+                        $stmtInsertRef->execute([
+                            $newCaseId,
+                            $ld['faculty_user_id'],
+                            $ld['subject_id'],
+                            $ld['section'],
+                            $subjRisk,
+                            $prelimVal
+                        ]);
+                    }
                 }
             }
         }
