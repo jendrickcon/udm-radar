@@ -1,31 +1,33 @@
 <?php
 /**
- * Integration Test Suite: Prediction Source Contract, Migration 007 & Feature Boundaries (WP-5)
+ * Integration Test Suite: Prediction Source Contract, Schema Constraints & Boundary Integration (WP-5)
  *
- * Target: udm_radar_scratch ONLY. Live database udm_radar is strictly untouched.
- *
- * Verifies:
- * 1. Schema metadata: predictions.prediction_source ENUM and CHECK constraints.
- * 2. Historical provenance preservation: all 405 scratch records retained as 'heuristic'.
- * 3. Database constraint enforcement on predictions:
- *    - Valid sources ('decision_tree', 'heuristic', 'calculation_fallback') accepted.
- *    - Unmapped 'fallback_blend', empty strings, and unknown values rejected.
- * 4. Database constraint enforcement on academic_support_cases:
- *    - Valid sources accepted.
- *    - Unmapped 'fallback_blend' rejected.
- * 5. Python service contract verification:
- *    - Canonical 'current_prelim_point_avg' accepted.
- *    - Backward-compatibility alias 'current_prelim_avg' accepted.
- *    - Missing required features rejected (no silent 0.0 zero-injection).
- *    - Python _fallback_predict() parity with PHP predictFinalGradeHeuristic().
+ * Verifies against udm_radar_scratch:
+ * 1. Column metadata: predictions.prediction_source is VARCHAR(30) NOT NULL with NO permanent default (COLUMN_DEFAULT is NULL).
+ * 2. Check constraints: chk_predictions_source_valid and chk_support_cases_source_valid active.
+ * 3. Historical provenance preservation: all 405 historical rows in scratch retain 'heuristic'.
+ * 4. SQL constraint enforcement on predictions:
+ *    - Rejects INSERT without prediction_source (no silent fallback to heuristic).
+ *    - Accepts 'decision_tree', 'calculation_fallback', 'heuristic'.
+ *    - Rejects 'fallback_blend', '', 'unknown_source'.
+ * 5. SQL constraint enforcement on academic_support_cases:
+ *    - Accepts 'decision_tree', 'calculation_fallback'.
+ *    - Rejects 'fallback_blend', ''.
+ * 6. Python ML service contract:
+ *    - Accepts canonical 'current_prelim_point_avg' and alias 'current_prelim_avg'.
+ *    - Rejects missing features with ValueError (no zero injection).
+ *    - Reconciled 50/50 fallback blend snapped to 0.25.
+ * 7. Missing-feature 4-case behavior in application logic.
  *
  * Run via CLI: php tests/integration/prediction_contract_test.php
  */
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/config/db.php';
 require_once dirname(__DIR__, 2) . '/config/constants.php';
 
+// Target database configuration: strictly udm_radar_scratch
 $scratchHost = '127.0.0.1';
 $scratchDb   = 'udm_radar_scratch';
 $scratchUser = 'root';
@@ -80,13 +82,10 @@ $stmtCol->execute([$scratchDb]);
 $colMeta = $stmtCol->fetch();
 
 assertTest($colMeta !== false, "Column prediction_source exists on predictions table");
-assertTest($colMeta['DATA_TYPE'] === 'enum', "prediction_source DATA_TYPE is 'enum'");
-assertTest(str_contains($colMeta['COLUMN_TYPE'], "'decision_tree'"), "COLUMN_TYPE contains 'decision_tree'");
-assertTest(str_contains($colMeta['COLUMN_TYPE'], "'heuristic'"), "COLUMN_TYPE contains 'heuristic'");
-assertTest(str_contains($colMeta['COLUMN_TYPE'], "'calculation_fallback'"), "COLUMN_TYPE contains 'calculation_fallback'");
-assertTest(!str_contains($colMeta['COLUMN_TYPE'], "'fallback_blend'"), "COLUMN_TYPE does NOT contain 'fallback_blend'");
+assertTest($colMeta['DATA_TYPE'] === 'varchar', "prediction_source DATA_TYPE is 'varchar'");
+assertTest(str_contains($colMeta['COLUMN_TYPE'], 'varchar(30)'), "COLUMN_TYPE is varchar(30)");
 assertTest($colMeta['IS_NULLABLE'] === 'NO', "prediction_source IS_NULLABLE is 'NO'");
-assertTest(trim((string)$colMeta['COLUMN_DEFAULT'], "'") === 'heuristic', "prediction_source DEFAULT is 'heuristic'");
+assertTest($colMeta['COLUMN_DEFAULT'] === null, "prediction_source has NO permanent default (COLUMN_DEFAULT is NULL)");
 
 // -----------------------------------------------------------------------------
 // 2. CHECK Constraints in information_schema
@@ -134,7 +133,15 @@ try {
     $stmtIns->execute(['heuristic']);
     assertTest(true, "Successfully inserted valid source: 'heuristic'");
 
-    // 4.2 Unmapped fallback_blend must be rejected
+    // 4.2 Omission of prediction_source must be rejected (no silent default)
+    try {
+        $db->query("INSERT INTO predictions (student_id, predicted_gwa, risk_level) VALUES (5, 2.75, 'LOW')");
+        assertTest(false, "Failed to reject INSERT omitting prediction_source");
+    } catch (PDOException $e) {
+        assertTest(true, "Database correctly rejected INSERT omitting prediction_source (no silent default)");
+    }
+
+    // 4.3 Unmapped fallback_blend must be rejected
     try {
         $stmtIns->execute(['fallback_blend']);
         assertTest(false, "Failed to reject unmapped 'fallback_blend'");
@@ -142,7 +149,7 @@ try {
         assertTest(true, "Database correctly rejected unmapped source: 'fallback_blend'");
     }
 
-    // 4.3 Blank string must be rejected
+    // 4.4 Blank string must be rejected
     try {
         $stmtIns->execute(['']);
         assertTest(false, "Failed to reject blank string source");
@@ -150,7 +157,7 @@ try {
         assertTest(true, "Database correctly rejected blank prediction_source");
     }
 
-    // 4.4 Arbitrary unknown string must be rejected
+    // 4.5 Arbitrary unknown string must be rejected
     try {
         $stmtIns->execute(['random_neural_net']);
         assertTest(false, "Failed to reject arbitrary unknown source");
@@ -179,6 +186,9 @@ try {
 
     $stmtCase->execute(['calculation_fallback']);
     assertTest(true, "academic_support_cases accepted: 'calculation_fallback'");
+
+    $stmtCase->execute(['heuristic']);
+    assertTest(true, "academic_support_cases accepted: 'heuristic'");
 
     try {
         $stmtCase->execute(['fallback_blend']);

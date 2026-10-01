@@ -8,13 +8,20 @@
  * 3. normalizePredictionSourceBoundary() service boundary normalization:
  *    - Maps 'fallback_blend' -> 'calculation_fallback'.
  *    - Rejects null, blank, whitespace, and unknown sources.
- * 4. getPredictionSourceFamily() grouping:
- *    - 'decision_tree' -> 'ai_model'
+ * 4. predictionSourceFamily() grouping:
+ *    - 'decision_tree' -> 'model'
  *    - 'heuristic' -> 'calculation'
  *    - 'calculation_fallback' -> 'calculation'
- * 5. getPredictionSourceDisplayLabel() user-facing strings.
- * 6. getPredictionSourceDiagnosticLabel() technical reporting strings.
+ * 5. predictionSourceLabel() user-facing strings:
+ *    - 'decision_tree' -> 'AI-Based Projection'
+ *    - 'heuristic' -> 'Calculation-Based Estimate'
+ *    - 'calculation_fallback' -> 'Calculation-Based Estimate'
+ * 6. predictionSourceDiagnosticLabel() technical reporting strings:
+ *    - 'decision_tree' -> 'Decision Tree'
+ *    - 'heuristic' -> 'Legacy Heuristic'
+ *    - 'calculation_fallback' -> 'Current Calculation Fallback'
  * 7. Canonical predictFinalGradeHeuristic() 50/50 blend and .25 snapping.
+ * 8. Missing-feature 4-case matrix behavior.
  *
  * Run via CLI: php tests/unit/prediction_source_helpers_test.php
  */
@@ -78,39 +85,49 @@ assertTest(normalizePredictionSourceBoundary('  fallback_blend  ') === 'calculat
 assertTest(normalizePredictionSourceBoundary('calculation_fallback') === 'calculation_fallback', "normalize('calculation_fallback') -> 'calculation_fallback'");
 assertTest(normalizePredictionSourceBoundary('heuristic') === 'heuristic', "normalize('heuristic') -> 'heuristic'");
 assertTest(normalizePredictionSourceBoundary('decision_tree') === 'decision_tree', "normalize('decision_tree') -> 'decision_tree'");
+assertTest(normalizePredictionSource('fallback_blend') === 'calculation_fallback', "normalizePredictionSource alias works");
 assertTest(normalizePredictionSourceBoundary(null) === null, "normalize(null) -> null");
 assertTest(normalizePredictionSourceBoundary('') === null, "normalize('') -> null");
 assertTest(normalizePredictionSourceBoundary('   ') === null, "normalize('   ') -> null");
 assertTest(normalizePredictionSourceBoundary('random_ai') === null, "normalize('random_ai') -> null (rejects unknown)");
 
 // -----------------------------------------------------------------------------
-// 4. Source Family Grouping
+// 4. Source Family Grouping (model vs calculation)
 // -----------------------------------------------------------------------------
-echo "\n=== 4. Source Family Grouping: getPredictionSourceFamily ===\n";
-assertTest(getPredictionSourceFamily('decision_tree') === 'ai_model', "family('decision_tree') -> 'ai_model'");
-assertTest(getPredictionSourceFamily('heuristic') === 'calculation', "family('heuristic') -> 'calculation'");
-assertTest(getPredictionSourceFamily('calculation_fallback') === 'calculation', "family('calculation_fallback') -> 'calculation'");
-assertTest(getPredictionSourceFamily(null) === 'unknown', "family(null) -> 'unknown'");
-assertTest(getPredictionSourceFamily('unrecognized') === 'unknown', "family('unrecognized') -> 'unknown'");
+echo "\n=== 4. Source Family Grouping: predictionSourceFamily ===\n";
+assertTest(getPredictionSourceFamily('decision_tree') === 'model', "getPredictionSourceFamily('decision_tree') -> 'model'");
+assertTest(predictionSourceFamily('decision_tree') === 'model', "predictionSourceFamily('decision_tree') -> 'model'");
+assertTest(getPredictionSourceFamily('heuristic') === 'calculation', "getPredictionSourceFamily('heuristic') -> 'calculation'");
+assertTest(predictionSourceFamily('heuristic') === 'calculation', "predictionSourceFamily('heuristic') -> 'calculation'");
+assertTest(getPredictionSourceFamily('calculation_fallback') === 'calculation', "getPredictionSourceFamily('calculation_fallback') -> 'calculation'");
+assertTest(predictionSourceFamily('calculation_fallback') === 'calculation', "predictionSourceFamily('calculation_fallback') -> 'calculation'");
+assertTest(predictionSourceFamily(null) === 'unknown', "predictionSourceFamily(null) -> 'unknown'");
+assertTest(predictionSourceFamily('unrecognized') === 'unknown', "predictionSourceFamily('unrecognized') -> 'unknown'");
 
 // -----------------------------------------------------------------------------
 // 5. User-Facing Display Labels
 // -----------------------------------------------------------------------------
-echo "\n=== 5. Display Labels: getPredictionSourceDisplayLabel ===\n";
-assertTest(getPredictionSourceDisplayLabel('decision_tree') === 'AI Model Update', "display('decision_tree') -> 'AI Model Update'");
+echo "\n=== 5. Display Labels: predictionSourceLabel ===\n";
+assertTest(getPredictionSourceDisplayLabel('decision_tree') === 'AI-Based Projection', "display('decision_tree') -> 'AI-Based Projection'");
+assertTest(predictionSourceLabel('decision_tree') === 'AI-Based Projection', "predictionSourceLabel('decision_tree') -> 'AI-Based Projection'");
 assertTest(getPredictionSourceDisplayLabel('heuristic') === 'Calculation-Based Estimate', "display('heuristic') -> 'Calculation-Based Estimate'");
-assertTest(getPredictionSourceDisplayLabel('calculation_fallback') === 'Estimate Based on Current Grades', "display('calculation_fallback') -> 'Estimate Based on Current Grades'");
-assertTest(getPredictionSourceDisplayLabel(null) === 'Insufficient Data', "display(null) -> 'Insufficient Data'");
-assertTest(getPredictionSourceDisplayLabel('invalid') === 'Insufficient Data', "display('invalid') -> 'Insufficient Data'");
+assertTest(predictionSourceLabel('heuristic') === 'Calculation-Based Estimate', "predictionSourceLabel('heuristic') -> 'Calculation-Based Estimate'");
+assertTest(getPredictionSourceDisplayLabel('calculation_fallback') === 'Calculation-Based Estimate', "display('calculation_fallback') -> 'Calculation-Based Estimate'");
+assertTest(predictionSourceLabel('calculation_fallback') === 'Calculation-Based Estimate', "predictionSourceLabel('calculation_fallback') -> 'Calculation-Based Estimate'");
+assertTest(predictionSourceLabel(null) === 'Insufficient Data', "predictionSourceLabel(null) -> 'Insufficient Data'");
+assertTest(predictionSourceLabel('invalid') === 'Insufficient Data', "predictionSourceLabel('invalid') -> 'Insufficient Data'");
 
 // -----------------------------------------------------------------------------
 // 6. Diagnostic Labels
 // -----------------------------------------------------------------------------
-echo "\n=== 6. Diagnostic Labels: getPredictionSourceDiagnosticLabel ===\n";
-assertTest(str_contains(getPredictionSourceDiagnosticLabel('decision_tree'), 'Decision Tree'), "diagnostic('decision_tree') contains 'Decision Tree'");
-assertTest(str_contains(getPredictionSourceDiagnosticLabel('heuristic'), 'Legacy Heuristic'), "diagnostic('heuristic') contains 'Legacy Heuristic'");
-assertTest(str_contains(getPredictionSourceDiagnosticLabel('calculation_fallback'), 'Calculation Fallback'), "diagnostic('calculation_fallback') contains 'Calculation Fallback'");
-assertTest(getPredictionSourceDiagnosticLabel(null) === 'No Prediction Data', "diagnostic(null) -> 'No Prediction Data'");
+echo "\n=== 6. Diagnostic Labels: predictionSourceDiagnosticLabel ===\n";
+assertTest(getPredictionSourceDiagnosticLabel('decision_tree') === 'Decision Tree', "diagnostic('decision_tree') -> 'Decision Tree'");
+assertTest(predictionSourceDiagnosticLabel('decision_tree') === 'Decision Tree', "predictionSourceDiagnosticLabel('decision_tree') -> 'Decision Tree'");
+assertTest(getPredictionSourceDiagnosticLabel('heuristic') === 'Legacy Heuristic', "diagnostic('heuristic') -> 'Legacy Heuristic'");
+assertTest(predictionSourceDiagnosticLabel('heuristic') === 'Legacy Heuristic', "predictionSourceDiagnosticLabel('heuristic') -> 'Legacy Heuristic'");
+assertTest(getPredictionSourceDiagnosticLabel('calculation_fallback') === 'Current Calculation Fallback', "diagnostic('calculation_fallback') -> 'Current Calculation Fallback'");
+assertTest(predictionSourceDiagnosticLabel('calculation_fallback') === 'Current Calculation Fallback', "predictionSourceDiagnosticLabel('calculation_fallback') -> 'Current Calculation Fallback'");
+assertTest(predictionSourceDiagnosticLabel(null) === 'No Prediction Data', "diagnostic(null) -> 'No Prediction Data'");
 
 // -----------------------------------------------------------------------------
 // 7. Canonical Fallback Heuristic Math & Snapping
@@ -120,16 +137,29 @@ echo "\n=== 7. Fallback Heuristic Math & Increments ===\n";
 assertTest(predictFinalGradeHeuristic(2.50, 3.50) === 3.00, "50/50 blend: (2.50, 3.50) -> 3.00");
 // Unequal blend with 0.25 snap: 0.5 * 2.00 + 0.5 * 2.75 = 2.375 -> snaps to 2.50
 assertTest(predictFinalGradeHeuristic(2.00, 2.75) === 2.50, "50/50 blend with .25 snap: (2.00, 2.75) -> 2.50");
-// Missing historical: returns prelim rounded
-assertTest(predictFinalGradeHeuristic(3.12, null) === 3.12, "Missing historical: (3.12, null) -> 3.12");
-// Missing prelim: returns historical rounded
-assertTest(predictFinalGradeHeuristic(null, 2.85) === 2.85, "Missing prelim: (null, 2.85) -> 2.85");
-// Both missing: returns null
-assertTest(predictFinalGradeHeuristic(null, null) === null, "Both missing: (null, null) -> null");
 // Upper clamp
 assertTest(predictFinalGradeHeuristic(5.00, 4.50) === 4.00, "Upper clamp: (5.00, 4.50) -> 4.00");
 // Lower clamp
 assertTest(predictFinalGradeHeuristic(0.50, 0.75) === 1.00, "Lower clamp: (0.50, 0.75) -> 1.00");
+
+// -----------------------------------------------------------------------------
+// 8. Missing-Feature 4-Case Matrix
+// -----------------------------------------------------------------------------
+echo "\n=== 8. Missing-Feature 4-Case Matrix ===\n";
+// Case A: Both present -> normal blend
+assertTest(predictFinalGradeHeuristic(3.00, 2.00) === 2.50, "Case A (Both present): 50/50 blend succeeds");
+
+// Case B: Historical GWA present, Prelim missing -> returns historical GWA rounded (partial data)
+assertTest(predictFinalGradeHeuristic(null, 2.85) === 2.85, "Case B (Historical present, Prelim null): returns historical GWA");
+assertTest(predictFinalGradeHeuristic(null, 2.85) !== 0.0, "Case B does NOT inject 0.0");
+
+// Case C: Historical GWA missing, Prelim present -> returns prelim rounded (partial data)
+assertTest(predictFinalGradeHeuristic(3.12, null) === 3.12, "Case C (Historical null, Prelim present): returns prelim");
+assertTest(predictFinalGradeHeuristic(3.12, null) !== 0.0, "Case C does NOT inject 0.0");
+
+// Case D: Both missing -> returns null (insufficient data, never 0.0)
+assertTest(predictFinalGradeHeuristic(null, null) === null, "Case D (Both missing): returns null");
+assertTest(predictFinalGradeHeuristic(null, null) !== 0.0, "Case D does NOT produce 0.0");
 
 echo "\n========================================================================\n";
 echo "SUMMARY: Ran $totalTests tests, $failedTests failures.\n";
