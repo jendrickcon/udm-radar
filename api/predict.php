@@ -40,22 +40,38 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
     }
     $currentPrelimAvg = computeWeightedGWA($prelim_rows); 
 
+    // Contributing and expected subject counts
+    $stmtEnrolled = $db->prepare("
+        SELECT COUNT(*) FROM grades 
+        WHERE student_id = ? AND is_current = 1
+    ");
+    $stmtEnrolled->execute([$studentId]);
+    $expectedSubjectCount = (int) $stmtEnrolled->fetchColumn();
+    $inputSubjectCount = count($prelim_rows);
+    if ($expectedSubjectCount < $inputSubjectCount) {
+        $expectedSubjectCount = $inputSubjectCount;
+    }
+
     // ------------------------------------------------------------------------
     // CASE D: Missing Both Features -> Strict Failsafe (No prediction generated)
     // ------------------------------------------------------------------------
     if ($historicalGwa === null && $currentPrelimAvg === null) {
         $resD = [
-            'status'             => 'insufficient_data',
-            'error'              => 'Insufficient academic data to generate a reliable prediction.',
-            'data_completeness'  => 'missing_all',
-            'is_partial'         => true,
-            'has_historical_gwa' => false,
-            'has_current_prelim' => false,
-            'predicted_gwa'      => null,
-            'risk_level'         => null,
-            'latin_honor'        => null,
-            'prediction_source'  => 'none',
-            'features_used'      => null
+            'status'                 => 'insufficient_data',
+            'error'                  => 'Insufficient academic data to generate a reliable prediction.',
+            'data_completeness'      => 'missing_all',
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => false,
+            'has_current_prelim'     => false,
+            'predicted_gwa'          => null,
+            'risk_level'             => null,
+            'latin_honor'            => null,
+            'prediction_source'      => 'none',
+            'provisional_basis'      => null,
+            'input_subject_count'    => 0,
+            'expected_subject_count' => $expectedSubjectCount > 0 ? $expectedSubjectCount : null,
+            'features_used'          => null
         ];
         $resD['explanation'] = getPredictionExplanationMetadata($resD, 'student');
         return $resD;
@@ -91,33 +107,47 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
         $risk = computeRiskFromAvg($predGwa);
         $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
         $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+        $dataCompleteness = PREDICTION_COMPLETENESS_HISTORICAL_ONLY;
+        $isProvisional = 1;
+        $provisionalBasis = PROVISIONAL_BASIS_HISTORICAL_GWA;
+        $inputCount = 0;
+        $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : null;
 
         if ($persist) {
             $stmtSave = $db->prepare("
-                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
-                VALUES (?, ?, ?, ?, NULL, ?)
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                         data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
             ");
             $stmtSave->execute([
                 $studentId,
                 $predGwa,
                 $risk,
                 $latinHonor,
-                $predictionSource
+                $predictionSource,
+                $dataCompleteness,
+                $isProvisional,
+                $provisionalBasis,
+                $inputCount,
+                $expectedCount
             ]);
         }
 
         $resB = [
-            'status'             => 'partial_provisional',
-            'data_completeness'  => 'historical_only',
-            'is_partial'         => true,
-            'has_historical_gwa' => true,
-            'has_current_prelim' => false,
-            'provisional_basis'  => 'historical_gwa',
-            'predicted_gwa'      => $predGwa,
-            'risk_level'         => $risk,
-            'latin_honor'        => $latinHonor,
-            'prediction_source'  => $predictionSource,
-            'features_used'      => [
+            'status'                 => 'partial_provisional',
+            'data_completeness'      => $dataCompleteness,
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => true,
+            'has_current_prelim'     => false,
+            'provisional_basis'      => $provisionalBasis,
+            'input_subject_count'    => $inputCount,
+            'expected_subject_count' => $expectedCount,
+            'predicted_gwa'          => $predGwa,
+            'risk_level'             => $risk,
+            'latin_honor'            => $latinHonor,
+            'prediction_source'      => $predictionSource,
+            'features_used'          => [
                 'historical_gwa'           => (float) $historicalGwa,
                 'current_prelim_point_avg' => null,
                 'failed_subjects_count'    => (int) $failedCount,
@@ -136,33 +166,47 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
         $risk = computeRiskFromAvg($predGwa);
         $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
         $predictionSource = PREDICTION_SOURCE_CALCULATION_FALLBACK;
+        $dataCompleteness = PREDICTION_COMPLETENESS_PRELIM_ONLY;
+        $isProvisional = 1;
+        $provisionalBasis = PROVISIONAL_BASIS_CURRENT_PRELIM_AVG;
+        $inputCount = $inputSubjectCount;
+        $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : $inputCount;
 
         if ($persist) {
             $stmtSave = $db->prepare("
-                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
-                VALUES (?, ?, ?, ?, NULL, ?)
+                INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                         data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
             ");
             $stmtSave->execute([
                 $studentId,
                 $predGwa,
                 $risk,
                 $latinHonor,
-                $predictionSource
+                $predictionSource,
+                $dataCompleteness,
+                $isProvisional,
+                $provisionalBasis,
+                $inputCount,
+                $expectedCount
             ]);
         }
 
         $resC = [
-            'status'             => 'partial_provisional',
-            'data_completeness'  => 'prelim_only',
-            'is_partial'         => true,
-            'has_historical_gwa' => false,
-            'has_current_prelim' => true,
-            'provisional_basis'  => 'current_prelim_avg',
-            'predicted_gwa'      => $predGwa,
-            'risk_level'         => $risk,
-            'latin_honor'        => $latinHonor,
-            'prediction_source'  => $predictionSource,
-            'features_used'      => [
+            'status'                 => 'partial_provisional',
+            'data_completeness'      => $dataCompleteness,
+            'is_partial'             => true,
+            'is_provisional'         => true,
+            'has_historical_gwa'     => false,
+            'has_current_prelim'     => true,
+            'provisional_basis'      => $provisionalBasis,
+            'input_subject_count'    => $inputCount,
+            'expected_subject_count' => $expectedCount,
+            'predicted_gwa'          => $predGwa,
+            'risk_level'             => $risk,
+            'latin_honor'            => $latinHonor,
+            'prediction_source'      => $predictionSource,
+            'features_used'          => [
                 'historical_gwa'           => null,
                 'current_prelim_point_avg' => (float) $currentPrelimAvg,
                 'failed_subjects_count'    => (int) $failedCount,
@@ -218,31 +262,47 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
     $risk = computeRiskFromAvg($predGwa);
     $latinHonor = getLatinHonor($predGwa, $hasDisqGrade);
 
+    $dataCompleteness = PREDICTION_COMPLETENESS_COMPLETE;
+    $isProvisional = 0;
+    $provisionalBasis = null;
+    $inputCount = $inputSubjectCount;
+    $expectedCount = $expectedSubjectCount > 0 ? $expectedSubjectCount : $inputCount;
+
     if ($persist) {
         $stmtSave = $db->prepare("
-            INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source)
-            VALUES (?, ?, ?, ?, NULL, ?)
+            INSERT INTO predictions (student_id, predicted_gwa, risk_level, latin_honor, irregular_prob, prediction_source,
+                                     data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count)
+            VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
         ");
         $stmtSave->execute([
             $studentId,
             $predGwa,
             $risk,
             $latinHonor,
-            $predictionSource
+            $predictionSource,
+            $dataCompleteness,
+            $isProvisional,
+            $provisionalBasis,
+            $inputCount,
+            $expectedCount
         ]);
     }
 
     $resA = [
-        'status'             => 'complete',
-        'data_completeness'  => 'complete',
-        'is_partial'         => false,
-        'has_historical_gwa' => true,
-        'has_current_prelim' => true,
-        'predicted_gwa'      => $predGwa,
-        'risk_level'         => $risk,
-        'latin_honor'        => $latinHonor,
-        'prediction_source'  => $predictionSource,
-        'features_used'      => $payload
+        'status'                 => 'complete',
+        'data_completeness'      => $dataCompleteness,
+        'is_partial'             => false,
+        'is_provisional'         => false,
+        'has_historical_gwa'     => true,
+        'has_current_prelim'     => true,
+        'provisional_basis'      => null,
+        'input_subject_count'    => $inputCount,
+        'expected_subject_count' => $expectedCount,
+        'predicted_gwa'          => $predGwa,
+        'risk_level'             => $risk,
+        'latin_honor'            => $latinHonor,
+        'prediction_source'      => $predictionSource,
+        'features_used'          => $payload
     ];
     $resA['explanation'] = getPredictionExplanationMetadata($resA, 'student');
     return $resA;

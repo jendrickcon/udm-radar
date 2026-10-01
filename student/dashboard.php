@@ -22,7 +22,8 @@ $historical_gwa = $current_gwa;
 
 // --- Fetch ML Prediction from Database ---
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, latin_honor, prediction_source, generated_at 
+    SELECT predicted_gwa, risk_level, latin_honor, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC 
@@ -110,11 +111,12 @@ if ($has_ai_prediction) {
     $prediction_source = 'insufficient_data';
 }
 
-$explanation = getPredictionExplanationMetadata([
+$explanation = getPredictionExplanationMetadata($ml_prediction ?: [
     'prediction_source' => $prediction_source,
     'risk_level'        => $display_risk,
-    'generated_at'      => $ml_prediction['generated_at'] ?? null,
-    'is_partial'        => empty($current_subjects) || $prediction_source === PREDICTION_SOURCE_CALCULATION_FALLBACK,
+    'generated_at'      => null,
+    'data_completeness' => $has_fallback_data ? 'complete' : 'insufficient_data',
+    'is_partial'        => empty($current_subjects),
 ], 'student');
 
 if ($at_risk_count > 0) {
@@ -301,11 +303,11 @@ require_once '../includes/sidebar.php';
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
-            <h4>Projected Semester GWA</h4>
+            <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                 <?php if ($prediction_source !== null): ?>
-                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><br>
+                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><?= !empty($explanation['is_provisional']) ? ' (Provisional)' : '' ?><br>
                 <?php endif; ?>
                 <?php if ($display_honor !== null): ?>
                     Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>

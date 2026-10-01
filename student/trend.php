@@ -106,7 +106,8 @@ if ($current_midterm_gwa !== null) {
 }
 
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, prediction_source, generated_at 
+    SELECT predicted_gwa, risk_level, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis 
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC, id DESC 
@@ -116,7 +117,8 @@ $stmtPred->execute([$user['id']]);
 $prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 
 if ($prediction && !empty($prediction['predicted_gwa'])) {
-    $semData[] = ['semester' => 'Predicted End-of-Term', 'gwa' => (float)$prediction['predicted_gwa']];
+    $predLabel = !empty($prediction['is_provisional']) ? 'Provisional Estimate' : 'Predicted End-of-Term';
+    $semData[] = ['semester' => $predLabel, 'gwa' => (float)$prediction['predicted_gwa']];
     $semDataTypes[] = 'prediction';
 }
 

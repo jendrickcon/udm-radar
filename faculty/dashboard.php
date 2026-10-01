@@ -72,7 +72,7 @@ if (!empty($my_sections)) {
     $stmt  = $db->prepare("
         SELECT u.id AS user_id, u.first_name, u.middle_name, u.last_name, sp.section, sp.student_number,
                sp.status, sp.current_gwa,
-               p.risk_level, p.latin_honor
+               p.risk_level, p.latin_honor, p.is_provisional, p.data_completeness
         FROM users u
         JOIN student_profiles sp ON u.id = sp.user_id
         LEFT JOIN predictions p ON p.id = (
