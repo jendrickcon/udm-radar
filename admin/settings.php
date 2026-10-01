@@ -187,7 +187,8 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script>
-// --- Model Governance API Integrations ---
+// --- Model Governance API Integrations (Protected Server Gateway) ---
+const csrfToken = <?= json_encode(getCsrfToken()) ?>;
 
 function handleCandidateTraining(event) {
     event.preventDefault();
@@ -208,16 +209,26 @@ function handleCandidateTraining(event) {
     statusBox.style.display = 'block';
     candidatePanel.style.display = 'none';
 
-    // Pack the file
+    // Pack the file and CSRF token
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
+    formData.append('csrf_token', csrfToken);
 
-    // Send it to the Python Flask Server
-    fetch('http://127.0.0.1:5000/api/train_candidate', {
+    // Send via protected PHP gateway with CSRF token
+    fetch('../api/model_governance.php?action=train_candidate', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': csrfToken
+        },
         body: formData
     })
-    .then(res => res.json())
+    .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || `Server responded with status ${res.status}`);
+        }
+        return data;
+    })
     .then(data => {
         statusBox.style.display = 'none';
         btn.disabled = false;
@@ -240,25 +251,55 @@ function handleCandidateTraining(event) {
         statusBox.style.display = 'none';
         btn.disabled = false;
         btn.style.opacity = '1';
-        alert("Connection Error. Is the Python ML server running on port 5000?");
+        alert("Training Error: " + (err.message || "Failed to communicate with model governance service."));
         console.error(err);
     });
 }
 
 function cancelCandidate() {
     if(confirm("Are you sure you want to discard this candidate model?")) {
-        fetch('http://127.0.0.1:5000/api/cancel_candidate', { method: 'POST' })
+        fetch('../api/model_governance.php?action=cancel_candidate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ csrf_token: csrfToken })
+        })
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || `Server responded with status ${res.status}`);
+            }
+            return data;
+        })
         .then(() => {
             document.getElementById('candidate-panel').style.display = 'none';
             document.getElementById('dataset-upload').value = "";
+        })
+        .catch(err => {
+            alert("Discard Error: " + (err.message || "Failed to cancel candidate."));
         });
     }
 }
 
 function promoteCandidate() {
     if(confirm("WARNING: Promoting this candidate will securely back up and replace the active predictive model. Are you sure you want to proceed?")) {
-        fetch('http://127.0.0.1:5000/api/promote_candidate', { method: 'POST' })
-        .then(res => res.json())
+        fetch('../api/model_governance.php?action=promote_candidate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ csrf_token: csrfToken })
+        })
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || `Server responded with status ${res.status}`);
+            }
+            return data;
+        })
         .then(data => {
             if(data.error) {
                 alert("Promotion Failed: " + data.error);
@@ -273,7 +314,7 @@ function promoteCandidate() {
             document.getElementById('active-rmse').innerText = document.getElementById('candidate-rmse').innerText;
             document.getElementById('active-r2').innerText = document.getElementById('candidate-r2').innerText;
         })
-        .catch(err => alert("Error communicating with Python server."));
+        .catch(err => alert("Promotion Error: " + (err.message || "Error communicating with server.")));
     }
 }
 </script>
