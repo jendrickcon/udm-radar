@@ -44,7 +44,7 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
     // CASE D: Missing Both Features -> Strict Failsafe (No prediction generated)
     // ------------------------------------------------------------------------
     if ($historicalGwa === null && $currentPrelimAvg === null) {
-        return [
+        $resD = [
             'status'             => 'insufficient_data',
             'error'              => 'Insufficient academic data to generate a reliable prediction.',
             'data_completeness'  => 'missing_all',
@@ -57,6 +57,8 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
             'prediction_source'  => 'none',
             'features_used'      => null
         ];
+        $resD['explanation'] = getPredictionExplanationMetadata($resD, 'student');
+        return $resD;
     }
 
     // 3. Count Failed Subjects & Irregular Semesters
@@ -104,7 +106,7 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
             ]);
         }
 
-        return [
+        $resB = [
             'status'             => 'partial_provisional',
             'data_completeness'  => 'historical_only',
             'is_partial'         => true,
@@ -122,6 +124,8 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
                 'irregular_semesters'      => (int) $irregularSemesters,
             ]
         ];
+        $resB['explanation'] = getPredictionExplanationMetadata($resB, 'student');
+        return $resB;
     }
 
     // ------------------------------------------------------------------------
@@ -147,7 +151,7 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
             ]);
         }
 
-        return [
+        $resC = [
             'status'             => 'partial_provisional',
             'data_completeness'  => 'prelim_only',
             'is_partial'         => true,
@@ -165,6 +169,8 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
                 'irregular_semesters'      => (int) $irregularSemesters,
             ]
         ];
+        $resC['explanation'] = getPredictionExplanationMetadata($resC, 'student');
+        return $resC;
     }
 
     // ------------------------------------------------------------------------
@@ -226,7 +232,7 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
         ]);
     }
 
-    return [
+    $resA = [
         'status'             => 'complete',
         'data_completeness'  => 'complete',
         'is_partial'         => false,
@@ -238,6 +244,8 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
         'prediction_source'  => $predictionSource,
         'features_used'      => $payload
     ];
+    $resA['explanation'] = getPredictionExplanationMetadata($resA, 'student');
+    return $resA;
 }
 
 // Function alias for compatibility

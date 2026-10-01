@@ -148,6 +148,14 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <div>
+            <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
+            <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.</div>
+        </div>
+    </div>
+
     <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
         <div class="stat-card" style="border-left: 4px solid var(--text-dark);">
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Assigned Class Loads</h4>

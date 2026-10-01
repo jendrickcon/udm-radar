@@ -581,6 +581,122 @@ function predictionSourceDiagnosticLabel(?string $source): string {
     return getPredictionSourceDiagnosticLabel($source);
 }
 
+/**
+ * Generates audience-tailored, human-readable explanation and metadata for predictions.
+ *
+ * Provides:
+ * - Audience-appropriate source display label (Student/Faculty vs Admin diagnostic)
+ * - Source provenance family ('model', 'calculation', 'unknown')
+ * - Data completeness category and plain-language label
+ * - Input coverage summary describing what features informed the estimate
+ * - Freshness timestamp / relative freshness indicator
+ * - Provisional status flag
+ * - Ethical decision-support advisory disclaimer (non-punitive, non-official)
+ * - Actionable next-step guidance
+ *
+ * @param array  $prediction Associative array containing prediction attributes
+ *                           (e.g., prediction_source, data_completeness, is_partial, generated_at, risk_level, features_used)
+ * @param string $audience   Target audience: 'student', 'faculty', or 'admin' (default 'student')
+ * @return array Structured explanation metadata
+ */
+function getPredictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    $source = $prediction['prediction_source'] ?? null;
+    $completeness = $prediction['data_completeness'] ?? null;
+    $isPartial = !empty($prediction['is_partial']);
+    $generatedAt = $prediction['generated_at'] ?? null;
+    $risk = $prediction['risk_level'] ?? null;
+
+    if ($completeness === null) {
+        if ($isPartial) {
+            $completeness = 'partial';
+        } elseif ($source !== null && $source !== 'none') {
+            $completeness = 'complete';
+        } else {
+            $completeness = 'insufficient_data';
+        }
+    }
+
+    $sourceFamily = getPredictionSourceFamily($source);
+
+    // 1. Audience-appropriate source label
+    $sourceLabel = match ($audience) {
+        'admin' => getPredictionSourceDiagnosticLabel($source),
+        default => getPredictionSourceDisplayLabel($source),
+    };
+
+    // 2. Data Completeness Label
+    $completenessLabel = match ($completeness) {
+        'complete'        => 'Complete Records',
+        'historical_only' => 'Historical Records Only (Provisional)',
+        'prelim_only'     => 'Current Prelims Only (Provisional)',
+        'missing_all', 'insufficient_data' => 'Insufficient Data',
+        default           => $isPartial ? 'Provisional Estimate' : 'Standard Records',
+    };
+
+    // 3. Human-readable coverage summary
+    $coverageSummary = match ($completeness) {
+        'complete'        => 'Informed by both historical cumulative GWA and current term preliminary evaluations.',
+        'historical_only' => 'Informed solely by prior semester coursework. Current semester preliminary grades have not yet been encoded.',
+        'prelim_only'     => 'Informed solely by current semester preliminary course evaluations. No prior institutional coursework is on record.',
+        'missing_all', 'insufficient_data' => 'No historical coursework or current preliminary grades are available to compute an estimate.',
+        default           => $isPartial
+            ? 'Based on partial academic inputs. Pending remaining course grade submissions.'
+            : 'Based on available recorded coursework and term evaluations.',
+    };
+
+    // 4. Freshness
+    $freshnessLabel = 'Current Session';
+    if (!empty($generatedAt)) {
+        $ts = strtotime((string) $generatedAt);
+        if ($ts !== false) {
+            $freshnessLabel = date('M j, Y \a\t g:i A', $ts);
+        }
+    }
+
+    // 5. Non-punitive decision support disclaimer
+    $disclaimer = match ($audience) {
+        'student' => 'Notice: This projection is an advisory estimate for academic planning and early support. It is not an official grade, academic evaluation, or final graduation status.',
+        'faculty' => 'Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.',
+        'admin'   => 'Governance Notice: Statistical projections and heuristic fallbacks are decision-support diagnostics for academic coordination. Official standing is governed by institutional policies.',
+        default   => 'Notice: This projection is an advisory estimate for early intervention and does not constitute an official grade or permanent record.',
+    };
+
+    // 6. Actionable next-step guidance
+    $riskUpper = strtoupper(trim((string) $risk));
+    $actionAdvice = match ($riskUpper) {
+        'HIGH' => ($audience === 'student')
+            ? 'We strongly encourage meeting with your subject instructors or visiting the academic support office during consultation hours.'
+            : 'Consider initiating an academic referral or sending an early consultation notice to discuss support options.',
+        'MODERATE' => ($audience === 'student')
+            ? 'Focus on upcoming midterm deliverables and consider joining peer review sessions in flagged subjects.'
+            : 'Monitor upcoming assessment scores and offer targeted guidance before midterms.',
+        'LOW' => ($audience === 'student')
+            ? 'You are maintaining solid academic progress. Keep up your current study habits and pace.'
+            : 'Student is meeting academic benchmarks. Continue routine progress tracking.',
+        default => ($completeness === 'insufficient_data' || $completeness === 'missing_all')
+            ? 'Ensure all enrolled subjects and terms have recorded grades to receive an updated evaluation.'
+            : 'Review current term syllabus and requirements.',
+    };
+
+    return [
+        'source'             => $source,
+        'source_label'       => $sourceLabel,
+        'source_family'      => $sourceFamily,
+        'data_completeness'  => $completeness,
+        'completeness_label' => $completenessLabel,
+        'coverage_summary'   => $coverageSummary,
+        'freshness_label'    => $freshnessLabel,
+        'generated_at'       => $generatedAt,
+        'is_provisional'     => $isPartial || in_array($completeness, ['historical_only', 'prelim_only', 'partial'], true),
+        'disclaimer'         => $disclaimer,
+        'action_advice'      => $actionAdvice,
+    ];
+}
+
+function predictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    return getPredictionExplanationMetadata($prediction, $audience);
+}
+
 // Canonical name formatters — every faculty page that displays a split name
 // goes through these, so "Lastname, Firstname" and "F. Lastname" look
 // identical everywhere instead of each page rolling its own substr/explode.
