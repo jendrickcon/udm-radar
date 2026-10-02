@@ -71,8 +71,7 @@ if ($action === 'history') {
             'prelim'     => $g['prelim']     !== null ? (float) $g['prelim']     : null,
             'midterm'    => $g['midterm']    !== null ? (float) $g['midterm']    : null,
             'prefinal'   => $g['prefinal']   !== null ? (float) $g['prefinal']   : null,
-            // FIXED: Preserves special statuses (INC, DO, DU) instead of forcing (float)
-            'finalGrade' => $g['final_grade']!== null ? (is_numeric($g['final_grade']) ? (float)$g['final_grade'] : $g['final_grade']) : null,
+            'finalGrade' => $g['final_grade'] !== null ? formatFinalGrade($g['final_grade']) : null,
             'risk'       => $g['risk_level'],
             'hasPending' => (int) $g['pending_count'] > 0,
         ];

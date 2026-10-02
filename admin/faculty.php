@@ -246,7 +246,7 @@ foreach ($allSubjectsRaw as $subj) {
     $groupedSubjects[$groupName][] = $subj;
 }
 
-$sectionsRaw = $db->query("SELECT DISTINCT year_level, section FROM student_profiles WHERE section IS NOT NULL AND status != 'Archived' ORDER BY section")->fetchAll();
+$sectionsRaw = $db->query("SELECT DISTINCT year_level, section FROM student_profiles WHERE section IS NOT NULL AND record_status = 'Active' ORDER BY section")->fetchAll();
 $sectionsByYear = [];
 foreach ($sectionsRaw as $sr) {
     $sectionsByYear[$sr['year_level']][] = $sr['section'];

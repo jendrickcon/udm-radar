@@ -44,7 +44,8 @@ $distinctions = [
 $subjectWideStats = [];
 $histSubjects = [];
 $totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0;
-$histPassedCount = 0; $overallHistPassRate = 0.0;
+$histPassedCount = 0; $histFailedCount = 0; $histDroppedCount = 0; $histTotalGradedCount = 0; $histRecognizedOutcomeCount = 0;
+$overallHistPassRate = null;
 $totalStudentsScope = 0;
 
 if ($isCurrentTerm) {
@@ -56,7 +57,7 @@ if ($isCurrentTerm) {
             WHERE p2.student_id = sp.user_id
             ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
         )
-        WHERE sp.section IS NOT NULL AND sp.status != 'Archived'
+        WHERE sp.section IS NOT NULL AND sp.record_status = 'Active'
     ";
     $paramsStudents = [];
     if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = $yearFilter; }
@@ -84,7 +85,7 @@ if ($isCurrentTerm) {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
     ";
     $paramsSubjects = [$syFilter, $semFilter];
     if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = $yearFilter; }
@@ -124,7 +125,7 @@ if ($isCurrentTerm) {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status IN ('Active', 'Graduated')
     ";
     $paramsHistorical = [$syFilter, $semFilter];
     if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = $yearFilter; }
@@ -139,35 +140,84 @@ if ($isCurrentTerm) {
         $histStudents[$r['student_id']] = true;
         $id = $r['id'];
         if (!isset($histSubjects[$id])) {
-            $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0];
+            $histSubjects[$id] = [
+                'code' => $r['code'],
+                'title' => $r['title'],
+                'enrolled' => 0,
+                'graded' => 0,
+                'raw_sum' => 0.0,
+                'numeric_count' => 0,
+                'numeric_pass_count' => 0,
+                'nonnumeric_pass_count' => 0,
+                'failing_count' => 0,
+                'dropped_count' => 0,
+                'missing_or_invalid_count' => 0,
+                'recognized_outcome_count' => 0,
+                'passed' => 0,
+                'failed' => 0,
+            ];
         }
         $histSubjects[$id]['enrolled']++;
 
-        if ($r['final_grade'] !== null && trim($r['final_grade']) !== '') {
-            $histSubjects[$id]['graded']++;
-            $val = trim(strtoupper($r['final_grade']));
+        $rawGrade = $r['final_grade'];
+        if ($rawGrade === null || trim((string)$rawGrade) === '') {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
 
-            if (in_array($val, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
+        $canon = canonicalizeFinalGrade($rawGrade);
+        if ($canon === null) {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
+
+        if ($canon === 'DRP') {
+            $histSubjects[$id]['dropped_count']++;
+            $histSubjects[$id]['graded']++;
+            $histDroppedCount++;
+            $histTotalGradedCount++;
+            continue;
+        }
+
+        // Recognized pass/fail outcome
+        $histSubjects[$id]['graded']++;
+        $histTotalGradedCount++;
+
+        if (isNumericFinalGrade($canon)) {
+            $pt = (float)$canon;
+            $histSubjects[$id]['raw_sum'] += $pt;
+            $histSubjects[$id]['numeric_count']++;
+            $histGradesSum += $pt;
+            $histGradesCount++;
+
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['numeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
                 $histSubjects[$id]['failed']++;
-            } elseif (is_numeric($val)) {
-                $pt = (float)$val;
-                $histSubjects[$id]['raw_sum'] += $pt;
-                $histGradesSum += $pt;
-                $histGradesCount++;
-                if ($pt > 0) {
-                    $histSubjects[$id]['passed']++;
-                    $histPassedCount++;
-                } else {
-                    $histSubjects[$id]['failed']++;
-                }
+                $histFailedCount++;
+            }
+        } else {
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['nonnumeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
+                $histSubjects[$id]['failed']++;
+                $histFailedCount++;
             }
         }
+        $histSubjects[$id]['recognized_outcome_count'] = $histSubjects[$id]['passed'] + $histSubjects[$id]['failed'];
     }
     usort($histSubjects, fn($a, $b) => $b['failed'] <=> $a['failed']);
 
+    $histRecognizedOutcomeCount = $histPassedCount + $histFailedCount;
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
-    $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0.0;
+    $overallHistPassRate = $histRecognizedOutcomeCount > 0 ? ($histPassedCount / $histRecognizedOutcomeCount) * 100 : null;
 }
 
 $logoPath = '../assets/img/logo_sidebar.png';
@@ -347,8 +397,8 @@ if ($isCurrentTerm) {
         $html .= '<tr><td colspan="6" style="text-align:center; color:#94a3b8;">No subject outcomes found for the selected historical term.</td></tr>';
     }
     foreach ($histSubjects as $s) {
-        $meanGrade = $s['graded'] > 0 ? number_format($s['raw_sum'] / $s['graded'], 2) : 'N/A';
-        $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : 'N/A';
+        $meanGrade = ($s['numeric_count'] ?? $s['graded']) > 0 ? number_format($s['raw_sum'] / ($s['numeric_count'] ?? $s['graded']), 2) : 'N/A';
+        $passRate = $s['recognized_outcome_count'] > 0 ? number_format(($s['passed'] / $s['recognized_outcome_count']) * 100, 1) . '%' : 'N/A';
         
         $coverageVal = $s['enrolled'] > 0 ? ($s['graded'] / $s['enrolled']) : 0;
         $isLimitedHist = $s['graded'] > 0 && $coverageVal < 0.8;

@@ -1,0 +1,32 @@
+# ============================================================================
+# UdM-RADAR — .gitattributes
+# Ensure consistent LF line endings across platforms and protect binary assets
+# ============================================================================
+
+# Auto-detect text files and normalize line endings to LF on commit
+* text=auto eol=lf
+
+# Explicit text file types
+*.php text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.example.php text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary files (prevent any line ending conversion or corruption)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.pkl binary
+*.joblib binary
+*.zip binary

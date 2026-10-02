@@ -37,7 +37,7 @@ $sql = "
         AND asc2.status IN ('needs_review', 'action_taken', 'acknowledged')
         ORDER BY asc2.created_at DESC, asc2.id DESC LIMIT 1
     )
-    WHERE sp.status != 'Archived'
+    WHERE sp.record_status = 'Active'
 ";
 
 $params = [];

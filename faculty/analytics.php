@@ -9,7 +9,7 @@ $db = getDB();
 
 $stmtLoads = $db->prepare("
     SELECT fcl.id AS load_id, s.id AS subj_id, s.code, s.title, fcl.section,
-           (SELECT COUNT(user_id) FROM student_profiles WHERE section = fcl.section) AS total_students
+           (SELECT COUNT(user_id) FROM student_profiles WHERE section = fcl.section AND record_status = 'Active') AS total_students
     FROM faculty_class_loads fcl
     JOIN subjects s ON fcl.subject_id = s.id
     WHERE fcl.faculty_user_id = ?
@@ -23,7 +23,7 @@ $stmtGrades = $db->prepare("
     FROM grades g
     JOIN student_profiles sp ON sp.user_id = g.student_id
     JOIN users u ON u.id = sp.user_id
-    WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1
+    WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 AND sp.record_status = 'Active'
     ORDER BY u.last_name, u.first_name
 ");
 
@@ -84,11 +84,25 @@ foreach ($raw_loads as $load) {
 $completeness_pct = $total_students_portfolio > 0 ? round(($total_encoded_portfolio / $total_students_portfolio) * 100) : 0;
 $total_assigned_classes = count($class_loads);
 
+// Counted through the faculty member's actual class loads (subject + section),
+// the same way the per-class roster above is built. Joining on the section
+// code alone counted every student holding that code, including cohorts of
+// other year levels who happen to share the same section label — which would
+// overstate "Unique Students Reached" against a population that spans more
+// than one curriculum year.
 $stmtUnique = $db->prepare("
-    SELECT COUNT(DISTINCT sp.user_id) 
+    SELECT COUNT(DISTINCT sp.user_id)
     FROM student_profiles sp
-    JOIN faculty_class_loads fcl ON sp.section = fcl.section
-    WHERE fcl.faculty_user_id = ?
+    WHERE sp.record_status = 'Active' AND EXISTS (
+        SELECT 1
+        FROM grades g
+        JOIN faculty_class_loads fcl
+          ON fcl.subject_id = g.subject_id
+         AND fcl.section    = sp.section
+        WHERE g.student_id = sp.user_id
+          AND g.is_current = 1
+          AND fcl.faculty_user_id = ?
+    )
 ");
 $stmtUnique->execute([$user['id']]);
 $unique_students = $stmtUnique->fetchColumn() ?: 0;
@@ -131,6 +145,14 @@ require_once '../includes/sidebar.php';
         <div>
             <h1>Class Analytics</h1>
             <p style="color: var(--text-gray); font-size: 0.95rem;">Assigned subject and section performance breakdown.</p>
+        </div>
+    </div>
+
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <div>
+            <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
+            <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.</div>
         </div>
     </div>
 
@@ -202,9 +224,9 @@ require_once '../includes/sidebar.php';
                             
                             <?php foreach($risk_students as $stu): 
                                 $s_col = $stu['risk_level'] === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
-                                $valDisp = $stu['latest_type'] === 'final_grade' && in_array(strtoupper(trim($stu['latest_raw'])), ['INC', 'DO', 'DU', 'FA', 'UD']) 
-                                           ? strtoupper(trim($stu['latest_raw'])) 
-                                           : ($stu['latest_type'] === 'final_grade' ? number_format((float)$stu['latest_raw'], 2) : round((float)$stu['latest_raw']) . '%');
+                                $valDisp = $stu['latest_type'] === 'final_grade' 
+                                           ? formatFinalGrade($stu['latest_raw']) 
+                                           : round((float)$stu['latest_raw']) . '%';
                             ?>
                             <div class="risk-student-grid" style="padding: 12px 14px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;">
                                 <div class="student-identity">

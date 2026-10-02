@@ -8,7 +8,9 @@ define('APP_SUBTITLE', 'Risk Analytics & Decision-support for Academic Records')
 // Base URL — every include/sidebar link and asset path is prefixed with this,
 // so pages work the same whether loaded from /login.php or /student/index.php.
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/capstone/'); // change if your XAMPP folder name differs
+    $scriptDir = isset($_SERVER['SCRIPT_NAME']) ? trim(dirname($_SERVER['SCRIPT_NAME']), '/\\') : '';
+    $firstFolder = explode('/', str_replace('\\', '/', $scriptDir))[0] ?? '';
+    define('BASE_URL', $firstFolder ? '/' . $firstFolder . '/' : '/udm-radar/');
 }
 
 // Latin honor thresholds
@@ -21,6 +23,57 @@ define('DEANS_LISTER',    3.25);
 define('WEIGHT_PRELIM', 0.30);
 define('WEIGHT_MIDTERM', 0.30);
 define('WEIGHT_PREFINAL', 0.40);
+
+// =========================================================================
+// CANONICAL FINAL GRADE VOCABULARY & STATUSES
+// =========================================================================
+
+// Canonical numerical point values for new final grade entries (1.00 - 4.00, stepped by 0.25)
+const FINAL_GRADE_POINTS = [
+    '4.00',
+    '3.75',
+    '3.50',
+    '3.25',
+    '3.00',
+    '2.75',
+    '2.50',
+    '2.25',
+    '2.00',
+    '1.75',
+    '1.50',
+    '1.25',
+    '1.00',
+];
+
+// Canonical textual statuses
+const FINAL_GRADE_STATUSES = [
+    'INC',
+    'DRP',
+    'P',
+    'DO',
+    'DU',
+    'FA',
+    'UD',
+];
+
+// Canonical non-passing / disqualifying statuses
+const FINAL_GRADE_FAILING_STATUSES = [
+    'INC',
+    'DO',
+    'DU',
+    'FA',
+    'UD',
+];
+
+// Legacy final grade values recognized only for historical compatibility
+const LEGACY_FINAL_GRADE_VALUES = [
+    '0',
+    '0.0',
+    '0.00',
+];
+
+// Canonical stored representation of a legacy value
+const LEGACY_FINAL_GRADE_STORED = '0.00';
 
 // UdM Grade Scale array
 function getGradeDescription(float $grade): array {
@@ -97,6 +150,174 @@ function normalizeGrade($grade): ?float {
     return (float) $grade;
 }
 
+// =========================================================================
+// CANONICAL FINAL GRADE HELPERS
+// =========================================================================
+
+/**
+ * Canonicalizes any valid Final Grade (both canonical point/status and historical legacy forms).
+ * - Maps valid numeric points (e.g. '3.5', 3.5, '3.50', '1', 1.0) to canonical 'X.XX' (e.g. '3.50', '1.00').
+ * - Maps legacy zero forms ('0', '0.0', '0.00', 0, 0.0) to canonical '0.00'.
+ * - Maps 'PASSED' (and lowercase 'passed', 'p') to 'P'.
+ * - Maps canonical statuses (e.g. 'inc', 'drp') to uppercase ('INC', 'DRP').
+ * - Returns null for any invalid, out-of-scale, or unparseable input.
+ */
+function canonicalizeFinalGrade(mixed $value): ?string {
+    if ($value === null || !is_scalar($value)) {
+        return null;
+    }
+    $valStr = trim((string) $value);
+    if ($valStr === '') {
+        return null;
+    }
+    // Check legacy zero representations
+    if (in_array($valStr, LEGACY_FINAL_GRADE_VALUES, true) || (is_numeric($valStr) && (float) $valStr == 0.0)) {
+        return LEGACY_FINAL_GRADE_STORED; // '0.00'
+    }
+    $upper = strtoupper($valStr);
+    if ($upper === 'PASSED') {
+        return 'P';
+    }
+    if (in_array($upper, FINAL_GRADE_STATUSES, true)) {
+        return $upper;
+    }
+    // Check numeric point scale (1.00 - 4.00, stepped by 0.25)
+    if (is_numeric($valStr)) {
+        $f = (float) $valStr;
+        $fmt = number_format($f, 2, '.', '');
+        if (abs($f - (float) $fmt) < 0.0001 && in_array($fmt, FINAL_GRADE_POINTS, true)) {
+            return $fmt;
+        }
+    }
+    return null;
+}
+
+/**
+ * Trims input, uppercases statuses, maps PASSED to P, normalizes valid point
+ * shorthand to two decimals (e.g. '4' -> '4.00', '3.5' -> '3.50'), and returns
+ * null for empty, legacy (0, 0.0, 0.00), or invalid values.
+ */
+function normalizeFinalGradeInput(mixed $value): ?string {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null || $canon === LEGACY_FINAL_GRADE_STORED) {
+        return null;
+    }
+    return $canon;
+}
+
+/**
+ * Validates new official Final Grade inputs.
+ * Accepts canonical points and statuses. Rejects 0, 0.0, 0.00, and out-of-range values.
+ */
+function isValidFinalGradeEntry(mixed $value): bool {
+    return normalizeFinalGradeInput($value) !== null;
+}
+
+/**
+ * Recognizes canonical points, canonical statuses, and legacy 0.00.
+ * Rejects all other values.
+ */
+function isValidHistoricalFinalGrade(mixed $value): bool {
+    return canonicalizeFinalGrade($value) !== null;
+}
+
+/**
+ * Returns true only for canonical numeric point grades (1.00 - 4.00).
+ * Returns false for textual statuses and legacy 0.00.
+ */
+function isNumericFinalGrade(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    return $canon !== null && in_array($canon, FINAL_GRADE_POINTS, true);
+}
+
+/**
+ * Returns true for canonical numeric point grades below 1.75 (e.g. 1.50, 1.25, 1.00).
+ * Returns true for failing statuses: INC, DO, DU, FA, UD.
+ * Returns true for legacy 0.00.
+ * Returns false for P and DRP.
+ * Operates on normalized/canonicalized input.
+ */
+function isFailingFinalGrade(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
+        return false;
+    }
+    if ($canon === LEGACY_FINAL_GRADE_STORED) {
+        return true;
+    }
+    if (in_array($canon, FINAL_GRADE_FAILING_STATUSES, true)) {
+        return true;
+    }
+    if ($canon === 'P' || $canon === 'DRP') {
+        return false;
+    }
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
+        return (float) $canon < 1.75;
+    }
+    return false;
+}
+
+/**
+ * Returns true for passing Final Grades:
+ * - Canonical numeric point grades 1.75 - 4.00
+ * - Status 'P' (Passed)
+ * Returns false for failing grades (points < 1.75, failing statuses, legacy 0.00),
+ * DRP, null, or invalid values.
+ */
+function isPassingFinalGrade(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
+        return false;
+    }
+    if ($canon === 'P') {
+        return true;
+    }
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
+        return (float) $canon >= 1.75;
+    }
+    return false;
+}
+
+/**
+ * Returns true for all textual statuses and legacy 0.00.
+ * Returns false for canonical numeric point grades.
+ */
+function isExcludedFromGwa(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon === null) {
+        return true;
+    }
+    if ($canon === LEGACY_FINAL_GRADE_STORED) {
+        return true;
+    }
+    if (in_array($canon, FINAL_GRADE_STATUSES, true) || $canon === 'P') {
+        return true;
+    }
+    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Formats a Final Grade value for display:
+ * - Two decimal places for canonical numeric values (e.g. '3.5' -> '3.50', '1' -> '1.00')
+ * - Uppercase for textual statuses (e.g. 'inc' -> 'INC', 'passed' -> 'P')
+ * - Preserves legacy 0.00 visibly ('0.00')
+ * - Returns '—' for null or empty values
+ */
+function formatFinalGrade(mixed $value): string {
+    $canon = canonicalizeFinalGrade($value);
+    if ($canon !== null) {
+        return $canon;
+    }
+    if ($value === null || !is_scalar($value)) {
+        return '—';
+    }
+    $valStr = trim((string) $value);
+    return $valStr === '' ? '—' : $valStr;
+}
+
 // Shared disqualifying-grade check for honors eligibility — a student with
 // any past failed subject or any final_grade below 1.75 is disqualified
 // regardless of GWA. Previously this was only computed inline in
@@ -111,11 +332,7 @@ function hasDisqualifyingGrade(int $studentId, PDO $db): bool {
     ");
     $stmt->execute([$studentId]);
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $grade) {
-        $gStr = strtoupper(trim((string) $grade));
-        if (in_array($gStr, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
-            return true;
-        }
-        if (is_numeric($gStr) && (float) $gStr > 0 && (float) $gStr < 1.75) {
+        if (isFailingFinalGrade($grade)) {
             return true;
         }
     }
@@ -151,31 +368,72 @@ function getRiskColor(string $risk): string {
 
 
 // Canonical GWA math — UdM uses CREDIT-UNIT-WEIGHTED averages, not simple
-// averages. A 1-unit UID subject and a 3-unit ITE subject do NOT count
-// equally toward GWA. Every page that aggregates grades across more than
-// one subject must go through this instead of AVG().
-// $rows: array of ['grade' => float|string, 'units' => int]
-//
-// $r['grade'] may be a special academic status (INC, DO, DU, FA, UD) instead
-// of a numeric point grade — these are not zero and must not be averaged in
-// as zero. Casting them with (float) silently turns them into 0.00, which
-// then drags down GWA and can push computeRiskFromAvg() into HIGH for a
-// subject that isn't actually graded yet. Skip them entirely, the same way
-// a null grade is already skipped, rather than let them corrupt the average.
+/**
+ * Canonical GWA math — UdM uses CREDIT-UNIT-WEIGHTED averages, not simple averages.
+ * Formula: sum(Final Grade Point * Subject Units) / sum(Subject Units).
+ * 
+ * Inclusion/Exclusion Rules:
+ * - Included: Canonical numeric point grades 1.00 - 4.00 (including failing points 1.00, 1.25, 1.50).
+ * - Excluded: Non-numeric statuses (INC, DRP, P, DO, DU, FA, UD, PASSED), legacy 0.00, null, blanks.
+ * - Missing/non-positive units are safely ignored.
+ * - Returns null if total valid units is 0.
+ *
+ * @param array<int, array{grade: mixed, units: mixed}> $rows
+ */
 function computeWeightedGWA(array $rows): ?float {
-    $specialStatuses = ['INC', 'DO', 'DU', 'FA', 'UD'];
     $totalPoints = 0.0;
     $totalUnits  = 0;
     foreach ($rows as $r) {
-        if ($r['grade'] === null || $r['units'] === null) continue;
-        $gradeStr = strtoupper(trim((string) $r['grade']));
-        if (in_array($gradeStr, $specialStatuses, true)) continue;
-        if (!is_numeric($gradeStr)) continue; // defensive: skip anything else non-numeric too
-        $totalPoints += (float) $gradeStr * (int) $r['units'];
-        $totalUnits  += (int) $r['units'];
+        if (!isset($r['grade'], $r['units']) || $r['grade'] === null || $r['units'] === null) {
+            continue;
+        }
+        $units = is_numeric($r['units']) ? (int) $r['units'] : 0;
+        if ($units <= 0) {
+            continue;
+        }
+        if (isExcludedFromGwa($r['grade'])) {
+            continue;
+        }
+        if (!isNumericFinalGrade($r['grade'])) {
+            continue;
+        }
+        $pt = (float) canonicalizeFinalGrade($r['grade']);
+        $totalPoints += $pt * $units;
+        $totalUnits  += $units;
     }
-    if ($totalUnits === 0) return null;
+    if ($totalUnits === 0) {
+        return null;
+    }
     return round($totalPoints / $totalUnits, 2);
+}
+
+/**
+ * Computes official cumulative unit-weighted GWA for a single student from database historical records.
+ * Queries completed terms (is_current = 0) and applies canonical credit-unit weighting.
+ */
+function computeStudentGwa(PDO $db, int $studentId): ?float {
+    $stmt = $db->prepare("
+        SELECT g.final_grade AS grade, s.units
+        FROM grades g
+        JOIN subjects s ON s.id = g.subject_id
+        WHERE g.student_id = ?
+          AND g.is_current = 0
+          AND g.final_grade IS NOT NULL
+    ");
+    $stmt->execute([$studentId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return computeWeightedGWA($rows);
+}
+
+/**
+ * Recalculates and persists official cumulative GWA to student_profiles.current_gwa.
+ * Returns the computed GWA (or null if no valid historical grades exist).
+ */
+function recalculateStudentGwa(PDO $db, int $studentId): ?float {
+    $gwa = computeStudentGwa($db, $studentId);
+    $stmt = $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?");
+    $stmt->execute([$gwa, $studentId]);
+    return $gwa;
 }
 
 // Canonical risk-level thresholds, 1.0(worst)-4.0(best) scale.
@@ -208,6 +466,269 @@ function predictFinalGradeHeuristic(?float $currentPrelim, ?float $historicalGWA
     return round($blend * 4) / 4; // snap to the .25 grading increments
 }
 
+// ============================================================================
+// PREDICTION PROVENANCE & SOURCE VOCABULARY (WP-5)
+// ============================================================================
+
+const PREDICTION_SOURCE_DECISION_TREE        = 'decision_tree';
+const PREDICTION_SOURCE_HEURISTIC            = 'heuristic';
+const PREDICTION_SOURCE_CALCULATION_FALLBACK = 'calculation_fallback';
+
+const ALLOWED_PREDICTION_SOURCES = [
+    PREDICTION_SOURCE_DECISION_TREE,
+    PREDICTION_SOURCE_HEURISTIC,
+    PREDICTION_SOURCE_CALCULATION_FALLBACK,
+];
+
+// Service-boundary normalization map: external / legacy labels to canonical storage
+const PREDICTION_SOURCE_BOUNDARY_MAP = [
+    'fallback_blend'       => PREDICTION_SOURCE_CALCULATION_FALLBACK,
+    'calculation_fallback' => PREDICTION_SOURCE_CALCULATION_FALLBACK,
+    'heuristic'            => PREDICTION_SOURCE_HEURISTIC,
+    'decision_tree'        => PREDICTION_SOURCE_DECISION_TREE,
+];
+
+// =========================================================================
+// PREDICTION COMPLETENESS METADATA CONTRACT
+// =========================================================================
+const PREDICTION_COMPLETENESS_COMPLETE        = 'complete';
+const PREDICTION_COMPLETENESS_HISTORICAL_ONLY = 'historical_only';
+const PREDICTION_COMPLETENESS_PRELIM_ONLY     = 'prelim_only';
+const PREDICTION_COMPLETENESS_LEGACY_UNKNOWN  = 'legacy_unknown';
+
+const ALLOWED_PREDICTION_COMPLETENESS = [
+    PREDICTION_COMPLETENESS_COMPLETE,
+    PREDICTION_COMPLETENESS_HISTORICAL_ONLY,
+    PREDICTION_COMPLETENESS_PRELIM_ONLY,
+    PREDICTION_COMPLETENESS_LEGACY_UNKNOWN,
+];
+
+const PROVISIONAL_BASIS_HISTORICAL_GWA     = 'historical_gwa';
+const PROVISIONAL_BASIS_CURRENT_PRELIM_AVG = 'current_prelim_avg';
+
+const ALLOWED_PROVISIONAL_BASES = [
+    PROVISIONAL_BASIS_HISTORICAL_GWA,
+    PROVISIONAL_BASIS_CURRENT_PRELIM_AVG,
+];
+
+function isValidPredictionCompleteness(?string $val): bool {
+    if ($val === null) return false;
+    $s = trim($val);
+    if ($s === '') return false;
+    return in_array($s, ALLOWED_PREDICTION_COMPLETENESS, true);
+}
+
+/**
+ * Validates whether a prediction source belongs to the approved canonical vocabulary.
+ */
+function isValidPredictionSource(?string $source): bool {
+    if ($source === null) return false;
+    $s = trim($source);
+    if ($s === '') return false;
+    return in_array($s, ALLOWED_PREDICTION_SOURCES, true);
+}
+
+/**
+ * Normalizes external service boundary sources into the canonical database storage contract.
+ * Maps 'fallback_blend' -> 'calculation_fallback'.
+ * Rejects blank, null, or unrecognized sources by returning null.
+ */
+function normalizePredictionSourceBoundary(?string $source): ?string {
+    if ($source === null) return null;
+    $s = strtolower(trim($source));
+    if ($s === '') return null;
+    return PREDICTION_SOURCE_BOUNDARY_MAP[$s] ?? null;
+}
+
+/**
+ * Compatibility alias for boundary normalization.
+ */
+function normalizePredictionSource(?string $source): ?string {
+    return normalizePredictionSourceBoundary($source);
+}
+
+/**
+ * Returns the high-level provenance family:
+ * - 'decision_tree'        => 'model'
+ * - 'heuristic'            => 'calculation'
+ * - 'calculation_fallback' => 'calculation'
+ */
+function getPredictionSourceFamily(?string $source): string {
+    if ($source === null) return 'unknown';
+    $s = strtolower(trim($source));
+    if ($s === PREDICTION_SOURCE_DECISION_TREE) {
+        return 'model';
+    }
+    if (in_array($s, [PREDICTION_SOURCE_HEURISTIC, PREDICTION_SOURCE_CALCULATION_FALLBACK], true)) {
+        return 'calculation';
+    }
+    return 'unknown';
+}
+
+function predictionSourceFamily(?string $source): string {
+    return getPredictionSourceFamily($source);
+}
+
+/**
+ * User-facing display label for Student, Faculty, and general UI views.
+ * - 'decision_tree'        => 'AI-Based Projection'
+ * - 'heuristic'            => 'Calculation-Based Estimate'
+ * - 'calculation_fallback' => 'Calculation-Based Estimate'
+ */
+function getPredictionSourceDisplayLabel(?string $source): string {
+    if ($source === null) return 'Insufficient Data';
+    $s = strtolower(trim($source));
+    return match ($s) {
+        PREDICTION_SOURCE_DECISION_TREE        => 'AI-Based Projection',
+        PREDICTION_SOURCE_HEURISTIC            => 'Calculation-Based Estimate',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Calculation-Based Estimate',
+        default                                => 'Insufficient Data',
+    };
+}
+
+function predictionSourceLabel(?string $source): string {
+    return getPredictionSourceDisplayLabel($source);
+}
+
+/**
+ * Diagnostic label for Administrator, Academic Coordinator, and audit reporting.
+ * - 'decision_tree'        => 'Decision Tree'
+ * - 'heuristic'            => 'Legacy Heuristic'
+ * - 'calculation_fallback' => 'Current Calculation Fallback'
+ */
+function getPredictionSourceDiagnosticLabel(?string $source): string {
+    if ($source === null) return 'No Prediction Data';
+    $s = strtolower(trim($source));
+    return match ($s) {
+        PREDICTION_SOURCE_DECISION_TREE        => 'Decision Tree',
+        PREDICTION_SOURCE_HEURISTIC            => 'Legacy Heuristic',
+        PREDICTION_SOURCE_CALCULATION_FALLBACK => 'Current Calculation Fallback',
+        default                                => 'Unrecognized Source (' . htmlspecialchars($source) . ')',
+    };
+}
+
+function predictionSourceDiagnosticLabel(?string $source): string {
+    return getPredictionSourceDiagnosticLabel($source);
+}
+
+/**
+ * Generates audience-tailored, human-readable explanation and metadata for predictions.
+ *
+ * Provides:
+ * - Audience-appropriate source display label (Student/Faculty vs Admin diagnostic)
+ * - Source provenance family ('model', 'calculation', 'unknown')
+ * - Data completeness category and plain-language label
+ * - Input coverage summary describing what features informed the estimate
+ * - Freshness timestamp / relative freshness indicator
+ * - Provisional status flag
+ * - Ethical decision-support advisory disclaimer (non-punitive, non-official)
+ * - Actionable next-step guidance
+ *
+ * @param array  $prediction Associative array containing prediction attributes
+ *                           (e.g., prediction_source, data_completeness, is_partial, generated_at, risk_level, features_used)
+ * @param string $audience   Target audience: 'student', 'faculty', or 'admin' (default 'student')
+ * @return array Structured explanation metadata
+ */
+function getPredictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    $source = $prediction['prediction_source'] ?? null;
+    $completeness = $prediction['data_completeness'] ?? null;
+    $isPartial = !empty($prediction['is_partial']);
+    $generatedAt = $prediction['generated_at'] ?? null;
+    $risk = $prediction['risk_level'] ?? null;
+
+    if ($completeness === null) {
+        if ($isPartial) {
+            $completeness = 'partial';
+        } elseif ($source !== null && $source !== 'none') {
+            $completeness = 'complete';
+        } else {
+            $completeness = 'insufficient_data';
+        }
+    }
+
+    $sourceFamily = getPredictionSourceFamily($source);
+
+    // 1. Audience-appropriate source label
+    $sourceLabel = match ($audience) {
+        'admin' => getPredictionSourceDiagnosticLabel($source),
+        default => getPredictionSourceDisplayLabel($source),
+    };
+
+    // 2. Data Completeness Label
+    $completenessLabel = match ($completeness) {
+        'complete'        => 'Complete Records',
+        'historical_only' => 'Historical Records Only (Provisional)',
+        'prelim_only'     => 'Current Prelims Only (Provisional)',
+        'legacy_unknown'  => 'Historical Baseline Records',
+        'missing_all', 'insufficient_data' => 'Insufficient Data',
+        default           => $isPartial ? 'Provisional Estimate' : 'Standard Records',
+    };
+
+    // 3. Human-readable coverage summary
+    $coverageSummary = match ($completeness) {
+        'complete'        => 'Informed by both historical cumulative GWA and current term preliminary evaluations.',
+        'historical_only' => 'Informed solely by prior semester coursework. Current semester preliminary grades have not yet been encoded.',
+        'prelim_only'     => 'Informed solely by current semester preliminary course evaluations. No prior institutional coursework is on record.',
+        'legacy_unknown'  => 'Pre-audit historical baseline record preserved with original provenance.',
+        'missing_all', 'insufficient_data' => 'No historical coursework or current preliminary grades are available to compute an estimate.',
+        default           => $isPartial
+            ? 'Based on partial academic inputs. Pending remaining course grade submissions.'
+            : 'Based on available recorded coursework and term evaluations.',
+    };
+
+    // 4. Freshness
+    $freshnessLabel = 'Current Session';
+    if (!empty($generatedAt)) {
+        $ts = strtotime((string) $generatedAt);
+        if ($ts !== false) {
+            $freshnessLabel = date('M j, Y \a\t g:i A', $ts);
+        }
+    }
+
+    // 5. Non-punitive decision support disclaimer
+    $disclaimer = match ($audience) {
+        'student' => 'Notice: This projection is an advisory estimate for academic planning and early support. It is not an official grade, academic evaluation, or final graduation status.',
+        'faculty' => 'Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.',
+        'admin'   => 'Governance Notice: Statistical projections and heuristic fallbacks are decision-support diagnostics for academic coordination. Official standing is governed by institutional policies.',
+        default   => 'Notice: This projection is an advisory estimate for early intervention and does not constitute an official grade or permanent record.',
+    };
+
+    // 6. Actionable next-step guidance
+    $riskUpper = strtoupper(trim((string) $risk));
+    $actionAdvice = match ($riskUpper) {
+        'HIGH' => ($audience === 'student')
+            ? 'We strongly encourage meeting with your subject instructors or visiting the academic support office during consultation hours.'
+            : 'Consider initiating an academic referral or sending an early consultation notice to discuss support options.',
+        'MODERATE' => ($audience === 'student')
+            ? 'Focus on upcoming midterm deliverables and consider joining peer review sessions in flagged subjects.'
+            : 'Monitor upcoming assessment scores and offer targeted guidance before midterms.',
+        'LOW' => ($audience === 'student')
+            ? 'You are maintaining solid academic progress. Keep up your current study habits and pace.'
+            : 'Student is meeting academic benchmarks. Continue routine progress tracking.',
+        default => ($completeness === 'insufficient_data' || $completeness === 'missing_all')
+            ? 'Ensure all enrolled subjects and terms have recorded grades to receive an updated evaluation.'
+            : 'Review current term syllabus and requirements.',
+    };
+
+    return [
+        'source'             => $source,
+        'source_label'       => $sourceLabel,
+        'source_family'      => $sourceFamily,
+        'data_completeness'  => $completeness,
+        'completeness_label' => $completenessLabel,
+        'coverage_summary'   => $coverageSummary,
+        'freshness_label'    => $freshnessLabel,
+        'generated_at'       => $generatedAt,
+        'is_provisional'     => $isPartial || in_array($completeness, ['historical_only', 'prelim_only', 'partial'], true),
+        'disclaimer'         => $disclaimer,
+        'action_advice'      => $actionAdvice,
+    ];
+}
+
+function predictionExplanationMetadata(array $prediction, string $audience = 'student'): array {
+    return getPredictionExplanationMetadata($prediction, $audience);
+}
+
 // Canonical name formatters — every faculty page that displays a split name
 // goes through these, so "Lastname, Firstname" and "F. Lastname" look
 // identical everywhere instead of each page rolling its own substr/explode.
@@ -221,8 +742,97 @@ function formatNameShort(string $first, string $last): string {
     return trim($initial . ' ' . $last);
 }
 
+// ACADEMIC status vocabulary for student_profiles.status.
+//
+// This column describes CURricular PROGRESS ONLY:
+//   Regular   — regular curricular progression
+//   Irregular — delayed, repeated, or mixed-load progression
+//
+// It must NOT be used to represent whether a record is retained, archived, or
+// a graduate. Those are lifecycle concerns and belong to record_status below.
+// Mixing the two is what produced the silent-coercion defect this replaced:
+// 'Archived' was written into a column whose enum only permitted
+// 'Regular'/'Irregular', and MySQL (running with a non-strict sql_mode)
+// coerced it to 'Regular' instead of raising an error, quietly un-archiving
+// every record that was ever archived.
+const STUDENT_STATUSES = ['Regular', 'Irregular'];
+
+// Canonical grade_concern workflow states for feedback_reports.status.
+//
+// FEEDBACK_STATUSES is the full set a ticket can legitimately pass through;
+// it must be verified against the live workflows (student submission,
+// faculty review, admin routing, resolution) before any CHECK constraint is
+// added. FEEDBACK_TERMINAL_STATUSES is only the states Admin resolution sets —
+// it is deliberately a subset, not the whole vocabulary.
+const FEEDBACK_STATUSES = [
+    'open',
+    'faculty_review',
+    'awaiting_admin',
+    'resolved',
+    'rejected',
+];
+const FEEDBACK_TERMINAL_STATUSES = ['resolved', 'rejected'];
+
+// Canonical LIFECYCLE vocabulary for student_profiles.record_status.
+//
+//   Active    — currently enrolled Student record
+//   Archived  — retained historical record, no longer active
+//   Graduated — completed program record
+//
+// Deliberately a separate concept from academic status. A Student's academic
+// status (Regular/Irregular) never changes merely because their record is
+// archived or because they graduate.
+//
+// Note: record_status is the DATABASE AUTHORITY on lifecycle. It is not copied
+// into the session; session state would go stale the moment an Admin archives
+// a logged-in Student. `users.is_active` is the account-access flag and is what
+// authentication enforces (1 = may authenticate, 0 = may not).
+const RECORD_STATUSES       = ['Active', 'Archived', 'Graduated'];
+const RECORD_STATUS_DEFAULT = 'Active';
+
+// Canonical program vocabulary, matching student_profiles.course's enum.
+// The column is a fixed enum, so any value written into it — including a
+// proposed correction — must be checked against this list first.
+const COURSE_PROGRAMS = [
+    'BSIT - Software Development',
+    'BSIT - Data Science',
+    'BSIT - Cyber Security',
+];
+
+function allowedCourses(): array {
+    return COURSE_PROGRAMS;
+}
+
+function isValidCourse(?string $course): bool {
+    return $course !== null && in_array(trim($course), COURSE_PROGRAMS, true);
+}
+
+// Shared ordinal label for a curriculum year (1 -> "1st Year"). Lives here
+// rather than in one admin page so the student directory, the analytics
+// filters, and any export that prints a year level all render it identically.
+function ordinalYearLabel(int|string|null $year): string {
+    return match ((int) $year) {
+        1 => '1st Year',
+        2 => '2nd Year',
+        3 => '3rd Year',
+        4 => '4th Year',
+        default => ($year === null || $year === '' ? '—' : $year . 'th Year'),
+    };
+}
+
+// Curriculum year levels that exist in the BSIT curriculum. Used by analytics
+// filters and section labelling so "year 4" is a known scope rather than an
+// assumption baked into each page.
+const CURRICULUM_YEAR_LEVELS = [1, 2, 3, 4];
+
 // Canonical "what semester is it right now" resolver — UdM's academic
 // calendar: July-December = 1st semester, January-May = 2nd semester.
+//
+// NOTE: the semester label below is the label of the term *containing* the
+// given date. A student's ongoing term is the one they are currently sitting
+// in, so callers that need "the term in progress" (grade encoding, the
+// student home snapshot) must use this rather than hardcoding a school year
+// and semester pair, which silently pins the whole system to one term.
 // June is treated as the tail end of 2nd sem (finals/graduation month).
 // School year label follows the semester that's starting in August, e.g.
 // August 2026 - May 2027 is school_year "2026-2027".
@@ -256,35 +866,27 @@ function getCurrentTerm(?DateTimeInterface $asOf = null): array {
 // — those are raw 0-100 percentages, and isValidGrade() would reject every
 // realistic percentage a faculty member could actually enter (e.g. 87 fails
 // the 1.00-4.00 range check outright). Use isValidTermPercentage() for those.
-function isValidGrade($val) {
-    if ($val === '') return false;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($valStr, ['P', 'PASSED', 'INC', 'DRP'])) return true;
-    
-    if (is_numeric($val)) {
-        $f = (float)$val;
-        if ($f >= 1.00 && $f <= 4.00) {
-            $step = (int)round($f * 100);
-            if ($step % 25 === 0) return true;
-        }
-    }
-    return false;
+function isValidGrade($val): bool {
+    return isValidFinalGradeEntry($val);
 }
 
-// Validates a raw 0-100 term percentage for Prelim/Midterm/Pre-Final entry,
-// or a recognized special academic status. Whole-number percentages are
-// expected (grades.php rounds/stores them as such), but this accepts one
-// decimal place too since faculty may reasonably type e.g. 87.5.
-function isValidTermPercentage($val): bool {
-    if ($val === '' || $val === null) return false;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($valStr, ['INC', 'DO', 'DU', 'DRP', 'P', 'PASSED'], true)) return true;
-
-    if (is_numeric($valStr)) {
-        $f = (float)$valStr;
-        return $f >= 0 && $f <= 100;
+// Validates a raw 0-100 term percentage for Prelim/Midterm/Pre-Final entry.
+// Accepts only numeric percentages in the range [0.00, 100.00] with up to two decimal places.
+// Textual statuses (INC, DRP, P, DO, DU, FA, UD, PASSED) belong ONLY to final_grade
+// and are strictly rejected here.
+function isValidTermPercentage(mixed $val): bool {
+    if ($val === null || !is_scalar($val)) {
+        return false;
     }
-    return false;
+    $valStr = trim((string) $val);
+    if ($valStr === '') {
+        return false;
+    }
+    if (!preg_match('/^\d+(\.\d{1,2})?$/', $valStr)) {
+        return false;
+    }
+    $f = (float) $valStr;
+    return $f >= 0.0 && $f <= 100.0;
 }
 
 // Clean prefixes like "SD353 Software Development" -> "Software Development"
@@ -323,5 +925,46 @@ function extractTrackCode($rawTitle) {
     if (preg_match('/^(SD|CY|DS|ITE)\d{3}/i', trim($rawTitle), $m)) {
         return strtoupper($m[0]);
     }
+    return null;
+}
+
+// =========================================================================
+// PYTHON ML SERVICE & GOVERNANCE CONFIGURATION
+// =========================================================================
+
+if (!defined('PYTHON_ML_BASE_URL')) {
+    define('PYTHON_ML_BASE_URL', getenv('PYTHON_ML_BASE_URL') ?: 'http://127.0.0.1:5000');
+}
+
+if (!defined('PYTHON_ML_API_URL')) {
+    define('PYTHON_ML_API_URL', PYTHON_ML_BASE_URL . '/predict');
+}
+
+/**
+ * Retrieves the ML governance secret key from protected server environment
+ * or gitignored local secrets configuration file.
+ * Returns null if unconfigured (enabling fail-closed protection).
+ * Never falls back to a hardcoded default string in source code.
+ */
+function getMlGovernanceSecret(): ?string {
+    // 1. Environment variable takes top precedence
+    $secret = getenv('UDM_RADAR_ML_SECRET');
+    if ($secret !== false && trim((string) $secret) !== '') {
+        return trim((string) $secret);
+    }
+
+    // 2. Local gitignored secrets configuration file
+    $localConfigFile = __DIR__ . '/secrets.local.php';
+    if (file_exists($localConfigFile)) {
+        $config = include $localConfigFile;
+        if (is_array($config) && !empty($config['UDM_RADAR_ML_SECRET'])) {
+            $val = trim((string) $config['UDM_RADAR_ML_SECRET']);
+            if ($val !== '') {
+                return $val;
+            }
+        }
+    }
+
+    // 3. Fail closed if not configured
     return null;
 }

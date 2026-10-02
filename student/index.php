@@ -23,8 +23,12 @@ $lName = $p['last_name'] ?? $user['last_name'] ?? '';
 $displayName = formatNameLastFirst($fName, $p['middle_name'] ?? null, $lName);
 
 // 2. Fetch Current Term Snapshot & Attention Items
-$currentSy = '2026-2027'; // Based on established timeline
-$currentSem = '1';
+// Resolved from the academic calendar rather than a literal, so the snapshot
+// header and the subject rows it describes always refer to the same term the
+// rest of the system is treating as in progress.
+$currentTerm = getCurrentTerm();
+$currentSy = $currentTerm['school_year'];
+$currentSem = (string) $currentTerm['semester'];
 
 $stmtGrades = $db->prepare("
     SELECT g.prelim, g.midterm, g.prefinal, g.final_grade, s.code, s.units
@@ -59,7 +63,8 @@ foreach ($currentGrades as $g) {
         elseif ($g['midterm'] !== null) { $latest = $g['midterm']; $latestSource = 'term_pct'; }
         else { $latest = $g['prelim']; $latestSource = 'term_pct'; }
 
-        if (in_array(strtoupper(trim((string)$latest)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+        $latestStr = trim((string)$latest);
+        if (in_array(strtoupper($latestStr), FINAL_GRADE_FAILING_STATUSES, true) || in_array($latestStr, LEGACY_FINAL_GRADE_VALUES, true)) {
             $attentionSubjects++;
         } elseif ($latestSource === 'final_grade') {
             // Already point-scale — evaluate directly, no conversion.
@@ -80,7 +85,8 @@ foreach ($currentGrades as $g) {
 
 // 3. Fetch Recent Activity (Latest Predictions)
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, prediction_source, generated_at 
+    SELECT predicted_gwa, risk_level, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis 
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC LIMIT 3
@@ -171,11 +177,18 @@ require_once '../includes/sidebar.php';
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <?php foreach($recentActivities as $act): 
                         $date = date('M d, Y', strtotime($act['generated_at']));
-                        $src = $act['prediction_source'] === 'decision_tree' ? 'AI Model Update' : 'Heuristic Estimate';
+                        // Labels mirror the canonical prediction semantics
+                        // documented in README.md. The fallback is a
+                        // calculation from current grades, not a heuristic
+                        // guess, and must not be presented as model output.
+                        $src = getPredictionSourceDisplayLabel($act['prediction_source'] ?? null);
+                        if (!empty($act['is_provisional'])) {
+                            $src .= ' (Provisional)';
+                        }
                     ?>
                     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span style="font-weight: 600; color: var(--accent-blue); font-size: 0.9rem;"><?= $src ?></span>
+                            <span style="font-weight: 600; color: var(--accent-blue); font-size: 0.9rem;"><?= htmlspecialchars($src) ?></span>
                             <span style="color: var(--text-gray); font-size: 0.8rem;"><?= $date ?></span>
                         </div>
                         <p style="margin: 0; font-size: 0.85rem; color: var(--text-dark);">

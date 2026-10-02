@@ -5,10 +5,16 @@
 # --- Config files that may contain real credentials later ---
 config/db.php
 config/mail.php
+config/secrets.local.php
+config/*.local.php
+python_ml/.env.local
+.env.local
 
 # --- Data Privacy & Generated ML Artifacts ---
 *.csv
 python_ml/*.json
+python_ml/candidates/*.json
+python_ml/candidates/*.pkl
 *.pkl
 *.joblib
 
@@ -34,4 +40,9 @@ Thumbs.db
 # --- Logs & Env ---
 *.log
 error_log
+logs/
 .env
+
+# --- Database Backups & Temporary Dumps ---
+backups/
+*.sql.bak

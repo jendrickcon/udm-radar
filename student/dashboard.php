@@ -17,23 +17,13 @@ $stmtProf = $db->prepare("
 $stmtProf->execute([$user['id']]);
 $profile = $stmtProf->fetch();
 
-$stmtHist = $db->prepare("
-    SELECT g.final_grade, s.units
-    FROM grades g
-    JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 0 AND g.final_grade IS NOT NULL
-");
-$stmtHist->execute([$user['id']]);
-$historical_rows = array_map(
-    fn($r) => ['grade' => $r['final_grade'], 'units' => (int) $r['units']],
-    $stmtHist->fetchAll()
-);
-$historical_gwa = computeWeightedGWA($historical_rows); 
-$current_gwa = $historical_gwa ?? (float) ($profile['current_gwa'] ?? 0);
+$current_gwa = computeStudentGwa($db, $user['id']);
+$historical_gwa = $current_gwa;
 
 // --- Fetch ML Prediction from Database ---
 $stmtPred = $db->prepare("
-    SELECT predicted_gwa, risk_level, latin_honor, prediction_source 
+    SELECT predicted_gwa, risk_level, latin_honor, prediction_source, generated_at,
+           data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC 
@@ -108,18 +98,26 @@ if ($has_ai_prediction) {
     $display_predicted_gwa = (float) $ml_prediction['predicted_gwa'];
     $display_risk = $ml_prediction['risk_level'] !== null ? $ml_prediction['risk_level'] : computeRiskFromAvg($display_predicted_gwa);
     $display_honor = $ml_prediction['latin_honor'] ?? getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
-    $prediction_source = 'decision_tree';
+    $prediction_source = normalizePredictionSourceBoundary($ml_prediction['prediction_source'] ?? PREDICTION_SOURCE_DECISION_TREE) ?? PREDICTION_SOURCE_DECISION_TREE;
 } elseif ($has_fallback_data) {
     $display_predicted_gwa = $heuristic_gwa;
     $display_risk = $heuristic_risk;
     $display_honor = getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
-    $prediction_source = 'calculation_fallback';
+    $prediction_source = PREDICTION_SOURCE_CALCULATION_FALLBACK;
 } else {
     $display_predicted_gwa = null;
     $display_risk = null;
     $display_honor = null;
     $prediction_source = 'insufficient_data';
 }
+
+$explanation = getPredictionExplanationMetadata($ml_prediction ?: [
+    'prediction_source' => $prediction_source,
+    'risk_level'        => $display_risk,
+    'generated_at'      => null,
+    'data_completeness' => $has_fallback_data ? 'complete' : 'insufficient_data',
+    'is_partial'        => empty($current_subjects),
+], 'student');
 
 if ($at_risk_count > 0) {
     $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
@@ -181,16 +179,17 @@ $riskBg = match($display_risk) {
 }; 
 
 $riskTooltip = "";
+$isAiSource = getPredictionSourceFamily($prediction_source) === 'model';
 if ($display_risk === 'HIGH') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "High Risk: The AI model evaluated your trajectory and classified it as High Risk, typically driven by historical failed subjects or a low GWA trajectory."
         : "High Risk: Based on your current recorded grades, your projected GWA is critically low (below 1.75) or you have multiple past failed subjects on record.";
 } elseif ($display_risk === 'MODERATE') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "Moderate Risk: The AI model evaluated your trajectory as Moderate Risk. Minor interventions and focus are recommended to secure your standing."
         : "Moderate Risk: Based on your current recorded grades, your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
 } elseif ($display_risk === 'LOW') {
-    $riskTooltip = $prediction_source === 'decision_tree'
+    $riskTooltip = $isAiSource
         ? "Low Risk: Excellent. The AI model projects a highly stable trajectory."
         : "Low Risk: Based on your current recorded grades, your projected GWA is well within the safe, highly satisfactory threshold.";
 } else {
@@ -204,11 +203,11 @@ $honor_color = match ($display_honor) {
     default            => 'var(--text-gray)',
 };
 
-$valid_grades = [4.00, 3.75, 3.50, 3.25, 3.00, 2.75, 2.50, 2.25, 2.00, 1.75, 1.50, 1.25, 1.00];
+$valid_grades = FINAL_GRADE_POINTS;
 function renderTargetOptions($valid_grades) {
     $html = '<option value="">—</option>';
     foreach ($valid_grades as $g) {
-        $valStr = number_format($g, 2);
+        $valStr = formatFinalGrade($g);
         $html .= "<option value=\"$valStr\">$valStr</option>";
     }
     return $html;
@@ -257,17 +256,17 @@ require_once '../includes/sidebar.php';
             <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and academic estimation.</p>
         </div>
         <div>
-            <?php if ($prediction_source === 'decision_tree'): ?>
+            <?php if (getPredictionSourceFamily($prediction_source) === 'model'): ?>
                 <span class="status-pill custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="AI-based prediction is active">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    AI-Based Prediction
+                    <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?>
                     <span class="tooltip-text" role="tooltip">The displayed estimates were generated using the UDM-RADAR AI model based on your available academic inputs.</span>
                 </span>
-            <?php elseif ($prediction_source === 'calculation_fallback'): ?>
+            <?php elseif (getPredictionSourceFamily($prediction_source) === 'calculation'): ?>
                 <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Estimate based on current grades">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    Estimate Based on Current Grades
-                    <span class="tooltip-text" role="tooltip">This is a real calculation from your recorded grades. The AI-based prediction hasn't run for your account yet.</span>
+                    <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?>
+                    <span class="tooltip-text" role="tooltip">This is a deterministic calculation from your recorded grades. The AI-based prediction model hasn't run for your account yet.</span>
                 </span>
             <?php else: ?>
                 <span class="status-pill status-pill-muted custom-tooltip tooltip-bottom-right" tabindex="0" aria-label="Insufficient data for a prediction">
@@ -279,6 +278,24 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <div style="flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+                <span style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem;">Decision-Support Advisory Notice</span>
+                <?php if (!empty($explanation['is_provisional'])): ?>
+                    <span style="background: rgba(217, 119, 6, 0.12); color: var(--risk-mod); font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; border: 1px solid rgba(217, 119, 6, 0.25);">Provisional Estimate</span>
+                <?php endif; ?>
+            </div>
+            <div style="line-height: 1.45; margin-bottom: 6px; color: var(--text-dark);"><?= htmlspecialchars($explanation['disclaimer']) ?></div>
+            <div style="font-size: 0.76rem; color: var(--text-gray);">
+                <strong>Coverage:</strong> <?= htmlspecialchars($explanation['coverage_summary']) ?>
+                <span style="margin: 0 6px;">•</span>
+                <strong>Freshness:</strong> <?= htmlspecialchars($explanation['freshness_label']) ?>
+            </div>
+        </div>
+    </div>
+
     <div class="stat-grid dashboard-stat-grid" style="margin-bottom: 24px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Cumulative GWA</h4>
@@ -286,9 +303,12 @@ require_once '../includes/sidebar.php';
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
-            <h4>Predicted Final GWA</h4>
+            <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
+                <?php if ($prediction_source !== null): ?>
+                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><?= !empty($explanation['is_provisional']) ? ' (Provisional)' : '' ?><br>
+                <?php endif; ?>
                 <?php if ($display_honor !== null): ?>
                     Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
                 <?php else: ?>

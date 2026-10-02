@@ -122,17 +122,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $db->beginTransaction();
             $stmtCheck = $db->prepare("
-                SELECT r.id FROM support_case_referrals r 
+                SELECT r.id, r.case_id FROM support_case_referrals r 
                 JOIN academic_support_cases c ON r.case_id = c.id 
                 WHERE r.id = ? AND c.student_id = ? AND r.status = 'action_taken' FOR UPDATE
             ");
             $stmtCheck->execute([$referralId, $user['id']]);
-            if (!$stmtCheck->fetchColumn()) {
+            $refData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$refData) {
                 $db->rollBack();
                 throw new Exception("This notice has already been acknowledged or is unauthorized.");
             }
             
+            $caseId = (int)$refData['case_id'];
+
+            // 1. Mark referral as acknowledged
             $db->prepare("UPDATE support_case_referrals SET status = 'acknowledged', student_acknowledged_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$referralId]);
+
+            // 2. Update support_actions acknowledgement timestamp
+            $db->prepare("
+                UPDATE support_actions 
+                SET student_acknowledged_at = CURRENT_TIMESTAMP 
+                WHERE case_id = ? AND student_acknowledged_at IS NULL
+            ")->execute([$caseId]);
+
+            // 3. Check if all referrals for this case are acknowledged
+            $stmtPendingRefs = $db->prepare("
+                SELECT COUNT(*) FROM support_case_referrals 
+                WHERE case_id = ? AND status != 'acknowledged' AND status != 'closed'
+            ");
+            $stmtPendingRefs->execute([$caseId]);
+            $pendingCount = (int)$stmtPendingRefs->fetchColumn();
+
+            // If all referrals are acknowledged, transition parent case to 'acknowledged'
+            if ($pendingCount === 0) {
+                $stmtCase = $db->prepare("SELECT status FROM academic_support_cases WHERE id = ? FOR UPDATE");
+                $stmtCase->execute([$caseId]);
+                $oldCaseStatus = $stmtCase->fetchColumn();
+
+                if ($oldCaseStatus !== 'acknowledged' && $oldCaseStatus !== 'closed') {
+                    $db->prepare("UPDATE academic_support_cases SET status = 'acknowledged' WHERE id = ?")->execute([$caseId]);
+                    $db->prepare("
+                        INSERT INTO support_status_history (case_id, changed_by, old_status, new_status, note)
+                        VALUES (?, ?, ?, 'acknowledged', 'Student acknowledged receipt.')
+                    ")->execute([$caseId, $user['id'], $oldCaseStatus]);
+                }
+            }
+
             $db->commit();
             $success = "Receipt of academic notice successfully acknowledged.";
         }

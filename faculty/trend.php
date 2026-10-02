@@ -19,6 +19,18 @@ $currentTerm = getCurrentTerm();
 $currentSy = $currentTerm['school_year'];
 $currentSem = (string) $currentTerm['semester'];
 
+$syFilter  = trim((string)($_GET['sy'] ?? $currentSy));
+$semFilter = trim((string)($_GET['sem'] ?? $_GET['semester'] ?? $currentSem));
+$isCurrentTerm = ($syFilter === $currentSy && (string)$semFilter === (string)$currentSem);
+
+$lifecycleCondition = $isCurrentTerm 
+    ? "sp.record_status = 'Active'" 
+    : "sp.record_status IN ('Active', 'Graduated')";
+
+$currentCondition = $isCurrentTerm 
+    ? "g.is_current = 1" 
+    : "g.is_current = 0";
+
 $stmtLoads = $db->prepare("
     SELECT fcl.subject_id, fcl.section, s.code, s.title 
     FROM faculty_class_loads fcl 
@@ -42,9 +54,9 @@ foreach ($myLoads as $load) {
         SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade
         FROM grades g
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND $currentCondition AND $lifecycleCondition
     ");
-    $stmtClassGrades->execute([$load['subject_id'], $load['section'], $currentSy, $currentSem]);
+    $stmtClassGrades->execute([$load['subject_id'], $load['section'], $syFilter, $semFilter]);
     $grades = $stmtClassGrades->fetchAll(PDO::FETCH_ASSOC);
 
     $classStudents = count($grades);
@@ -68,7 +80,7 @@ foreach ($myLoads as $load) {
             $overallEncoded++;
 
             if ($latestType === 'final_grade') {
-                if (in_array(strtoupper(trim((string)$latestVal)), ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                if (in_array(strtoupper(trim((string)$latestVal)), FINAL_GRADE_FAILING_STATUSES, true) || in_array(trim((string)$latestVal), LEGACY_FINAL_GRADE_VALUES, true)) {
                     $classAttention++;
                     $overallAttention++;
                 } else {
@@ -172,9 +184,9 @@ if ($subjFilter && $secFilter) {
         FROM grades g
         JOIN users u ON u.id = g.student_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND g.is_current = 1
+        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND $currentCondition AND $lifecycleCondition
     ");
-    $stmtGrades->execute([$subjFilter, $secFilter, $currentSy, $currentSem]);
+    $stmtGrades->execute([$subjFilter, $secFilter, $syFilter, $semFilter]);
     $grades = $stmtGrades->fetchAll(PDO::FETCH_ASSOC);
 
     $enrolledCount = count($grades);
@@ -192,7 +204,7 @@ if ($subjFilter && $secFilter) {
                 
                 if ($dbCol === 'final_grade') {
                     $val = trim(strtoupper($g[$dbCol]));
-                    if (in_array($val, ['INC', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) {
+                    if (in_array($val, FINAL_GRADE_FAILING_STATUSES, true) || in_array($val, LEGACY_FINAL_GRADE_VALUES, true)) {
                         $riskMovement[$pName]['HIGH']++;
                         continue;
                     }
@@ -302,8 +314,8 @@ require_once '../includes/sidebar.php';
             <p style="color: var(--text-gray);">Performance progression and risk movement across grading periods for the selected class.</p>
         </div>
         <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; text-align: center;">
-            <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Current Academic Term</div>
-            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= htmlspecialchars($currentSy) ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;"><?= $isCurrentTerm ? 'Current Academic Term' : 'Historical Completed Term' ?></div>
+            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= htmlspecialchars($syFilter) ?>, <?= $semFilter === '1' ? 'First' : 'Second' ?> Semester</div>
         </div>
     </div>
 

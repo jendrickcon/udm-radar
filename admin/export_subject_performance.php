@@ -33,7 +33,7 @@ $sqlSubjects = "
     FROM grades g
     JOIN subjects s ON s.id = g.subject_id
     JOIN student_profiles sp ON sp.user_id = g.student_id
-    WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+    WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
 ";
 $paramsSubjects = [$syFilter, $semFilter];
 

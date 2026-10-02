@@ -6,18 +6,11 @@ require_once '../config/db.php';
 requireRole('admin');
 $db = getDB();
 
-// ---------------------------------------------------------
-// Helper: Ordinal Year Labels (Type-Hinted)
-// ---------------------------------------------------------
-function ordinalYearLabel(int|string $year): string {
-    return match ((int) $year) {
-        1 => '1st Year',
-        2 => '2nd Year',
-        3 => '3rd Year',
-        4 => '4th Year',
-        default => $year . 'th Year',
-    };
-}
+// ordinalYearLabel() now lives in config/constants.php so the student
+// directory, the export headers, and this page all render a year level the
+// same way. The local copy that used to sit here was identical for years 1-4
+// and differed only in the fallback, which is exactly the kind of drift a
+// single shared definition prevents.
 
 // ---------------------------------------------------------
 // 0. Dynamic Filter Population & Strict Validation
@@ -31,9 +24,14 @@ $allowedSemesters = ['1', '2'];
 $semFilter = $_GET['semester'] ?? '1';
 if (!in_array($semFilter, $allowedSemesters, true)) $semFilter = '1';
 
-$dbYears = $db->query("SELECT DISTINCT year_level FROM student_profiles WHERE year_level IS NOT NULL ORDER BY year_level ASC")->fetchAll(PDO::FETCH_COLUMN);
+// The filter offers every curriculum year (1-4), not only the years that
+// currently have a student row. Deriving the list from the data meant a year
+// with no enrolled students simply vanished from the control, so an operator
+// could not select an empty cohort to confirm it was in fact empty, and the
+// control's shape changed as the population changed.
+$dbYears = CURRICULUM_YEAR_LEVELS;
 $yearFilter = $_GET['year_level'] ?? '';
-if ($yearFilter !== '' && !in_array($yearFilter, $dbYears, true)) $yearFilter = '';
+if ($yearFilter !== '' && !in_array((int) $yearFilter, $dbYears, true)) $yearFilter = '';
 
 // New Filters for Path B
 $allowedPeriods = ['prelim' => 'Preliminary', 'midterm' => 'Midterm', 'prefinal' => 'Pre-Final'];
@@ -48,7 +46,12 @@ $dbSections = $db->query("SELECT DISTINCT section FROM student_profiles WHERE se
 $sectionFilter = $_GET['section'] ?? '';
 
 // Determine Mode
-$isCurrentTerm = ($syFilter === '2026-2027' && $semFilter === '1');
+// "Current" is whatever term the calendar says we are in, not a hardcoded
+// school-year/semester pair. Pinning it meant the page stayed in progress-mode
+// for one specific term forever: once the calendar moved on, a genuinely
+// finished term kept rendering as if its grades were still in flight.
+$currentTerm = getCurrentTerm();
+$isCurrentTerm = ($syFilter === $currentTerm['school_year'] && (int) $semFilter === (int) $currentTerm['semester']);
 
 // ---------------------------------------------------------
 // Default values to prevent IDE warnings (P1116)
@@ -56,7 +59,25 @@ $isCurrentTerm = ($syFilter === '2026-2027' && $semFilter === '1');
 $totalStudents = 0; $sectionData = []; $meanGwa = null; $gwaSum = 0; $gwaCount = 0;
 $atRiskPct = 0.0; $coveragePct = 0.0;
 $riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
-$sourceTotals = ['decision_tree' => 0, 'heuristic' => 0, 'none' => 0];
+// prediction_source has TWO calculation-based vocabularies in the stored data:
+//   'heuristic'            — legacy rows written before the source was renamed
+//   'calculation_fallback' — what the current fallback path writes
+// Both mean the same thing to a reader (an estimate derived from current
+// grades, not model output), so they are grouped for display under one
+// user-facing category while the stored value itself is left untouched — the
+// 502 legacy rows are provenance and are not rewritten.
+//
+// The tally previously keyed only on 'heuristic' and was guarded by isset(),
+// so it did not error; it silently reported 0 for every row written under the
+// newer vocabulary. The diagnostic breakdown is retained so the split between
+// the two vocabularies stays visible rather than being averaged away.
+$sourceTotals = [
+    'decision_tree'        => 0, // machine-learning projection
+    'calculation_fallback' => 0, // grouped display total (both fallback vocabularies)
+    'heuristic'            => 0, // diagnostic: legacy fallback rows only
+    'calc_fallback_new'    => 0, // diagnostic: current fallback rows only
+    'none'                 => 0,
+];
 $distinctions = [
     'Summa-level threshold' => 0, 'Magna-level threshold' => 0,
     'Cum Laude-level threshold' => 0, 'Not currently within a distinction threshold' => 0,
@@ -64,8 +85,9 @@ $distinctions = [
 ];
 $chartSecLabels = []; $chartSecHigh = []; $chartSecMod = []; $chartSecLow = []; $chartSecNone = [];
 $subjectWideStats = []; $subjectSectionStats = []; $histSubjects = [];
-$totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0; 
-$histPassedCount = 0; $overallHistPassRate = 0.0;
+$totalHistStudents = 0; $meanHistGrade = null; $histGradesSum = 0; $histGradesCount = 0;
+$histPassedCount = 0; $histFailedCount = 0; $histDroppedCount = 0; $histTotalGradedCount = 0; $histRecognizedOutcomeCount = 0;
+$overallHistPassRate = null;
 
 // ---------------------------------------------------------
 // MODE A: CURRENT TERM ANALYTICS (Progress & Predictions)
@@ -77,16 +99,16 @@ if ($isCurrentTerm) {
                p.predicted_gwa, p.risk_level, p.latin_honor, p.prediction_source
         FROM student_profiles sp
         LEFT JOIN predictions p ON p.id = (
-            SELECT id FROM predictions p2 
-            WHERE p2.student_id = sp.user_id 
+            SELECT id FROM predictions p2
+            WHERE p2.student_id = sp.user_id
             ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
         )
-        WHERE sp.section IS NOT NULL AND sp.status != 'Archived'
+        WHERE sp.section IS NOT NULL AND sp.record_status = 'Active'
     ";
     $paramsStudents = [];
-    if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = $yearFilter; }
+    if ($yearFilter !== '') { $sqlStudents .= " AND sp.year_level = ?"; $paramsStudents[] = (int) $yearFilter; }
     if ($sectionFilter !== '') { $sqlStudents .= " AND sp.section = ?"; $paramsStudents[] = $sectionFilter; }
-    
+
     $stmtStudents = $db->prepare($sqlStudents);
     $stmtStudents->execute($paramsStudents);
     $students = $stmtStudents->fetchAll(PDO::FETCH_ASSOC);
@@ -103,10 +125,10 @@ if ($isCurrentTerm) {
                 'coverage_count' => 0
             ];
         }
-        
+
         $sectionData[$sec]['total']++;
         if ($s['status'] === 'Irregular') $sectionData[$sec]['irregular']++;
-        
+
         if ($s['current_gwa'] !== null && (float)$s['current_gwa'] > 0) {
             $gwaSum += (float)$s['current_gwa'];
             $gwaCount++;
@@ -119,8 +141,19 @@ if ($isCurrentTerm) {
         $sectionData[$sec]['risks'][$risk]++;
         if ($risk !== 'NONE') $sectionData[$sec]['coverage_count']++;
 
-        $src = $s['prediction_source'] ?? 'none';
-        if (isset($sourceTotals[$src])) $sourceTotals[$src]++;
+        // Normalize before counting. An unrecognized or empty source is
+        // counted as 'none' rather than dropped, so the categories always sum
+        // to the population being described instead of quietly under-reporting.
+        $src = strtolower(trim((string) ($s['prediction_source'] ?? '')));
+
+        if ($src === 'decision_tree') {
+            $sourceTotals['decision_tree']++;
+        } elseif (in_array($src, ['heuristic', 'calculation_fallback'], true)) {
+            $sourceTotals['calculation_fallback']++;
+            $sourceTotals[$src === 'heuristic' ? 'heuristic' : 'calc_fallback_new']++;
+        } else {
+            $sourceTotals['none']++;
+        }
 
         if ($s['risk_level'] === null || $s['predicted_gwa'] === null) {
             $distinctions['Insufficient Data']++;
@@ -137,7 +170,7 @@ if ($isCurrentTerm) {
     $meanGwa = $gwaCount > 0 ? $gwaSum / $gwaCount : null;
     $coverageCount = $totalStudents - $riskTotals['NONE'];
     $coveragePct = $totalStudents > 0 ? ($coverageCount / $totalStudents) * 100 : 0.0;
-    
+
     // Accurate At-Risk Denominator: Only count students with predictions
     $atRiskCount = $riskTotals['HIGH'] + $riskTotals['MODERATE'];
     $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0.0;
@@ -158,14 +191,14 @@ if ($isCurrentTerm) {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status = 'Active'
     ";
     $paramsSubjects = [$syFilter, $semFilter];
-    
-    if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = $yearFilter; }
+
+    if ($yearFilter !== '') { $sqlSubjects .= " AND sp.year_level = ?"; $paramsSubjects[] = (int) $yearFilter; }
     if ($sectionFilter !== '') { $sqlSubjects .= " AND sp.section = ?"; $paramsSubjects[] = $sectionFilter; }
     if ($subjectFilter !== '') { $sqlSubjects .= " AND s.id = ?"; $paramsSubjects[] = $subjectFilter; }
-    
+
     $stmtSubjects = $db->prepare($sqlSubjects);
     $stmtSubjects->execute($paramsSubjects);
     $rawGrades = $stmtSubjects->fetchAll(PDO::FETCH_ASSOC);
@@ -194,7 +227,7 @@ if ($isCurrentTerm) {
             $val = (float)$r['term_score'];
             $subjectWideStats[$id]['graded']++;
             $subjectWideStats[$id]['raw_sum'] += $val;
-            
+
             $subjectSectionStats[$secKey]['graded']++;
             $subjectSectionStats[$secKey]['raw_sum'] += $val;
 
@@ -208,17 +241,17 @@ if ($isCurrentTerm) {
                     $subjectWideStats[$id]['mod_risk']++;
                     $subjectSectionStats[$secKey]['mod_risk']++;
                 }
-                if ($pt > 0) { 
+                if ($pt > 0) {
                     $subjectWideStats[$id]['passed']++;
                     $subjectSectionStats[$secKey]['passed']++;
                 }
             }
         }
     }
-    
+
     // Sort Subject-Wide by High Risk
     usort($subjectWideStats, fn($a, $b) => $b['high_risk'] <=> $a['high_risk']);
-    
+
     // Sort Subject-Section by Attention Rate (High + Mod / Graded)
     usort($subjectSectionStats, function($a, $b) {
         $rateA = $a['graded'] > 0 ? (($a['high_risk'] + $a['mod_risk']) / $a['graded']) : 0;
@@ -237,13 +270,13 @@ else {
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.school_year = ? AND g.semester = ? AND sp.status != 'Archived'
+        WHERE g.school_year = ? AND g.semester = ? AND sp.record_status IN ('Active', 'Graduated')
     ";
     $paramsHistorical = [$syFilter, $semFilter];
-    
-    if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = $yearFilter; }
+
+    if ($yearFilter !== '') { $sqlHistorical .= " AND sp.year_level = ?"; $paramsHistorical[] = (int) $yearFilter; }
     if ($subjectFilter !== '') { $sqlHistorical .= " AND s.id = ?"; $paramsHistorical[] = $subjectFilter; }
-    
+
     $stmtHistorical = $db->prepare($sqlHistorical);
     $stmtHistorical->execute($paramsHistorical);
     $rawHistGrades = $stmtHistorical->fetchAll(PDO::FETCH_ASSOC);
@@ -254,36 +287,84 @@ else {
         $histStudents[$r['student_id']] = true;
         $id = $r['id'];
         if (!isset($histSubjects[$id])) {
-             $histSubjects[$id] = ['code' => $r['code'], 'title' => $r['title'], 'enrolled' => 0, 'graded' => 0, 'raw_sum' => 0, 'passed' => 0, 'failed' => 0];
+             $histSubjects[$id] = [
+                 'code' => $r['code'],
+                 'title' => $r['title'],
+                 'enrolled' => 0,
+                 'graded' => 0,
+                 'raw_sum' => 0.0,
+                 'numeric_count' => 0,
+                 'numeric_pass_count' => 0,
+                 'nonnumeric_pass_count' => 0,
+                 'failing_count' => 0,
+                 'dropped_count' => 0,
+                 'missing_or_invalid_count' => 0,
+                 'recognized_outcome_count' => 0,
+                 'passed' => 0,
+                 'failed' => 0,
+             ];
         }
         $histSubjects[$id]['enrolled']++;
-        
-        if ($r['final_grade'] !== null && trim($r['final_grade']) !== '') {
+
+        $rawGrade = $r['final_grade'];
+        if ($rawGrade === null || trim((string)$rawGrade) === '') {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
+
+        $canon = canonicalizeFinalGrade($rawGrade);
+        if ($canon === null) {
+            $histSubjects[$id]['missing_or_invalid_count']++;
+            continue;
+        }
+
+        if ($canon === 'DRP') {
+            $histSubjects[$id]['dropped_count']++;
             $histSubjects[$id]['graded']++;
-            $val = trim(strtoupper($r['final_grade']));
-            
-            if (in_array($val, ['0', '0.00', 'INC', 'DO', 'DU', 'FA', 'UD'])) {
+            $histDroppedCount++;
+            $histTotalGradedCount++;
+            continue;
+        }
+
+        // Recognized pass/fail outcome
+        $histSubjects[$id]['graded']++;
+        $histTotalGradedCount++;
+
+        if (isNumericFinalGrade($canon)) {
+            $pt = (float)$canon;
+            $histSubjects[$id]['raw_sum'] += $pt;
+            $histSubjects[$id]['numeric_count']++;
+            $histGradesSum += $pt;
+            $histGradesCount++;
+
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['numeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
                 $histSubjects[$id]['failed']++;
-            } elseif (is_numeric($val)) {
-                $pt = (float)$val;
-                $histSubjects[$id]['raw_sum'] += $pt;
-                $histGradesSum += $pt;
-                $histGradesCount++;
-                
-                if ($pt > 0) { // Correct passing logic
-                    $histSubjects[$id]['passed']++;
-                    $histPassedCount++;
-                } else {
-                    $histSubjects[$id]['failed']++;
-                }
+                $histFailedCount++;
+            }
+        } else {
+            if (isPassingFinalGrade($canon)) {
+                $histSubjects[$id]['nonnumeric_pass_count']++;
+                $histSubjects[$id]['passed']++;
+                $histPassedCount++;
+            } elseif (isFailingFinalGrade($canon)) {
+                $histSubjects[$id]['failing_count']++;
+                $histSubjects[$id]['failed']++;
+                $histFailedCount++;
             }
         }
+        $histSubjects[$id]['recognized_outcome_count'] = $histSubjects[$id]['passed'] + $histSubjects[$id]['failed'];
     }
     usort($histSubjects, fn($a, $b) => $b['failed'] <=> $a['failed']);
-    
+
+    $histRecognizedOutcomeCount = $histPassedCount + $histFailedCount;
     $totalHistStudents = count($histStudents);
     $meanHistGrade = $histGradesCount > 0 ? $histGradesSum / $histGradesCount : null;
-    $overallHistPassRate = $histGradesCount > 0 ? ($histPassedCount / $histGradesCount) * 100 : 0.0;
+    $overallHistPassRate = $histRecognizedOutcomeCount > 0 ? ($histPassedCount / $histRecognizedOutcomeCount) * 100 : null;
 }
 
 $pageTitle = 'Program Analytics';
@@ -351,7 +432,7 @@ require_once '../includes/sidebar.php';
 
     <!-- Wired Interactive Filters -->
     <form method="GET" action="analytics.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
-        
+
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Academic Scope</label>
             <div style="display: flex; gap: 8px;">
@@ -377,14 +458,14 @@ require_once '../includes/sidebar.php';
             </select>
         </div>
         <?php endif; ?>
-        
+
         <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
             <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Curriculum Isolation</label>
             <div style="display: flex; gap: 8px;">
                 <select name="year_level" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                     <option value="">All Years</option>
                     <?php foreach($dbYears as $yl): ?>
-                        <option value="<?= htmlspecialchars($yl) ?>" <?= $yearFilter === (string)$yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
+                        <option value="<?= (int) $yl ?>" <?= $yearFilter === (string) $yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <select name="subject_id" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
@@ -403,7 +484,7 @@ require_once '../includes/sidebar.php';
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; height: 100%;">
             <a href="analytics.php" style="padding: 9px 16px; color: var(--text-gray); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Reset</a>
             <button type="submit" style="background: var(--accent-blue); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
@@ -420,7 +501,7 @@ require_once '../includes/sidebar.php';
     <!-- MODE A: CURRENT TERM (Progress Analysis)   -->
     <!-- ========================================== -->
     <?php if ($isCurrentTerm): ?>
-        
+
         <?php if ($totalStudents > 0 && $totalStudents < 10): ?>
         <div style="background: rgba(217, 119, 6, 0.1); border-left: 4px solid var(--risk-mod); padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; color: var(--text-dark); font-size: 0.9rem;">
             <strong>Small filtered population:</strong> This view contains only <?= $totalStudents ?> student records. Percentages and section comparisons should be interpreted cautiously.
@@ -443,7 +524,7 @@ require_once '../includes/sidebar.php';
                 <h4>At Risk Among Predicted</h4>
                 <h2 style="color: var(--risk-high);"><?= number_format($atRiskPct, 1) ?>%</h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                    <span style="color: var(--risk-high);"><?= $riskTotals['HIGH'] ?> High</span> | 
+                    <span style="color: var(--risk-high);"><?= $riskTotals['HIGH'] ?> High</span> |
                     <span style="color: var(--risk-mod);"><?= $riskTotals['MODERATE'] ?> Moderate</span>
                 </p>
             </div>
@@ -451,7 +532,7 @@ require_once '../includes/sidebar.php';
                 <h4>Prediction Coverage</h4>
                 <h2 style="color: var(--text-dark);"><?= number_format($coveragePct, 1) ?>%</h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
-                    <?= $sourceTotals['decision_tree'] ?> ML | <?= $sourceTotals['heuristic'] ?> Heur. | <?= $sourceTotals['none'] ?> None
+                    <?= $sourceTotals['decision_tree'] ?> AI-Based Projection | <?= $sourceTotals['calculation_fallback'] ?> Calculation-Based Estimate | <?= $sourceTotals['none'] ?> Insufficient Data
                 </p>
             </div>
         </div>
@@ -680,7 +761,7 @@ require_once '../includes/sidebar.php';
             </div>
             <div class="stat-card" style="border-left-color: var(--text-gray);">
                 <h4>Overall Pass Rate</h4>
-                <h2 style="color: var(--text-dark);"><?= number_format($overallHistPassRate, 1) ?>%</h2>
+                <h2 style="color: var(--text-dark);"><?= $overallHistPassRate !== null ? number_format($overallHistPassRate, 1) . '%' : 'N/A' ?></h2>
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= $histPassedCount ?> passing grades recorded</p>
             </div>
         </div>
@@ -710,8 +791,8 @@ require_once '../includes/sidebar.php';
                     </thead>
                     <tbody>
                         <?php foreach ($histSubjects as $id => $s): 
-                            $meanGrade = $s['graded'] > 0 ? number_format($s['raw_sum'] / $s['graded'], 2) : '—';
-                            $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : '—';
+                            $meanGrade = ($s['numeric_count'] ?? $s['graded']) > 0 ? number_format($s['raw_sum'] / ($s['numeric_count'] ?? $s['graded']), 2) : '—';
+                            $passRate = $s['recognized_outcome_count'] > 0 ? number_format(($s['passed'] / $s['recognized_outcome_count']) * 100, 1) . '%' : '—';
                             $completeness = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">

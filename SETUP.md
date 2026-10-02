@@ -110,15 +110,39 @@ Create the database expected by `config/db.php`, normally:
 udm_radar
 ```
 
-Import the current consolidated SQL file from the repository's `database/` directory.
+### 6.1 Database Import & Migration Sequence (Phase 0 Upgrade Path)
 
-The imported database must include the current application tables, including the applicable versions of:
+> [!WARNING]
+> **Fresh-Install Dependency Notice**: The committed `database/udm_radar.sql` file contains the baseline 10-table schema (Sep 29). Commits after `606d728` depend on features and tables introduced in subsequent migrations (`export_audit_logs`, `record_status`, `failure_reason`, the 7 workflow/support tables, and `final_grade` storage standardization). Until the canonical consolidated dump is regenerated in WP-9, setting up the database requires importing the baseline dump followed by migrations `000` through `005` in order:
+
+```powershell
+# 1. Create database and import baseline schema
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS udm_radar;"
+mysql -u root udm_radar < database\udm_radar.sql
+
+# 2. Apply sequential idempotent migrations
+mysql -u root udm_radar < database\migrations\000_create_export_audit_logs.sql
+mysql -u root udm_radar < database\migrations\001_add_student_record_status.sql
+mysql -u root udm_radar < database\migrations\002_feedback_status_cleanup.sql
+mysql -u root udm_radar < database\migrations\003_export_audit_failure_info.sql
+mysql -u root udm_radar < database\migrations\004_create_workflow_and_support_tables.sql
+mysql -u root udm_radar < database\migrations\005_standardize_final_grade_storage.sql
+```
+
+The upgraded database will include all 18 tables required by the active application portals, with `grades.final_grade` standardized to `VARCHAR(10)` and `student_profiles.course` standardized to canonical ENUM tracks:
+- **Migration 005**: Standardizes `grades.final_grade` from `DECIMAL(4,2)` to `VARCHAR(10) NULL DEFAULT NULL` with CHECK constraint `chk_grades_final_grade_domain`.
+- **Migration 006**: Repairs synthetic student course records, converting `student_profiles.course` to `ENUM('BSIT - Software Development', 'BSIT - Data Science', 'BSIT - Cyber Security') NOT NULL DEFAULT 'BSIT - Software Development'` with CHECK constraint `chk_student_profiles_course_valid` and temporary pre-migration backup table `_backup_student_profiles_course_wp6`.
+- **Temporary Migration Backup Lifecycle**: `_backup_student_profiles_course_wp6` exists temporarily during migration and verification (raising the temporary base table count to 19). It is not part of the official 18-table application schema, is not included in the ERD or Data Dictionary, its evidence is exported to `backups/backup_student_profiles_course_wp6.sql`, and it will be removed before WP-9 canonical dump regeneration.
+- **Track Assignment Policy**: The existing synthetic records are assigned Software Development for internal prototype consistency. This is not evidence of actual UDM section-to-track allocation. Official track-curriculum verification is registered as a prerequisite before multi-track cohort generation.
+- **Textual Status Support**: Institutional statuses (`INC`, `DRP`, `P`, `DO`, `DU`, `FA`, `UD`) and canonical numeric point grades (`4.00` to `1.00`) become reproducibly supported.
+- **Application Validation Authoritative**: Application write-path validation in PHP remains authoritative for new-entry policy (rejecting new `0.00` inputs while preserving historical `0.00`).
+- **Canonical Dump**: Remains unchanged; consolidated schema dump regeneration is scheduled for WP-9.
 
 ```text
 users
-student_profiles
+student_profiles (with record_status, canonical course tracks)
 subjects
-grades
+grades (final_grade VARCHAR(10))
 predictions
 faculty_class_loads
 pending_grade_batches
@@ -128,16 +152,29 @@ feedback_messages
 feedback_status_history
 academic_support_cases
 support_actions
+support_case_referrals
 support_status_history
 admin_change_log
-export_audit_log
+export_audit_logs (with failure_reason)
+otp_tokens
 ```
 
-Table names may vary only if the application code and consolidated schema have been updated together.
+### 6.2 Testing on Scratch Database
+Before running schema or data changes, always verify them on an isolated scratch database:
 
-### Database warning
+```powershell
+mysql -u root -e "DROP DATABASE IF EXISTS udm_radar_scratch; CREATE DATABASE udm_radar_scratch;"
+mysql -u root udm_radar_scratch < database\udm_radar.sql
+mysql -u root udm_radar_scratch < database\migrations\000_create_export_audit_logs.sql
+mysql -u root udm_radar_scratch < database\migrations\001_add_student_record_status.sql
+mysql -u root udm_radar_scratch < database\migrations\002_feedback_status_cleanup.sql
+mysql -u root udm_radar_scratch < database\migrations\003_export_audit_failure_info.sql
+mysql -u root udm_radar_scratch < database\migrations\004_create_workflow_and_support_tables.sql
+mysql -u root udm_radar_scratch < database\migrations\005_standardize_final_grade_storage.sql
+mysql -u root udm_radar_scratch < database\migrations\006_repair_student_course_values.sql
+```
 
-Do not treat an old base schema as sufficient if newer portal code depends on support, pending-approval, or export-audit tables. The repository's consolidated export should represent a complete runnable installation.
+Do not commit database backups or local dumps to Git (enforced in `.gitignore`).
 
 ## 7. Configure the Python Environment
 

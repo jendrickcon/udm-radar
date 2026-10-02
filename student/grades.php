@@ -36,18 +36,6 @@ if (!function_exists('formatPercentage')) {
     }
 }
 
-if (!function_exists('formatFinalGrade')) {
-    function formatFinalGrade(float|int|string|null $val): string {
-        if ($val === null || $val === '') return '—';
-        $str = strtoupper(trim((string)$val));
-        // Special academic statuses are not numeric grades — display them
-        // as-is rather than letting (float) silently turn them into 0.00.
-        if (in_array($str, ['INC', 'DO', 'DU', 'FA', 'UD'], true)) return $str;
-        if (!is_numeric($str)) return $str; // defensive fallback for anything unexpected
-        return number_format((float)$val, 2);
-    }
-}
-
 $stmtCurrent = $db->prepare("
     SELECT g.*, s.code, s.title, s.units
     FROM grades g
@@ -157,7 +145,7 @@ require_once '../includes/sidebar.php';
                         $finalGrade = null;
                         if ($finalGradeRaw !== null) {
                             $fgStr = strtoupper(trim((string)$finalGradeRaw));
-                            if (in_array($fgStr, ['INC', 'DO', 'DU', 'FA', 'UD'], true)) {
+                            if (in_array($fgStr, FINAL_GRADE_STATUSES, true)) {
                                 $finalGradeStatus = $fgStr;
                             } elseif (is_numeric($fgStr)) {
                                 $finalGrade = (float) $fgStr;

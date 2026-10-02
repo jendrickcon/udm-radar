@@ -101,15 +101,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = trim($_POST['message_to_student'] ?? '');
             if (empty($message)) throw new Exception("A message to the student is required.");
             
-            $stmtOwner = $db->prepare("SELECT status FROM support_case_referrals WHERE id = ? AND faculty_id = ? FOR UPDATE");
+            $stmtOwner = $db->prepare("SELECT case_id, status FROM support_case_referrals WHERE id = ? AND faculty_id = ? FOR UPDATE");
             $stmtOwner->execute([$referralId, $user['id']]);
-            $refStatus = $stmtOwner->fetchColumn();
+            $refRow = $stmtOwner->fetch(PDO::FETCH_ASSOC);
             
-            if ($refStatus === false) throw new Exception("Unauthorized: Support referral does not belong to you.");
-            if ($refStatus !== 'needs_review') throw new Exception("This referral has already been processed.");
+            if ($refRow === false) throw new Exception("Unauthorized: Support referral does not belong to you.");
+            if ($refRow['status'] !== 'needs_review') throw new Exception("This referral has already been processed.");
             
+            $parentCaseId = (int)$refRow['case_id'];
+
             $db->beginTransaction();
             $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', message_to_student = ? WHERE id = ?")->execute([$message, $referralId]);
+
+            // 1. Record in support_actions
+            $stmtAction = $db->prepare("
+                INSERT INTO support_actions (case_id, actor_id, action_type, message_to_student)
+                VALUES (?, ?, 'academic_notice_sent', ?)
+            ");
+            $stmtAction->execute([$parentCaseId, $user['id'], $message]);
+
+            // 2. Transition parent case to 'action_taken' if currently 'needs_review'
+            $stmtParentStatus = $db->prepare("SELECT status FROM academic_support_cases WHERE id = ? FOR UPDATE");
+            $stmtParentStatus->execute([$parentCaseId]);
+            $oldCaseStatus = $stmtParentStatus->fetchColumn();
+
+            if ($oldCaseStatus === 'needs_review') {
+                $db->prepare("UPDATE academic_support_cases SET status = 'action_taken' WHERE id = ?")->execute([$parentCaseId]);
+                $db->prepare("
+                    INSERT INTO support_status_history (case_id, changed_by, old_status, new_status, note)
+                    VALUES (?, ?, 'needs_review', 'action_taken', 'Faculty issued an academic notice')
+                ")->execute([$parentCaseId, $user['id']]);
+            }
+
             $db->commit();
             
             $success = "Subject-specific academic notice sent to student successfully.";

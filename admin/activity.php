@@ -11,21 +11,12 @@ if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_byt
 $error = ''; $success = '';
 
 // --- ADMIN VALIDATION HELPER ---
-function validateAdminGrade($termType, $val) {
+function validateAdminGrade($termType, $val): bool {
     if ($val === null || trim((string)$val) === '') return true;
-    $valStr = strtoupper(trim((string)$val));
-    if (in_array($termType, ['prelim', 'midterm', 'prefinal'])) {
-        if (is_numeric($val)) { $f = (float)$val; if ($f >= 0 && $f <= 100) return true; }
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) return true;
-        return false;
+    if (in_array($termType, ['prelim', 'midterm', 'prefinal'], true)) {
+        return isValidTermPercentage($val);
     } elseif ($termType === 'final_grade') {
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', '0', '0.00'])) return true;
-        if (is_numeric($val)) {
-            $f = (float)$val; $formatted = number_format($f, 2);
-            $validPoints = ['4.00','3.75','3.50','3.25','3.00','2.75','2.50','2.25','2.00','1.75','1.50','1.25','1.00'];
-            if (in_array($formatted, $validPoints, true)) return true;
-        }
-        return false;
+        return isValidFinalGradeEntry($val);
     }
     return false;
 }
@@ -42,8 +33,8 @@ function recalculateGradeRowRisk($db, $gradeId) {
     if ($latestVal !== null) {
         $valStr = strtoupper(trim((string)$latestVal));
         if ($latestType === 'final_grade') {
-            if (in_array($valStr, ['INC', 'DO', 'DU', 'FA', 'UD'])) return 'HIGH';
-            if (is_numeric($latestVal)) return computeRiskFromAvg((float)$latestVal);
+            if (isFailingFinalGrade($latestVal)) return 'HIGH';
+            if (isNumericFinalGrade($latestVal)) return computeRiskFromAvg((float)$latestVal);
         } else {
             if (is_numeric($latestVal)) {
                 $pt = normalizeTermGrade((float)$latestVal);
@@ -54,19 +45,6 @@ function recalculateGradeRowRisk($db, $gradeId) {
     return null;
 }
 
-function recalculateStudentGWA($db, $studentId) {
-    $stmt = $db->prepare("SELECT final_grade FROM grades WHERE student_id = ? AND final_grade IS NOT NULL AND final_grade != ''");
-    $stmt->execute([$studentId]);
-    $grades = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    $sum = 0; $count = 0;
-    foreach ($grades as $g) {
-        $valStr = strtoupper(trim((string)$g));
-        if (in_array($valStr, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD'])) continue;
-        if (is_numeric($g)) { $sum += (float)$g; $count++; }
-    }
-    $gwa = $count > 0 ? round($sum / $count, 2) : null;
-    $db->prepare("UPDATE student_profiles SET current_gwa = ? WHERE user_id = ?")->execute([$gwa, $studentId]);
-}
 // ------------------------------------------------
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -109,16 +87,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success = 'Correction rejected — no change applied.';
                 } else {
                     $column = $corr['field_changed']; $allowedTerms = ['prelim', 'midterm', 'prefinal', 'final_grade']; $logTargetId = $corr['target_id'];
-                    if (in_array($corr['target_type'], ['student_section', 'student_year_level'])) {
-                        $db->prepare("UPDATE student_profiles SET `$column` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
+                    // Student-identity fields are applied by matching the
+                    // correction's target_type to an explicit whitelist, so a
+                    // correction row can never steer `$column` at an
+                    // unintended column. The whitelist is the only thing that
+                    // decides whether a correction is applicable — a
+                    // correction type that is not listed here is treated as
+                    // "not applicable" rather than falling through silently.
+                    $studentFieldMap = [
+                        'student_section'    => 'section',
+                        'student_year_level' => 'year_level',
+                        'student_course'     => 'course',
+                    ];
+                    if (isset($studentFieldMap[$corr['target_type']])) {
+                        if ($corr['target_type'] === 'student_course' && !in_array($corr['new_value'], allowedCourses(), true)) {
+                            throw new Exception("Validation Error: Invalid program/course value '{$corr['new_value']}'. Must be one of: " . implode(', ', allowedCourses()));
+                        }
+                        $db->prepare("UPDATE student_profiles SET `{$studentFieldMap[$corr['target_type']]}` = ? WHERE user_id = ?")->execute([$corr['new_value'], $corr['target_id']]);
                     } elseif ($corr['target_type'] === 'grade') {
                         if (!in_array($column, $allowedTerms)) throw new Exception("Invalid grading period.");
                         if (!validateAdminGrade($column, $corr['new_value'])) throw new Exception("Validation Error.");
-                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$corr['new_value'], $corr['target_id']]);
+                        $valToStore = $column === 'final_grade' ? normalizeFinalGradeInput($corr['new_value']) : $corr['new_value'];
+                        $db->prepare("UPDATE grades SET `$column` = ? WHERE id = ?")->execute([$valToStore, $corr['target_id']]);
                         $logTargetId = $db->query("SELECT student_id FROM grades WHERE id = " . (int)$corr['target_id'])->fetchColumn() ?: $corr['target_id'];
+                        if ($column === 'final_grade' && $logTargetId) {
+                            recalculateStudentGwa($db, (int) $logTargetId);
+                        }
                     }
                     $db->prepare("UPDATE pending_corrections SET status='confirmed', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $corrId]);
                     $db->prepare("INSERT INTO admin_change_log (admin_id, target_type, target_id, field_changed, old_value, new_value, note) VALUES (?, 'student', ?, ?, ?, ?, ?)")->execute([$user['id'], $logTargetId, $column, $corr['old_value'], $corr['new_value'], 'Confirmed correction']);
+
                     if (!empty($corr['feedback_id'])) {
                         $stmtOld = $db->prepare("SELECT status FROM feedback_reports WHERE id = ?"); $stmtOld->execute([$corr['feedback_id']]); $oldStatus = $stmtOld->fetchColumn() ?: 'awaiting_admin';
                         $db->prepare("UPDATE feedback_reports SET status = 'resolved', resolved_by = ?, resolved_at = NOW() WHERE id = ?")->execute([$user['id'], $corr['feedback_id']]);
@@ -145,9 +143,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $approvedGrades = $_POST['approved_grades'] ?? []; 
                     $payload = json_decode($batch['payload'], true); 
                     $termType = $batch['term_type'];
-                    $allowedTerms = ['prelim', 'midterm', 'prefinal', 'final_grade'];
+                    $allowedTerms = ['prelim', 'midterm', 'prefinal'];
                     
-                    if (!in_array($termType, $allowedTerms)) throw new Exception("Invalid batch grading period.");
+                    if (!in_array($termType, $allowedTerms, true)) throw new Exception("Invalid batch grading period.");
                     
                     $getGradeStmt = $db->prepare("SELECT id, `$termType` FROM grades WHERE student_id = ? AND subject_id = ? AND is_current = 1");
                     $updateGradeStmt = $db->prepare("UPDATE grades SET `$termType` = ? WHERE id = ?");
@@ -158,29 +156,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sid = (int)$item['student_id'];
                         $facultyProposed = $item['grade'];
                         $reason = $item['reason'];
-                        $finalGrade = trim($approvedGrades[$sid] ?? $facultyProposed);
-                        
-                        if (!validateAdminGrade($termType, $finalGrade)) throw new Exception("Validation Error: Invalid value '{$finalGrade}' for student #{$sid}.");
+                        $rawProposed = trim($approvedGrades[$sid] ?? $facultyProposed);
+                        if (!validateAdminGrade($termType, $rawProposed)) throw new Exception("Validation Error: Invalid value '{$rawProposed}' for student #{$sid}.");
+                        $termVal = $rawProposed;
 
                         $getGradeStmt->execute([$sid, $batch['subject_id']]);
                         $gradeRow = $getGradeStmt->fetch();
                         
-                        if ($gradeRow && $finalGrade !== '') {
+                        if ($gradeRow && $termVal !== '') {
                             $oldVal = $gradeRow[$termType] ?? '(empty)';
                             
-                            // 1. Update the actual grade
-                            $updateGradeStmt->execute([$finalGrade, $gradeRow['id']]);
+                            // 1. Update the actual term grade
+                            $updateGradeStmt->execute([$termVal, $gradeRow['id']]);
                             
-                            // 2. Recalculate Risk & GWA, delete old predictions
+                            // 2. Recalculate Risk, delete old predictions (Grade batches are term percentages only; official GWA is unaffected)
                             $newRisk = recalculateGradeRowRisk($db, $gradeRow['id']);
                             $updateRiskStmt->execute([$newRisk, $gradeRow['id']]);
-                            recalculateStudentGWA($db, $sid);
                             $db->prepare("DELETE FROM predictions WHERE student_id = ?")->execute([$sid]);
                             
                             // 3. Log the change to the System Audit Log
                             $note = 'Batch Approval: ' . $reason;
-                            if ($finalGrade !== $facultyProposed) { $note .= " (Admin modified from proposed $facultyProposed)"; }
-                            $logStmt->execute([$user['id'], $sid, "grade_{$termType}", $oldVal, $finalGrade, $note]);
+                            if ($termVal !== $facultyProposed) { $note .= " (Admin modified from proposed $facultyProposed)"; }
+                            $logStmt->execute([$user['id'], $sid, "grade_{$termType}", $oldVal, $termVal, $note]);
                         }
                     }
                     $db->prepare("UPDATE pending_grade_batches SET status='approved', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
@@ -190,8 +187,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) { $db->rollBack(); $error = 'Batch processing failed: ' . $e->getMessage(); }
         }
         elseif ($action === 'close_support_case') {
-            $caseId = (int)$_POST['case_id'];
-            $db->prepare("UPDATE academic_support_cases SET status = 'closed' WHERE id = ?")->execute([$caseId]);
+            $caseId = (int)($_POST['case_id'] ?? 0);
+            $closureNote = trim($_POST['closure_note'] ?? 'Overall Academic Support Case has been formally closed.');
+            
+            $db->beginTransaction();
+            $stmtOldStatus = $db->prepare("SELECT status FROM academic_support_cases WHERE id = ? FOR UPDATE");
+            $stmtOldStatus->execute([$caseId]);
+            $oldStatus = $stmtOldStatus->fetchColumn();
+
+            if ($oldStatus && $oldStatus !== 'closed') {
+                $db->prepare("
+                    UPDATE academic_support_cases 
+                    SET status = 'closed', closed_by = ?, closed_at = NOW(), closure_note = ? 
+                    WHERE id = ?
+                ")->execute([$user['id'], $closureNote, $caseId]);
+
+                $db->prepare("
+                    UPDATE support_case_referrals 
+                    SET status = 'closed' 
+                    WHERE case_id = ? AND status != 'closed'
+                ")->execute([$caseId]);
+
+                $db->prepare("
+                    INSERT INTO support_status_history (case_id, changed_by, old_status, new_status, note)
+                    VALUES (?, ?, ?, 'closed', ?)
+                ")->execute([$caseId, $user['id'], $oldStatus, $closureNote]);
+            }
+            $db->commit();
             $success = "Overall Academic Support Case has been formally closed.";
         }
     }
