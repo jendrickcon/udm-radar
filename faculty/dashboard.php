@@ -69,10 +69,11 @@ foreach ($my_class_loads as $load) {
 $students = [];
 if (!empty($my_sections)) {
     $inSec = implode(',', array_fill(0, count($my_sections), '?'));
+    $predMetaCols = getPredictionCompletenessSqlSelect($db, 'p');
     $stmt  = $db->prepare("
         SELECT u.id AS user_id, u.first_name, u.middle_name, u.last_name, sp.section, sp.student_number,
                sp.status, sp.current_gwa,
-               p.risk_level, p.latin_honor, p.is_provisional, p.data_completeness
+               p.risk_level, p.latin_honor, $predMetaCols
         FROM users u
         JOIN student_profiles sp ON u.id = sp.user_id
         LEFT JOIN predictions p ON p.id = (
@@ -172,13 +173,13 @@ function getHonorBadge(float $gwa): array {
 
 $pageTitle = 'Dashboard';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Class Analytics',    'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php',     '📈'],
-    ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Class Analytics',    'analytics.php', ''],
+    ['Performance Trends', 'trend.php',     ''],
+    ['Term Grade Submission', 'grades.php', ''],
+    ['Concerns & Reports', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -200,8 +201,10 @@ require_once '../includes/sidebar.php';
 .sort-arrow { font-size:0.78rem; color:var(--text-gray); margin-left:5px; transition:color 0.15s; }
 .row-clickable { cursor:pointer; transition: background 0.15s; }
 .row-clickable:hover { background: var(--bg-color); }
-.warning-banner { background: rgba(217, 119, 6, 0.08); }
-[data-theme="dark"] .warning-banner { background: rgba(245, 158, 11, 0.12); }
+.warning-banner { background: rgba(217, 119, 6, 0.08); border-left: 4px solid var(--risk-mod); }
+[data-theme="dark"] .warning-banner { background: rgba(245, 158, 11, 0.16); border-left: 4px solid #f59e0b; color: #fbbf24; }
+[data-theme="dark"] .warning-banner h3 { color: #fef3c7 !important; }
+[data-theme="dark"] .warning-banner .action-link { color: #fde68a !important; }
 .control-btn { transition: opacity 0.2s ease, transform 0.1s ease; }
 .control-btn:hover { opacity: 0.85; }
 .control-btn:active { transform: scale(0.98); }
@@ -272,7 +275,7 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
 
     <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
-        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div>
             <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
             <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Student risk assessments and projected academic outcomes are decision-support indicators intended to guide early mentoring and support referrals. They do not replace faculty evaluation or official grades.</div>
@@ -293,7 +296,13 @@ require_once '../includes/sidebar.php';
             <h2 style="color: var(--gold);"><?= $irregular_total ?></h2>
         </div>
         <div class="stat-card" style="border-left-color: var(--teal) !important;">
-            <h4>Overall Avg GWA</h4>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h4>Overall Avg Cumulative GWA</h4>
+                <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Calculation Scope">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <span class="tooltip-text" role="tooltip">Completed semesters across enrolled students</span>
+                </span>
+            </div>
             <h2 style="color: var(--teal);"><?= number_format($overall_avg_gwa, 2) ?></h2>
         </div>
     </div>
@@ -335,13 +344,19 @@ require_once '../includes/sidebar.php';
             </div>
             <button onclick="closeRoster()"
                 style="background:var(--bg-color);color:var(--text-dark);border:1px solid var(--border-color);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
-                ✕ Close
+                Close
             </button>
         </div>
 
         <div class="tab-bar">
-            <button class="tab-btn active" id="tab-btn-class"   onclick="switchTab('class')">📚 My Class Performance</button>
-            <button class="tab-btn"        id="tab-btn-overall" onclick="switchTab('overall')">📊 Overall Standing</button>
+            <button class="tab-btn active" id="tab-btn-class" onclick="switchTab('class')" style="display:inline-flex; align-items:center; gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <span>My Class Performance</span>
+            </button>
+            <button class="tab-btn" id="tab-btn-overall" onclick="switchTab('overall')" style="display:inline-flex; align-items:center; gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                <span>Overall Standing</span>
+            </button>
         </div>
 
         <div id="tab-content-class" style="overflow-x:auto;">
@@ -358,7 +373,7 @@ require_once '../includes/sidebar.php';
                         <th style="width:50px;text-align:center; padding:12px;">Rank</th>
                         <th style="text-align:left; padding:12px;">Student Name</th>
                         <!-- FIXED: Removed redundant 'Student No.' column -->
-                        <th style="text-align:center; padding:12px;">Cumulative GWA</th>
+                        <th style="text-align:center; padding:12px;">Cumulative GWA (Historical)</th>
                         <th style="text-align:center; padding:12px;">Distinction Threshold</th>
                         <th style="text-align:center; padding:12px;">Overall Risk</th>
                         <th style="text-align:center; padding:12px;">Status</th>
@@ -383,7 +398,7 @@ require_once '../includes/sidebar.php';
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
                         <th style="width:50px;text-align:center; padding:12px;">Rank</th>
                         <th style="text-align:left; padding:12px;">Student</th>
-                        <th style="text-align:center; padding:12px;">Recorded Cumulative GWA</th>
+                        <th style="text-align:center; padding:12px;">Cumulative GWA (Completed Semesters)</th>
                         <th style="text-align:center; padding:12px;">Distinction Threshold</th>
                         <th style="text-align:center; padding:12px;">Status</th>
                     </tr>
@@ -443,7 +458,7 @@ require_once '../includes/sidebar.php';
 
 <div class="modal-overlay" id="grade-modal-overlay" onclick="if(event.target===this) closeGradeModal();">
     <div class="modal-box" style="max-width: 650px;">
-        <button class="modal-close" onclick="closeGradeModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeGradeModal()">Close</button>
         <h2 id="grade-modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
             Detailed grade breakdown for your assigned subjects.

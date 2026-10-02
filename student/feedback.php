@@ -231,14 +231,29 @@ $stmtSubj = $db->prepare("SELECT s.id, s.code, s.title FROM grades g JOIN subjec
 $stmtSubj->execute([$user['id']]);
 $my_subjects = $stmtSubj->fetchAll(PDO::FETCH_ASSOC);
 
+// Support direct inquiry shortcuts from Dashboard and Grades pages
+$prefillCategory = $_GET['category'] ?? (!empty($_GET['subject_id']) ? 'grade_concern' : 'grade_concern');
+$prefillSubjectId = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : 0;
+$prefillPeriod = $_GET['period'] ?? ($_GET['grade_period'] ?? 'prelim');
+$prefillTitle = '';
+if ($prefillSubjectId > 0) {
+    foreach ($my_subjects as $s) {
+        if ((int)$s['id'] === $prefillSubjectId) {
+            $periodLabel = ucfirst($prefillPeriod);
+            $prefillTitle = "Grade Inquiry: {$s['code']} ({$periodLabel})";
+            break;
+        }
+    }
+}
+
 $pageTitle = 'Feedback & Support';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Support', 'feedback.php', '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Grades & History',   'grades.php',    ''],
+    ['Performance Trend',  'trend.php',     ''],
+    ['Feedback & Support', 'feedback.php', ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -293,9 +308,9 @@ require_once '../includes/sidebar.php';
                     <div style="margin-bottom: 12px;">
                         <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Category</label>
                         <select name="category" id="categorySelect" required onchange="toggleGradeFields()" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
-                            <option value="grade_concern">Grade Dispute / Inquiry</option>
-                            <option value="data_issue">System / Data Issue</option>
-                            <option value="general">General Inquiry</option>
+                            <option value="grade_concern" <?= $prefillCategory === 'grade_concern' ? 'selected' : '' ?>>Grade Dispute / Inquiry</option>
+                            <option value="data_issue" <?= $prefillCategory === 'data_issue' ? 'selected' : '' ?>>System / Data Issue</option>
+                            <option value="general" <?= $prefillCategory === 'general' ? 'selected' : '' ?>>General Inquiry</option>
                         </select>
                     </div>
 
@@ -305,7 +320,7 @@ require_once '../includes/sidebar.php';
                             <select name="subject_id" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;" required>
                                 <option value="">— Select Subject —</option>
                                 <?php foreach($my_subjects as $subj): ?>
-                                    <option value="<?= $subj['id'] ?>"><?= htmlspecialchars($subj['code'] . ' - ' . $subj['title']) ?></option>
+                                    <option value="<?= $subj['id'] ?>" <?= (int)$subj['id'] === $prefillSubjectId ? 'selected' : '' ?>><?= htmlspecialchars($subj['code'] . ' - ' . $subj['title']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -313,17 +328,17 @@ require_once '../includes/sidebar.php';
                             <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Grading Period</label>
                             <select name="grade_period" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;" required>
                                 <option value="">— Period —</option>
-                                <option value="prelim">Prelim</option>
-                                <option value="midterm">Midterm</option>
-                                <option value="prefinal">Pre-Final</option>
-                                <option value="final_grade">Final Grade</option>
+                                <option value="prelim" <?= $prefillPeriod === 'prelim' ? 'selected' : '' ?>>Prelim</option>
+                                <option value="midterm" <?= $prefillPeriod === 'midterm' ? 'selected' : '' ?>>Midterm</option>
+                                <option value="prefinal" <?= $prefillPeriod === 'prefinal' ? 'selected' : '' ?>>Pre-Final</option>
+                                <option value="final_grade" <?= $prefillPeriod === 'final_grade' ? 'selected' : '' ?>>Final Grade</option>
                             </select>
                         </div>
                     </div>
 
                     <div style="margin-bottom: 12px;">
                         <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Title</label>
-                        <input type="text" name="title" required maxlength="150" placeholder="Brief summary of concern" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
+                        <input type="text" name="title" required maxlength="150" value="<?= htmlspecialchars($prefillTitle) ?>" placeholder="Brief summary of concern" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
                     </div>
 
                     <div style="margin-bottom: 16px;">
@@ -369,7 +384,10 @@ require_once '../includes/sidebar.php';
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    <button onclick="toggleThread(<?= $h['id'] ?>)" class="action-btn btn-reply">💬 View Conversation</button>
+                                    <button onclick="toggleThread(<?= $h['id'] ?>)" class="action-btn btn-reply" style="display:inline-flex; align-items:center; gap:6px;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                        <span>View Conversation</span>
+                                    </button>
                                 </div>
                                 
                                 <div id="thread_<?= $h['id'] ?>" class="msg-thread">

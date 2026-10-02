@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $db->prepare("UPDATE feedback_reports SET status = 'resolved', resolved_by = ?, resolved_at = NOW() WHERE id = ?")->execute([$user['id'], $corr['feedback_id']]);
                         $db->prepare("INSERT INTO feedback_status_history (feedback_id, changed_by, old_status, new_status, note) VALUES (?, ?, ?, 'resolved', 'Admin confirmed grade correction.')")->execute([$corr['feedback_id'], $user['id'], $oldStatus]);
                     }
-                    $success = 'Correction confirmed.';
+                    $success = 'Correction confirmed in departmental monitoring records. (Does not alter official registrar records.)';
                 }
                 $db->commit();
             } catch (Exception $e) { $db->rollBack(); $error = 'Action failed: ' . $e->getMessage(); }
@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     $db->prepare("UPDATE pending_grade_batches SET status='approved', resolved_by=?, resolved_at=NOW() WHERE id=?")->execute([$user['id'], $batchId]);
-                    $success = 'Batch successfully approved and logged in System Audit.';
+                    $success = 'Batch successfully approved and logged in System Audit. (Note: Updates apply to UDM-RADAR departmental monitoring records and do not alter official university registrar records.)';
                 }
                 $db->commit();
             } catch (Exception $e) { $db->rollBack(); $error = 'Batch processing failed: ' . $e->getMessage(); }
@@ -289,8 +289,8 @@ $countSupportReviews = count(array_filter($supportCases, fn($c) => $c['status'] 
 
 $pageTitle = 'Activity & Inbox';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'], ['Students',           'students.php',  '👥'], ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'], ['Program Analytics',  'analytics.php', '📊'], ['Activity & Inbox',   'activity.php',  '💬'], ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''], ['Students',           'students.php',  ''], ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''], ['Program Analytics',  'analytics.php', ''], ['Activity & Inbox',   'activity.php',  ''], ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php'; require_once '../includes/sidebar.php';
@@ -375,7 +375,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
     <div id="tab-inbox" class="tab-content active">
         <div class="card" style="padding: 0; overflow: hidden;">
             <div style="display:flex; align-items:center; justify-content:space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);"><div><h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin:0 0 4px 0;">Open Feedback Reports</h3></div></div>
-            <?php if (empty($feedback)): ?><p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">✓ All caught up! No open reports.</p><?php else: ?>
+            <?php if (empty($feedback)): ?><p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px; display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--risk-low);"><polyline points="20 6 9 17 4 12"></polyline></svg> All caught up! No open reports.</p><?php else: ?>
                 <div style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                         <thead>
@@ -459,7 +459,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                                     <?php if ($p['target_type'] === 'grade'): ?><span style="color: var(--text-dark);"><?= htmlspecialchars($p['subj_code'] . ' • ' . $p['subj_title']) ?></span> (<?= ucfirst(str_replace('_', ' ', $p['field_changed'])) ?>)
                                     <?php else: ?><span style="color: var(--text-dark);">Enrollment Information</span> (<?= ucfirst(str_replace('_', ' ', $p['field_changed'])) ?>)<?php endif; ?>
                                 </div>
-                                <div style="font-size: 0.95rem; display: flex; align-items: center; gap: 12px;"><span class="diff-old"><?= htmlspecialchars($p['old_value'] ?: 'Not assigned') ?></span><span style="color: var(--text-gray); font-size: 1.2rem;">➔</span><span class="diff-new"><?= htmlspecialchars($p['new_value']) ?></span></div>
+                                <div style="font-size: 0.95rem; display: flex; align-items: center; gap: 12px;"><span class="diff-old"><?= htmlspecialchars($p['old_value'] ?: 'Not assigned') ?></span><span style="color: var(--text-gray); font-size: 1.2rem;">&rarr;</span><span class="diff-new"><?= htmlspecialchars($p['new_value']) ?></span></div>
                             </div>
                             <div class="approval-card-footer">
                                 <div style="font-size: 0.85rem; color: var(--text-gray); flex: 1; min-width: 200px;">
@@ -615,7 +615,8 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                                                 <?php if (!empty($messages_by_ticket[$hf['id']])): ?>
                                                     <div style="margin-top: 12px;">
                                                         <button onclick='openThreadModal(<?= json_encode($messages_by_ticket[$hf['id']], JSON_HEX_APOS | JSON_HEX_QUOT) ?>, <?= $hf['id'] ?>)' class="btn-primary-outline" style="font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;">
-                                                            💬 View conversation (<?= count($messages_by_ticket[$hf['id']]) ?> replies)
+                                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                                            <span>View conversation (<?= count($messages_by_ticket[$hf['id']]) ?> replies)</span>
                                                         </button>
                                                     </div>
                                                 <?php endif; ?>
@@ -667,7 +668,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                 <h3 style="margin-top: 0; color: var(--text-dark); margin-bottom: 4px;">Subject-Level Referrals</h3>
                 <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Monitor faculty interventions for this program-level case.</p>
             </div>
-            <button type="button" onclick="document.getElementById('referralsModal').style.display='none'" class="btn-secondary">✕ Close</button>
+            <button type="button" onclick="document.getElementById('referralsModal').style.display='none'" class="btn-secondary">Close</button>
         </div>
         
         <div id="referralsList" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;"></div>
@@ -677,7 +678,10 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                 <input type="hidden" name="action" value="close_support_case">
                 <input type="hidden" name="case_id" id="closeModalCaseId">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                <button type="submit" class="btn-success">✔️ Close Program Case</button>
+                <button type="submit" class="btn-success" style="display:inline-flex; align-items:center; gap:6px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span>Close Program Case</span>
+                </button>
             </form>
         </div>
     </div>
@@ -706,7 +710,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                 <h3 style="margin-top: 0; color: var(--text-dark); margin-bottom: 4px;">Conversation Thread</h3>
                 <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Ticket #<span id="threadModalTicketId"></span></p>
             </div>
-            <button type="button" onclick="document.getElementById('historyThreadModal').style.display='none'" class="btn-secondary">✕ Close</button>
+            <button type="button" onclick="document.getElementById('historyThreadModal').style.display='none'" class="btn-secondary">Close</button>
         </div>
         <div id="historyThreadList" style="max-height: 400px; overflow-y: auto; background: var(--bg-color); border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;"></div>
     </div>
@@ -719,7 +723,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
 ?>
 <div class="modal-overlay" id="batch-modal-<?= $b['id'] ?>" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="modal-box" style="max-width: 900px;">
-        <button type="button" class="modal-close" onclick="document.getElementById('batch-modal-<?= $b['id'] ?>').classList.remove('open')">✕ Close</button>
+        <button type="button" class="modal-close" onclick="document.getElementById('batch-modal-<?= $b['id'] ?>').classList.remove('open')">Close</button>
         <h2 style="color:var(--text-dark); margin-top:0; margin-bottom:4px;">Review Grade Batch</h2>
         
         <div style="background: var(--bg-color); padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">

@@ -109,13 +109,13 @@ $unique_students = $stmtUnique->fetchColumn() ?: 0;
 
 $pageTitle = 'Class Analytics';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Class Analytics',    'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php',     '📈'],
-    ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Class Analytics',    'analytics.php', ''],
+    ['Performance Trends', 'trend.php',     ''],
+    ['Term Grade Submission', 'grades.php', ''],
+    ['Concerns & Reports', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -149,7 +149,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
-        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div>
             <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
             <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Projections and risk tiers are decision-support indicators to assist in timely academic mentoring and referrals. They do not replace faculty evaluation or official registrar records.</div>
@@ -214,7 +214,10 @@ require_once '../includes/sidebar.php';
                 <div class="accordion-inner">
                     <div style="border-top: 1px solid var(--border-color); margin-top: 20px; padding-top: 12px;">
                         <?php if (empty($risk_students)): ?>
-                            <p style="color: var(--risk-low); font-size: 0.9rem; margin: 0; padding: 8px 0; font-weight: 600;">✓ No students currently flagged as At-Risk for this class load.</p>
+                            <p style="color: var(--risk-low); font-size: 0.9rem; margin: 0; padding: 8px 0; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span>No students currently flagged as At-Risk for this class load.</span>
+                            </p>
                         <?php else: ?>
                             <div class="risk-student-grid" style="padding: 12px 14px 8px 14px; color: var(--text-gray); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border-color);">
                                 <span>Student</span>

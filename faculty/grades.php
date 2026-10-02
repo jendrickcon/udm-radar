@@ -169,10 +169,10 @@ $myClasses = $stmtClasses->fetchAll();
 
 if (!in_array($selectedTerm, ['prelim', 'midterm', 'prefinal'])) $selectedTerm = 'prelim';
 
-$pageTitle = 'Encode Grades';
+$pageTitle = 'Term Grade Submission';
 $navItems = [
-    ['Home', 'index.php', '🏠'], ['Dashboard', 'dashboard.php', '📊'], ['Class Analytics', 'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php', '📈'], ['Encode Grades', 'grades.php', '📝'], ['Concerns & Reports', 'feedback.php', '💬'], ['Settings', 'settings.php', '⚙️'],
+    ['Home', 'index.php', ''], ['Dashboard', 'dashboard.php', ''], ['Class Analytics', 'analytics.php', ''],
+    ['Performance Trends', 'trend.php', ''], ['Term Grade Submission', 'grades.php', ''], ['Concerns & Reports', 'feedback.php', ''], ['Settings', 'settings.php', ''],
 ];
 
 require_once '../includes/header.php'; require_once '../includes/sidebar.php';
@@ -191,7 +191,13 @@ html { overflow-y: scroll; }
 
 <div class="main-content">
     <div class="header" style="margin-bottom: 24px;">
-        <div><h1>Encode Grades</h1><p>Select your assigned class and term to securely submit grade encodings and corrections to Administration.</p></div>
+        <div>
+            <h1>Term Grade Submission</h1>
+            <p style="color: var(--text-gray); font-size: 0.95rem;">
+                Submit Preliminary, Midterm, or Pre-Final percentages for departmental academic monitoring.
+                <strong style="color: var(--text-dark);">Note:</strong> Submissions update UDM-RADAR departmental monitoring records and do not alter official university registrar records.
+            </p>
+        </div>
     </div>
         
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
@@ -246,14 +252,14 @@ html { overflow-y: scroll; }
                 <div style="flex: 1; min-width: 250px;">
                     <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Submission Purpose</label>
                     <select name="submission_type" id="submission_type" onchange="updateNoteUI()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                        <option value="initial_encoding">Initial Grade Encoding</option>
+                        <option value="initial_encoding">Initial Term Submission</option>
                         <option value="bulk_correction">Bulk Grade Correction</option>
                         <option value="grade_concern">Student Grade Concern</option>
                     </select>
                 </div>
                 <div style="flex: 2; min-width: 300px;">
                     <label id="note_label" style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Submission Note (Optional)</label>
-                    <input type="text" name="batch_note" id="batch_note" placeholder="e.g., Routine initial prelim grade encoding" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <input type="text" name="batch_note" id="batch_note" placeholder="e.g., Routine initial prelim grade submission" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                 </div>
             </div>
 
@@ -328,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadRoster(userInitiated = false) {
-        if (!classSelect.value) { showMessage(`<div class="card animate-fade-up" style="text-align: center; padding: 40px;"><h3 style="color: var(--text-gray);">Please select a class to encode grades.</h3></div>`); return; }
+        if (!classSelect.value) { showMessage(`<div class="card animate-fade-up" style="text-align: center; padding: 40px;"><h3 style="color: var(--text-gray);">Please select a class to submit term grades.</h3></div>`); return; }
         if (rosterCard.style.display !== 'none') { tbody.style.opacity = '0.4'; tbody.style.pointerEvents = 'none'; } else { showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--text-gray);"><span style="font-weight:600;">Loading student roster...</span></div>`); }
 
         fetch(`grades.php?action=fetch_roster&class=${encodeURIComponent(classSelect.value)}&term=${encodeURIComponent(termSelect.value)}`)

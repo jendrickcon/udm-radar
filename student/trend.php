@@ -105,9 +105,10 @@ if ($current_midterm_gwa !== null) {
     $semDataTypes[] = 'current';
 }
 
+$metaCols = getPredictionCompletenessSqlSelect($db);
 $stmtPred = $db->prepare("
     SELECT predicted_gwa, risk_level, prediction_source, generated_at,
-           data_completeness, is_provisional, provisional_basis 
+           $metaCols 
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC, id DESC 
@@ -117,7 +118,7 @@ $stmtPred->execute([$user['id']]);
 $prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 
 if ($prediction && !empty($prediction['predicted_gwa'])) {
-    $predLabel = !empty($prediction['is_provisional']) ? 'Provisional Estimate' : 'Predicted End-of-Term';
+    $predLabel = !empty($prediction['is_provisional']) ? 'Provisional Projection' : 'Projected Semester GWA';
     $semData[] = ['semester' => $predLabel, 'gwa' => (float)$prediction['predicted_gwa']];
     $semDataTypes[] = 'prediction';
 }
@@ -149,12 +150,12 @@ if ($latest_hist !== null && $latest_curr !== null) {
 
 $pageTitle = 'Performance Trend';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Support', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Grades & History',   'grades.php',    ''],
+    ['Performance Trend',  'trend.php',     ''],
+    ['Feedback & Support', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -181,7 +182,7 @@ require_once '../includes/sidebar.php';
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= $curr_coverage_text ?></p>
         </div>
         <div class="stat-card" style="border-left-color: var(--risk-mod);">
-            <h4>Predicted End-of-Term</h4>
+            <h4>Projected Semester GWA</h4>
             <h2 style="color: var(--risk-mod);"><?= $pred_gwa !== null ? number_format($pred_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                 <?= $prediction ? 'Generated on ' . date('M j, Y', strtotime($prediction['generated_at'])) : 'No Prediction Available' ?>
@@ -200,7 +201,7 @@ require_once '../includes/sidebar.php';
             <div style="display: flex; gap: 20px; margin-bottom: 16px; font-size: 0.8rem; font-weight: 600; color: var(--text-gray); flex-wrap: wrap;">
                 <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-blue);"></div> Completed Semester GWA</span>
                 <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: #0d9488;"></div> Current Term Snapshot</span>
-                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--risk-mod);"></div> Predicted End-of-Term</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--risk-mod);"></div> Projected Semester GWA</span>
             </div>
             
             <div style="position: relative; height: 350px; width: 100%;">

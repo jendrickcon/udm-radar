@@ -73,13 +73,13 @@ foreach ($myLoads as $load) {
 
 $pageTitle = 'Home';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Class Analytics',    'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php',     '📈'],
-    ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Class Analytics',    'analytics.php', ''],
+    ['Performance Trends', 'trend.php',     ''],
+    ['Term Grade Submission', 'grades.php', ''],
+    ['Concerns & Reports', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -100,12 +100,14 @@ require_once '../includes/sidebar.php';
             <h4 style="margin: 0 0 4px 0; color: var(--risk-mod); font-size: 1rem;">Work Requiring Attention</h4>
             <p style="margin: 0; color: var(--text-dark); font-size: 0.9rem;"><strong><?= $attentionClasses ?> assigned class<?= $attentionClasses > 1 ? 'es have' : ' has' ?></strong> incomplete Preliminary grade records.</p>
         </div>
-        <a href="grades.php" class="btn-primary" style="text-decoration: none; padding: 8px 16px; background: var(--risk-mod); font-size: 0.85rem;">Encode Grades</a>
+        <a href="grades.php" class="btn-primary" style="text-decoration: none; padding: 8px 16px; background: var(--risk-mod); font-size: 0.85rem;">Submit Term Grades</a>
     </div>
     <?php endif; ?>
 
     <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
-        <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:2rem; flex-shrink:0;">👨‍🏫</div>
+        <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
         <div style="flex:1; display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
             <span style="font-weight:700;">Name</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
             <span style="font-weight:700;">Faculty ID</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($p['user_id'] ?? '—') ?></span>
@@ -134,10 +136,22 @@ require_once '../includes/sidebar.php';
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; align-items: start;">        <div class="card">
             <div class="table-title" style="margin-bottom: 16px;">Quick Actions</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <a href="dashboard.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">📊 Dashboard</a>
-                <a href="grades.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">📝 Encode Grades</a>
-                <a href="analytics.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">📋 Class Analytics</a>
-                <a href="trend.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">📈 Performance Trends</a>
+                <a href="dashboard.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="grades.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <span>Submit Term Grades</span>
+                </a>
+                <a href="analytics.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    <span>Class Analytics</span>
+                </a>
+                <a href="trend.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    <span>Performance Trends</span>
+                </a>
             </div>
         </div>
 

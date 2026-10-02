@@ -222,13 +222,13 @@ $pending = $db->query("
 
 $pageTitle = 'Grades';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'],
-    ['Students',           'students.php',  '👥'],
-    ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Program Analytics',  'analytics.php', '📊'],
-    ['Activity & Inbox',   'activity.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''],
+    ['Students',           'students.php',  ''],
+    ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''],
+    ['Program Analytics',  'analytics.php', ''],
+    ['Activity & Inbox',   'activity.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -331,7 +331,7 @@ require_once '../includes/sidebar.php';
     <div class="card roster-panel" id="roster-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
             <h3 id="roster-title" style="color:var(--text-dark);"></h3>
-            <button onclick="closeRoster()" style="background:var(--bg-color); color:var(--text-dark); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">✕ Close</button>
+            <button onclick="closeRoster()" style="background:var(--bg-color); color:var(--text-dark); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">Close</button>
         </div>
         <table>
             <thead><tr><th>Student No.</th><th>Name</th><th>Status</th><th>GWA</th><th>Risk</th></tr></thead>
@@ -342,7 +342,7 @@ require_once '../includes/sidebar.php';
 
 <div class="modal-overlay" id="history-modal-overlay" onclick="if(event.target===this) closeHistoryModal();">
     <div class="modal-box">
-        <button class="modal-close" onclick="closeHistoryModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeHistoryModal()">Close</button>
         <h2 id="history-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">
             Current semester only. Grades are not directly editable here — submitting proposes a correction that only takes effect once confirmed as officially reflected.

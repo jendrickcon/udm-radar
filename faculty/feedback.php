@@ -258,13 +258,13 @@ $my_subjects = $stmtSubj->fetchAll(PDO::FETCH_ASSOC);
 
 $pageTitle = 'Concerns & Reports';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Class Analytics',    'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php',     '📈'],
-    ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'], 
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Class Analytics',    'analytics.php', ''],
+    ['Performance Trends', 'trend.php',     ''],
+    ['Term Grade Submission', 'grades.php', ''],
+    ['Concerns & Reports', 'feedback.php',  ''], 
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -409,13 +409,17 @@ require_once '../includes/sidebar.php';
                                 <?php endif; ?>
                             </div>
                             <div style="display:flex; gap: 8px; align-items: center;">
-                                <button onclick="toggleThread(<?= $msg['id'] ?>)" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3);">💬 View Thread</button>
+                                <button onclick="toggleThread(<?= $msg['id'] ?>)" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); display: inline-flex; align-items: center; gap: 6px;">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span>View Thread</span>
+                                </button>
                                 
                                 <?php if (!$isClosed): ?>
                                     <!-- Primary Actions First -->
                                     <?php if ($canViewRoster): ?>
-                                        <a href="grades.php?feedback_id=<?= (int)$msg['id'] ?>" class="btn-primary">
-                                            📋 <?= $isGradeConcern ? 'Review Grade in Roster' : 'View Roster' ?>
+                                        <a href="grades.php?feedback_id=<?= (int)$msg['id'] ?>" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                            <span><?= $isGradeConcern ? 'Review Grade in Roster' : 'View Roster' ?></span>
                                         </a>
                                     <?php endif; ?>
 
@@ -425,7 +429,10 @@ require_once '../includes/sidebar.php';
                                             <input type="hidden" name="action" value="resolve_ticket">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="ticket_id" value="<?= (int)$msg['id'] ?>">
-                                            <button type="submit" class="btn-success">✔️ Mark Resolved</button>
+                                            <button type="submit" class="btn-success" style="display: inline-flex; align-items: center; gap: 6px;">
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                <span>Mark Resolved</span>
+                                            </button>
                                         </form>
                                     <?php endif; ?>
                                 <?php endif; ?>
@@ -556,7 +563,10 @@ require_once '../includes/sidebar.php';
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Contact Administration</h3>
-                    <a href="grades.php" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3);">📋 Propose Grade Correction</a>
+                    <a href="grades.php" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); display: inline-flex; align-items: center; gap: 6px;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        <span>Propose Grade Correction</span>
+                    </a>
                 </div>
                 <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 16px;">Use the form below for general or system issues. Rate limit: 1 report every 5 minutes.</p>
                 
@@ -635,7 +645,12 @@ require_once '../includes/sidebar.php';
                                     </div>
                                 </div>
                                 <div class="status-card-footer">
-                                    <div><button onclick="toggleThread(<?= $h['id'] ?>)" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3);">💬 View Thread</button></div>
+                                    <div>
+                                        <button onclick="toggleThread(<?= $h['id'] ?>)" class="btn-primary" style="background: transparent; color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); display: inline-flex; align-items: center; gap: 6px;">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                            <span>View Thread</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <div id="thread_<?= $h['id'] ?>" class="msg-thread">

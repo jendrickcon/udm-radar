@@ -688,13 +688,13 @@ function getSupportBadgeHtml($status) {
 
 $pageTitle = 'Students';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'],
-    ['Students',           'students.php',  '👥'],
-    ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Program Analytics',  'analytics.php', '📊'],
-    ['Activity & Inbox',   'activity.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''],
+    ['Students',           'students.php',  ''],
+    ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''],
+    ['Program Analytics',  'analytics.php', ''],
+    ['Activity & Inbox',   'activity.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -825,7 +825,7 @@ require_once '../includes/sidebar.php';
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">GWA</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Cumulative GWA (Historical)</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Latest Risk</th>
                         <th style="padding: 12px; text-align: left; color: var(--text-dark);">Support Case</th>
                         <th></th>
@@ -869,7 +869,10 @@ require_once '../includes/sidebar.php';
 <?php if ($resolutionPayload): ?>
 <div class="modal-overlay open">
     <div class="modal-box" style="max-width: 500px;">
-        <h2 style="color:var(--text-dark); margin-bottom:4px;">⚠️ Incomplete File Detected</h2>
+        <h2 style="color:var(--text-dark); margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--risk-mod);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>Incomplete File Detected</span>
+        </h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">We found grades for <strong><?= htmlspecialchars($resolutionPayload['rawName']) ?></strong>, but the Student ID is missing from the file.</p>
 
         <form method="POST" action="students.php">
@@ -919,7 +922,7 @@ require_once '../includes/sidebar.php';
 <?php if ($previewPayload): ?>
 <div class="modal-overlay open" id="import-preview-modal">
     <div class="modal-box" style="max-width: 850px;">
-        <button class="modal-close" onclick="document.getElementById('import-preview-modal').classList.remove('open');">✕ Cancel</button>
+        <button class="modal-close" onclick="document.getElementById('import-preview-modal').classList.remove('open');">Cancel</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Review Import Data</h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">Verify the extracted Curriculum Checklist data below.</p>
 
@@ -993,13 +996,13 @@ require_once '../includes/sidebar.php';
 <!-- STUDENT PROFILE MODAL -->
 <div class="modal-overlay" id="student-modal-overlay" onclick="if(event.target===this) closeStudentModal();">
     <div class="modal-box" style="max-width: 850px;">
-        <button class="modal-close" onclick="closeStudentModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeStudentModal()">Close</button>
         <h2 id="modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p id="modal-subline" style="color:var(--text-gray); font-size:0.88rem; margin-bottom:12px;"></p>
 
         <div class="modal-stat-grid">
-            <div class="modal-stat"><span>Current GWA</span><strong id="modal-gwa">—</strong></div>
-            <div class="modal-stat"><span>Predicted GWA</span><strong id="modal-predicted">—</strong></div>
+            <div class="modal-stat"><span>Cumulative GWA (Historical)</span><strong id="modal-gwa">—</strong></div>
+            <div class="modal-stat"><span>Projected Term GWA</span><strong id="modal-predicted">—</strong></div>
             <div class="modal-stat"><span>Risk Level</span><strong id="modal-risk">—</strong></div>
         </div>
 
@@ -1021,8 +1024,9 @@ require_once '../includes/sidebar.php';
         </div>
 
         <div style="margin-top:18px; border-top:1px solid var(--border-color); padding-top:14px;">
-            <button type="button" id="modal-history-toggle" onclick="toggleHistory()" style="background:var(--bg-color); border:1px solid var(--border-color); color:var(--accent-blue); padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s ease;">
-                <span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px;">▶</span> View Grade History
+            <button type="button" id="modal-history-toggle" onclick="toggleHistory()" style="background:var(--bg-color); border:1px solid var(--border-color); color:var(--accent-blue); padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" id="history-toggle-icon" style="transition:transform 0.3s ease;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>View Grade History</span>
             </button>
             <div id="modal-history-wrapper" class="history-wrapper" style="max-height: 0px; overflow: hidden; transition: max-height 0.4s ease;">
                 <div id="modal-history-container" style="padding-top: 10px;"></div>
@@ -1034,7 +1038,7 @@ require_once '../includes/sidebar.php';
 <!-- EDIT STUDENT MODAL -->
 <div class="modal-overlay" id="edit-modal-overlay" onclick="if(event.target===this) closeEditModal();">
     <div class="modal-box" style="max-width: 500px;">
-        <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeEditModal()">Close</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Edit Student</h2>
         <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">Name and status save immediately. Grades are not editable here.</p>
 

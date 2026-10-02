@@ -267,13 +267,13 @@ $nextFacultyId = getNextFacultyId($db);
 
 $pageTitle = 'Faculty';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'],
-    ['Students',           'students.php',  '👥'],
-    ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Program Analytics',  'analytics.php', '📊'],
-    ['Activity & Inbox',   'activity.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''],
+    ['Students',           'students.php',  ''],
+    ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''],
+    ['Program Analytics',  'analytics.php', ''],
+    ['Activity & Inbox',   'activity.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -402,7 +402,7 @@ require_once '../includes/sidebar.php';
 
 <div class="modal-overlay" id="faculty-modal-overlay" onclick="if(event.target===this) closeFacultyModal();">
     <div class="modal-box">
-        <button class="modal-close" onclick="closeFacultyModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeFacultyModal()">Close</button>
         <h2 id="modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p id="modal-subline" style="color:var(--text-gray); font-size:0.88rem; margin-bottom:12px;"></p>
 
@@ -423,7 +423,7 @@ require_once '../includes/sidebar.php';
 
 <div class="modal-overlay" id="edit-modal-overlay" onclick="if(event.target===this) closeEditModal();">
     <div class="modal-box" style="max-width:680px;">
-        <button class="modal-close" onclick="closeEditModal()">✕ Close</button>
+        <button class="modal-close" onclick="closeEditModal()">Close</button>
         <h2 style="color:var(--text-dark); margin-bottom:4px;">Edit Faculty</h2>
         <p style="color:var(--text-gray); font-size:0.78rem; margin-bottom:16px;">Changes here are logged for audit.</p>
 

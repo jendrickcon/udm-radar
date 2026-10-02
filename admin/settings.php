@@ -35,13 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['current_password'])) 
 
 $pageTitle = 'Settings';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'],
-    ['Students',           'students.php',  '👥'],
-    ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Program Analytics',  'analytics.php', '📊'],
-    ['Activity & Inbox',   'activity.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''],
+    ['Students',           'students.php',  ''],
+    ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''],
+    ['Program Analytics',  'analytics.php', ''],
+    ['Activity & Inbox',   'activity.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 // Load Active Model Metrics

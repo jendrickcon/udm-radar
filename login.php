@@ -279,6 +279,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 0 0 3px rgba(30, 77, 183, 0.15);
         }
 
+        :focus-visible {
+            outline: 2px solid var(--accent-blue) !important;
+            outline-offset: 2px !important;
+        }
+
         .btn-login {
             width: 100%;
             padding: 14px;

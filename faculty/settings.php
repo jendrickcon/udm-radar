@@ -34,13 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = 'Settings';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Class Analytics',    'analytics.php', '📋'],
-    ['Performance Trends', 'trend.php',     '📈'],
-    ['Encode Grades',      'grades.php',    '📝'],
-    ['Concerns & Reports', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Class Analytics',    'analytics.php', ''],
+    ['Performance Trends', 'trend.php',     ''],
+    ['Term Grade Submission', 'grades.php', ''],
+    ['Concerns & Reports', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
