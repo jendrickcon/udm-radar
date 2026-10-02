@@ -68,12 +68,12 @@ $riskBadgeClass = fn(string $risk) => match (strtoupper($risk)) {
 
 $pageTitle = 'Grades & History';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Support', 'feedback.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Grades & History',   'grades.php',    ''],
+    ['Performance Trend',  'trend.php',     ''],
+    ['Feedback & Support', 'feedback.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -127,6 +127,7 @@ require_once '../includes/sidebar.php';
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Pre-Final</th>
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Final Grade</th>
                         <th class="compact-cell" style="padding: 12px; text-align: left; color: var(--text-dark);">Current Subject Risk</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -207,6 +208,18 @@ require_once '../includes/sidebar.php';
                                 <?= htmlspecialchars(ucfirst(strtolower($liveRisk))) ?>
                                 <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($subjTooltip) ?></span>
                             </span>
+                        </td>
+                        <td class="compact-cell" style="padding: 12px; text-align: center;">
+                            <?php if (!empty($g['subject_id'])): ?>
+                                <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$g['subject_id'] ?>&period=prelim" 
+                                   style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
+                                   title="Inquire about this grade in Feedback & Support">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span>Inquire</span>
+                                </a>
+                            <?php else: ?>
+                                <span style="color: var(--text-gray);">—</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>

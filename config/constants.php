@@ -729,6 +729,60 @@ function predictionExplanationMetadata(array $prediction, string $audience = 'st
     return getPredictionExplanationMetadata($prediction, $audience);
 }
 
+/**
+ * Checks whether the active database's predictions table has migration 008 completeness columns.
+ * Caches the boolean result per database connection.
+ */
+function hasPredictionCompletenessColumns(PDO $pdo): bool {
+    static $hasColumns = [];
+    try {
+        $dbName = (string) $pdo->query("SELECT DATABASE()")->fetchColumn();
+    } catch (Throwable) {
+        $dbName = 'default';
+    }
+    if (!isset($hasColumns[$dbName])) {
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM predictions LIKE 'data_completeness'");
+            $hasColumns[$dbName] = ($stmt && $stmt->fetchColumn() !== false);
+        } catch (Throwable) {
+            $hasColumns[$dbName] = false;
+        }
+    }
+    return $hasColumns[$dbName];
+}
+
+/**
+ * Returns SQL fragment selecting prediction completeness columns if present in schema,
+ * or aliasing canonical fallback legacy values for unmigrated databases.
+ *
+ * @param PDO    $pdo
+ * @param string $tableAlias Table alias prefix, e.g. '' or 'p.'
+ * @return string SQL select fragment
+ */
+function getPredictionCompletenessSqlSelect(PDO $pdo, string $tableAlias = ''): string {
+    $p = $tableAlias !== '' ? rtrim($tableAlias, '.') . '.' : '';
+    if (hasPredictionCompletenessColumns($pdo)) {
+        return "{$p}data_completeness, {$p}is_provisional, {$p}provisional_basis";
+    }
+    return "'legacy_unknown' AS data_completeness, 0 AS is_provisional, NULL AS provisional_basis";
+}
+
+/**
+ * Returns SQL fragment selecting full prediction completeness columns including subject counts
+ * if present in schema, or aliasing canonical fallback legacy values for unmigrated databases.
+ *
+ * @param PDO    $pdo
+ * @param string $tableAlias Table alias prefix, e.g. '' or 'p.'
+ * @return string SQL select fragment
+ */
+function getPredictionFullCompletenessSqlSelect(PDO $pdo, string $tableAlias = ''): string {
+    $p = $tableAlias !== '' ? rtrim($tableAlias, '.') . '.' : '';
+    if (hasPredictionCompletenessColumns($pdo)) {
+        return "{$p}data_completeness, {$p}is_provisional, {$p}provisional_basis, {$p}input_subject_count, {$p}expected_subject_count";
+    }
+    return "'legacy_unknown' AS data_completeness, 0 AS is_provisional, NULL AS provisional_basis, NULL AS input_subject_count, NULL AS expected_subject_count";
+}
+
 // Canonical name formatters — every faculty page that displays a split name
 // goes through these, so "Lastname, Firstname" and "F. Lastname" look
 // identical everywhere instead of each page rolling its own substr/explode.

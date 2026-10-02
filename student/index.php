@@ -84,9 +84,10 @@ foreach ($currentGrades as $g) {
 }
 
 // 3. Fetch Recent Activity (Latest Predictions)
+$metaCols = getPredictionCompletenessSqlSelect($db);
 $stmtPred = $db->prepare("
     SELECT predicted_gwa, risk_level, prediction_source, generated_at,
-           data_completeness, is_provisional, provisional_basis 
+           $metaCols 
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC LIMIT 3
@@ -96,12 +97,12 @@ $recentActivities = $stmtPred->fetchAll(PDO::FETCH_ASSOC);
 
 $pageTitle = 'Home';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Support', 'feedback.php', '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Grades & History',   'grades.php',    ''],
+    ['Performance Trend',  'trend.php',     ''],
+    ['Feedback & Support', 'feedback.php', ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -127,7 +128,9 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
 
     <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
-        <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:2rem; flex-shrink:0;">🎓</div>
+        <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+        </div>
         <div style="flex:1; display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
             <span style="font-weight:700;">Name</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
             <span style="font-weight:700;">Student No.</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($p['student_number'] ?? '—') ?></span>
@@ -157,14 +160,17 @@ require_once '../includes/sidebar.php';
         <div class="card">
             <div class="table-title" style="margin-bottom: 16px;">Quick Actions</div>
             <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
-                <a href="dashboard.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
-                    📊 View Analytics Dashboard
+                <a href="dashboard.php" style="display: flex; align-items: center; gap: 10px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                    <span>View Analytics Dashboard</span>
                 </a>
-                <a href="grades.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
-                    📝 View Grades and History
+                <a href="grades.php" style="display: flex; align-items: center; gap: 10px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <span>View Grades and History</span>
                 </a>
-                <a href="trend.php" style="display: block; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
-                    📈 Open Performance Trend
+                <a href="trend.php" style="display: flex; align-items: center; gap: 10px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; transition: border-color 0.2s;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    <span>Open Performance Trend</span>
                 </a>
             </div>
         </div>

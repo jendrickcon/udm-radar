@@ -94,13 +94,13 @@ $riskBadgeClass = fn(?string $risk) => match ($risk !== null ? strtoupper($risk)
 
 $pageTitle = 'Admin Dashboard';
 $navItems = [
-    ['Dashboard',          'index.php',     '🏠'],
-    ['Students',           'students.php',  '👥'],
-    ['Faculty',            'faculty.php',   '👨‍🏫'],
-    ['Grades',             'grades.php',    '📝'],
-    ['Program Analytics',  'analytics.php', '📊'],
-    ['Activity & Inbox',   'activity.php',  '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Dashboard',          'index.php',     ''],
+    ['Students',           'students.php',  ''],
+    ['Faculty',            'faculty.php',   ''],
+    ['Grades',             'grades.php',    ''],
+    ['Program Analytics',  'analytics.php', ''],
+    ['Activity & Inbox',   'activity.php',  ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -216,8 +216,9 @@ require_once '../includes/sidebar.php';
             </p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2);">
-                ▶ Run Predictions
+            <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2); display: inline-flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>Run Predictions</span>
             </button>
         </div>
     </div>
@@ -248,7 +249,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- STAT GRID WITH DRILL-DOWN CAPABILITIES -->
-    <div class="stat-grid">
+    <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
         <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" title="Click to view all students">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total ?></h2>
@@ -272,15 +273,26 @@ require_once '../includes/sidebar.php';
         </div>
         
         <div class="stat-card" style="border-left-color: var(--teal) !important;">
-            <h4>Overall Avg GWA</h4>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h4>Avg Cumulative GWA</h4>
+                <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Calculation Scope">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <span class="tooltip-text" role="tooltip">Historical across active cohort</span>
+                </span>
+            </div>
             <h2 style="color: var(--text-dark);"><?= $avgGwa !== null ? number_format($avgGwa, 2) : '—' ?></h2>
         </div>
         
         <?php if ($noPredict > 0): ?>
         <div class="stat-card kpi-drilldown" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" title="Click to filter table to students missing predictions">
-            <h4>No Prediction Yet</h4>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h4>No Prediction Yet</h4>
+                <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Exclusion Note">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <span class="tooltip-text" role="tooltip">Excluded from At-Risk count</span>
+                </span>
+            </div>
             <h2 style="color:var(--text-gray);"><?= $noPredict ?></h2>
-            <div style="font-size:0.8rem; color:var(--text-gray); margin-top:4px;">Excluded from At-Risk count</div>
         </div>
         <?php endif; ?>
     </div>
@@ -338,8 +350,8 @@ require_once '../includes/sidebar.php';
                         <th class="sortable-col" data-type="string" onclick="sortTable(1)">Name <span class="sort-arrow" id="sort-arrow-1">⇅</span></th>
                         <th class="sortable-col" data-type="string" onclick="sortTable(2)">Section <span class="sort-arrow" id="sort-arrow-2">⇅</span></th>
                         <th class="sortable-col" data-type="number" onclick="sortTable(3)">Year <span class="sort-arrow" id="sort-arrow-3">⇅</span></th>
-                        <th class="sortable-col" data-type="number" onclick="sortTable(4)">GWA <span class="sort-arrow" id="sort-arrow-4">⇅</span></th>
-                        <th class="sortable-col" data-type="number" onclick="sortTable(5)">Predicted GWA <span class="sort-arrow" id="sort-arrow-5">⇅</span></th>
+                        <th class="sortable-col" data-type="number" onclick="sortTable(4)">Cumulative GWA (Historical) <span class="sort-arrow" id="sort-arrow-4">⇅</span></th>
+                        <th class="sortable-col" data-type="number" onclick="sortTable(5)">Projected Term GWA <span class="sort-arrow" id="sort-arrow-5">⇅</span></th>
                         <th class="sortable-col" data-type="string" onclick="sortTable(6)">Status <span class="sort-arrow" id="sort-arrow-6">⇅</span></th>
                         <th class="sortable-col" data-type="risk" onclick="sortTable(7)">Risk <span class="sort-arrow" id="sort-arrow-7">⇅</span></th>
                     </tr>
@@ -443,15 +455,15 @@ function runBatchPredictions() {
     .then(response => response.json())
     .then(data => {
         if(data.status === 'success') {
-            alert('✅ ' + data.message);
+            alert(data.message);
             window.location.reload(); 
         } else {
-            alert('❌ Error: ' + (data.error || 'Unknown error occurred.'));
+            alert('Error: ' + (data.error || 'Unknown error occurred.'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('❌ A network error occurred while reaching the Python API.');
+        alert('A network error occurred while reaching the prediction service.');
     })
     .finally(() => {
         btn.innerHTML = originalText;

@@ -21,9 +21,10 @@ $current_gwa = computeStudentGwa($db, $user['id']);
 $historical_gwa = $current_gwa;
 
 // --- Fetch ML Prediction from Database ---
+$metaCols = getPredictionFullCompletenessSqlSelect($db);
 $stmtPred = $db->prepare("
     SELECT predicted_gwa, risk_level, latin_honor, prediction_source, generated_at,
-           data_completeness, is_provisional, provisional_basis, input_subject_count, expected_subject_count
+           $metaCols
     FROM predictions 
     WHERE student_id = ? 
     ORDER BY generated_at DESC 
@@ -34,7 +35,7 @@ $ml_prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 
 // 2. Fetch Current Semester Subjects & All Grades
 $stmtCurr = $db->prepare("
-    SELECT s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade
+    SELECT s.id AS subject_id, s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade
     FROM grades g
     JOIN subjects s ON s.id = g.subject_id
     WHERE g.student_id = ? AND g.is_current = 1
@@ -74,13 +75,13 @@ foreach ($current_subjects as &$subj) {
         if ($subjRisk === 'HIGH') {
             $triage_alerts[] = [
                 'level' => 'HIGH',
-                'text' => "🚨 <strong>High Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.",
+                'text' => "<strong>High Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.",
             ];
             $at_risk_count++;
         } elseif ($subjRisk === 'MODERATE') {
             $triage_alerts[] = [
                 'level' => 'MODERATE',
-                'text' => "⚠️ <strong>Moderate Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.",
+                'text' => "<strong>Moderate Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.",
             ];
             $at_risk_count++;
         }
@@ -215,12 +216,12 @@ function renderTargetOptions($valid_grades) {
 
 $pageTitle = 'Dashboard';
 $navItems = [
-    ['Home',               'index.php',     '🏠'],
-    ['Dashboard',          'dashboard.php', '📊'],
-    ['Grades & History',   'grades.php',    '📝'],
-    ['Performance Trend',  'trend.php',     '📈'],
-    ['Feedback & Support', 'feedback.php', '💬'],
-    ['Settings',           'settings.php',  '⚙️'],
+    ['Home',               'index.php',     ''],
+    ['Dashboard',          'dashboard.php', ''],
+    ['Grades & History',   'grades.php',    ''],
+    ['Performance Trend',  'trend.php',     ''],
+    ['Feedback & Support', 'feedback.php', ''],
+    ['Settings',           'settings.php',  ''],
 ];
 
 require_once '../includes/header.php';
@@ -279,7 +280,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
-        <span style="font-size: 1.25rem; line-height: 1.2;" aria-hidden="true">ℹ️</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div style="flex: 1;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
                 <span style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem;">Decision-Support Advisory Notice</span>
@@ -300,7 +301,7 @@ require_once '../includes/sidebar.php';
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Cumulative GWA</h4>
             <h2 style="color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : 'N/A' ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Academic Standing</p>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical Cumulative GWA (Completed Semesters)</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
             <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
@@ -329,12 +330,18 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
+    <?php $isAtRiskGauge = ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || (float)$current_gwa < 2.50); ?>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
         <div class="card" style="text-align: center; display: flex; flex-direction: column;">
             <div>
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left;">🎯 Honor Track Proximity</h3>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <span><?= $isAtRiskGauge ? 'Academic Standing & Recovery Gauge' : 'Honor Track Proximity' ?></span>
+                </h3>
                 <p style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    Shows where your current GWA falls on the 1.00–4.00 scale relative to Latin Honor cutoffs.
+                    <?= $isAtRiskGauge 
+                        ? 'Visualizes where your historical cumulative GWA falls relative to retention threshold (≥ 2.50) and Latin Honor eligibility (≥ 3.25).' 
+                        : 'Shows where your historical cumulative GWA falls on the official 1.00–4.00 scale relative to Latin Honor cutoffs.' ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -343,36 +350,53 @@ require_once '../includes/sidebar.php';
                 </div>
                 <div style="margin-top: 4px;">
                     <span style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : '0.00' ?></span>
-                    <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Current GWA</span>
+                    <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Cumulative GWA (Historical)</span>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600;">
-                    <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
-                    <span style="color: #1d4ed8;">● Magna (<?= number_format(MAGNA_CUM_LAUDE, 2) ?>)</span>
-                    <span style="color: #b45309;">● Summa (<?= number_format(SUMMA_CUM_LAUDE, 2) ?>)</span>
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
+                    <?php if ($isAtRiskGauge): ?>
+                        <span style="color: var(--risk-high);">● High Risk (&lt; 1.75)</span>
+                        <span style="color: var(--risk-mod);">● Moderate (1.75–2.49)</span>
+                        <span style="color: var(--risk-low);">● Safe Standing (≥ 2.50)</span>
+                        <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
+                    <?php else: ?>
+                        <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
+                        <span style="color: #1d4ed8;">● Magna (<?= number_format(MAGNA_CUM_LAUDE, 2) ?>)</span>
+                        <span style="color: #b45309;">● Summa (<?= number_format(SUMMA_CUM_LAUDE, 2) ?>)</span>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
         <!-- FIXED: Removed padding-bottom: 0 and added position: relative for the scroll fade effect -->
         <div class="card" style="display: flex; flex-direction: column; overflow: hidden; position: relative; padding-bottom: 0;">
-            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px;">🧠 Risk Factor Analysis</h3>
+            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Risk Factor Analysis</span>
+            </h3>
             
             <div id="triage-scroll" class="triage-scroll" style="max-height: 400px; overflow-y: auto; padding-bottom: 24px; padding-right: 8px;">
                 <div style="margin-bottom: 20px;">
                     <?php foreach ($risk_factors as $factor): 
-                        $icon = match ($factor['type']) { 'danger' => '🔴', 'warning' => '🟠', 'info' => '🎯', default => '🟢' };
+                        $dotClass = match ($factor['type']) { 'danger' => 'risk-high', 'warning' => 'risk-mod', 'info' => 'accent', default => 'risk-low' };
                         $borderColor = match ($factor['type']) { 'danger' => 'var(--risk-high)', 'warning' => 'var(--risk-mod)', 'info' => 'var(--accent-blue)', default => 'var(--risk-low)' };
                         $bgTint = match ($factor['type']) { 'danger' => 'rgba(220, 38, 38, 0.1)', 'warning' => 'rgba(217, 119, 6, 0.1)', 'info' => 'var(--table-header-bg)', default => 'rgba(5, 150, 105, 0.1)' };
                     ?>
-                    <div style="background: <?= $bgTint ?>; border-left: 3px solid <?= $borderColor ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: var(--text-dark);">
-                        <?= $icon ?> <?= $factor['text'] ?>
+                    <div style="background: <?= $bgTint ?>; border-left: 3px solid <?= $borderColor ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+                        <span class="status-dot <?= $dotClass ?>"></span>
+                        <span><?= $factor['text'] ?></span>
                     </div>
                     <?php endforeach; ?>
                 </div>
 
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">📊 Subject Triage (Focus Areas)</h3>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    <span>Subject Triage (Focus Areas)</span>
+                </h3>
                 <?php if (empty($triage_alerts)): ?>
-                    <p style="font-size: 0.85rem; color: var(--risk-low); font-weight: 600;">✓ All current subjects are within safe thresholds.</p>
+                    <p style="font-size: 0.85rem; color: var(--risk-low); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>All current subjects are within safe thresholds.</span>
+                    </p>
                 <?php else: ?>
                     <div>
                         <?php foreach ($triage_alerts as $alert):
@@ -380,8 +404,9 @@ require_once '../includes/sidebar.php';
                             $alertBorder = $alert['level'] === 'HIGH' ? 'rgba(220, 38, 38, 0.3)' : 'rgba(217, 119, 6, 0.3)';
                             $alertColor = $alert['level'] === 'HIGH' ? 'var(--risk-high)' : 'var(--risk-mod)';
                         ?>
-                            <div style="background: <?= $alertBg ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: <?= $alertColor ?>; border: 1px solid <?= $alertBorder ?>;">
-                                <?= $alert['text'] ?>
+                            <div style="background: <?= $alertBg ?>; padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 0.85rem; color: <?= $alertColor ?>; border: 1px solid <?= $alertBorder ?>; display: flex; align-items: flex-start; gap: 8px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <div><?= $alert['text'] ?></div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -396,8 +421,9 @@ require_once '../includes/sidebar.php';
     <div class="card" style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
-            <button onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit;">
-                🎯 Open Grade Goal Calculator
+            <button onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
+                <span>Open Grade Goal Calculator</span>
             </button>
         </div>
         <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -415,6 +441,7 @@ require_once '../includes/sidebar.php';
                         </span>
                     </th>
                     <th style="padding: 12px; text-align: center; color: var(--text-dark);">Subject Risk</th>
+                    <th style="padding: 12px; text-align: center; color: var(--text-dark);">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -448,6 +475,18 @@ require_once '../includes/sidebar.php';
                             <?= $subj['predicted_final'] !== null ? $subj['final_risk'] : 'N/A' ?>
                         </span>
                     </td>
+                    <td style="padding: 12px; text-align: center;">
+                        <?php if (!empty($subj['subject_id'])): ?>
+                            <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$subj['subject_id'] ?>&period=prelim" 
+                               style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.78rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
+                               title="Inquire about this grade in Feedback & Support">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <span>Inquire</span>
+                            </a>
+                        <?php else: ?>
+                            <span style="color: var(--text-gray);">—</span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -457,7 +496,10 @@ require_once '../includes/sidebar.php';
     <div id="calculator-section" class="card" style="display: none; border: 2px solid var(--accent-blue); background-color: var(--card-bg);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
-                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">🎯 Grade Goal Calculator</h3>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
+                    <span>Grade Goal Calculator</span>
+                </h3>
                 <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0;">Input percentage grades to compute your final point grade, or pick a Target to back-calculate.</p>
             </div>
             <div style="display: flex; gap: 16px; align-items: center;">
@@ -465,8 +507,9 @@ require_once '../includes/sidebar.php';
                     <span style="font-size: 0.75rem; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Scenario Semester GWA</span><br>
                     <span id="projected-gwa" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-blue);">0.00</span>
                 </div>
-                <button onclick="toggleCalculator()" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit;">
-                    ✕ Close
+                <button onclick="toggleCalculator()" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <span>Close</span>
                 </button>
             </div>
         </div>
