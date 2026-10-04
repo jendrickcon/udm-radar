@@ -227,11 +227,35 @@ function switchGuideTab(tabId) {
 }
 
 document.addEventListener('keydown', function(e) {
+    const overlay = document.getElementById('glossary-drawer-overlay');
+    if (!overlay || !overlay.classList.contains('open')) return;
+
     if (e.key === 'Escape') {
-        const overlay = document.getElementById('glossary-drawer-overlay');
-        if (overlay && overlay.classList.contains('open')) {
-            closeGlossaryModal();
-        }
+        closeGlossaryModal();
+        return;
+    }
+
+    if (e.key !== 'Tab') return;
+
+    const drawer = overlay.querySelector('.guide-drawer');
+    if (!drawer) return;
+
+    const focusableElements = Array.from(drawer.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(element => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden');
+
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const focusIsInsideDrawer = drawer.contains(document.activeElement);
+
+    if (e.shiftKey && (document.activeElement === firstElement || !focusIsInsideDrawer)) {
+        e.preventDefault();
+        lastElement.focus();
+    } else if (!e.shiftKey && (document.activeElement === lastElement || !focusIsInsideDrawer)) {
+        e.preventDefault();
+        firstElement.focus();
     }
 });
 </script>
