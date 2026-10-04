@@ -100,6 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $message = trim($_POST['message_to_student'] ?? '');
             if (empty($message)) throw new Exception("A message to the student is required.");
+
+            $db->beginTransaction();
             
             $stmtOwner = $db->prepare("SELECT case_id, status FROM support_case_referrals WHERE id = ? AND faculty_id = ? FOR UPDATE");
             $stmtOwner->execute([$referralId, $user['id']]);
@@ -110,8 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $parentCaseId = (int)$refRow['case_id'];
 
-            $db->beginTransaction();
-            $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', message_to_student = ? WHERE id = ?")->execute([$message, $referralId]);
+            $stmtUpdate = $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', message_to_student = ? WHERE id = ? AND faculty_id = ? AND status = 'needs_review'");
+            $stmtUpdate->execute([$message, $referralId, $user['id']]);
+            if ($stmtUpdate->rowCount() !== 1) throw new Exception("This referral has already been processed.");
 
             // 1. Record in support_actions
             $stmtAction = $db->prepare("
