@@ -42,6 +42,15 @@ Thumbs.db
 error_log
 logs/
 .env
+.env.playwright.local
+
+# --- Playwright browser testing ---
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+playwright/.auth/
+*.trace.zip
 
 # --- Database Backups & Temporary Dumps ---
 backups/
