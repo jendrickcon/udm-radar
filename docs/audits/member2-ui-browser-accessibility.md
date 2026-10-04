@@ -5,7 +5,9 @@
 - Branch: `member2/ui-browser-accessibility`
 - Base: `origin/feat/ui-evaluation-readiness` at `01670c39edfecf9b9184edda383e4b019e0ab7c0`
 - Intended PR base: `feat/ui-evaluation-readiness`; `main` is not a target.
-- No commit, push, or PR has been created. Those steps await member review.
+- Commits: `a254df7`, `3413a62`, `32cac54`, `9f96009`.
+- Push: successful; `origin/member2/ui-browser-accessibility` points to `9f96009`.
+- PR: not created yet. GitKraken requires sign-in before the PR request can complete.
 
 ## Findings Addressed
 
@@ -81,14 +83,15 @@ All captures use the approved synthetic demonstration session. Student table cel
 - [Academic Guide open, mobile 390×844](evidence/member2/academic-guide-mobile-390x844.png)
 - [Mobile dashboard scrolled to section cards, no overlap](evidence/member2/faculty-dashboard-mobile-clearance.png)
 
-Image dimensions were verified against the filenames. Evidence is retained in the workspace and has not been committed.
+Image dimensions were verified against the filenames. Evidence was committed in `9f96009`.
 
 ## Git and Protected Scope
 
 - `database/udm_radar.sql`, the supplied Downloads dump, `python_ml/model.pkl`, and `python_ml/model_metrics.json` are unchanged.
 - Academic grading logic, GWA calculations, risk thresholds, prediction behavior, schema, migrations, and backend workflows were not modified.
 - `git diff --check` passed. No credential file, `node_modules`, report, test result, trace, or browser output is staged.
-- No commits or push have been made; no pull request has been opened.
+- Four scoped commits were pushed only to `member2/ui-browser-accessibility`; `main` and the feature base were not modified.
+- The PR is not open yet; no merge has been performed.
 
 Proposed PR title: `fix(ui): contain Academic Guide focus and prevent mobile overlap`
 
@@ -113,6 +116,6 @@ Proposed PR description:
 13. **Defense explanation:** “I fixed a modal keyboard focus escape and a mobile overlap using a small focus loop and reserved content gutter. I verified keyboard behavior, themes, three sizes, and browser health with a focused Playwright suite.”
 14. **Safe follow-ups:** Add a separately approved scratch database for any future write-capable browser flows; consider broader keyboard and screen-reader checks in a later scoped task.
 
-## Review Gate
+## Pull Request Gate
 
-Please review the implementation, test file, screenshots, and diff before asking for commits. After review, create only the logical commits justified by the changes, push only `member2/ui-browser-accessibility`, and open the PR against `feat/ui-evaluation-readiness`. No automatic rebase, force-push, or merge is intended.
+The implementation, tests, screenshots, and diff were approved before commits. The branch was pushed without rebasing or force-pushing. To finish, authenticate the GitKraken integration in VS Code and retry PR creation with base `feat/ui-evaluation-readiness` and compare `member2/ui-browser-accessibility`. Do not merge the PR automatically.
