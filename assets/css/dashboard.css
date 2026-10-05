@@ -838,6 +838,17 @@ textarea:focus-visible,
     background: rgba(255, 255, 255, 0.02);
 }
 
+@media (max-width: 600px) {
+    .main-content {
+        padding-right: 76px;
+    }
+
+    .floating-help-btn {
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+}
+
 /* Status Indicator Dots */
 .status-dot {
     display: inline-block;
