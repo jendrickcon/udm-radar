@@ -741,28 +741,28 @@ require_once '../includes/sidebar.php';
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
     <div class="stat-grid">
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-dark) !important;" onclick="applyTableFilter('', '')" aria-controls="database-section" title="Click to view all students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-dark) !important;" onclick="applyTableFilter('', '')" aria-controls="database-section" aria-label="Filter student directory: view all students">
             <h4>Total Students</h4>
             <h2><?= $stats['total'] ?></h2>
-            <div class="stat-card-subtext">Active population</div>
+            <div class="stat-card-subtext kpi-card__description">Active population</div>
             <span class="kpi-action-cue">View all students &rarr;</span>
         </button>
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-high) !important;" onclick="applyTableFilter('HIGH', '')" aria-controls="database-section" title="Click to filter High Risk students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-high) !important;" onclick="applyTableFilter('HIGH', '')" aria-controls="database-section" aria-label="Filter student directory: High Risk students">
             <h4>High Risk</h4>
             <h2 style="color: var(--risk-high);"><?= $stats['high'] ?></h2>
-            <div class="stat-card-subtext">Critical academic trajectory</div>
+            <div class="stat-card-subtext kpi-card__description">Critical academic trajectory</div>
             <span class="kpi-action-cue">Filter High Risk &rarr;</span>
         </button>
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-mod) !important;" onclick="applyTableFilter('MODERATE', '')" aria-controls="database-section" title="Click to filter Moderate Risk students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-mod) !important;" onclick="applyTableFilter('MODERATE', '')" aria-controls="database-section" aria-label="Filter student directory: Moderate Risk students">
             <h4>Moderate Risk</h4>
             <h2 style="color: var(--risk-mod);"><?= $stats['moderate'] ?></h2>
-            <div class="stat-card-subtext">Borderline trajectory</div>
+            <div class="stat-card-subtext kpi-card__description">Borderline trajectory</div>
             <span class="kpi-action-cue">Filter Moderate Risk &rarr;</span>
         </button>
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('', 'active')" aria-controls="database-section" title="Click to filter Active Support cases">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('', 'active')" aria-controls="database-section" aria-label="Filter student directory: Active Support cases">
             <h4>Active Support Cases</h4>
             <h2 style="color: var(--accent-blue);"><?= $stats['support'] ?></h2>
-            <div class="stat-card-subtext"><?= $stats['needs_review'] ?> cases awaiting review</div>
+            <div class="stat-card-subtext kpi-card__description"><?= $stats['needs_review'] ?> cases awaiting review</div>
             <span class="kpi-action-cue">Filter support cases &rarr;</span>
         </button>
     </div>
