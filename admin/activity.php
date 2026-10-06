@@ -496,19 +496,28 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
 
     <!-- TAB 3: ACADEMIC SUPPORT -->
     <div id="tab-support" class="tab-content">
-        <div class="card" style="padding: 0; overflow: hidden;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);">
-                <div><h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0 0 4px 0;">Academic Support Oversight</h3><p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Administer program-level cases and monitor subject-specific faculty referrals.</p></div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;"><a href="export_intervention_audit.php" class="btn-secondary">Export CSV</a><a href="export_intervention_audit_pdf.php" class="btn-primary">Download PDF</a></div>
+        <div class="data-table-card data-table-card--operational">
+            <div class="data-table-header">
+                <div class="data-table-header__intro">
+                    <h3 class="data-table-title">Academic Support Oversight</h3>
+                    <p class="data-table-subtitle">Administer program-level cases and monitor subject-specific faculty referrals.</p>
+                </div>
+                <div class="data-table-actions">
+                    <a href="export_intervention_audit.php" class="btn btn--secondary">Export CSV</a>
+                    <a href="export_intervention_audit_pdf.php" class="btn btn--primary">Download PDF</a>
+                </div>
             </div>
-            <div style="max-height: 500px; overflow-y: auto; padding: 0;">
-                <?php if (empty($supportCases)): ?><p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No active program-level support cases.</p><?php else: ?>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <div class="data-table-scroll" role="region" aria-label="Academic Support Oversight Table" tabindex="0" style="max-height: 500px; overflow-y: auto;">
+                <?php if (empty($supportCases)): ?>
+                    <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No active program-level support cases.</p>
+                <?php else: ?>
+                    <table class="data-table table-density--compact">
+                        <caption class="sr-only">Academic Support Oversight Table</caption>
                         <thead>
-                            <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                                <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600;">Student Context</th>
-                                <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600;">Overall Academic Context</th>
-                                <th style="padding: 10px 24px; text-align: center; color: var(--text-dark); font-weight: 600;">Subject Referrals</th>
+                            <tr>
+                                <th scope="col">Student Context</th>
+                                <th scope="col">Overall Academic Context</th>
+                                <th scope="col" style="text-align: center;">Subject Referrals</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -521,8 +530,8 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                                 $gwa = number_format($sc['trigger_predicted_gwa'], 2);
                                 $date = date('M j, Y', strtotime($sc['created_at']));
                             ?>
-                            <tr style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 10px 24px; vertical-align: middle;">
+                            <tr>
+                                <td style="vertical-align: middle;">
                                     <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 4px; font-size:1.05rem;">
                                         <?= htmlspecialchars($sc['first_name'] . ' ' . $sc['last_name']) ?>
                                         <?php if ($sc['status'] === 'closed'): ?>
@@ -534,14 +543,14 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                                     </div>
                                 </td>
                                 
-                                <td style="padding: 10px 24px; vertical-align: middle;">
+                                <td style="vertical-align: middle;">
                                     <div style="font-size: 0.9rem; color: var(--text-gray);">
                                         <strong style="color: <?= $riskColor ?>;"><?= $riskLevel ?> Risk</strong> • 
                                         Predicted GWA: <strong style="color: var(--text-dark);"><?= $gwa ?></strong>
                                     </div>
                                 </td>
 
-                                <td style="padding: 10px 24px; vertical-align: middle; text-align: center;">
+                                <td style="vertical-align: middle; text-align: center;">
                                     <div style="display: inline-flex; align-items: center; gap: 12px; font-size: 0.85rem; color: var(--text-gray);">
                                         <span><strong style="color: var(--text-dark);"><?= $totalRefs ?></strong> referral<?= $totalRefs !== 1 ? 's' : '' ?> • <strong><?= $pendingRefs ?></strong> pending</span>
                                         <button onclick='openReferralsModal(<?= json_encode($refs, JSON_HEX_APOS | JSON_HEX_QUOT) ?>, <?= json_encode($sc['id']) ?>, <?= json_encode($sc['status']) ?>)' class="btn-primary-outline" style="padding: 4px 12px; font-size: 0.75rem;">View</button>
@@ -559,18 +568,26 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
     <!-- TAB 4: HISTORY & AUDIT -->
     <div id="tab-history" class="tab-content">
         <div style="display: flex; flex-direction: column; gap: 24px;">
-            <div class="card" style="padding: 0; overflow: hidden;">
-                <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);"><h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0 0 4px 0;">Closed Feedback History</h3><p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Comprehensive audit log of resolved and rejected tickets.</p></div>
-                <div style="max-height: 600px; overflow-y: auto; padding: 0;">
-                    <?php if (empty($historyFeedback)): ?><p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No closed feedback records found.</p><?php else: ?>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <div class="data-table-card">
+                <div class="data-table-header">
+                    <div class="data-table-header__intro">
+                        <h3 class="data-table-title">Closed Feedback History</h3>
+                        <p class="data-table-subtitle">Comprehensive audit log of resolved and rejected tickets.</p>
+                    </div>
+                </div>
+                <div class="data-table-scroll" role="region" aria-label="Closed Feedback History Table" tabindex="0" style="max-height: 600px; overflow-y: auto;">
+                    <?php if (empty($historyFeedback)): ?>
+                        <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px;">No closed feedback records found.</p>
+                    <?php else: ?>
+                        <table class="data-table table-density--comfortable">
+                            <caption class="sr-only">Closed Feedback History Table</caption>
                             <thead>
-                                <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                                    <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600; width: 30%;">Ticket</th>
-                                    <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600; width: 10%;">Decision</th>
-                                    <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600; width: 20%;">Submitted By</th>
-                                    <th style="padding: 10px 24px; text-align: left; color: var(--text-dark); font-weight: 600; width: 30%;">Resolution Details</th>
-                                    <th style="padding: 10px 24px; text-align: right; color: var(--text-dark); font-weight: 600; width: 10%;">Action</th>
+                                <tr>
+                                    <th scope="col" style="width: 30%;">Ticket</th>
+                                    <th scope="col" style="width: 10%;">Decision</th>
+                                    <th scope="col" style="width: 20%;">Submitted By</th>
+                                    <th scope="col" style="width: 30%;">Resolution Details</th>
+                                    <th scope="col" class="table-col-action" style="width: 10%;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -585,29 +602,29 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                                     if ($hf['section']) $contextArr[] = htmlspecialchars($hf['section']);
                                     $contextStr = implode(' • ', $contextArr);
                                 ?>
-                                <tr style="border-bottom: 1px solid var(--border-color);">
-                                    <td style="padding: 16px 24px; vertical-align: middle;">
+                                <tr>
+                                    <td style="vertical-align: middle;">
                                         <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 4px;">Ticket #<?= $hf['id'] ?></div>
                                         <div style="font-weight: 700; color: var(--text-dark); font-size: 0.95rem; margin-bottom: 4px;"><?= htmlspecialchars($hf['title']) ?></div>
                                         <div style="font-size: 0.8rem; color: var(--text-gray);"><?= $contextStr ?></div>
                                     </td>
                                     
-                                    <td style="padding: 16px 24px; vertical-align: middle;">
+                                    <td style="vertical-align: middle;">
                                         <span class="purpose-pill <?= $pillClass ?>" style="font-size: 0.65rem; padding: 4px 8px;"><?= strtoupper($hf['status']) ?></span>
                                     </td>
                                     
-                                    <td style="padding: 16px 24px; vertical-align: middle;">
+                                    <td style="vertical-align: middle;">
                                         <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 4px;"><?= htmlspecialchars($hf['first_name'] . ' ' . $hf['last_name']) ?></div>
                                         <div style="font-size: 0.8rem; color: var(--text-gray); font-family: monospace;"><?= htmlspecialchars($hf['identifier']) ?></div>
                                     </td>
                                     
-                                    <td style="padding: 16px 24px; vertical-align: middle;">
+                                    <td style="vertical-align: middle;">
                                         <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px;">Handled by: <strong style="color: var(--text-dark);"><?= htmlspecialchars($handledBy) ?></strong></div>
                                         <div style="font-size: 0.8rem; color: var(--text-gray);">Closed: <strong style="color: var(--text-dark);"><?= date('M j, Y \a\t g:i A', strtotime($hf['resolved_at'])) ?></strong></div>
                                     </td>
                                     
-                                    <td style="padding: 16px 24px; vertical-align: middle; text-align: right;">
-                                        <button onclick="toggleHistoryDetails(<?= $hf['id'] ?>, this)" class="btn-secondary" style="white-space: nowrap;">View</button>
+                                    <td class="table-col-action" style="vertical-align: middle;">
+                                        <button onclick="toggleHistoryDetails(<?= $hf['id'] ?>, this)" class="btn btn--secondary btn--sm" style="white-space: nowrap;">View</button>
                                     </td>
                                 </tr>
                                 

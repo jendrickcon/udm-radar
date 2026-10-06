@@ -242,7 +242,7 @@ require_once '../includes/sidebar.php';
 .section-card-body { padding:24px; text-align:center; }
 .section-card-body h2 { font-size:2.4rem !important; }
 
-.roster-panel { display:none; border:2px solid var(--accent-blue); background: var(--card-bg); margin-bottom:24px; }
+.roster-panel { display:none; }
 .row-clickable { cursor:pointer; }
 .row-clickable:hover { background:var(--bg-color); }
 
@@ -342,13 +342,17 @@ require_once '../includes/sidebar.php';
         <?php endforeach; ?>
     </div>
 
-    <div class="card roster-panel" id="roster-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-            <h3 id="roster-title" style="color:var(--text-dark);"></h3>
-            <button onclick="closeRoster()" style="background:var(--bg-color); color:var(--text-dark); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">Close</button>
+    <div class="data-table-card data-table-card--active roster-panel" id="roster-panel">
+        <div class="data-table-header">
+            <div class="data-table-header__intro">
+                <h3 class="data-table-title" id="roster-title"></h3>
+            </div>
+            <div class="data-table-actions">
+                <button type="button" onclick="closeRoster()" class="btn btn--secondary btn--sm">Close</button>
+            </div>
         </div>
         <div class="data-table-scroll" role="region" aria-label="Section Student Roster" tabindex="0">
-            <table style="width: 100%; border-collapse: collapse;">
+            <table class="data-table table-density--standard">
                 <caption class="sr-only">Section Student Roster</caption>
                 <thead>
                     <tr>
@@ -402,7 +406,7 @@ function openSection(section) {
                 body.innerHTML = students.map(s => {
                     const escapedName = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     return `
-                    <tr style="border-bottom: 1px solid var(--border-color);">
+                    <tr>
                         <td>${s.studentNo}</td>
                         <td style="font-weight:600;">
                             <button type="button" class="table-record-link" onclick="openHistory(${s.userId}, '${s.name.replace(/'/g,"\\'")}')" aria-label="View grade history for ${escapedName}">
