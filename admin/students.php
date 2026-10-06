@@ -795,8 +795,21 @@ require_once '../includes/sidebar.php';
         </form>
     </div>
 
-    <div class="card scroll-target" id="database-section">
-        <div class="table-toolbar">
+    <div class="data-table-card scroll-target" id="database-section">
+        <div class="data-table-header">
+            <div class="data-table-header__intro">
+                <h3 class="data-table-title">Student Cohort Directory</h3>
+                <p class="data-table-subtitle">Manage student academic records, active profiles, and risk classifications.</p>
+            </div>
+            <div class="data-table-actions">
+                <button type="button" onclick="triggerCsvExport()" class="btn btn--secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
+            </div>
+        </div>
+
+        <div class="data-table-toolbar">
             <input type="text" id="student-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <select id="filter-status" class="filter-dropdown" onchange="currentPage=1; renderPage();">
@@ -818,30 +831,24 @@ require_once '../includes/sidebar.php';
                     <option value="needs_review">Needs Review</option>
                     <option value="action_taken">Notice Sent</option>
                 </select>
-
-                <!-- NEW: Export CSV Trigger Button Added Here -->
-                <button type="button" onclick="triggerCsvExport()" style="background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; font-family: inherit;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Export CSV
-                </button>
             </div>
         </div>
 
         <div class="data-table-scroll" role="region" aria-label="Student Directory Table" tabindex="0">
-            <table id="students-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <table id="students-table" class="data-table table-density--standard" style="min-width: 900px;">
                 <caption class="sr-only">Student Directory Table</caption>
                 <thead>
-                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Student No.</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Program</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Cumulative GWA (Historical)</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Latest Risk</th>
-                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Support Case</th>
-                        <th scope="col" style="padding: 12px; text-align: right;"><span class="sr-only">Actions</span></th>
+                    <tr>
+                        <th scope="col">Student No.</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Program</th>
+                        <th scope="col">Section</th>
+                        <th scope="col">Year</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Cumulative GWA (Historical)</th>
+                        <th scope="col">Latest Risk</th>
+                        <th scope="col">Support Case</th>
+                        <th scope="col" class="table-col-action">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="students-tbody">
@@ -852,27 +859,27 @@ require_once '../includes/sidebar.php';
                         $statusVal = $s['status'] ?? 'Regular';
                         $formattedName = formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']);
                     ?>
-                    <tr data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-status="<?= htmlspecialchars($statusVal) ?>" data-support="<?= $s['support_status'] ?? 'None' ?>" style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['student_number']) ?></td>
-                        <td style="padding: 12px; font-weight:600;">
+                    <tr data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-status="<?= htmlspecialchars($statusVal) ?>" data-support="<?= $s['support_status'] ?? 'None' ?>">
+                        <td style="color: var(--text-dark);"><?= htmlspecialchars($s['student_number']) ?></td>
+                        <td style="font-weight:600;">
                             <button type="button" class="table-record-link" onclick="openStudentModal(<?= $uid ?>)" aria-label="View details for <?= htmlspecialchars($formattedName) ?>">
                                 <?= htmlspecialchars($formattedName) ?>
                             </button>
                         </td>
-                        <td style="padding: 12px; color: var(--text-dark); font-size:0.85rem;"><?= htmlspecialchars($s['course'] ?? '—') ?></td>
-                        <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
-                        <td style="padding: 12px; color: var(--text-dark);"><?= $s['year_level'] !== null ? htmlspecialchars(ordinalYearLabel($s['year_level'])) : '—' ?></td>
-                        <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($statusVal) ?></td>
-                        <td style="padding: 12px; color: var(--text-dark); font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
-                        <td style="padding: 12px;"><?= getRiskBadgeHtml($riskVal) ?></td>
-                        <td style="padding: 12px;"><?= getSupportBadgeHtml($s['support_status']) ?></td>
-                        <td style="padding: 12px; text-align: right; white-space: nowrap;">
-                            <button type="button" onclick="openEditModal(<?= $uid ?>)" style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; margin-right: 12px;">Edit</button>
+                        <td style="color: var(--text-dark); font-size:0.85rem;"><?= htmlspecialchars($s['course'] ?? '—') ?></td>
+                        <td style="color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
+                        <td style="color: var(--text-dark);"><?= $s['year_level'] !== null ? htmlspecialchars(ordinalYearLabel($s['year_level'])) : '—' ?></td>
+                        <td style="color: var(--text-dark);"><?= htmlspecialchars($statusVal) ?></td>
+                        <td style="color: var(--text-dark); font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
+                        <td><?= getRiskBadgeHtml($riskVal) ?></td>
+                        <td><?= getSupportBadgeHtml($s['support_status']) ?></td>
+                        <td class="table-col-action">
+                            <button type="button" onclick="openEditModal(<?= $uid ?>)" class="btn btn--quiet btn--sm" style="margin-right: 6px;">Edit</button>
                             <form method="POST" action="students.php" onsubmit="return confirm('Archive this student account? This preserves their academic history safely.');" style="display:inline; margin:0;">
                                 <input type="hidden" name="action" value="archive">
                                 <input type="hidden" name="archive_id" value="<?= $uid ?>">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                                <button type="submit" style="background:none; border:none; color:var(--risk-high); font-weight:600; cursor:pointer;">Archive</button>
+                                <button type="submit" class="btn btn--danger btn--sm">Archive</button>
                             </form>
                         </td>
                     </tr>
@@ -880,7 +887,7 @@ require_once '../includes/sidebar.php';
                 </tbody>
             </table>
         </div>
-        <div class="pagination-bar" id="pagination-bar"></div>
+        <div class="data-table-footer pagination-bar" id="pagination-bar"></div>
     </div>
 </div>
 

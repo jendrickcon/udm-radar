@@ -198,7 +198,7 @@ test.describe('UI-WP1A: Critical Display and Interaction Foundation', () => {
             expect(adminStudentsPhp).toContain("onclick=\"applyTableFilter('HIGH', '')\"");
             expect(adminStudentsPhp).toContain("onclick=\"applyTableFilter('MODERATE', '')\"");
             expect(adminStudentsPhp).toContain("onclick=\"applyTableFilter('', 'active')\"");
-            expect(adminStudentsPhp).toContain('class="card scroll-target" id="database-section"');
+            expect(adminStudentsPhp).toMatch(/class=["'][^"']*\bscroll-target\b[^"']*["']\s+id="database-section"/);
         });
     });
 
