@@ -104,7 +104,7 @@ body {
 .logout-btn .sidebar-icon { opacity: 1; }
 .logout-btn:hover { background-color: rgba(220, 38, 38, 0.1); color: var(--risk-high); text-decoration: none; }
 
-.main-content { flex: 1; padding: 40px; overflow-y: auto; }
+.main-content { flex: 1; padding: 40px; padding-bottom: 84px; overflow-y: auto; }
 
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
 .header h1 { color: var(--text-dark); font-size: 2rem; font-weight: 700; }
@@ -127,6 +127,55 @@ body {
 .stat-card.green h2 { color: var(--risk-low); }
 .stat-card.red h2   { color: var(--risk-high); }
 
+/* ── Semantic Actionable KPI Cards (UI-WP1A) ── */
+button.stat-card.kpi-card--action,
+a.stat-card.kpi-card--action {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    border-top: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+button.stat-card.kpi-card--action:hover,
+a.stat-card.kpi-card--action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="dark"] button.stat-card.kpi-card--action:hover,
+[data-theme="dark"] a.stat-card.kpi-card--action:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+button.stat-card.kpi-card--action:focus-visible,
+a.stat-card.kpi-card--action:focus-visible {
+    outline: 2px solid var(--accent-blue) !important;
+    outline-offset: 2px !important;
+}
+
+.kpi-action-cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: auto;
+    padding-top: 8px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    letter-spacing: 0.2px;
+}
+
+.scroll-target {
+    scroll-margin-top: 16px;
+}
+
 .table-title { font-size: 1.2rem; font-weight: 600; color: var(--text-dark); margin-bottom: 15px; }
 
 table { width: 100%; border-collapse: collapse; }
@@ -146,7 +195,7 @@ tr:last-child td { border-bottom: none; }
     body { flex-direction: column; height: auto; overflow: auto; }
     .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 10px; }
     .sidebar-nav { display: flex; flex-wrap: wrap; }
-    .main-content { padding: 20px; }
+    .main-content { padding: 20px; padding-bottom: 84px; }
 }
 
 /* ── Sidebar Animated Theme Toggle ────────────────────────────── */
@@ -693,8 +742,8 @@ textarea:focus-visible,
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
     cursor: pointer;
     z-index: 1000;
-    opacity: 0.65;
-    transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    opacity: 1;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .floating-help-btn:hover,
 .floating-help-btn:focus-visible {
@@ -841,6 +890,7 @@ textarea:focus-visible,
 @media (max-width: 600px) {
     .main-content {
         padding-right: 76px;
+        padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     }
 
     .floating-help-btn {
@@ -861,4 +911,90 @@ textarea:focus-visible,
 .status-dot.risk-mod  { background-color: var(--risk-mod); }
 .status-dot.risk-low  { background-color: var(--risk-low); }
 .status-dot.accent    { background-color: var(--accent-blue); }
+
+/* ==========================================================================
+   DATA-UI-WP1A: Table Accessibility Foundation
+   ========================================================================== */
+
+/* 1. Accessible horizontal scroll region (F-DATA-05, F-DATA-07) */
+.data-table-scroll {
+    position: relative;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    outline: none;
+}
+.data-table-scroll:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* 2. Semantic record trigger link (F-DATA-02) */
+.table-record-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--accent-blue);
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    display: inline;
+    line-height: inherit;
+}
+.table-record-link:hover {
+    text-decoration: underline;
+    color: var(--accent-blue);
+}
+.table-record-link:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: 2px;
+    text-decoration: underline;
+}
+
+/* 3. Keyboard-accessible table header sort button (F-DATA-03) */
+.table-sort-button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: inherit;
+    text-align: inherit;
+}
+.table-sort-button:hover {
+    opacity: 0.85;
+}
+.table-sort-button:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* 4. Screen-reader-only utility (F-DATA-04) */
+.sr-only {
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 

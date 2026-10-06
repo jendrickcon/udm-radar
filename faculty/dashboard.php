@@ -359,24 +359,26 @@ require_once '../includes/sidebar.php';
             </button>
         </div>
 
-        <div id="tab-content-class" style="overflow-x:auto;">
+        <div id="tab-content-class" class="data-table-scroll" role="region" aria-label="Class Performance Roster" tabindex="0">
             <table style="width: 100%; border-collapse: collapse;">
+                <caption class="sr-only">Class Performance Roster</caption>
                 <thead><tr id="class-thead-row" style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color);"></tr></thead>
                 <tbody id="roster-body-class"></tbody>
             </table>
         </div>
 
-        <div id="tab-content-overall" style="display:none;overflow-x:auto;">
+        <div id="tab-content-overall" class="data-table-scroll" role="region" aria-label="Overall Section Standing" tabindex="0" style="display:none;">
             <table style="width: 100%; border-collapse: collapse;">
+                <caption class="sr-only">Overall Section Standing</caption>
                 <thead>
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
-                        <th style="width:50px;text-align:center; padding:12px;">Rank</th>
-                        <th style="text-align:left; padding:12px;">Student Name</th>
+                        <th scope="col" style="width:50px;text-align:center; padding:12px;">Rank</th>
+                        <th scope="col" style="text-align:left; padding:12px;">Student Name</th>
                         <!-- FIXED: Removed redundant 'Student No.' column -->
-                        <th style="text-align:center; padding:12px;">Cumulative GWA (Historical)</th>
-                        <th style="text-align:center; padding:12px;">Distinction Threshold</th>
-                        <th style="text-align:center; padding:12px;">Overall Risk</th>
-                        <th style="text-align:center; padding:12px;">Status</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Cumulative GWA (Historical)</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Distinction Threshold</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Overall Risk</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Status</th>
                     </tr>
                 </thead>
                 <tbody id="roster-body-overall"></tbody>
@@ -392,15 +394,16 @@ require_once '../includes/sidebar.php';
                 <strong>Note:</strong> This ranking is an academic reference only. Selection for programs or events should also consider eligibility, interest, availability, conduct, and program-specific requirements.
             </div>
         </div>
-        <div style="overflow-x: auto;">
+        <div class="data-table-scroll" role="region" aria-label="Top Academic Performers Ranking" tabindex="0">
             <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <caption class="sr-only">Top Academic Performers Ranking</caption>
                 <thead>
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
-                        <th style="width:50px;text-align:center; padding:12px;">Rank</th>
-                        <th style="text-align:left; padding:12px;">Student</th>
-                        <th style="text-align:center; padding:12px;">Cumulative GWA (Completed Semesters)</th>
-                        <th style="text-align:center; padding:12px;">Distinction Threshold</th>
-                        <th style="text-align:center; padding:12px;">Status</th>
+                        <th scope="col" style="width:50px;text-align:center; padding:12px;">Rank</th>
+                        <th scope="col" style="text-align:left; padding:12px;">Student</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Cumulative GWA (Completed Semesters)</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Distinction Threshold</th>
+                        <th scope="col" style="text-align:center; padding:12px;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -463,18 +466,21 @@ require_once '../includes/sidebar.php';
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
             Detailed grade breakdown for your assigned subjects.
         </p>
-        <table style="width:100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background:var(--table-header-bg); border-bottom:1px solid var(--border-color);">
-                    <th style="padding:10px; text-align:left; color:var(--text-dark);">Subject</th>
-                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Prelim</th>
-                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Midterm</th>
-                    <th style="padding:10px; text-align:center; color:var(--text-dark);">Pre-Final</th>
-                    <th style="padding:10px; text-align:center; color:var(--accent-blue);">Final</th>
-                </tr>
-            </thead>
-            <tbody id="grade-modal-body"></tbody>
-        </table>
+        <div class="data-table-scroll" role="region" aria-label="Student Grade Breakdown" tabindex="0">
+            <table style="width:100%; border-collapse: collapse;">
+                <caption class="sr-only">Student Grade Breakdown</caption>
+                <thead>
+                    <tr style="background:var(--table-header-bg); border-bottom:1px solid var(--border-color);">
+                        <th scope="col" style="padding:10px; text-align:left; color:var(--text-dark);">Subject</th>
+                        <th scope="col" style="padding:10px; text-align:center; color:var(--text-dark);">Prelim</th>
+                        <th scope="col" style="padding:10px; text-align:center; color:var(--text-dark);">Midterm</th>
+                        <th scope="col" style="padding:10px; text-align:center; color:var(--text-dark);">Pre-Final</th>
+                        <th scope="col" style="padding:10px; text-align:center; color:var(--accent-blue);">Final</th>
+                    </tr>
+                </thead>
+                <tbody id="grade-modal-body"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -520,20 +526,24 @@ function renderClassTab(secName) {
     const maxWidth = Math.max(120, 600 / (subjects.length || 1)); 
 
     const thead = document.getElementById('class-thead-row');
-    let thHtml = '<th class="sortable-col" onclick="sortClassTab(0)" id="col-h-0" style="padding:12px; text-align:left;">Student Name<span class="sort-arrow" id="sort-arrow-0">⇅</span></th>';
+    let thHtml = '<th scope="col" class="sortable-col" aria-sort="none" id="col-h-0" style="padding:12px; text-align:left;"><button type="button" class="table-sort-button" onclick="sortClassTab(0)"><span>Student Name</span><span class="sort-arrow" id="sort-arrow-0" aria-hidden="true">⇅</span></button></th>';
     
     subjects.forEach((subj, i) => {
         const colIdx = i + 1;
-        thHtml += `<th class="sortable-col" onclick="sortClassTab(${colIdx})" title="${subj.code} — ${subj.title}" id="col-h-${colIdx}" style="padding:12px; text-align:center;">
-            <div style="max-width: ${maxWidth}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom;">${subj.title}</div><span class="sort-arrow" id="sort-arrow-${colIdx}">⇅</span>
+        thHtml += `<th scope="col" class="sortable-col" aria-sort="none" id="col-h-${colIdx}" style="padding:12px; text-align:center;">
+            <button type="button" class="table-sort-button" onclick="sortClassTab(${colIdx})" title="${subj.code} — ${subj.title}">
+                <span style="max-width: ${maxWidth}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom;">${subj.title}</span><span class="sort-arrow" id="sort-arrow-${colIdx}" aria-hidden="true">⇅</span>
+            </button>
         </th>`;
     });
     
     const avgColIdx = subjects.length + 1;
-    thHtml += `<th class="sortable-col" onclick="sortClassTab(${avgColIdx})" id="col-h-${avgColIdx}" style="padding:12px; text-align:center;">
-        Current Grade (Avg)<span class="sort-arrow" id="sort-arrow-${avgColIdx}">⇅</span>
+    thHtml += `<th scope="col" class="sortable-col" aria-sort="none" id="col-h-${avgColIdx}" style="padding:12px; text-align:center;">
+        <button type="button" class="table-sort-button" onclick="sortClassTab(${avgColIdx})">
+            <span>Current Grade (Avg)</span><span class="sort-arrow" id="sort-arrow-${avgColIdx}" aria-hidden="true">⇅</span>
+        </button>
     </th>`;
-    thHtml += '<th style="padding:12px; text-align:center; color:var(--text-dark);">Subject Risk</th>';
+    thHtml += '<th scope="col" style="padding:12px; text-align:center; color:var(--text-dark);">Subject Risk</th>';
     thead.innerHTML = thHtml;
 
     const tbody = document.getElementById('roster-body-class');
@@ -603,8 +613,13 @@ function renderClassTab(secName) {
         const riskClr = gradeCount === 0 ? 'var(--text-gray)' : 'white';
         const riskLbl = gradeCount === 0 ? 'No Data' : worstRisk;
 
-        html += `<tr class="row-clickable" onclick="openGradeModal('${s.user_id}', '${secName}')" style="border-bottom:1px solid var(--border-color);">
-            <td style="font-weight:600; color:var(--text-dark); padding:12px;">${s.full_name}</td>
+        const escapedName = s.full_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        html += `<tr style="border-bottom:1px solid var(--border-color);">
+            <td style="font-weight:600; padding:12px;">
+                <button type="button" class="table-record-link" onclick="openGradeModal('${s.user_id}', '${secName}')" aria-label="View grade breakdown for ${escapedName}">
+                    ${s.full_name}
+                </button>
+            </td>
             ${gradeCells}
             <td class="grade-cell ${avgCls}" style="padding:12px; text-align:center; vertical-align:middle;">${avg}</td>
             <td style="padding:12px; text-align:center; vertical-align:middle;"><span style="background:${riskBg};color:${riskClr};padding:4px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;border:1px solid var(--border-color);">${riskLbl}</span></td>
@@ -714,6 +729,15 @@ function sortClassTab(colIndex) {
         classSortCol = colIndex;
         classSortDir = 'desc';
     }
+
+    const sortableCols = document.querySelectorAll('#class-thead-row th.sortable-col');
+    sortableCols.forEach((th, idx) => {
+        if (idx === colIndex) {
+            th.setAttribute('aria-sort', classSortDir === 'desc' ? 'descending' : 'ascending');
+        } else {
+            th.setAttribute('aria-sort', 'none');
+        }
+    });
 
     document.querySelectorAll('.sort-arrow').forEach(el => {
         el.textContent = '⇅';
