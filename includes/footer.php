@@ -3,5 +3,6 @@
 // Place any shared bottom-of-page <script> tags here so every page gets them.
 require_once __DIR__ . '/glossary_modal.php';
 ?>
+<script src="<?= BASE_URL ?>assets/js/ui.js"></script>
 </body>
 </html>

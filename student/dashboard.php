@@ -197,6 +197,19 @@ if ($display_risk === 'HIGH') {
     $riskTooltip = "There isn't enough recorded academic data yet to generate a prediction.";
 }
 
+$shortRiskSummary = match($display_risk) {
+    'HIGH' => $isAiSource
+        ? 'Trajectory driven by historical failed subjects or low pacing.'
+        : 'Projected GWA is critically low or includes past failed subjects.',
+    'MODERATE' => $isAiSource
+        ? 'Borderline trajectory; academic monitoring recommended.'
+        : 'Projected GWA hovering near the retention threshold.',
+    'LOW' => $isAiSource
+        ? 'Model projects a stable, satisfactory trajectory.'
+        : 'Projected GWA well within safe standing threshold.',
+    default => 'Insufficient academic data to determine trajectory.'
+};
+
 $honor_color = match ($display_honor) {
     'Summa Cum Laude' => '#b45309',
     'Magna Cum Laude'  => '#1d4ed8',
@@ -320,13 +333,16 @@ require_once '../includes/sidebar.php';
         <div class="stat-card" style="border-left-color: <?= $riskBg ?>;">
             <div class="stat-card-heading-with-info">
                 <h4 style="margin: 0;">Overall Academic Risk</h4>
-                <span class="custom-tooltip tooltip-top-left risk-info-icon" tabindex="0" aria-label="<?= htmlspecialchars($riskTooltip) ?>">
+                <span class="custom-tooltip tooltip-top-left risk-info-icon" tabindex="0" aria-label="Risk explanation: <?= htmlspecialchars($riskTooltip) ?>" title="View risk details">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($riskTooltip) ?></span>
                 </span>
             </div>
             <h2 style="color: <?= $riskBg ?>; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($display_risk ?? 'N/A') ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Classification</p>
+            <div style="font-size: 0.76rem; color: var(--text-dark); margin-top: 6px; font-weight: 600; line-height: 1.35;">
+                <?= htmlspecialchars($shortRiskSummary) ?>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Classification</p>
         </div>
     </div>
 
