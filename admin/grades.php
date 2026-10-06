@@ -326,7 +326,7 @@ require_once '../includes/sidebar.php';
             $avg = $sec['avg_gwa'] !== null ? number_format($sec['avg_gwa'], 2) : '—';
             $riskColor = $sec['at_risk_count'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
         ?>
-        <div class="section-card" onclick="openSection('<?= htmlspecialchars($sec['section']) ?>')">
+        <button type="button" class="section-card" data-section="<?= htmlspecialchars($sec['section']) ?>" aria-controls="roster-panel" aria-expanded="false" onclick="openSection('<?= htmlspecialchars($sec['section']) ?>', this)">
             <div class="section-card-head">
                 <span><?= htmlspecialchars($sec['section']) ?></span>
                 <span style="font-size:0.8rem; color:var(--text-gray);"><?= $sec['student_count'] ?> students</span>
@@ -338,20 +338,21 @@ require_once '../includes/sidebar.php';
                     <?= $sec['at_risk_count'] ?> at-risk
                 </div>
             </div>
-        </div>
+        </button>
         <?php endforeach; ?>
     </div>
 
     <div class="data-table-card data-table-card--active roster-panel" id="roster-panel">
         <div class="data-table-header">
             <div class="data-table-header__intro">
-                <h3 class="data-table-title" id="roster-title"></h3>
+                <h3 class="data-table-title" id="roster-title" tabindex="-1"></h3>
             </div>
             <div class="data-table-actions">
-                <button type="button" onclick="closeRoster()" class="btn btn--secondary btn--sm">Close</button>
+                <button type="button" onclick="closeRoster()" class="btn btn--secondary btn--sm" id="roster-close-btn">Close</button>
             </div>
         </div>
-        <div class="data-table-scroll" role="region" aria-label="Section Student Roster" tabindex="0">
+        <div id="roster-status-container" style="display:none;"></div>
+        <div class="data-table-scroll" id="roster-table-scroll" role="region" aria-label="Section Student Roster" tabindex="0">
             <table class="data-table table-density--standard">
                 <caption class="sr-only">Section Student Roster</caption>
                 <thead>
@@ -384,7 +385,22 @@ require_once '../includes/sidebar.php';
 let openSectionName = <?= json_encode($openSection) ?>;
 let openStudentId   = <?= json_encode($openStudent) ?>;
 let openFeedbackId  = <?= json_encode($openFeedbackId) ?>;
-const csrfToken = <?= json_encode($_SESSION['csrf_token']) ?>;
+const csrfToken     = <?= json_encode($_SESSION['csrf_token']) ?>;
+
+let activeTriggerEl       = null;
+let currentRosterSection  = null;
+let rosterAbortController = null;
+let rosterRequestId       = 0;
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function riskColor(risk) {
     if (risk === 'HIGH') return 'var(--risk-high)';
@@ -393,45 +409,176 @@ function riskColor(risk) {
     return 'var(--text-gray)';
 }
 
-function openSection(section) {
+function openSection(section, triggerEl) {
     openSectionName = section;
-    fetch('grades_data.php?action=students&section=' + encodeURIComponent(section))
-        .then(r => r.json())
-        .then(students => {
-            document.getElementById('roster-title').innerText = 'Section ' + section + ' — Student Roster';
-            const body = document.getElementById('roster-body');
-            if (!students.length) {
-                body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-gray); padding:16px;">No students in this section.</td></tr>';
-            } else {
-                body.innerHTML = students.map(s => {
-                    const escapedName = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    return `
-                    <tr>
-                        <td>${s.studentNo}</td>
-                        <td style="font-weight:600;">
-                            <button type="button" class="table-record-link" onclick="openHistory(${s.userId}, '${s.name.replace(/'/g,"\\'")}')" aria-label="View grade history for ${escapedName}">
-                                ${s.name}
-                            </button>
-                        </td>
-                        <td>${s.status || 'Regular'}</td>
-                        <td style="font-weight:600;">${s.currentGwa !== null ? s.currentGwa.toFixed(2) : '—'}</td>
-                        <td><span style="background:${riskColor(s.risk)}; color:white; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">${s.risk || 'N/A'}</span></td>
-                    </tr>`;
-                }).join('');
-            }
-            document.getElementById('roster-panel').style.display = 'block';
-            document.getElementById('roster-panel').scrollIntoView({ behavior: 'smooth' });
 
-            if (openStudentId) {
-                const target = students.find(s => s.userId === openStudentId);
-                if (target) openHistory(openStudentId, target.name);
-                openStudentId = 0;
+    if (!triggerEl) {
+        try {
+            triggerEl = document.querySelector('.section-card[data-section="' + CSS.escape(section) + '"]')
+                     || document.querySelector('.section-card[data-section="' + section + '"]');
+        } catch (e) {
+            triggerEl = document.querySelector('.section-card[data-section="' + section + '"]');
+        }
+    }
+
+    if (activeTriggerEl && activeTriggerEl !== triggerEl) {
+        activeTriggerEl.setAttribute('aria-expanded', 'false');
+        activeTriggerEl.classList.remove('section-card--active');
+        const prevBadge = activeTriggerEl.querySelector('.section-card-active-indicator');
+        if (prevBadge) prevBadge.remove();
+    }
+
+    activeTriggerEl = triggerEl;
+    currentRosterSection = section;
+
+    if (activeTriggerEl) {
+        activeTriggerEl.setAttribute('aria-expanded', 'true');
+        activeTriggerEl.classList.add('section-card--active');
+        if (!activeTriggerEl.querySelector('.section-card-active-indicator')) {
+            const head = activeTriggerEl.querySelector('.section-card-head');
+            if (head) {
+                const indicator = document.createElement('span');
+                indicator.className = 'section-card-active-indicator';
+                indicator.setAttribute('aria-hidden', 'true');
+                indicator.textContent = '● Open';
+                head.appendChild(indicator);
             }
-        });
+        }
+    }
+
+    if (rosterAbortController) {
+        rosterAbortController.abort();
+    }
+    const thisRequestId = ++rosterRequestId;
+    rosterAbortController = new AbortController();
+
+    const panel = document.getElementById('roster-panel');
+    const title = document.getElementById('roster-title');
+    const statusContainer = document.getElementById('roster-status-container');
+    const tableScroll = document.getElementById('roster-table-scroll');
+
+    panel.style.display = 'block';
+    title.textContent = 'Section ' + section + ' — Student Roster';
+
+    statusContainer.style.display = 'block';
+    statusContainer.innerHTML = `
+        <div class="roster-state roster-state--loading" role="status" aria-live="polite">
+            <span class="roster-state-spinner" aria-hidden="true"></span>
+            <span>Loading Section ${escapeHtml(section)} student roster...</span>
+        </div>
+    `;
+    tableScroll.style.display = 'none';
+
+    if (window.UDM && window.UDM.announce) {
+        window.UDM.announce('Loading Section ' + section + ' student roster');
+    }
+
+    if (window.UDM && window.UDM.scrollToTarget) {
+        window.UDM.scrollToTarget(panel, { focusTarget: title });
+    }
+
+    fetch('grades_data.php?action=students&section=' + encodeURIComponent(section), {
+        signal: rosterAbortController.signal
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(students => {
+        if (thisRequestId !== rosterRequestId) return;
+
+        statusContainer.style.display = 'none';
+        tableScroll.style.display = 'block';
+
+        const body = document.getElementById('roster-body');
+        if (!students || !students.length) {
+            body.innerHTML = '<tr><td colspan="5" class="roster-empty-cell">No students are currently available for this section.</td></tr>';
+            if (window.UDM && window.UDM.announce) {
+                window.UDM.announce('Section ' + section + ' roster is empty. No students available.');
+            }
+        } else {
+            body.innerHTML = students.map(s => {
+                const escapedName = (s.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `
+                <tr>
+                    <td>${escapeHtml(s.studentNo)}</td>
+                    <td style="font-weight:600;">
+                        <button type="button" class="table-record-link" onclick="openHistory(${s.userId}, '${(s.name || '').replace(/'/g,"\\'")}')" aria-label="View grade history for ${escapedName}">
+                            ${escapeHtml(s.name)}
+                        </button>
+                    </td>
+                    <td>${escapeHtml(s.status || 'Regular')}</td>
+                    <td style="font-weight:600;">${s.currentGwa !== null && s.currentGwa !== undefined ? Number(s.currentGwa).toFixed(2) : '—'}</td>
+                    <td><span style="background:${riskColor(s.risk)}; color:white; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">${escapeHtml(s.risk || 'N/A')}</span></td>
+                </tr>`;
+            }).join('');
+
+            if (window.UDM && window.UDM.announce) {
+                window.UDM.announce('Section ' + section + ' student roster loaded with ' + students.length + ' students');
+            }
+        }
+
+        if (openStudentId) {
+            const target = students.find(s => s.userId === openStudentId);
+            if (target) openHistory(openStudentId, target.name);
+            openStudentId = 0;
+        }
+    })
+    .catch(err => {
+        if (err.name === 'AbortError') return;
+        if (thisRequestId !== rosterRequestId) return;
+
+        statusContainer.style.display = 'block';
+        tableScroll.style.display = 'none';
+        statusContainer.innerHTML = `
+            <div class="roster-state roster-state--error" role="alert">
+                <p class="roster-state-msg">The roster could not be loaded.</p>
+                <button type="button" class="btn btn--secondary btn--sm roster-retry-btn" id="roster-retry-btn" onclick="retrySection()">Retry</button>
+            </div>
+        `;
+
+        if (window.UDM && window.UDM.announce) {
+            window.UDM.announce('The roster could not be loaded. A retry option is available.', 'assertive');
+        }
+    });
+}
+
+function retrySection() {
+    if (currentRosterSection) {
+        openSection(currentRosterSection, activeTriggerEl);
+    }
 }
 
 function closeRoster() {
-    document.getElementById('roster-panel').style.display = 'none';
+    if (rosterAbortController) {
+        rosterAbortController.abort();
+        rosterAbortController = null;
+    }
+    rosterRequestId++;
+
+    const panel = document.getElementById('roster-panel');
+    panel.style.display = 'none';
+
+    const statusContainer = document.getElementById('roster-status-container');
+    if (statusContainer) statusContainer.style.display = 'none';
+
+    const returningTrigger = activeTriggerEl;
+    if (activeTriggerEl) {
+        activeTriggerEl.setAttribute('aria-expanded', 'false');
+        activeTriggerEl.classList.remove('section-card--active');
+        const badge = activeTriggerEl.querySelector('.section-card-active-indicator');
+        if (badge) badge.remove();
+        activeTriggerEl = null;
+    }
+    currentRosterSection = null;
+
+    if (returningTrigger && typeof returningTrigger.focus === 'function') {
+        try {
+            returningTrigger.focus({ preventScroll: true });
+        } catch (e) {
+            returningTrigger.focus();
+        }
+    }
 }
 
 function openHistory(studentId, name) {
@@ -493,9 +640,11 @@ function closeHistoryModal() {
     document.getElementById('history-modal-overlay').classList.remove('open');
 }
 
-if (openSectionName) {
-    openSection(openSectionName);
-}
+document.addEventListener('DOMContentLoaded', function() {
+    if (openSectionName) {
+        openSection(openSectionName);
+    }
+});
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
