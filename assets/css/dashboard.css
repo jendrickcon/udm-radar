@@ -1224,5 +1224,113 @@ textarea:focus-visible,
     font-size: 0.78rem;
 }
 
+/* ==========================================================================
+   DATA-UI-WP2: Active Drilldown and Roster Behavior
+   ========================================================================== */
+
+/* Section Card Triggers & Active State (Admin & Faculty) */
+.section-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease;
+}
+
+.section-card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.section-card:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+.section-card.section-card--active {
+    box-shadow: 0 0 0 2px var(--accent-blue);
+    border-color: var(--accent-blue);
+}
+
+.section-card-active-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--accent-blue);
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+}
+
+.view-students-btn.view-students-btn--active {
+    box-shadow: 0 0 0 2px var(--accent-blue);
+    background: #1a44a5;
+}
+
+/* Active Detail Panel Statuses (Loading, Empty, Error, Retry) */
+.roster-state {
+    padding: 32px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.roster-state--loading {
+    color: var(--text-gray);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.roster-state-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: roster-spin 0.8s linear infinite;
+}
+
+@keyframes roster-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .roster-state-spinner {
+        animation: none;
+        border-style: double;
+        border-width: 4px;
+    }
+}
+
+.roster-state--error {
+    color: var(--risk-high);
+}
+
+.roster-state-msg {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.roster-empty-cell {
+    text-align: center;
+    color: var(--text-gray);
+    padding: 24px 16px;
+    font-size: 0.9rem;
+}
+
+
 
 

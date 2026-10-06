@@ -327,8 +327,13 @@ require_once '../includes/sidebar.php';
                     <span style="color:<?= $risk_col ?>;font-weight:600;">At-Risk: <?= $data['at_risk'] ?></span>
                     <span style="color:var(--text-gray);font-weight:600;">Irregular: <?= $data['irregular'] ?></span>
                 </div>
-                <button onclick="openSection('<?= $sec_name ?>')"
-                    style="width:100%;padding:10px;background:var(--accent-blue);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.9" onmouseout="this.style.opacity=1">
+                <button type="button"
+                    class="btn btn--primary view-students-btn"
+                    data-section="<?= htmlspecialchars($sec_name) ?>"
+                    aria-controls="section-roster-card"
+                    aria-expanded="false"
+                    onclick="openSection('<?= htmlspecialchars($sec_name) ?>', this)"
+                    style="width:100%; justify-content:center;">
                     View Students →
                 </button>
             </div>
@@ -336,19 +341,20 @@ require_once '../includes/sidebar.php';
         <?php endforeach; ?>
     </div>
 
-    <div id="section-roster-card" class="card" style="display:none;border:2px solid var(--accent-blue);margin-bottom:24px; padding:24px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div>
-                <h3 id="roster-title" style="color:var(--text-dark);font-weight:700;font-size:1.1rem; margin:0;">Student List</h3>
-                <p style="color:var(--text-gray); font-size:0.8rem; margin: 4px 0 0 0;">Click on a student row in 'My Class Performance' to view their full term breakdown.</p>
+    <div id="section-roster-card" class="data-table-card data-table-card--active roster-panel" style="display:none; margin-bottom:24px;">
+        <div class="data-table-header">
+            <div class="data-table-header__intro">
+                <h3 class="data-table-title" id="roster-title" tabindex="-1">Student List</h3>
+                <p class="data-table-subtitle">Click on a student row in 'My Class Performance' to view their full term breakdown.</p>
             </div>
-            <button onclick="closeRoster()"
-                style="background:var(--bg-color);color:var(--text-dark);border:1px solid var(--border-color);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;">
-                Close
-            </button>
+            <div class="data-table-actions">
+                <button type="button" onclick="closeRoster()" class="btn btn--secondary btn--sm" id="faculty-roster-close-btn">
+                    Close
+                </button>
+            </div>
         </div>
 
-        <div class="tab-bar">
+        <div class="tab-bar" style="padding:12px 24px 0; border-bottom:1px solid var(--border-color); background:var(--card-bg);">
             <button class="tab-btn active" id="tab-btn-class" onclick="switchTab('class')" style="display:inline-flex; align-items:center; gap:6px;">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                 <span>My Class Performance</span>
@@ -489,18 +495,70 @@ const sectionDataMap     = <?= json_encode($section_data,       JSON_HEX_TAG | J
 const sectionSubjectMap  = <?= json_encode($section_subject_map, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 
 let activeSection = null;
+let activeFacultyTrigger = null;
 
-function openSection(secName) {
+function openSection(secName, triggerEl) {
+    if (!triggerEl) {
+        try {
+            triggerEl = document.querySelector('.view-students-btn[data-section="' + CSS.escape(secName) + '"]')
+                     || document.querySelector('.view-students-btn[data-section="' + secName + '"]');
+        } catch (e) {
+            triggerEl = document.querySelector('.view-students-btn[data-section="' + secName + '"]');
+        }
+    }
+
+    if (activeFacultyTrigger && activeFacultyTrigger !== triggerEl) {
+        activeFacultyTrigger.setAttribute('aria-expanded', 'false');
+        activeFacultyTrigger.classList.remove('view-students-btn--active');
+        activeFacultyTrigger.textContent = 'View Students →';
+    }
+
+    activeFacultyTrigger = triggerEl;
     activeSection = secName;
-    document.getElementById('roster-title').innerText = 'Section ' + secName + ' — Student Roster';
+
+    if (activeFacultyTrigger) {
+        activeFacultyTrigger.setAttribute('aria-expanded', 'true');
+        activeFacultyTrigger.classList.add('view-students-btn--active');
+        activeFacultyTrigger.textContent = 'Active Roster ↓';
+    }
+
+    const title = document.getElementById('roster-title');
+    title.textContent = 'Section ' + secName + ' — Student Roster';
+
     switchTab('class'); 
-    document.getElementById('section-roster-card').style.display = 'block';
-    document.getElementById('section-roster-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const panel = document.getElementById('section-roster-card');
+    panel.style.display = 'block';
+
+    if (window.UDM && window.UDM.announce) {
+        window.UDM.announce('Section ' + secName + ' student roster opened');
+    }
+
+    if (window.UDM && window.UDM.scrollToTarget) {
+        window.UDM.scrollToTarget(panel, { focusTarget: title });
+    }
 }
 
 function closeRoster() {
-    document.getElementById('section-roster-card').style.display = 'none';
+    const panel = document.getElementById('section-roster-card');
+    panel.style.display = 'none';
+
+    const returningTrigger = activeFacultyTrigger;
+    if (activeFacultyTrigger) {
+        activeFacultyTrigger.setAttribute('aria-expanded', 'false');
+        activeFacultyTrigger.classList.remove('view-students-btn--active');
+        activeFacultyTrigger.textContent = 'View Students →';
+        activeFacultyTrigger = null;
+    }
     activeSection = null;
+
+    if (returningTrigger && typeof returningTrigger.focus === 'function') {
+        try {
+            returningTrigger.focus({ preventScroll: true });
+        } catch (e) {
+            returningTrigger.focus();
+        }
+    }
 }
 
 function switchTab(tab) {

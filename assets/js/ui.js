@@ -62,4 +62,36 @@
             }
         }
     };
+
+    /**
+     * Announce a message to assistive technology using an accessible live region.
+     * Respects priority ('polite' or 'assertive').
+     *
+     * @param {string} message - Message text to announce
+     * @param {'polite'|'assertive'} [priority='polite'] - Priority level
+     */
+    window.UDM.announce = function(message, priority) {
+        if (!message) return;
+        var p = priority === 'assertive' ? 'assertive' : 'polite';
+        var regionId = 'udm-live-region-' + p;
+        var region = document.getElementById(regionId);
+        if (!region) {
+            region = document.createElement('div');
+            region.id = regionId;
+            region.className = 'sr-only';
+            region.setAttribute('role', p === 'assertive' ? 'alert' : 'status');
+            region.setAttribute('aria-live', p);
+            region.setAttribute('aria-atomic', 'true');
+            if (document.body) {
+                document.body.appendChild(region);
+            }
+        }
+        if (region) {
+            region.textContent = '';
+            window.setTimeout(function() {
+                region.textContent = message;
+            }, 50);
+        }
+    };
 })(window);
+
