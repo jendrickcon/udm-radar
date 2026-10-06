@@ -359,12 +359,27 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight: 600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
     <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="switchTab('inbox', true)"><h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Open Reports</h4><h2 style="margin: 8px 0 0; color: var(--text-dark); font-size: 2rem;"><?= $countInbox ?></h2><div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Incoming queries</div></div>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-mod) !important;" onclick="switchTab('approvals', true)"><h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Pending Approvals</h4><h2 style="margin: 8px 0 0; color: var(--risk-mod); font-size: 2rem;"><?= $countApprovals ?></h2><div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Batches & corrections</div></div>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-high) !important;" onclick="switchTab('support', true)"><h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Support Reviews</h4><h2 style="margin: 8px 0 0; color: var(--risk-high); font-size: 2rem;"><?= $countSupportReviews ?></h2><div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active program cases</div></div>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="switchTab('inbox', true)" aria-controls="tab-inbox" title="Switch to Inbox tab">
+            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Open Reports</h4>
+            <h2 style="margin: 8px 0 0; color: var(--text-dark); font-size: 2rem;"><?= $countInbox ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Incoming queries</div>
+            <span class="kpi-action-cue">Open Inbox &rarr;</span>
+        </button>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-mod) !important;" onclick="switchTab('approvals', true)" aria-controls="tab-approvals" title="Switch to Approvals tab">
+            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Pending Approvals</h4>
+            <h2 style="margin: 8px 0 0; color: var(--risk-mod); font-size: 2rem;"><?= $countApprovals ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Batches & corrections</div>
+            <span class="kpi-action-cue">Review Approvals &rarr;</span>
+        </button>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-high) !important;" onclick="switchTab('support', true)" aria-controls="tab-support" title="Switch to Academic Support tab">
+            <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Support Reviews</h4>
+            <h2 style="margin: 8px 0 0; color: var(--risk-high); font-size: 2rem;"><?= $countSupportReviews ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active program cases</div>
+            <span class="kpi-action-cue">View Support &rarr;</span>
+        </button>
     </div>
 
-    <div id="workspace-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
+    <div id="workspace-tabs" class="scroll-target" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
         <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Inbox (<?= $countInbox ?>)</button>
         <button id="btn-approvals" class="tab-btn" onclick="switchTab('approvals')">Approvals (<?= $countApprovals ?>)</button>
         <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support (<?= $countSupportReviews ?>)</button>
@@ -839,10 +854,14 @@ function switchTab(tabId, shouldScroll = false) {
     if (activeBtn) activeBtn.classList.add('active');
 
     if (shouldScroll) {
-        const tabsEl = document.getElementById('workspace-tabs');
-        if (tabsEl) {
-            const y = tabsEl.getBoundingClientRect().top + window.scrollY - 20;
-            window.scrollTo({top: y, behavior: 'smooth'});
+        if (window.UDM && typeof window.UDM.scrollToTarget === 'function') {
+            window.UDM.scrollToTarget('workspace-tabs', { focusTarget: 'btn-' + tabId });
+        } else {
+            const tabsEl = document.getElementById('workspace-tabs');
+            if (tabsEl) {
+                tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeBtn) activeBtn.focus();
+            }
         }
     }
 }

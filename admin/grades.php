@@ -271,39 +271,53 @@ require_once '../includes/sidebar.php';
             Pending Grade Corrections
             <span class="pending-badge"><?= count($pending) ?> awaiting confirmation</span>
         </div>
-        <table>
-            <thead><tr><th>Student</th><th>Subject</th><th>Field</th><th>Was</th><th>Proposed</th><th>Reason</th><th>Proposed By</th><th></th></tr></thead>
-            <tbody>
-                <?php foreach ($pending as $p):
-                    $studentName = formatNameLastFirst($p['first_name'], $p['middle_name'], $p['last_name']);
-                    $adminName   = formatNameLastFirst($p['a_first'], $p['a_middle'], $p['a_last']);
-                ?>
-                <tr>
-                    <td><?= htmlspecialchars($studentName) ?></td>
-                    <td><?= htmlspecialchars($p['subj_code']) ?></td>
-                    <td><?= htmlspecialchars($p['field_changed']) ?></td>
-                    <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
-                    <td style="font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
-                    <td style="font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
-                    <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
-                    <td style="white-space:nowrap;">
-                        <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected? This will update the live grade record.');">
-                            <input type="hidden" name="action" value="confirm_correction">
-                            <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" class="small-btn" style="background:var(--risk-low); color:white;">Confirm</button>
-                        </form>
-                        <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Reject this proposed correction?');">
-                            <input type="hidden" name="action" value="reject_correction">
-                            <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" class="small-btn" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high);">Reject</button>
-                        </form>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="data-table-scroll" role="region" aria-label="Pending Grade Corrections Table" tabindex="0">
+            <table style="width: 100%; border-collapse: collapse;">
+                <caption class="sr-only">Pending Grade Corrections Table</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Student</th>
+                        <th scope="col">Subject</th>
+                        <th scope="col">Field</th>
+                        <th scope="col">Was</th>
+                        <th scope="col">Proposed</th>
+                        <th scope="col">Reason</th>
+                        <th scope="col">Proposed By</th>
+                        <th scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($pending as $p):
+                        $studentName = formatNameLastFirst($p['first_name'], $p['middle_name'], $p['last_name']);
+                        $adminName   = formatNameLastFirst($p['a_first'], $p['a_middle'], $p['a_last']);
+                    ?>
+                    <tr>
+                        <td><?= htmlspecialchars($studentName) ?></td>
+                        <td><?= htmlspecialchars($p['subj_code']) ?></td>
+                        <td><?= htmlspecialchars($p['field_changed']) ?></td>
+                        <td><?= htmlspecialchars($p['old_value'] ?? '—') ?></td>
+                        <td style="font-weight:700; color:var(--risk-mod);"><?= htmlspecialchars($p['new_value']) ?></td>
+                        <td style="font-size:0.82rem; color:var(--text-gray);"><?= htmlspecialchars($p['reason']) ?></td>
+                        <td style="font-size:0.82rem;"><?= htmlspecialchars($adminName) ?></td>
+                        <td style="white-space:nowrap;">
+                            <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Mark this correction as officially reflected? This will update the live grade record.');">
+                                <input type="hidden" name="action" value="confirm_correction">
+                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <button type="submit" class="small-btn" style="background:var(--risk-low); color:white;">Confirm</button>
+                            </form>
+                            <form method="POST" action="grades.php" style="display:inline;" onsubmit="return confirm('Reject this proposed correction?');">
+                                <input type="hidden" name="action" value="reject_correction">
+                                <input type="hidden" name="correction_id" value="<?= $p['id'] ?>">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <button type="submit" class="small-btn" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high);">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
     <?php endif; ?>
 
@@ -333,10 +347,21 @@ require_once '../includes/sidebar.php';
             <h3 id="roster-title" style="color:var(--text-dark);"></h3>
             <button onclick="closeRoster()" style="background:var(--bg-color); color:var(--text-dark); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-family:inherit;">Close</button>
         </div>
-        <table>
-            <thead><tr><th>Student No.</th><th>Name</th><th>Status</th><th>GWA</th><th>Risk</th></tr></thead>
-            <tbody id="roster-body"></tbody>
-        </table>
+        <div class="data-table-scroll" role="region" aria-label="Section Student Roster" tabindex="0">
+            <table style="width: 100%; border-collapse: collapse;">
+                <caption class="sr-only">Section Student Roster</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Student No.</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">GWA</th>
+                        <th scope="col">Risk</th>
+                    </tr>
+                </thead>
+                <tbody id="roster-body"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -374,14 +399,21 @@ function openSection(section) {
             if (!students.length) {
                 body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-gray); padding:16px;">No students in this section.</td></tr>';
             } else {
-                body.innerHTML = students.map(s => `
-                    <tr class="row-clickable" onclick="openHistory(${s.userId}, '${s.name.replace(/'/g,"\\'")}')">
+                body.innerHTML = students.map(s => {
+                    const escapedName = s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    return `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
                         <td>${s.studentNo}</td>
-                        <td style="font-weight:600; color:var(--accent-blue);">${s.name}</td>
+                        <td style="font-weight:600;">
+                            <button type="button" class="table-record-link" onclick="openHistory(${s.userId}, '${s.name.replace(/'/g,"\\'")}')" aria-label="View grade history for ${escapedName}">
+                                ${s.name}
+                            </button>
+                        </td>
                         <td>${s.status || 'Regular'}</td>
                         <td style="font-weight:600;">${s.currentGwa !== null ? s.currentGwa.toFixed(2) : '—'}</td>
                         <td><span style="background:${riskColor(s.risk)}; color:white; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">${s.risk || 'N/A'}</span></td>
-                    </tr>`).join('');
+                    </tr>`;
+                }).join('');
             }
             document.getElementById('roster-panel').style.display = 'block';
             document.getElementById('roster-panel').scrollIntoView({ behavior: 'smooth' });
@@ -415,7 +447,9 @@ function openHistory(studentId, name) {
 }
 
 function renderGradeRow(g, studentId) {
-    const risk = g.risk || 'LOW';
+    const rawRisk = g.risk ? String(g.risk).toUpperCase() : '';
+    const risk = ['HIGH', 'MODERATE', 'LOW'].includes(rawRisk) ? rawRisk : 'N/A';
+    const riskLabel = risk === 'N/A' ? 'Not classified' : risk;
     // FIXED: Inputs changed to type="text" to gracefully accept string inputs like "INC"
     return `
     <form method="POST" action="grades.php" class="grade-row-form" style="padding:8px 0; border-bottom:1px solid var(--border-color);"
@@ -434,7 +468,7 @@ function renderGradeRow(g, studentId) {
 
         <span style="font-size:0.8rem; color:var(--text-dark);" title="${g.title}">
             <strong>${g.code}</strong>
-            <span style="background:${riskColor(risk)}; color:white; padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; margin-left:6px;">${risk}</span>
+            <span style="background:${riskColor(risk)}; color:white; padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; margin-left:6px;" title="${riskLabel}">${risk}</span>
             ${g.hasPending ? '<span class="pending-badge" style="margin-left:6px;">Pending</span>' : ''}
         </span>
 

@@ -13,7 +13,7 @@ const baseURL = configuredBaseURL.endsWith('/') ? configuredBaseURL : `${configu
 
 export default defineConfig({
     testDir: './tests/browser',
-    testMatch: 'faculty-academic-guide.spec.js',
+    testMatch: '**/*.spec.js',
     fullyParallel: false,
     forbidOnly: Boolean(process.env.CI),
     workers: 1,
@@ -25,6 +25,7 @@ export default defineConfig({
     use: {
         baseURL,
         browserName: 'chromium',
+        channel: 'msedge',
         screenshot: 'off',
         trace: 'off',
         video: 'off',

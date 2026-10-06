@@ -741,18 +741,30 @@ require_once '../includes/sidebar.php';
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
     <div class="stat-grid">
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--text-dark) !important;" onclick="applyTableFilter('', '')" title="Click to view all students">
-            <h4>Total Students</h4><h2><?= $stats['total'] ?></h2><div class="stat-card-subtext">Active population</div>
-        </div>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-high) !important;" onclick="applyTableFilter('HIGH', '')" title="Click to filter High Risk students">
-            <h4>High Risk</h4><h2 style="color: var(--risk-high);"><?= $stats['high'] ?></h2><div class="stat-card-subtext">Critical academic trajectory</div>
-        </div>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--risk-mod) !important;" onclick="applyTableFilter('MODERATE', '')" title="Click to filter Moderate Risk students">
-            <h4>Moderate Risk</h4><h2 style="color: var(--risk-mod);"><?= $stats['moderate'] ?></h2><div class="stat-card-subtext">Borderline trajectory</div>
-        </div>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('', 'active')" title="Click to filter Active Support cases">
-            <h4>Active Support Cases</h4><h2 style="color: var(--accent-blue);"><?= $stats['support'] ?></h2><div class="stat-card-subtext"><?= $stats['needs_review'] ?> cases awaiting review</div>
-        </div>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-dark) !important;" onclick="applyTableFilter('', '')" aria-controls="database-section" title="Click to view all students">
+            <h4>Total Students</h4>
+            <h2><?= $stats['total'] ?></h2>
+            <div class="stat-card-subtext">Active population</div>
+            <span class="kpi-action-cue">View all students &rarr;</span>
+        </button>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-high) !important;" onclick="applyTableFilter('HIGH', '')" aria-controls="database-section" title="Click to filter High Risk students">
+            <h4>High Risk</h4>
+            <h2 style="color: var(--risk-high);"><?= $stats['high'] ?></h2>
+            <div class="stat-card-subtext">Critical academic trajectory</div>
+            <span class="kpi-action-cue">Filter High Risk &rarr;</span>
+        </button>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--risk-mod) !important;" onclick="applyTableFilter('MODERATE', '')" aria-controls="database-section" title="Click to filter Moderate Risk students">
+            <h4>Moderate Risk</h4>
+            <h2 style="color: var(--risk-mod);"><?= $stats['moderate'] ?></h2>
+            <div class="stat-card-subtext">Borderline trajectory</div>
+            <span class="kpi-action-cue">Filter Moderate Risk &rarr;</span>
+        </button>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('', 'active')" aria-controls="database-section" title="Click to filter Active Support cases">
+            <h4>Active Support Cases</h4>
+            <h2 style="color: var(--accent-blue);"><?= $stats['support'] ?></h2>
+            <div class="stat-card-subtext"><?= $stats['needs_review'] ?> cases awaiting review</div>
+            <span class="kpi-action-cue">Filter support cases &rarr;</span>
+        </button>
     </div>
 
     <div class="card upload-card">
@@ -775,7 +787,7 @@ require_once '../includes/sidebar.php';
             <div id="filePreview" class="file-preview">
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" style="width:24px; height:24px; margin-right:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                 <span id="fileName" style="flex-grow:1; font-size:0.95rem; color:var(--text-dark);">No file selected</span>
-                <button type="button" id="removeFile" style="background:none; border:none; color:var(--risk-high); cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <button type="button" id="removeFile" aria-label="Remove selected file" style="background:none; border:none; color:var(--risk-high); cursor:pointer; min-width:44px; min-height:44px; padding:12px; display:inline-flex; align-items:center; justify-content:center; border-radius:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
                 <button type="submit" class="btn-primary" id="uploadBtn" disabled>Process Import</button>
@@ -783,7 +795,7 @@ require_once '../includes/sidebar.php';
         </form>
     </div>
 
-    <div class="card" id="database-section">
+    <div class="card scroll-target" id="database-section">
         <div class="table-toolbar">
             <input type="text" id="student-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -815,20 +827,21 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="data-table-scroll" role="region" aria-label="Student Directory Table" tabindex="0">
             <table id="students-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
+                <caption class="sr-only">Student Directory Table</caption>
                 <thead>
                     <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Student No.</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Program</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Cumulative GWA (Historical)</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Latest Risk</th>
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark);">Support Case</th>
-                        <th></th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Student No.</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Program</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Section</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Year</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Status</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Cumulative GWA (Historical)</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Latest Risk</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Support Case</th>
+                        <th scope="col" style="padding: 12px; text-align: right;"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody id="students-tbody">
@@ -837,10 +850,15 @@ require_once '../includes/sidebar.php';
                         $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
                         $riskVal = $s['latest_risk'] ?? 'N/A';
                         $statusVal = $s['status'] ?? 'Regular';
+                        $formattedName = formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']);
                     ?>
-                    <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-status="<?= htmlspecialchars($statusVal) ?>" data-support="<?= $s['support_status'] ?? 'None' ?>" onclick="openStudentModal(<?= $uid ?>)" style="border-bottom: 1px solid var(--border-color);">
+                    <tr data-search="<?= htmlspecialchars($searchBlob) ?>" data-risk="<?= $riskVal ?>" data-status="<?= htmlspecialchars($statusVal) ?>" data-support="<?= $s['support_status'] ?? 'None' ?>" style="border-bottom: 1px solid var(--border-color);">
                         <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['student_number']) ?></td>
-                        <td style="padding: 12px; font-weight:600; color:var(--accent-blue);"><?= htmlspecialchars(formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name'])) ?></td>
+                        <td style="padding: 12px; font-weight:600;">
+                            <button type="button" class="table-record-link" onclick="openStudentModal(<?= $uid ?>)" aria-label="View details for <?= htmlspecialchars($formattedName) ?>">
+                                <?= htmlspecialchars($formattedName) ?>
+                            </button>
+                        </td>
                         <td style="padding: 12px; color: var(--text-dark); font-size:0.85rem;"><?= htmlspecialchars($s['course'] ?? '—') ?></td>
                         <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
                         <td style="padding: 12px; color: var(--text-dark);"><?= $s['year_level'] !== null ? htmlspecialchars(ordinalYearLabel($s['year_level'])) : '—' ?></td>
@@ -848,7 +866,7 @@ require_once '../includes/sidebar.php';
                         <td style="padding: 12px; color: var(--text-dark); font-weight: 600;"><?= $s['current_gwa'] !== null ? number_format($s['current_gwa'], 2) : '—' ?></td>
                         <td style="padding: 12px;"><?= getRiskBadgeHtml($riskVal) ?></td>
                         <td style="padding: 12px;"><?= getSupportBadgeHtml($s['support_status']) ?></td>
-                        <td onclick="event.stopPropagation();" style="padding: 12px; text-align: right; white-space: nowrap;">
+                        <td style="padding: 12px; text-align: right; white-space: nowrap;">
                             <button type="button" onclick="openEditModal(<?= $uid ?>)" style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; margin-right: 12px;">Edit</button>
                             <form method="POST" action="students.php" onsubmit="return confirm('Archive this student account? This preserves their academic history safely.');" style="display:inline; margin:0;">
                                 <input type="hidden" name="action" value="archive">
@@ -938,12 +956,13 @@ require_once '../includes/sidebar.php';
 
         <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; background: var(--card-bg);">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <caption class="sr-only">CSV Import Grade Preview</caption>
                 <thead style="position: sticky; top: 0; z-index: 10;">
                     <tr>
-                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Subject Name</th>
-                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Calculated Term</th>
-                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Official Final Grade</th>
-                        <th style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Action</th>
+                        <th scope="col" style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Subject Name</th>
+                        <th scope="col" style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Calculated Term</th>
+                        <th scope="col" style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Official Final Grade</th>
+                        <th scope="col" style="padding:12px 10px; text-align:left; color:var(--text-dark); background-color: var(--bg-color); border-bottom: 2px solid var(--border-color);">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1007,16 +1026,17 @@ require_once '../includes/sidebar.php';
         </div>
 
         <h4 style="color:var(--text-dark); font-size:0.95rem; margin-bottom:8px;">Current Semester Grades</h4>
-        <div style="overflow-x: auto; width: 100%;">
+        <div class="data-table-scroll" role="region" aria-label="Current Semester Grades" tabindex="0">
         <table style="width:100%; border-collapse: collapse;">
+            <caption class="sr-only">Current Semester Grades</caption>
             <thead>
                 <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
-                    <th style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th>
-                    <th style="padding: 8px; text-align: center; color: var(--text-dark);">Prelim</th>
-                    <th style="padding: 8px; text-align: center; color: var(--text-dark);">Midterm</th>
-                    <th style="padding: 8px; text-align: center; color: var(--text-dark);">Pre-Final</th>
-                    <th style="padding: 8px; text-align: center; color: var(--text-dark);">Official Final Grade</th>
-                    <th style="padding: 8px; text-align: center; color: var(--text-dark);">Risk</th>
+                    <th scope="col" style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th>
+                    <th scope="col" style="padding: 8px; text-align: center; color: var(--text-dark);">Prelim</th>
+                    <th scope="col" style="padding: 8px; text-align: center; color: var(--text-dark);">Midterm</th>
+                    <th scope="col" style="padding: 8px; text-align: center; color: var(--text-dark);">Pre-Final</th>
+                    <th scope="col" style="padding: 8px; text-align: center; color: var(--text-dark);">Official Final Grade</th>
+                    <th scope="col" style="padding: 8px; text-align: center; color: var(--text-dark);">Risk</th>
                 </tr>
             </thead>
             <tbody id="modal-grades-body"></tbody>
@@ -1102,8 +1122,12 @@ function applyTableFilter(riskVal, supportVal) {
     }
     currentPage = 1;
     renderPage();
-    const section = document.getElementById('database-section');
-    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (window.UDM && typeof window.UDM.scrollToTarget === 'function') {
+        window.UDM.scrollToTarget('database-section', { focusTarget: 'student-search' });
+    } else {
+        const section = document.getElementById('database-section');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // --- NEW: CSV Export Trigger Function ---
@@ -1250,10 +1274,10 @@ function toggleHistory() {
     } else {
         if (!container.innerHTML) {
             const terms = Object.keys(studentModalData[currentModalUid].history || {});
-            container.innerHTML = terms.length ? terms.map(term => `<div style="margin-bottom:14px;"><div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div><table style="width:100%; border-collapse: collapse;"><thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th style="text-align:left; padding: 8px; color:var(--text-dark);">Subject Name</th><th style="text-align:left; padding: 8px; color:var(--text-dark);">Official Final Grade</th></tr></thead><tbody>${studentModalData[currentModalUid].history[term].map(g => {
+            container.innerHTML = terms.length ? terms.map(term => `<div style="margin-bottom:14px;"><div style="font-weight:700; color:var(--text-dark); font-size:0.85rem; margin-bottom:6px;">${term}</div><div class="data-table-scroll" role="region" aria-label="Historical Grades for ${term}" tabindex="0"><table style="width:100%; border-collapse: collapse;"><caption class="sr-only">Historical Grades for ${term}</caption><thead><tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);"><th scope="col" style="text-align:left; padding: 8px; color:var(--text-dark);">Subject Name</th><th scope="col" style="text-align:left; padding: 8px; color:var(--text-dark);">Official Final Grade</th></tr></thead><tbody>${studentModalData[currentModalUid].history[term].map(g => {
                 let dispGrade = isNaN(g.grade) || g.grade === null ? (g.grade || '—') : parseFloat(g.grade).toFixed(2);
                 return `<tr style="border-bottom: 1px solid var(--border-color);"><td style="color:var(--text-dark); padding: 8px;">${g.title}</td><td style="font-weight:600; color:var(--text-dark); padding: 8px;">${dispGrade}</td></tr>`
-            }).join('')}</tbody></table></div>`).join('') : '<p style="color:var(--text-gray); font-size:0.85rem; text-align:center;">No historical grades on record.</p>';
+            }).join('')}</tbody></table></div></div>`).join('') : '<p style="color:var(--text-gray); font-size:0.85rem; text-align:center;">No historical grades on record.</p>';
         }
         wrapper.style.maxHeight = container.scrollHeight + "px";
         btn.innerHTML = '<span id="history-toggle-icon" style="display:inline-block; transition:transform 0.3s ease; margin-right:4px; transform: rotate(90deg);">▶</span> Hide Grade History';

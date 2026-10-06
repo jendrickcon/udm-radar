@@ -24,14 +24,19 @@ $lastRunText = $latestPredQuery ? date('F j, Y \a\t g:i A', strtotime($latestPre
 $yearFilter    = trim($_GET['year'] ?? '');
 $sectionFilter = trim($_GET['section'] ?? '');
 
+// Schema check with graceful fallback for pre-migration databases
+$hasRecordStatus = (bool) $db->query("SHOW COLUMNS FROM student_profiles LIKE 'record_status'")->fetch();
+$activeClause    = $hasRecordStatus ? "record_status = 'Active'" : "status != 'Archived'";
+$spActiveClause  = $hasRecordStatus ? "sp.record_status = 'Active'" : "sp.status != 'Archived'";
+
 // FIXED: Exclude Archived/Graduated students from filter dropdowns
-$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles WHERE record_status = 'Active' ORDER BY year_level")->fetchAll(), 'year_level');
+$years = array_column($db->query("SELECT DISTINCT year_level FROM student_profiles WHERE {$activeClause} ORDER BY year_level")->fetchAll(), 'year_level');
 
 if ($yearFilter !== '') {
-    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND record_status = 'Active' AND year_level = ? ORDER BY section");
+    $sectionsStmt = $db->prepare("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND {$activeClause} AND year_level = ? ORDER BY section");
     $sectionsStmt->execute([$yearFilter]);
 } else {
-    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND record_status = 'Active' ORDER BY section");
+    $sectionsStmt = $db->query("SELECT DISTINCT section FROM student_profiles WHERE section IS NOT NULL AND {$activeClause} ORDER BY section");
 }
 $sections = array_column($sectionsStmt->fetchAll(), 'section');
 
@@ -52,7 +57,7 @@ $sql = "
         ORDER BY p2.generated_at DESC, p2.id DESC
         LIMIT 1
     )
-    WHERE sp.record_status = 'Active'
+    WHERE {$spActiveClause}
 ";
 $params = [];
 if ($yearFilter !== '')    { $sql .= " AND sp.year_level = ?"; $params[] = $yearFilter; }
@@ -250,12 +255,14 @@ require_once '../includes/sidebar.php';
 
     <!-- STAT GRID WITH DRILL-DOWN CAPABILITIES -->
     <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" title="Click to view all students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" aria-controls="table-card" title="Click to view all students in table">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total ?></h2>
-        </div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active cohort population</div>
+            <span class="kpi-action-cue">View all students &rarr;</span>
+        </button>
         
-        <div class="stat-card kpi-drilldown <?= $atRisk > 0 ? 'red' : 'green' ?>" style="border-left-color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?> !important;" onclick="applyTableFilter('risk', 'AT_RISK');" title="Click to filter table to At-Risk students">
+        <button type="button" class="stat-card kpi-card--action <?= $atRisk > 0 ? 'red' : 'green' ?>" style="border-left-color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?> !important;" onclick="applyTableFilter('risk', 'AT_RISK');" aria-controls="table-card" title="Click to filter table to At-Risk students">
             <h4>At-Risk</h4>
             <h2 style="margin-bottom: 2px; color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?>;"><?= $atRisk ?></h2>
             <?php if ($atRisk > 0): ?>
@@ -265,12 +272,15 @@ require_once '../includes/sidebar.php';
             <?php else: ?>
                 <div style="font-size: 0.8rem; font-weight: 600; color: var(--risk-low); margin-top: 4px;">All clear</div>
             <?php endif; ?>
-        </div>
+            <span class="kpi-action-cue">Filter at-risk &rarr;</span>
+        </button>
 
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--gold) !important;" onclick="applyTableFilter('status', 'Irregular');" title="Click to filter table to Irregular students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--gold) !important;" onclick="applyTableFilter('status', 'Irregular');" aria-controls="table-card" title="Click to filter table to Irregular students">
             <h4>Irregular</h4>
             <h2 style="color: var(--gold);"><?= $irregular ?></h2>
-        </div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Non-standard curriculum progression</div>
+            <span class="kpi-action-cue">Filter irregular &rarr;</span>
+        </button>
         
         <div class="stat-card" style="border-left-color: var(--teal) !important;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -281,19 +291,16 @@ require_once '../includes/sidebar.php';
                 </span>
             </div>
             <h2 style="color: var(--text-dark);"><?= $avgGwa !== null ? number_format($avgGwa, 2) : '—' ?></h2>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical cumulative cohort metric</div>
         </div>
         
         <?php if ($noPredict > 0): ?>
-        <div class="stat-card kpi-drilldown" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" title="Click to filter table to students missing predictions">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <h4>No Prediction Yet</h4>
-                <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Exclusion Note">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span class="tooltip-text" role="tooltip">Excluded from At-Risk count</span>
-                </span>
-            </div>
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" aria-controls="table-card" title="Click to filter table to students missing predictions">
+            <h4>No Prediction Yet</h4>
             <h2 style="color:var(--text-gray);"><?= $noPredict ?></h2>
-        </div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Excluded from At-Risk count</div>
+            <span class="kpi-action-cue">Filter unpredicted &rarr;</span>
+        </button>
         <?php endif; ?>
     </div>
 
@@ -315,7 +322,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- TIER 3: MICRO ACTION (Database & Directory) -->
-    <div class="card">
+    <div class="card scroll-target" id="table-card">
         <div class="table-toolbar">
             <input type="text" id="dashboard-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div style="display: flex; gap: 8px;">
@@ -342,18 +349,51 @@ require_once '../includes/sidebar.php';
         <?php if (empty($students)): ?>
             <p class="empty-state">No students match this filter.</p>
         <?php else: ?>
-        <div style="overflow-x: auto;">
+        <div class="data-table-scroll" role="region" aria-label="Student Cohort Roster" tabindex="0">
             <table id="admin-table" style="min-width: 900px;">
+                <caption class="sr-only">Student Cohort Roster</caption>
                 <thead>
                     <tr>
-                        <th class="sortable-col" data-type="string" onclick="sortTable(0)">Student No. <span class="sort-arrow" id="sort-arrow-0">⇅</span></th>
-                        <th class="sortable-col" data-type="string" onclick="sortTable(1)">Name <span class="sort-arrow" id="sort-arrow-1">⇅</span></th>
-                        <th class="sortable-col" data-type="string" onclick="sortTable(2)">Section <span class="sort-arrow" id="sort-arrow-2">⇅</span></th>
-                        <th class="sortable-col" data-type="number" onclick="sortTable(3)">Year <span class="sort-arrow" id="sort-arrow-3">⇅</span></th>
-                        <th class="sortable-col" data-type="number" onclick="sortTable(4)">Cumulative GWA (Historical) <span class="sort-arrow" id="sort-arrow-4">⇅</span></th>
-                        <th class="sortable-col" data-type="number" onclick="sortTable(5)">Projected Term GWA <span class="sort-arrow" id="sort-arrow-5">⇅</span></th>
-                        <th class="sortable-col" data-type="string" onclick="sortTable(6)">Status <span class="sort-arrow" id="sort-arrow-6">⇅</span></th>
-                        <th class="sortable-col" data-type="risk" onclick="sortTable(7)">Risk <span class="sort-arrow" id="sort-arrow-7">⇅</span></th>
+                        <th scope="col" class="sortable-col" data-type="string" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(0)">
+                                <span>Student No.</span> <span class="sort-arrow" id="sort-arrow-0" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="string" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(1)">
+                                <span>Name</span> <span class="sort-arrow" id="sort-arrow-1" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="string" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(2)">
+                                <span>Section</span> <span class="sort-arrow" id="sort-arrow-2" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="number" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(3)">
+                                <span>Year</span> <span class="sort-arrow" id="sort-arrow-3" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="number" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(4)">
+                                <span>Cumulative GWA (Historical)</span> <span class="sort-arrow" id="sort-arrow-4" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="number" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(5)">
+                                <span>Projected Term GWA</span> <span class="sort-arrow" id="sort-arrow-5" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="string" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(6)">
+                                <span>Status</span> <span class="sort-arrow" id="sort-arrow-6" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
+                        <th scope="col" class="sortable-col" data-type="risk" aria-sort="none">
+                            <button type="button" class="table-sort-button" onclick="sortTable(7)">
+                                <span>Risk</span> <span class="sort-arrow" id="sort-arrow-7" aria-hidden="true">⇅</span>
+                            </button>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="admin-tbody">
@@ -404,7 +444,12 @@ function applyTableFilter(type, val) {
     if (el) el.value = val;
     currentPage = 1;
     renderPage();
-    document.getElementById('admin-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (window.UDM && typeof window.UDM.scrollToTarget === 'function') {
+        window.UDM.scrollToTarget('table-card', { focusTarget: 'dashboard-search' });
+    } else {
+        const target = document.getElementById('table-card') || document.getElementById('admin-table');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function triggerRosterExport() {
@@ -651,6 +696,15 @@ function sortTable(colIndex) {
         currentSortCol = colIndex;
         currentSortDir = 'asc';
     }
+
+    const sortableCols = document.querySelectorAll('#admin-table th.sortable-col');
+    sortableCols.forEach((th, idx) => {
+        if (idx === colIndex) {
+            th.setAttribute('aria-sort', currentSortDir === 'asc' ? 'ascending' : 'descending');
+        } else {
+            th.setAttribute('aria-sort', 'none');
+        }
+    });
 
     document.querySelectorAll('.sort-arrow').forEach(el => {
         el.textContent = '⇅';

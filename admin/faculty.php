@@ -354,47 +354,53 @@ require_once '../includes/sidebar.php';
         <?php if (empty($faculty)): ?>
             <p class="empty-state">No faculty on record.</p>
         <?php else: ?>
-        <table id="faculty-table" style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Faculty ID</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Email</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Sections</th>
-                    <th style="padding: 12px; text-align: left; color: var(--text-dark);">Subjects</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="faculty-tbody">
-                <?php foreach ($faculty as $f):
-                    $fid = $f['id'];
-                    $searchBlob = strtolower($f['user_id'] . ' ' . formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name']));
-                ?>
-                <tr class="row-clickable" data-search="<?= htmlspecialchars($searchBlob) ?>" onclick="openFacultyModal(<?= $fid ?>)" style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($f['user_id']) ?></td>
-                    <td style="padding: 12px; font-weight:600; color:var(--accent-blue);">
-                        <?= htmlspecialchars(formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name'])) ?>
-                        <?php if (!$f['is_active']): ?>
-                            <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:2px 6px; border-radius:4px; font-size:0.7rem; margin-left:6px; vertical-align: middle;">Inactive</span>
-                        <?php endif; ?>
-                    </td>
-                    <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($f['email'] ?? '—') ?></td>
-                    <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['sections_handled'] ?></td>
-                    <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['subjects_handled'] ?></td>
-                    <td onclick="event.stopPropagation();" style="padding: 12px; text-align: right;">
-                        <button type="button" onclick="openEditModal(<?= $fid ?>)"
-                            style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-right:10px;">Edit</button>
-                        <form method="POST" action="faculty.php" onsubmit="return confirm('Remove this faculty account? This cannot be undone.');" style="display:inline; margin:0;">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="delete_id" value="<?= $fid ?>">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                            <button type="submit" style="background:none; border:none; color:var(--risk-high); font-weight:600; cursor:pointer; font-family:inherit; padding:0;">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="data-table-scroll" role="region" aria-label="Faculty Directory Table" tabindex="0">
+            <table id="faculty-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <caption class="sr-only">Faculty Directory Table</caption>
+                <thead>
+                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Faculty ID</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Name</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Email</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Sections</th>
+                        <th scope="col" style="padding: 12px; text-align: left; color: var(--text-dark);">Subjects</th>
+                        <th scope="col" style="padding: 12px; text-align: right;"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody id="faculty-tbody">
+                    <?php foreach ($faculty as $f):
+                        $fid = $f['id'];
+                        $searchBlob = strtolower($f['user_id'] . ' ' . formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name']));
+                        $formattedName = formatNameLastFirst($f['first_name'], $f['middle_name'], $f['last_name']);
+                    ?>
+                    <tr data-search="<?= htmlspecialchars($searchBlob) ?>" style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($f['user_id']) ?></td>
+                        <td style="padding: 12px; font-weight:600;">
+                            <button type="button" class="table-record-link" onclick="openFacultyModal(<?= $fid ?>)" aria-label="View faculty details for <?= htmlspecialchars($formattedName) ?>">
+                                <?= htmlspecialchars($formattedName) ?>
+                            </button>
+                            <?php if (!$f['is_active']): ?>
+                                <span style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:2px 6px; border-radius:4px; font-size:0.7rem; margin-left:6px; vertical-align: middle;">Inactive</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="padding: 12px; color: var(--text-gray);"><?= htmlspecialchars($f['email'] ?? '—') ?></td>
+                        <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['sections_handled'] ?></td>
+                        <td style="padding: 12px; color: var(--text-dark);"><?= (int) $f['subjects_handled'] ?></td>
+                        <td style="padding: 12px; text-align: right;">
+                            <button type="button" onclick="openEditModal(<?= $fid ?>)"
+                                style="background:none; border:none; color:var(--accent-blue); font-weight:600; cursor:pointer; font-family:inherit; padding:0; margin-right:10px;">Edit</button>
+                            <form method="POST" action="faculty.php" onsubmit="return confirm('Remove this faculty account? This cannot be undone.');" style="display:inline; margin:0;">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="delete_id" value="<?= $fid ?>">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <button type="submit" style="background:none; border:none; color:var(--risk-high); font-weight:600; cursor:pointer; font-family:inherit; padding:0;">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
         <div class="pagination-bar" id="pagination-bar"></div>
         <?php endif; ?>
     </div>
@@ -407,17 +413,20 @@ require_once '../includes/sidebar.php';
         <p id="modal-subline" style="color:var(--text-gray); font-size:0.88rem; margin-bottom:12px;"></p>
 
         <h4 style="color:var(--text-dark); font-size:0.95rem; margin-bottom:8px;">Class Loads</h4>
-        <table style="width:100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
-                    <th style="padding: 8px; text-align: left; color: var(--text-dark);">Section</th>
-                    <th style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th>
-                    <th style="padding: 8px; text-align: left; color: var(--text-dark);">Prelim Avg</th>
-                    <th style="padding: 8px; text-align: left; color: var(--text-dark);">At-Risk</th>
-                </tr>
-            </thead>
-            <tbody id="modal-loads-body"></tbody>
-        </table>
+        <div class="data-table-scroll" role="region" aria-label="Faculty Class Loads" tabindex="0">
+            <table style="width:100%; border-collapse: collapse;">
+                <caption class="sr-only">Faculty Class Loads</caption>
+                <thead>
+                    <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
+                        <th scope="col" style="padding: 8px; text-align: left; color: var(--text-dark);">Section</th>
+                        <th scope="col" style="padding: 8px; text-align: left; color: var(--text-dark);">Subject</th>
+                        <th scope="col" style="padding: 8px; text-align: left; color: var(--text-dark);">Prelim Avg</th>
+                        <th scope="col" style="padding: 8px; text-align: left; color: var(--text-dark);">At-Risk</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-loads-body"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 

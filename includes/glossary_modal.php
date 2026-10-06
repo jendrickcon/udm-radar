@@ -172,7 +172,7 @@
                         Prototype Environment &amp; Data Disclosure
                     </h3>
                     <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-dark); line-height: 1.55;">
-                        This system is an institutional evaluation prototype operating on <strong>synthetic and de-identified academic records</strong>. It demonstrates predictive analytics and academic decision-support workflows for the Universidad de Manila College of Engineering and Technology (CET).
+                        This system is an institutional evaluation prototype operating on <strong>synthetic and de-identified academic records</strong>. It demonstrates predictive analytics and academic decision-support workflows for the Universidad de Manila College of Computing Studies.
                     </p>
                     <p style="margin: 0; font-size: 0.85rem; color: var(--text-dark); line-height: 1.55;">
                         Projections and risk scores are non-punitive, non-binding, and intended exclusively to facilitate early mentoring, tutoring, and retention support.

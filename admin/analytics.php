@@ -540,6 +540,9 @@ require_once '../includes/sidebar.php';
                 <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                     <?= $coverageCount ?> of <?= $totalStudents ?> students active
                 </p>
+                <div style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; line-height: 1.35;">
+                    <?= $sourceTotals['decision_tree'] ?> Model &bull; <?= $sourceTotals['calculation_fallback'] ?> Calculation<?= $sourceTotals['none'] > 0 ? ' &bull; ' . $sourceTotals['none'] . ' Missing' : '' ?>
+                </div>
             </div>
         </div>
 
