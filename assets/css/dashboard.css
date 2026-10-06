@@ -135,6 +135,7 @@ a.stat-card.kpi-card--action {
     width: 100%;
     text-align: left;
     font-family: inherit;
+    color: inherit;
     cursor: pointer;
     text-decoration: none;
     border-top: 1px solid var(--border-color);
@@ -158,6 +159,16 @@ button.stat-card.kpi-card--action:focus-visible,
 a.stat-card.kpi-card--action:focus-visible {
     outline: 2px solid var(--accent-blue) !important;
     outline-offset: 2px !important;
+}
+
+/* ── Shared Semantic KPI Descriptions ── */
+.stat-card-subtext,
+.kpi-card__description {
+    font-size: 0.75rem;
+    color: var(--text-gray);
+    margin-top: 4px;
+    font-weight: 600;
+    line-height: 1.4;
 }
 
 .kpi-action-cue {

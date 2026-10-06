@@ -305,7 +305,7 @@ test.describe('UI-WP1A: Critical Display and Interaction Foundation', () => {
 
             // Verify adminIndexPhp does not have custom-tooltip inside unpredicted button
             const unpredictedCardSection = adminIndexPhp.substring(
-                adminIndexPhp.indexOf('title="Click to filter table to students missing predictions"'),
+                adminIndexPhp.indexOf('aria-label="Filter student table: students missing predictions"'),
                 adminIndexPhp.indexOf('<!-- CHARTS -->')
             );
             expect(unpredictedCardSection).not.toContain('class="custom-tooltip"');

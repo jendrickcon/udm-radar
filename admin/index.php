@@ -255,14 +255,14 @@ require_once '../includes/sidebar.php';
 
     <!-- STAT GRID WITH DRILL-DOWN CAPABILITIES -->
     <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" aria-controls="table-card" title="Click to view all students in table">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" aria-controls="table-card" aria-label="Filter student table: view all students">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total ?></h2>
-            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active cohort population</div>
+            <div class="stat-card-subtext kpi-card__description">Active cohort population</div>
             <span class="kpi-action-cue">View all students &rarr;</span>
         </button>
         
-        <button type="button" class="stat-card kpi-card--action <?= $atRisk > 0 ? 'red' : 'green' ?>" style="border-left-color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?> !important;" onclick="applyTableFilter('risk', 'AT_RISK');" aria-controls="table-card" title="Click to filter table to At-Risk students">
+        <button type="button" class="stat-card kpi-card--action <?= $atRisk > 0 ? 'red' : 'green' ?>" style="border-left-color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?> !important;" onclick="applyTableFilter('risk', 'AT_RISK');" aria-controls="table-card" aria-label="Filter student table: At-Risk students">
             <h4>At-Risk</h4>
             <h2 style="margin-bottom: 2px; color: <?= $atRisk > 0 ? 'var(--risk-high)' : 'var(--risk-low)' ?>;"><?= $atRisk ?></h2>
             <?php if ($atRisk > 0): ?>
@@ -275,10 +275,10 @@ require_once '../includes/sidebar.php';
             <span class="kpi-action-cue">Filter at-risk &rarr;</span>
         </button>
 
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--gold) !important;" onclick="applyTableFilter('status', 'Irregular');" aria-controls="table-card" title="Click to filter table to Irregular students">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--gold) !important;" onclick="applyTableFilter('status', 'Irregular');" aria-controls="table-card" aria-label="Filter student table: Irregular students">
             <h4>Irregular</h4>
             <h2 style="color: var(--gold);"><?= $irregular ?></h2>
-            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Non-standard curriculum progression</div>
+            <div class="stat-card-subtext kpi-card__description">Non-standard curriculum progression</div>
             <span class="kpi-action-cue">Filter irregular &rarr;</span>
         </button>
         
@@ -287,18 +287,18 @@ require_once '../includes/sidebar.php';
                 <h4>Avg Cumulative GWA</h4>
                 <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Calculation Scope">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span class="tooltip-text" role="tooltip">Historical across active cohort</span>
+                    <span class="tooltip-text" role="tooltip">Average of recorded cumulative GWAs across active students. This is a historical cohort measure, not a projected GWA.</span>
                 </span>
             </div>
             <h2 style="color: var(--text-dark);"><?= $avgGwa !== null ? number_format($avgGwa, 2) : '—' ?></h2>
-            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical cumulative cohort metric</div>
+            <div class="stat-card-subtext kpi-card__description">Historical cumulative cohort metric</div>
         </div>
         
         <?php if ($noPredict > 0): ?>
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" aria-controls="table-card" title="Click to filter table to students missing predictions">
+        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" aria-controls="table-card" aria-label="Filter student table: students missing predictions">
             <h4>No Prediction Yet</h4>
             <h2 style="color:var(--text-gray);"><?= $noPredict ?></h2>
-            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Excluded from At-Risk count</div>
+            <div class="stat-card-subtext kpi-card__description">Excluded from At-Risk count</div>
             <span class="kpi-action-cue">Filter unpredicted &rarr;</span>
         </button>
         <?php endif; ?>
