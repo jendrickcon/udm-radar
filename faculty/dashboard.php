@@ -271,6 +271,7 @@ require_once '../includes/sidebar.php';
                 <?php if ($pendingBatchCount > 0): ?>
                     <a href="grades.php" class="dashboard-banner-btn control-btn" style="background: var(--card-bg) !important; color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;">View Grade Submissions</a>
                 <?php endif; ?>
+            </div>
         </div>
     <?php endif; ?>
 
