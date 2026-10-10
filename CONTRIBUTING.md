@@ -8,6 +8,14 @@ This guide defines the Git workflow, code-quality expectations, data rules, and 
 
 All work must be completed on a branch and merged through a pull request reviewed by the repository maintainer.
 
+## Project Roadmap and Implementation Status
+
+Before planning or implementing any new branch or work package, consult the canonical project records:
+- **Canonical Roadmap & Upcoming Packages:** [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Completed Work Packages & History Ledger:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
+- **Agent Instructions & Governance Rules:** [AGENTS.md](AGENTS.md)
+
+
 ## Before Starting Work
 
 ```bash

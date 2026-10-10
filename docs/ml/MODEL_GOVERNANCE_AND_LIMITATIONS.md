@@ -1,5 +1,11 @@
 # UDM-RADAR — Machine Learning Model Governance & Operational Limitations
 
+> [!NOTE]
+> **Architecture Governance Standard:** This document governs active model baseline preservation, candidate training boundaries, and operational limitations established under WP-7.
+> For overall package status and roadmap planning, consult:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
+
 **Document Status:** Approved Architecture Standard  
 **Work Package Alignment:** WP-7 (Prediction Remediation, Workflow Integrity & Model Governance)  
 **Target Component:** `python_ml/` service, `api/model_governance.php`, Admin Governance Console  

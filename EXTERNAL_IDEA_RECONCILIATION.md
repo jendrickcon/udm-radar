@@ -1,5 +1,11 @@
 # UDM-RADAR — External Idea Reconciliation
 
+> [!NOTE]
+> **Historical Snapshot (Branch `feat/cohort-scaffolding`):** This reconciliation records analysis of 53 conceptual ideas against the prototype as of commit `f4009d0`. Subsequent work packages implemented many approved items.
+> For current project status, approved upcoming packages, and candidate backlog classification, consult:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
+
 This document reconciles all 53 conceptual items from `UDM_RADAR_CONCEPTUAL_BACKLOG.md` against the verified codebase on branch `feat/cohort-scaffolding` (`f4009d0`).
 
 > [!NOTE]
