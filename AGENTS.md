@@ -1,6 +1,8 @@
 # UDM-RADAR Repository Agent Instructions
 
-These instructions define continuous architectural invariants, domain rules, and safety boundaries for Antigravity agents working in the UDM-RADAR codebase. Antigravity automatically loads the applicable directory-scoped instructions when working with files under this scope.
+These instructions define repository guidance for coding agents working on UDM-RADAR. Read the applicable `AGENTS.md` files and consult repository skills under `.agents/skills/` when relevant. Skill and workflow discovery depends on the host; verify what was actually loaded rather than assuming every agent discovers the same files.
+
+Skills guide agent behavior. They do not enforce filesystem, shell, network, Git, or database permissions. Actual enforcement comes from sandbox, approval, host, and network policy. Guidance does not grant authorization beyond the owner's requested scope.
 
 ---
 
@@ -29,6 +31,8 @@ These instructions define continuous architectural invariants, domain rules, and
 * **Source of Truth for Textual Outcomes:**
   * Read recognized final-grade textual outcomes directly from `config/constants.php`.
   * Do not introduce new textual outcomes without approved academic and database-contract changes.
+* **Subject Outcomes:** Canonical numeric grades 1.00 through 4.00 pass; 0.00 fails. INC is unresolved, neither passing nor failed, and excluded from pass-rate numerators/denominators and numeric GWA. P is a passing textual outcome where applicable. Do not introduce automatic INC expiry or conversion.
+* **Separate Policy Boundaries:** Preserve the current GWA formula and its exclusion of zero pending institutional confirmation of failed-unit treatment. DO, DU, DRP, FA, and UD analytics semantics remain deferred; retain existing behavior. Honors eligibility uses its independent predicate and must not inherit general subject pass/fail changes.
 
 ### 2.2 Prototype Risk Triage vs. Academic Standing
 * **Current Prototype Risk-Triage Categories:**
@@ -97,4 +101,7 @@ Do not modify these files unless an approved work package explicitly requires an
 * **GWA Parity & Denominators:**
   * Pass-rate denominator is strictly `recognized_outcome_count = passed + failed`. Exclude dropped (`DRP`), incomplete (`INC`), and missing grades.
   * Unit-weighted GWA calculations must exclude non-numeric outcomes from total units and grade sums.
+* **Verification Safety:** Before database-backed tests, inspect direct connections, included handlers, subprocesses, overrides, writes/cleanup, locks, and temporary files. Prove every mutation path targets `udm_radar_scratch`; rollback does not make a test read-only. Use the installed repository-pinned Playwright runner, verify its version, inspect authentication/request side effects, and keep generated artifacts ignored.
+* **Evidence:** Inspect committed, unstaged, staged, untracked, and combined changes separately. Report Passed, Failed, Skipped, Not Run, or Unavailable from actual evidence; never precheck acceptance claims or describe source inspection as end-to-end coverage.
+* **Diagnostic Boundaries:** Skills and diagnostic workflows must not automatically stage, commit, push, merge, force-push, alter branches, restore files, or suppress failures. A separate delivery action requires explicit owner authorization within the approved scope. Recovery is advisory: preserve local changes, show the exact diff and proposed operation, and obtain owner authorization before any action that could discard or overwrite work.
 

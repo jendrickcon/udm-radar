@@ -1,79 +1,64 @@
 ---
 name: pr-preparation
-description: Prepares clean, reviewable pull request documentation adhering to CONTRIBUTING.md standards, validating diffs and test results.
+description: Review every Git change layer and prepare an evidence-backed PR title, description, file allowlist, validation results, and limitations for owner review.
 ---
 
-# Pull Request Preparation Skill
+# Pull Request Preparation
 
-This skill formats standardized, evidence-backed Pull Request descriptions and conducts pre-submission Git audits.
+Read `AGENTS.md`, the canonical roadmap and history, and `CONTRIBUTING.md`. This skill guides behavior; it does not enforce filesystem, shell, network, Git or database permissions. Enforcement comes from sandbox, approval, host and network policy.
 
-## When to Use
-Use this skill whenever:
-* Completing a feature branch, hotfix, or refactoring package.
-* Preparing PR titles, descriptions, and verification summaries for project-owner review.
-* Auditing git status and staged diffs before opening a pull request.
+## Complete read-only change review
 
----
+Confirm the branch, approved base, package scope and owner authorization. Inspect every layer separately; no single diff includes them all:
 
-## 1. Pre-Submission Audit Sequence
+```text
+git status --short --branch
+git merge-base HEAD origin/main
+git diff --name-status origin/main...HEAD
+git diff --name-status
+git diff --cached --name-status
+git ls-files --others --exclude-standard
+git status --short
+git diff origin/main...HEAD --stat
+git diff --stat
+git diff --cached --stat
+git diff origin/main...HEAD --check
+git diff --check
+git diff --cached --check
+```
 
-Before formatting a PR proposal, execute these non-mutating checks:
+Read the full committed, unstaged and staged diffs and each relevant untracked file, not just names/statistics. Compare the union against the approved file allowlist. Stop and explain unexpected files or base changes; do not merge, rebase, reset or discard local work to make the list fit.
 
-1. **Verify Branch Base:** Confirm the branch was cut from and targets the approved base branch:
-   ```bash
-   git status --short --branch
-   ```
-2. **Inspect Changed Files:**
-   ```bash
-   git diff --name-status origin/main
-   git diff --stat origin/main
-   ```
-3. **Verify Protected Invariants:** Ensure canonical assets (`database/udm_radar.sql`, `python_ml/model.pkl`, `python_ml/model_metrics.json`) are untouched unless authorized.
-4. **Run PHP Syntax Checks:** For all changed PHP files:
-   ```powershell
-   php -l path/to/changed-file.php
-   ```
-5. **Collate Current Test Evidence:** Run applicable tests and capture exact numbers (do not use hardcoded or assumed totals).
+Check protected assets, dependencies, configuration, credentials and temporary artifacts in every layer. Use the protected-file workflow for evidence, without running recovery operations. For runtime changes, collate applicable lint/regression/browser evidence. For documentation-only work, validate Markdown/frontmatter and discovery; classify irrelevant runtime checks Not Run. Database-backed evidence requires prior inspection proving every mutation targets `udm_radar_scratch`, including handlers and subprocesses; rollback alone is not proof of read-only behavior.
 
----
+## Evidence-backed description
 
-## 2. Standard PR Description Schema
-
-Format the PR description using this standard template (derived from `CONTRIBUTING.md`):
+Lead with the concrete problem and resulting behavior. Follow the contribution guide and scale detail to the change:
 
 ```markdown
 ## Summary of Changes
-- [Concise bulleted list of what changed]
+Describe the final change and its purpose.
 
-## Motivation & Rationale
-- [Why this change was necessary; problem statement and design decisions]
-
-## Affected Portals & Components
-- **Portals:** Admin / Faculty / Student
-- **Files:** [Key modified files]
-- **Database Migrations:** None / [Migration number and description]
+## Affected Components
+List the reviewed files, package boundaries and migration requirements.
 
 ## Verification & Test Results
-- **PHP Regression Checks:** [Passed count] passed, [Failed count] failed across [File count] suites.
-- **Playwright Browser Tests:** [Passed count] passed, [Failed count] failed, [Skipped count] skipped across [Spec count] specs.
-- **Layout Invariants:** Faculty Dashboard layout regression verified ([Passed / N/A]).
-- **GWA Parity Audit:** [100% / Not applicable to this change].
+For each applicable check, record its command, target/runtime, exit code,
+actual totals, and status: Passed, Failed, Skipped, Not Run or Unavailable.
+Classify browser checks as authenticated application, generated static HTML,
+mocked browser or repository source inspection. List credential-dependent skips.
 
 ## Safety & Invariant Confirmation
-- [x] Canonical assets (udm_radar.sql, model.pkl, model_metrics.json) remain untouched / authorized.
-- [x] Automated tests and migrations targeted scratch/demo, leaving udm_radar untouched.
-- [x] Zero credentials, secrets, or temporary logs staged.
-- [x] Working tree is clean.
+Record observed results for protected assets, academic contracts,
+mutation targets, dependency integrity, artifacts and working-tree status.
+Leave unevaluated claims unconfirmed; do not precheck boxes.
 
 ## Known Limitations & Follow-Up Work
-- [Any deferred tasks, pending mobile recovery, or next roadmap phase]
+Identify unavailable evidence, deferred policy and remaining review gates.
 ```
 
----
+Do not retain permanent expected totals, invent checks, call source inspection end-to-end testing, or describe a package as merged before Git confirms the merge.
 
-## 3. Strict Operating Boundaries
+## Delivery boundary
 
-* **Never Stage or Commit Automatically:** Present the drafted PR title and description for user authorization.
-* **Never Push or Merge:** The agent must not execute `git push` or `git merge` unless explicitly directed.
-* **Never Exaggerate Test Results:** Accurately differentiate between live application tests and static source-inspection checks. Report skipped tests transparently.
-
+This preparation skill must not automatically stage, commit, push, merge, force-push, alter branches, restore files or suppress failures. Present the concrete diff and PR draft. A separate delivery step may carry out actions explicitly authorized by the project owner; honor existing authorization without inventing an additional gate. PR approval does not authorize unrelated work or automatic merge. Recovery advice requires exact-diff review and owner authorization before overwriting or discarding work.
