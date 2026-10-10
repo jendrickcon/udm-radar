@@ -417,7 +417,11 @@ require_once '../includes/sidebar.php';
             <h1 style="text-transform: uppercase; letter-spacing: 0.5px;">BSIT Program Analytics</h1>
             <p style="color: var(--text-gray);">Program-level academic patterns and curriculum bottleneck identification.</p>
         </div>
-        <div>
+        <div class="analytics-header-actions" style="display:flex; flex-wrap:wrap; align-items:center; gap:12px;">
+            <a href="coverage.php" class="btn btn--secondary" aria-label="Review Data Coverage: recorded-grade availability and prediction sources" style="min-height:44px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>
+                Review Data Coverage
+            </a>
             <!--
                 Page-wide export, placed at the top matching the Program
                 Snapshot button on admin/index.php, not buried near one table.
@@ -429,7 +433,7 @@ require_once '../includes/sidebar.php';
                 this page that aren't already covered by the Program Snapshot
                 PDF on the dashboard.
             -->
-            <button type="button" onclick="triggerProgramAnalyticsExportPdf()" style="padding: 10px 16px; background: var(--bg-color); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: inherit; white-space: nowrap;">
+            <button type="button" class="btn btn--primary" onclick="triggerProgramAnalyticsExportPdf()" style="min-height:44px;">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                 Download PDF Report
             </button>

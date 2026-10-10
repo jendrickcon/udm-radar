@@ -1,5 +1,7 @@
 <?php
 // includes/glossary_modal.php — Centralized Slide-In Academic Decision-Support Guide & Reference
+$currentUserRole = $_SESSION['role'] ?? (function_exists('currentUser') ? (currentUser()['role'] ?? '') : '');
+$isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) && $_GET['guide_role'] === 'admin'));
 ?>
 
 <!-- Floating Academic Guide & Help Button -->
@@ -31,6 +33,9 @@
             <button type="button" class="guide-tab-btn" role="tab" aria-selected="false" id="tab-btn-grading" onclick="switchGuideTab('grading')">Official Grading Scale</button>
             <button type="button" class="guide-tab-btn" role="tab" aria-selected="false" id="tab-btn-risk" onclick="switchGuideTab('risk')">Risk &amp; Projections</button>
             <button type="button" class="guide-tab-btn" role="tab" aria-selected="false" id="tab-btn-about" onclick="switchGuideTab('about')">About Prototype</button>
+            <?php if ($isGuideAdmin): ?>
+            <button type="button" class="guide-tab-btn" role="tab" aria-selected="false" id="tab-btn-coverage" onclick="switchGuideTab('coverage')">Data Coverage</button>
+            <?php endif; ?>
         </div>
 
         <!-- Drawer Body -->
@@ -179,16 +184,79 @@
                     </p>
                 </div>
             </div>
+
+            <?php if ($isGuideAdmin): ?>
+            <!-- TAB 5: Data Coverage & Prediction Sources (Admin Only) -->
+            <div id="tab-pane-coverage" class="guide-tab-content" role="tabpanel" aria-labelledby="tab-btn-coverage">
+                <div class="guide-card-box">
+                    <h3 class="guide-card-title">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>
+                        Data Coverage &amp; Prediction Sources Reference
+                    </h3>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: var(--text-dark); line-height: 1.55;">
+                        This reference explains how UDM-RADAR tracks available grade records, categorizes missing data, and identifies prediction sources.
+                    </p>
+
+                    <h4 style="margin: 12px 0 6px 0; font-size: 0.875rem; color: var(--text-dark);">Available Grade Records</h4>
+                    <ul style="margin: 0 0 12px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; line-height: 1.45;">
+                        <li><strong>All results recorded (Complete):</strong> Every registered subject row for the student has an entered score for the selected grading period.</li>
+                        <li><strong>Some results missing (Partial):</strong> The student has scores in some registered subjects, but at least one subject row has no score entered yet.</li>
+                        <li><strong>No results recorded:</strong> The student has registered subject rows, but no scores have been recorded for the selected grading period.</li>
+                        <li><strong>No current subjects found:</strong> The student has an active profile, but no subject rows are currently linked for this semester.</li>
+                    </ul>
+
+                    <h4 style="margin: 12px 0 6px 0; font-size: 0.875rem; color: var(--text-dark);">Period Results and Final Grades</h4>
+                    <p style="margin: 0 0 6px 0; font-size: 0.85rem; color: var(--text-dark); line-height: 1.5;">
+                        Preliminary, Midterm, and Pre-Final results evaluate in-progress coursework and are completely separate from final grade records.
+                    </p>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: var(--text-gray); line-height: 1.5; font-style: italic;">
+                        <strong>Example:</strong> A student may have 8 of 8 Preliminary results and 0 of 8 final grades while the semester is still in progress. This is normal and expected.
+                    </p>
+
+                    <h4 style="margin: 12px 0 6px 0; font-size: 0.875rem; color: var(--text-dark);">Prediction Sources</h4>
+                    <ul style="margin: 0 0 12px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; line-height: 1.45;">
+                        <li><strong>Decision Tree model:</strong> A system-generated projection produced by the trained Decision Tree machine learning model.</li>
+                        <li><strong>Calculation-based estimate:</strong> A calculation used when the Decision Tree model could not run with the available grade information. Not an AI model projection.</li>
+                        <li><strong>Earlier calculation method:</strong> A projection saved using an earlier version of the system's calculation process.</li>
+                        <li><strong>Source not recognized:</strong> The saved source does not match approved system labels.</li>
+                        <li><strong>No saved prediction:</strong> No prediction has been saved for this student.</li>
+                    </ul>
+
+                    <h4 style="margin: 12px 0 6px 0; font-size: 0.875rem; color: var(--text-dark);">Saved Prediction Information</h4>
+                    <ul style="margin: 0 0 12px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; line-height: 1.45;">
+                        <li><strong>Saved data status:</strong> Indicates whether detailed input records were saved when the projection was created. Shows "Details unavailable" for earlier records.</li>
+                        <li><strong>Preliminary prediction:</strong> An advisory projection produced when only partial grade features (such as historical GWA only) were available.</li>
+                        <li><strong>Subjects counted:</strong> A snapshot showing how many subjects were counted at the time the prediction was produced.</li>
+                        <li><strong>Generated on versus freshness:</strong> Shows when the system saved the prediction. It does not prove that the result reflects the newest grades or edits made later.</li>
+                    </ul>
+
+                    <h4 style="margin: 12px 0 6px 0; font-size: 0.875rem; color: var(--text-dark);">Important Reminders</h4>
+                    <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; line-height: 1.45;">
+                        <li><strong>Missing information is not zero:</strong> Unrecorded entries remain blank (NULL). Missing data is never treated as zero.</li>
+                        <li><strong>Missing information is not failure:</strong> Lack of recorded data does not indicate academic failure.</li>
+                        <li><strong>Coverage does not confirm Registrar completion:</strong> Available records reflect system availability, not official Registrar approval.</li>
+                        <li><strong>Calculation-based estimates are not Decision Tree predictions:</strong> Fallback calculations do not run machine learning inference.</li>
+                        <li><strong>Generation time does not prove freshness:</strong> Timestamps record generation time, not the recency of underlying grades.</li>
+                    </ul>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
 
 <script>
-function openGlossaryModal() {
+let lastGlossaryTrigger = null;
+
+function openGlossaryModal(tabId = null, triggerEl = null) {
     const overlay = document.getElementById('glossary-drawer-overlay');
     if (overlay) {
+        lastGlossaryTrigger = triggerEl || document.activeElement;
         overlay.classList.add('open');
         document.body.style.overflow = 'hidden';
+        if (tabId) {
+            switchGuideTab(tabId);
+        }
         const activeTab = overlay.querySelector('.guide-tab-btn.active');
         if (activeTab) activeTab.focus();
     }
@@ -199,8 +267,9 @@ function closeGlossaryModal() {
     if (overlay) {
         overlay.classList.remove('open');
         document.body.style.overflow = '';
-        const trigger = document.getElementById('udm-floating-help-btn');
-        if (trigger) trigger.focus();
+        const trigger = lastGlossaryTrigger || document.getElementById('udm-floating-help-btn');
+        if (trigger && typeof trigger.focus === 'function') trigger.focus();
+        lastGlossaryTrigger = null;
     }
 }
 
