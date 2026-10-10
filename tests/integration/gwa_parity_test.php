@@ -118,8 +118,8 @@ foreach ($rows150 as $r) {
     $canon = canonicalizeFinalGrade($grade);
     assertEqual($canon, '1.50', "Grade '1.50' canonicalizes to '1.50'");
     assertEqual(isNumericFinalGrade($canon), true, "'1.50' is numeric final grade");
-    assertEqual(isPassingFinalGrade($canon), false, "'1.50' is NOT passing (resolving DEFECT-WP4-01)");
-    assertEqual(isFailingFinalGrade($canon), true, "'1.50' is FAILING");
+    assertEqual(isPassingFinalGrade($canon), true, "'1.50' is passing (ACADEMIC-HOTFIX-WP1)");
+    assertEqual(isFailingFinalGrade($canon), false, "'1.50' is not failing");
 }
 
 // Verify passing grade (e.g. 1.75 and 2.50)
@@ -248,7 +248,7 @@ $testGrades = [
     ['final_grade' => '2.75'], // Pass 6
     ['final_grade' => '3.25'], // Pass 7
     ['final_grade' => '3.50'], // Pass 8
-    ['final_grade' => '1.50'], // Fail 1
+    ['final_grade' => '0.00'], // Fail 1
     ['final_grade' => 'DRP'],  // Dropped (MUST BE EXCLUDED)
 ];
 
@@ -273,7 +273,7 @@ $recognizedCount = $passedCount + $failedCount;
 $calcPassRate = $recognizedCount > 0 ? round(($passedCount / $recognizedCount) * 100, 2) : 0.0;
 
 assertEqual($passedCount, 8, "8 passed outcomes");
-assertEqual($failedCount, 1, "1 failed outcome (1.50)");
+assertEqual($failedCount, 1, "1 failed outcome (0.00)");
 assertEqual($droppedCount, 1, "1 dropped outcome (DRP)");
 assertEqual($recognizedCount, 9, "Pass rate denominator = 9 (DRP excluded)");
 assertFloatEqual($calcPassRate, 88.89, "Calculated pass rate = 88.89% (not 80.00%)");
