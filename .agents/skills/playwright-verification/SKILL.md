@@ -1,77 +1,45 @@
 ---
 name: playwright-verification
-description: Discovers and executes Playwright browser test specs across viewports and themes, classifying execution results and verifying layout invariants.
+description: Select and run repository-pinned Playwright checks for UI changes, classify browser evidence, and report layout, accessibility, and authentication limits.
 ---
 
-# Playwright Verification Skill
+# Playwright Verification
 
-This skill guides the discovery, execution, and classified reporting of Playwright browser tests.
+Read `AGENTS.md`, the canonical roadmap and history, and `CONTRIBUTING.md`. This skill guides behavior; filesystem, shell, network, Git and database permissions are enforced by sandbox, approval, host and network policy, not by a skill.
 
-## When to Use
-Use this skill whenever:
-* Modifying UI templates, navigation, tables, modals, or CSS stylesheets.
-* Verifying responsive grid layouts across desktop, tablet, and mobile viewports.
-* Testing dark/light mode contrast, keyboard navigation, or dialog focus trapping.
-* Verifying the Faculty Dashboard warning banner layout contract.
+## Verify the runner and side effects first
 
----
+1. Inspect `package.json`, the active lockfile, local `node_modules/@playwright/test/package.json`, and `playwright.config.js`. Verify the installed version equals the repository pin and report the exact version used.
+2. Use the installed repository-local runner directly. Do not use npx to auto-install another version. If the pinned runner is missing or mismatched, report Unavailable and the exact restoration requirement; dependency changes/downloads require owner authorization.
+3. Confirm the configured browser channel/binary exists. Do not download browser binaries without authorization.
+4. Inspect selected specs, fixtures, authentication, route handling, included server handlers and request side effects before execution. A GET, login, export or fixture can still write. For database-backed paths, inspect direct connections, subprocesses, overrides, writes/cleanup, locks and temporary files; prove every mutation targets `udm_radar_scratch`. Rollback does not prove read-only behavior. Never silently use the live database.
+5. Verify reports, screenshots, traces and local credential files are ignored. Do not create or expose credentials merely to make tests run.
 
-## 1. Dynamic Discovery and Execution Sequence
+## Applicable execution
 
-Do not assume a static number of browser tests. Discover applicable specs dynamically in `tests/browser/`:
+Discover specs in `tests/browser/`; do not assume fixed test totals. For `faculty/dashboard.php` or shared dashboard layout CSS changes, run Faculty layout regression first. Include it for sidebar changes that affect Faculty layout. Then run the feature-specific checks and complete applicable suite.
 
-### Step 1: Layout Regression Check (Mandatory for Layout/Faculty Edits)
-When modifying `faculty/dashboard.php` or shared layout CSS (`assets/css/dashboard.css`), always run the layout regression first:
-```powershell
-npx playwright test tests/browser/faculty-dashboard-layout-regression.spec.js
+From the repository root, after the runner is verified:
+
+```text
+node node_modules/@playwright/test/cli.js test --config=playwright.config.js tests/browser/faculty-dashboard-layout-regression.spec.js
+node node_modules/@playwright/test/cli.js test --config=playwright.config.js
 ```
 
-### Step 2: Feature-Specific Browser Suite
-Run the spec targeting the current feature (e.g., active drilldowns, tables, or navigation):
-```powershell
-npx playwright test tests/browser/<feature-spec>.spec.js
-```
+Select existing feature specs by their actual paths. Record each command and exit code. For a documentation-only package, report UI runtime checks Not Run with the reason rather than inventing browser coverage.
 
-### Step 3: Full Browser Suite
-Execute all discovered specs:
-```powershell
-npm run test:browser
-```
-*(Or `npx playwright test --config=playwright.config.js`)*
+Use the package's approved theme and viewport matrix. Common coverage includes 1440x900, 1280x720, 1024x768, 768x1024, 390x844, 360x800, 390x700 and 844x390 in light/dark themes. Confirm relevant keyboard behavior, accessible labels, mobile touch targets, console/page errors and unexpected failed requests. Do not silently change the approved acceptance matrix.
 
----
+## Evidence and failures
 
-## 2. Standard Viewport and Theme Matrix
+Classify each check as:
+- Live authenticated application: actual application login/session and real handlers. Injected sessions do not prove the login workflow.
+- Generated static HTML: extracted markup or component fixtures.
+- Mocked browser: mocked requests, responses or chart dependencies.
+- Repository source inspection: file, structure or AST checks; never label these end-to-end tests.
 
-When manual or focused automated verification is required, test across these standard viewports:
-* **Large Desktop:** $1440 \times 900$
-* **Medium Desktop / Laptop:** $1280 \times 720$
-* **Standard Tablet / Small Laptop:** $1024 \times 768$
-* **Portrait Tablet:** $768 \times 1024$
-* **Narrow Mobile:** $390 \times 844$ (and short height $390 \times 700$ / landscape $844 \times 390$)
+Report Passed, Failed, Skipped, Not Run and Unavailable as applicable, with actual discovered totals, credential-dependent skips and their reasons. Do not precheck claims without evidence. Passing static or mocked tests do not establish unavailable authenticated coverage.
 
-Verify both **Light** and **Dark** themes. Ensure touch targets meet $\ge 44 \times 44\text{px}$ requirements on mobile viewports.
+Do not weaken assertions, change configuration or hide diagnostics to mask failures. Preserve the failure and investigate within the approved package scope. Keep generated artifacts ignored; never stage them as part of a diagnostic run.
 
----
-
-## 3. Mandatory Test Classification in Reports
-
-When reporting Playwright test results, explicitly categorize every check:
-1. **Live Authenticated Application:** Tests executing real sessions against local Apache/MySQL (`localhost/udm-radar/`).
-2. **Generated Static HTML:** Tests loading exported DOM snapshots or static component fixtures.
-3. **Mocked Browser:** Tests utilizing route mocks or injected JSON fixtures.
-4. **Repository Source Inspection:** Static file or AST checks performed via test runners.
-
-Clearly report the count of tests **skipped due to missing local credentials** (e.g., when `.env.playwright.local` is not configured). Do not claim source-inspection checks are end-to-end tests.
-
----
-
-## 4. Strict Safety Constraints
-
-* **Never Modify Test Config to Mask Failures:** Never adjust timeouts, disable assertions, or switch to headless modes solely to hide an active failure.
-* **Never Stage Ephemeral Artifacts:**
-  * Do not stage `test-results/`
-  * Do not stage `playwright-report/`
-  * Do not stage `.env.playwright.local`
-  * Do not stage screenshots, video captures, or traces unless explicitly designated as tracked documentation.
-
+This skill must not automatically stage, commit, push, merge, force-push, alter branches, restore files or suppress failures. Recovery is advisory and requires exact-diff review and owner authorization before overwriting or discarding work.
