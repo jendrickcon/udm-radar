@@ -1,5 +1,11 @@
 # Member 2 UI Browser Accessibility Audit
 
+> [!NOTE]
+> **Historical Contribution Snapshot:** This audit reports Member 2's browser accessibility work (`UI-A11Y-01`, `UI-RESP-01`), which was merged through PR #21 and subsequently incorporated into `main` via PR #23.
+> For current project status and active roadmap, see:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
+
 ## Status
 
 - Branch: `member2/ui-browser-accessibility`

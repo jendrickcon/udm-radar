@@ -1,5 +1,11 @@
 # UDM-RADAR — Current Demonstration Playbook & Script
 
+> [!NOTE]
+> **Historical Demonstration Script Snapshot:** This playbook provides demonstration scripts established during earlier sprints.
+> For current project status, portal workflows, and roadmap, consult:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
+
 This playbook provides defense-ready demonstration scripts for the three core stakeholder journeys, specifically structured to avoid overclaiming while showcasing UDM-RADAR's decision-support and intervention capabilities.
 
 > [!NOTE]

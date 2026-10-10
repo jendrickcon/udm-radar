@@ -11,6 +11,7 @@ These instructions define continuous architectural invariants, domain rules, and
 * **Non-Punitive Advisory Role:** Predictive outputs provide non-punitive academic decision support. They do not constitute official registrar evaluations or binding disciplinary actions.
 * **Transparent Labeling:** User-facing predictions, reports, and analytical summaries must present the label: `Prototype performance on synthetic academic records`.
 * **Academic Period Configuration:** Treat the active academic year and period as dynamic repository data or configuration. Do not permanently hardcode an academic year or semester as an agent invariant unless an approved work package explicitly requires a fixed demonstration scenario.
+* **Canonical Roadmap & Project Ledger:** Agents must align all work packages, planned tasks, and status reporting with [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md). Do not rely on superseded or provisional roadmap files.
 
 ---
 
