@@ -68,13 +68,17 @@ All foundational packages (WP-0 through WP-6 and WP-7) were consolidated on feat
   * Created reproducible parity audit tool (`tools/audit_gwa_parity.php`).
 * **Test Evidence:** 108 assertions in `tests/integration/gwa_parity_test.php`; verified 100% GWA parity across 289 baseline profiles.
 
-### ACADEMIC-HOTFIX-WP1 correction in progress (October 10, 2026)
-* **Branch:** `fix/academic-subject-outcome-semantics`; based on DOCS-WP1 PR #27 (`81c6303`). Not committed or merged yet.
+### ACADEMIC-HOTFIX-WP1: Subject Outcome and Incomplete-Grade Semantics
+* **Status:** Complete and Merged.
+* **PR Number:** [PR #28](https://github.com/jendrickcon/udm-radar/pull/28).
+* **Merge Commit:** `c3dee0e8d8b414b67299840bfdccb945b6b0ba2e` (normal merge into `main`).
+* **Branch:** `fix/academic-subject-outcome-semantics`; based on DOCS-WP1 PR #27 (`81c6303`).
+* **Implementation Commits:** `34255bc`, `8942930`, `560cba4`, `fb05255`.
 * **Scope:** Subject outcomes and incomplete counts, screen/PDF parity, textual-grade coercion prevention, and corrected future failure-derived prediction features.
 * **Preserved:** Numeric GWA functions and legacy-zero treatment; separate legacy honors-disqualification behavior and thresholds; deferred DO/DU/DRP/FA/UD semantics; stored grades, predictions, cases, SQL dump and model artifacts.
 * **Evidence boundary:** Passing numeric grades may remain HIGH risk. INC is unresolved and is not automatically expired or converted. Existing prediction outputs retain the logic and inputs used when generated.
 * **Policy:** [UDM Student Manual 2025](https://udmwebsite.udm.edu.ph/wp-content/uploads/2026/01/Student-Manual-2025-FINAL.pdf), Part II D, printed pages 15–18; separate honors guidelines and failed-unit GWA policy remain pending verification.
-* **Verification:** See the package execution report for actual totals and unavailable runtime checks; historical package totals are not current acceptance counts.
+* **Merge-time evidence:** 616 PHP regression assertions, 141 scratch integration assertions, and 101 browser tests passed using pinned Playwright 1.63.0 and installed Edge; six credential-dependent tests skipped, no active failures. Browser evidence included generated fixtures, mocks, and source inspection; authenticated walkthroughs were unavailable. Academic scratch checksums, dependency declarations and protected assets were preserved. These historical totals are not permanent future acceptance counts.
 
 ---
 
@@ -255,3 +259,24 @@ All foundational packages (WP-0 through WP-6 and WP-7) were consolidated on feat
   * **Procedural Skills:** `academic-rules-guardian`, `playwright-verification`, `pr-preparation`.
   * **Interactive Workflows:** Non-mutating `/check-protected` and `/verify-package` slash commands.
 * **Safety Invariant:** 100% repository-local; zero external MCP servers, third-party plugins, or Git hooks added.
+
+
+---
+
+### DEV-AI-WP1A: Cross-Agent Governance Safety Corrections
+* **Status:** Complete and Merged.
+* **PR Number:** [PR #29](https://github.com/jendrickcon/udm-radar/pull/29).
+* **Merge Commit:** `528dde76a12ac031daa66ad2b30fc007fc671f6c` (normal merge into `main`).
+* **Feature Branch:** `docs/ai-governance-safety-corrections`.
+* **Implementation Commits:** `1a92340`, `98023e9`.
+* **Delivered Scope:** Six guidance files covering independent academic contracts, complete diff layers, scratch mutation-path inspection, installed pinned Playwright checks, advisory recovery, evidence classification and skill-versus-permission boundaries. No runtime, model, test or dependency changes.
+* **Verification:** Reviewed six-file allowlist, Markdown and three skill frontmatters using an existing YAML parser; repository entrypoints present. Bundled quick validator was unavailable without PyYAML; cross-host automatic discovery was not claimed. Application baseline verification was reported separately, not as testing instruction behavior.
+
+### Owner-Approved Temporary Resequencing (October 10, 2026)
+* **Planning status:** Approved change of order, not an implementation-completion claim.
+* **UI-WP-MOBILE:** Approved but `Blocked: original implementation unavailable for recovery`; not abandoned, cancelled, reconstructed, or completed. The current checkout has no mobile stash or recovered implementation.
+* **Authorization:** Independent packages may advance temporarily if they avoid mobile navigation, responsive grid architecture, and expected mobile-package files. DATA-UI-WP3 permits only narrowly scoped operational-table CSS with overlap review; no broad shared CSS changes.
+* **Temporary order:** DOMAIN-AUDIT-WP1 → ADMIN-WP1A → FACULTY-WP1A → DATA-UI-WP3 → recover/complete UI-WP-MOBILE → UI-WP1B → DATA-UI-WP4 → Final Cross-Portal Browser Validation.
+* **Audit gate:** DOMAIN-AUDIT-WP1 is read-only. Implementation packages require supported data, reviewed scope, and their own branches/PRs; finish and merge one before starting the next. Proposed Student planning and curriculum features do not become approved commitments through resequencing.
+* **Recovery gate:** Once mobile is recovered, re-evaluate whether to finish it immediately or finish the active independent package first. Preserve the original stash and review integration against current main.
+* **Canonical plan:** See [ROADMAP.md](ROADMAP.md), Sections 8 and 13. No unmerged independent package is recorded as complete.
