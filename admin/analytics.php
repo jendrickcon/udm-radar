@@ -298,6 +298,7 @@ else {
                  'nonnumeric_pass_count' => 0,
                  'failing_count' => 0,
                  'dropped_count' => 0,
+                 'incomplete_count' => 0,
                  'missing_or_invalid_count' => 0,
                  'recognized_outcome_count' => 0,
                  'passed' => 0,
@@ -318,6 +319,11 @@ else {
             continue;
         }
 
+        if (isIncompleteFinalGrade($canon)) {
+            $histSubjects[$id]['incomplete_count']++;
+            // Recorded INC is unresolved, not a completed pass/fail outcome.
+            continue;
+        }
         if ($canon === 'DRP') {
             $histSubjects[$id]['dropped_count']++;
             $histSubjects[$id]['graded']++;
@@ -813,7 +819,7 @@ require_once '../includes/sidebar.php';
                             <td style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">
                                 <?php if($s['failed'] > 0): ?><span class="badge" style="background: var(--risk-high);"><?= $s['failed'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?>
                             </td>
-                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--accent-blue); white-space: nowrap; width: 1%;"><?= $completeness ?></td>
+                            <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--accent-blue); white-space: nowrap; width: 1%;"><?= $completeness ?><br><span style="font-size: 0.75rem; color: var(--text-gray);"><?= $s['incomplete_count'] ?> incomplete</span></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>

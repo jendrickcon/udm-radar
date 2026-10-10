@@ -56,9 +56,9 @@ const FINAL_GRADE_STATUSES = [
     'UD',
 ];
 
-// Canonical non-passing / disqualifying statuses
+// Legacy failing-status behavior retained pending policy verification.
+// INC is unresolved; honors disqualification is evaluated separately.
 const FINAL_GRADE_FAILING_STATUSES = [
-    'INC',
     'DO',
     'DU',
     'FA',
@@ -231,8 +231,8 @@ function isNumericFinalGrade(mixed $value): bool {
 }
 
 /**
- * Returns true for canonical numeric point grades below 1.75 (e.g. 1.50, 1.25, 1.00).
- * Returns true for failing statuses: INC, DO, DU, FA, UD.
+ * Numeric failure is legacy 0.00, not a prototype risk threshold.
+ * DO, DU, FA and UD retain their existing behavior pending policy verification.
  * Returns true for legacy 0.00.
  * Returns false for P and DRP.
  * Operates on normalized/canonicalized input.
@@ -251,18 +251,19 @@ function isFailingFinalGrade(mixed $value): bool {
     if ($canon === 'P' || $canon === 'DRP') {
         return false;
     }
-    if (in_array($canon, FINAL_GRADE_POINTS, true)) {
-        return (float) $canon < 1.75;
-    }
     return false;
+}
+
+/** Unresolved INC is neither a passing nor a failing subject outcome. */
+function isIncompleteFinalGrade(mixed $value): bool {
+    return canonicalizeFinalGrade($value) === 'INC';
 }
 
 /**
  * Returns true for passing Final Grades:
- * - Canonical numeric point grades 1.75 - 4.00
+ * - Canonical numeric point grades 1.00 - 4.00
  * - Status 'P' (Passed)
- * Returns false for failing grades (points < 1.75, failing statuses, legacy 0.00),
- * DRP, null, or invalid values.
+ * Returns false for unresolved INC, other statuses, legacy 0.00, null or invalid values.
  */
 function isPassingFinalGrade(mixed $value): bool {
     $canon = canonicalizeFinalGrade($value);
@@ -273,7 +274,7 @@ function isPassingFinalGrade(mixed $value): bool {
         return true;
     }
     if (in_array($canon, FINAL_GRADE_POINTS, true)) {
-        return (float) $canon >= 1.75;
+        return true;
     }
     return false;
 }
@@ -318,13 +319,34 @@ function formatFinalGrade(mixed $value): string {
     return $valStr === '' ? '—' : $valStr;
 }
 
-// Shared disqualifying-grade check for honors eligibility — a student with
-// any past failed subject or any final_grade below 1.75 is disqualified
-// regardless of GWA. Previously this was only computed inline in
-// api/predict.php, so any other caller of getLatinHonor() silently defaulted
-// to "no disqualifying grade" and could show honors eligibility a student
-// doesn't actually qualify for. Both predict.php and student/dashboard.php's
-// local fallback should call this instead of recomputing or omitting it.
+/**
+ * Preserve pre-hotfix honors results independently of subject outcomes.
+ * This is a prototype legacy rule pending separate institutional honors guidelines:
+ * points below 1.75, legacy zero, INC and existing failing statuses disqualify.
+ */
+function isHonorsDisqualifyingFinalGrade(mixed $value): bool {
+    $canon = canonicalizeFinalGrade($value);
+    return $canon !== null && (
+        $canon === LEGACY_FINAL_GRADE_STORED
+        || $canon === 'INC'
+        || in_array($canon, FINAL_GRADE_FAILING_STATUSES, true)
+        || (in_array($canon, FINAL_GRADE_POINTS, true) && (float) $canon < 1.75)
+    );
+}
+
+/** Historical failure-derived model features; not official program pacing. */
+function computeHistoricalFailureFeatures(array $records): array {
+    $failedCount = 0;
+    $failedSemesters = [];
+    foreach ($records as $row) {
+        if (isFailingFinalGrade($row['final_grade'] ?? null)) {
+            $failedCount++;
+            $failedSemesters[$row['school_year'] . '_' . $row['semester']] = true;
+        }
+    }
+    return ['failed_subjects_count' => $failedCount, 'irregular_semesters' => count($failedSemesters)];
+}
+
 function hasDisqualifyingGrade(int $studentId, PDO $db): bool {
     $stmt = $db->prepare("
         SELECT final_grade FROM grades
@@ -332,7 +354,7 @@ function hasDisqualifyingGrade(int $studentId, PDO $db): bool {
     ");
     $stmt->execute([$studentId]);
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $grade) {
-        if (isFailingFinalGrade($grade)) {
+        if (isHonorsDisqualifyingFinalGrade($grade)) {
             return true;
         }
     }
@@ -373,7 +395,7 @@ function getRiskColor(string $risk): string {
  * Formula: sum(Final Grade Point * Subject Units) / sum(Subject Units).
  * 
  * Inclusion/Exclusion Rules:
- * - Included: Canonical numeric point grades 1.00 - 4.00 (including failing points 1.00, 1.25, 1.50).
+ * - Included: Canonical numeric point grades 1.00 - 4.00 (including low passing points 1.00, 1.25, 1.50).
  * - Excluded: Non-numeric statuses (INC, DRP, P, DO, DU, FA, UD, PASSED), legacy 0.00, null, blanks.
  * - Missing/non-positive units are safely ignored.
  * - Returns null if total valid units is 0.

@@ -86,16 +86,9 @@ function getStudentPrediction(int $studentId, PDO $db, bool $persist = true): ar
     $stmtPast->execute([$studentId]);
     $pastRecords = $stmtPast->fetchAll(PDO::FETCH_ASSOC);
 
-    $failedCount = 0;
-    $failedSemesters = []; 
-
-    foreach ($pastRecords as $row) {
-        if (isFailingFinalGrade($row['final_grade'])) {
-            $failedCount++;
-            $failedSemesters[] = $row['school_year'] . '_' . $row['semester'];
-        }
-    }
-    $irregularSemesters = count(array_unique($failedSemesters));
+    $failureFeatures = computeHistoricalFailureFeatures($pastRecords);
+    $failedCount = $failureFeatures['failed_subjects_count'];
+    $irregularSemesters = $failureFeatures['irregular_semesters'];
 
     $hasDisqGrade = hasDisqualifyingGrade($studentId, $db);
 
