@@ -94,18 +94,23 @@ The core academic and database foundation was remediated across Work Packages WP
 
 ---
 
-## 7. Current Work
+## 7. Verified Completions and Current Work
 
 ### ACADEMIC-HOTFIX-WP1: Subject Outcome and Incomplete-Grade Semantics
-* **Status:** In Progress on `fix/academic-subject-outcome-semantics` (not yet merged).
+* **Status:** Complete and Merged — [PR #28](https://github.com/jendrickcon/udm-radar/pull/28), normal merge `c3dee0e8d8b414b67299840bfdccb945b6b0ba2e`.
 * **Owner-approved scope:** Discrete numeric final grades 1.00–4.00 pass; legacy 0.00 fails; unresolved INC is neither passed nor failed and is excluded from the pass-rate denominator. P remains a passing textual outcome.
 * **Independent boundaries:** 1.75 remains the prototype High/Moderate risk boundary and the manual's non-board standing benchmark; the prototype does not determine official standing. Preserve GWA computation, zero entry restrictions, honors results/thresholds, and existing DO/DU/DRP/FA/UD behavior pending policy verification.
 * **Historical outputs:** Corrected failure features apply to future predictions only. Existing predictions and support cases remain historical outputs; no automatic rescoring, case changes or INC expiry/conversion is authorized.
 * **Policy evidence:** [UDM Student Manual 2025](https://udmwebsite.udm.edu.ph/wp-content/uploads/2026/01/Student-Manual-2025-FINAL.pdf), Part II D, printed pages 15–18. Honors require separate guidelines; failed-unit GWA and attendance-related dropping remain unresolved.
-* **Next package:** DEV-AI-WP1A, Cross-Agent Governance Safety Corrections, separately scoped; no new integrations or Codex configuration.
+* **Governance follow-up:** DEV-AI-WP1A is complete and merged in PR #29 (see below). The next approved work is DOMAIN-AUDIT-WP1 under the temporary resequencing decision.
+
+### DEV-AI-WP1A: Cross-Agent Governance Safety Corrections
+* **Status:** Complete and Merged — [PR #29](https://github.com/jendrickcon/udm-radar/pull/29), normal merge `528dde76a12ac031daa66ad2b30fc007fc671f6c`.
+* **Scope:** Six guidance files; corrected academic contracts, complete Git-layer inspection, scratch mutation-path safety, installed pinned Playwright verification, advisory recovery, and guidance-versus-permission clarification. No runtime or dependency changes.
 
 ### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
-* **Status:** `Blocked: recovery required from original development machine`
+* **Status:** `Blocked: original implementation unavailable for recovery`
+* **Temporarily bypassed:** Independent packages may advance if they do not modify mobile navigation, responsive grid architecture, or the expected mobile-package files. This package remains approved, not cancelled or abandoned.
 * **Current Situation:**
   * The implementation was previously created and tested.
   * It exists only in a machine-local stash on the original computer.
@@ -125,16 +130,36 @@ The core academic and database foundation was remediated across Work Packages WP
 
 ---
 
-## 8. Approved Upcoming UI Packages
+## 8. Approved Packages During the Temporary Mobile Bypass
 
-Following the recovery and integration of `UI-WP-MOBILE`, upcoming frontend work proceeds in this exact approved sequence:
+On October 10, 2026, the project owner approved temporary resequencing around the unavailable mobile implementation. The order in Section 13 supersedes the previous mobile-first dependency. Each implementation package needs a reviewed scope/data contract and its own branch and PR; finish and merge one before starting the next implementation branch. No simultaneous implementation agents may edit shared files.
 
-### 1. UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
-* **Status:** `Blocked: recovery required from original development machine`
+### DOMAIN-AUDIT-WP1: Role Needs and Feature Selection
+* **Status:** Planned and Approved — read-only product/repository audit; no runtime implementation.
+* **Deliverables:** Capability and role-problem inventories, feature gaps, data-availability matrix, institutional-policy dependencies, complexity/risk estimates, recommended MVP additions, rejected/deferred features, and a reviewed backlog.
+* **Evidence boundary:** Repository observations and synthetic data establish technical availability; user needs remain hypotheses until stakeholder validation. Do not invent prerequisites, deadlines, official status, consultation schedules, or institutional procedures.
+
+### ADMIN-WP1A: Data Coverage and Encoding Freshness
+* **Status:** Planned and Approved, subject to DOMAIN-AUDIT-WP1 data/scope findings and a separate reviewed implementation package.
+* **Scope candidates:** Current-term encoding coverage, missing-data triage, prediction-source/completeness/freshness summaries, and stale-prediction indicators where reliable timestamps support them.
+* **Safeguards:** Missing data is not student failure. No public Faculty ranking, inferred deadlines, disciplinary monitoring, or automatic prediction regeneration. Counts must distinguish current records from prediction-time snapshots and unknown provenance.
+
+### FACULTY-WP1A: Structured Intervention Reasons and Follow-Up
+* **Status:** Planned and Approved, subject to audit and a reviewed storage/workflow contract after ADMIN-WP1A merges.
+* **Scope candidates:** Optional Faculty-observed academic reason tags plus custom explanation; clarification, consultation, subject-review, and calculator next actions only where supported by approved data/workflows.
+* **Safeguards:** Faculty review remains individual; no diagnoses or notices sent automatically from model output. Acknowledgment means receipt only. Do not claim observations about missing submissions or prerequisites without supporting evidence.
+
+### Mobile-overlap boundary
+Preserve `admin/grades.php`, `admin/index.php`, `admin/students.php`, `assets/js/ui.js`, `includes/sidebar.php`, and `tests/browser/ui-wp-mobile-navigation-grids.spec.js` during independent packages. No mobile top bar/drawer selectors, navigation behavior, KPI cardinalities, or Section-card breakpoints may be reconstructed or changed. For DATA-UI-WP3 only, `assets/css/dashboard.css` may receive narrowly scoped operational-table classes after selector-overlap review; broad shared/mobile/grid changes remain excluded. Any other overlap requires owner approval.
+
+STUDENT-WP1A remains an audit candidate, not an added execution commitment in this temporary eight-step order. Grade-goal presets and transparent suggested attention must use supported numeric data, disclose coverage, avoid guarantees or punitive standing/benefit language, and never invent prerequisite effects.
+
+### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
+* **Status:** `Blocked: original implementation unavailable for recovery`
 * **Goal:** Deliver fully responsive mobile navigation, off-canvas drawers, and balanced KPI/section grids.
 * **Dependencies:** Branch or patch export recovered from the original development machine.
 
-### 2. DATA-UI-WP3: Operational Tables and Workflow Actions
+### DATA-UI-WP3: Operational Tables and Workflow Actions
 * **Status:** `Planned and Approved`
 * **Goal:** Standardize operational table workflows, bulk actions, and multi-row data grids across Admin and Faculty portals.
 * **Scope:**
@@ -148,10 +173,10 @@ Following the recovery and integration of `UI-WP-MOBILE`, upcoming frontend work
   * Loading, empty, and error states
   * Remaining workflow action-button inconsistencies
 * **Non-Goals:** Modifying backend SQL queries, adding new database columns, or altering export data formats.
-* **Dependencies:** `UI-WP-MOBILE` merged.
+* **Dependencies:** DOMAIN-AUDIT-WP1 scope findings and preceding ADMIN-WP1A/FACULTY-WP1A merges. May precede mobile only within the overlap boundary above.
 * **Completion Criteria:** Visual and keyboard navigation across all operational tables passing Playwright checks.
 
-### 3. UI-WP1B: Tooltip, SVG, and Academic Guide Accessibility
+### UI-WP1B: Tooltip, SVG, and Academic Guide Accessibility
 * **Status:** `Planned and Approved`
 * **Goal:** Polish tooltip accessibility, SVG screen-reader descriptions, and Academic Guide drawer tabs.
 * **Scope:**
@@ -170,10 +195,10 @@ Following the recovery and integration of `UI-WP-MOBILE`, upcoming frontend work
   * Decorative SVG cleanup
   * Remaining icon inconsistencies
 * **Non-Goals:** Redesigning Academic Guide content or altering grading constants.
-* **Dependencies:** `DATA-UI-WP3` merged.
+* **Dependencies:** `DATA-UI-WP3` and recovered `UI-WP-MOBILE` merged.
 * **Completion Criteria:** Zero accessibility warnings on tooltips, icons, and drawer controls across viewports.
 
-### 4. DATA-UI-WP4: Charts and Visualizations
+### DATA-UI-WP4: Charts and Visualizations
 * **Status:** `Planned and Approved`
 * **Goal:** Modernize Chart.js visualizations, legends, and summary data cards across student and faculty trend views.
 * **Scope:**
@@ -190,7 +215,7 @@ Following the recovery and integration of `UI-WP-MOBILE`, upcoming frontend work
 * **Dependencies:** `UI-WP1B` merged.
 * **Completion Criteria:** Charts render legibly in light and dark modes with textual data alternatives.
 
-### 5. Final Cross-Portal Browser Validation
+### Final Cross-Portal Browser Validation
 * **Status:** `Planned and Approved`
 * **Goal:** Comprehensive end-to-end browser audit across Student, Faculty, and Admin portals.
 * **Scope:** Automated verification across 5 standard viewports ($1440\times 900$, $1280\times 720$, $1024\times 768$, $768\times 1024$, $390\times 844$), light and dark themes, keyboard tab traversal, and console error audits.
@@ -286,35 +311,20 @@ The following concepts were formally evaluated and **rejected** from the approve
 
 ## 13. Execution Order
 
-Owner-approved immediate priority: **ACADEMIC-HOTFIX-WP1 → DEV-AI-WP1A → recover UI-WP-MOBILE from the original PC → complete and merge UI-WP-MOBILE**. Then resume the published UI sequence below. Neither hotfix package authorizes reconstruction of the missing mobile implementation.
+ACADEMIC-HOTFIX-WP1 and DEV-AI-WP1A are complete and merged. The owner-approved temporary order while mobile recovery is blocked is:
 
-```
-[1. UI-WP-MOBILE]                ◄── Blocked: recovery required from original PC
-        │
-        ▼
-[2. DATA-UI-WP3]                 ◄── Operational Tables and Workflow Actions
-        │
-        ▼
-[3. UI-WP1B]                     ◄── Tooltip, SVG, and Academic Guide Accessibility
-        │
-        ▼
-[4. DATA-UI-WP4]                 ◄── Charts and Visualizations
-        │
-        ▼
-[5. Final Browser Validation]    ◄── Final Cross-Portal Browser Validation
-        │
-        ▼
-[6. Domain Candidate Audits]     ◄── Candidate Review & Feature Selection
-        │
-        ▼
-[7. WP-8]                        ◄── Strict SQL Mode & Security Hardening
-        │
-        ▼
-[8. WP-9]                        ◄── Canonical Dump & Manuscript Sync
-        │
-        ▼
-[9. 5-Cohort Longitudinal Exp.]  ◄── Blocked Pending Curriculum Verification
-```
+1. DOMAIN-AUDIT-WP1 — read-only role needs and feature selection.
+2. ADMIN-WP1A — data coverage and encoding freshness, subject to audit findings.
+3. FACULTY-WP1A — structured intervention reasons and follow-up, subject to audit findings.
+4. DATA-UI-WP3 — operational tables and workflow actions, with table-only overlap controls.
+5. Recover and complete UI-WP-MOBILE from the original implementation.
+6. UI-WP1B — tooltip, SVG, and Academic Guide accessibility.
+7. DATA-UI-WP4 — charts and visualizations.
+8. Final Cross-Portal Browser Validation.
+
+If the mobile implementation becomes available, re-evaluate with the owner whether to finish it immediately or finish the active independent package first. Preserve its stash/backup and integrate current main through reviewed recovery; never reconstruct it from memory. Keep packages separately reviewable and merge one implementation package before starting the next.
+
+The former post-mobile roadmap synchronization gate no longer blocks this owner-approved planning update. Later completion records must still use actual verified merges; mobile is not marked complete. WP-8, WP-9/manuscript synchronization, and five-cohort expansion remain paused under their existing policy/approval dependencies.
 
 ---
 
@@ -329,3 +339,5 @@ Owner-approved immediate priority: **ACADEMIC-HOTFIX-WP1 → DEV-AI-WP1A → rec
 * **October 2026 — Historical Document Duplicates Retention:** The repository currently preserves root and `docs/audits/` copies of four historical planning documents (`CURRENT_DEMO_PLAYBOOK.md`, `CURRENT_UI_BACKLOG.md`, `CURRENT_UI_VALIDATION_REPORT.md`, `EXTERNAL_IDEA_RECONCILIATION.md`) annotated with historical snapshot banners. Their canonical location will be determined in a subsequent documentation-cleanup package before removing duplicates; they must not continue to be edited concurrently without review.
 
 
+
+* **October 10, 2026 — Owner-Approved Mobile Bypass:** UI-WP-MOBILE remains approved but blocked because the original implementation is unavailable for recovery. Independent audit, coverage, Faculty support, and operational-table packages may proceed in the Section 13 order with explicit mobile-overlap controls; no abandonment or reconstruction is authorized. This replaces the earlier requirement to finish mobile before all independent work.
