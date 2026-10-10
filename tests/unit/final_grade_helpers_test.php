@@ -42,7 +42,7 @@ foreach ($points as $pt) {
     assertEqual(isExcludedFromGwa($pt), false, "isExcludedFromGwa('$pt')");
     assertEqual(normalizeFinalGradeInput($pt), $pt, "normalizeFinalGradeInput('$pt')");
     assertEqual(formatFinalGrade($pt), $pt, "formatFinalGrade('$pt')");
-    $expectedFail = ((float)$pt < 1.75);
+    $expectedFail = false;
     assertEqual(isFailingFinalGrade($pt), $expectedFail, "isFailingFinalGrade('$pt') (expected " . ($expectedFail ? 'true' : 'false') . ")");
 }
 
@@ -85,7 +85,7 @@ assertEqual(isFailingFinalGrade('drp'), false, "isFailingFinalGrade('drp') -> fa
 // 5. Failing Statuses Specific Behaviors
 // -------------------------------------------------------------------------
 echo "\n=== 5. Failing Statuses Specific Behaviors ===\n";
-$failingStatuses = ['INC', 'DO', 'DU', 'FA', 'UD'];
+$failingStatuses = ['DO', 'DU', 'FA', 'UD'];
 foreach ($failingStatuses as $fst) {
     assertEqual(isFailingFinalGrade($fst), true, "isFailingFinalGrade('$fst') -> true");
 }
@@ -112,7 +112,7 @@ assertEqual(formatFinalGrade('0'), '0.00', "formatFinalGrade('0') -> '0.00'");
 // 7. Invalid New Final Grade Entries
 // -------------------------------------------------------------------------
 echo "\n=== 7. Invalid New Entries ===\n";
-$invalidEntries = ['0', '0.0', '0.00', '5.00', '3.60', '3.6', '75', 'abc', '', '   ', null];
+$invalidEntries = ['0', '0.0', '0.00', '0.50', '0.75', '1.10', '5.00', '3.60', '3.6', '75', 'abc', '', '   ', null];
 foreach ($invalidEntries as $inv) {
     $label = var_export($inv, true);
     assertEqual(normalizeFinalGradeInput($inv), null, "normalizeFinalGradeInput($label) -> null");
@@ -165,14 +165,14 @@ assertEqual(canonicalizeFinalGrade(null), null, "canonicalizeFinalGrade(null) ->
 // 10. isFailingFinalGrade Normalized Handling
 // -------------------------------------------------------------------------
 echo "\n=== 10. isFailingFinalGrade Normalized Handling ===\n";
-assertEqual(isFailingFinalGrade('1'), true, "isFailingFinalGrade('1') = true");
-assertEqual(isFailingFinalGrade('1.0'), true, "isFailingFinalGrade('1.0') = true");
-assertEqual(isFailingFinalGrade('1.00'), true, "isFailingFinalGrade('1.00') = true");
-assertEqual(isFailingFinalGrade(1), true, "isFailingFinalGrade(1) = true");
-assertEqual(isFailingFinalGrade(1.0), true, "isFailingFinalGrade(1.0) = true");
-assertEqual(isFailingFinalGrade('1.50'), true, "isFailingFinalGrade('1.50') = true");
+assertEqual(isFailingFinalGrade('1'), false, "isFailingFinalGrade('1') = false");
+assertEqual(isFailingFinalGrade('1.0'), false, "isFailingFinalGrade('1.0') = false");
+assertEqual(isFailingFinalGrade('1.00'), false, "isFailingFinalGrade('1.00') = false");
+assertEqual(isFailingFinalGrade(1), false, "isFailingFinalGrade(1) = false");
+assertEqual(isFailingFinalGrade(1.0), false, "isFailingFinalGrade(1.0) = false");
+assertEqual(isFailingFinalGrade('1.50'), false, "isFailingFinalGrade('1.50') = false");
 assertEqual(isFailingFinalGrade('1.75'), false, "isFailingFinalGrade('1.75') = false");
-assertEqual(isFailingFinalGrade(' inc '), true, "isFailingFinalGrade(' inc ') = true");
+assertEqual(isFailingFinalGrade(' inc '), false, "isFailingFinalGrade(' inc ') = false");
 assertEqual(isFailingFinalGrade('passed'), false, "isFailingFinalGrade('passed') = false");
 assertEqual(isFailingFinalGrade('0'), true, "isFailingFinalGrade('0') = true");
 assertEqual(isFailingFinalGrade('0.00'), true, "isFailingFinalGrade('0.00') = true");
