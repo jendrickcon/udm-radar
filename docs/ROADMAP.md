@@ -96,6 +96,14 @@ The core academic and database foundation was remediated across Work Packages WP
 
 ## 7. Current Work
 
+### ACADEMIC-HOTFIX-WP1: Subject Outcome and Incomplete-Grade Semantics
+* **Status:** In Progress on `fix/academic-subject-outcome-semantics` (not yet merged).
+* **Owner-approved scope:** Discrete numeric final grades 1.00–4.00 pass; legacy 0.00 fails; unresolved INC is neither passed nor failed and is excluded from the pass-rate denominator. P remains a passing textual outcome.
+* **Independent boundaries:** 1.75 remains the prototype High/Moderate risk boundary and the manual's non-board standing benchmark; the prototype does not determine official standing. Preserve GWA computation, zero entry restrictions, honors results/thresholds, and existing DO/DU/DRP/FA/UD behavior pending policy verification.
+* **Historical outputs:** Corrected failure features apply to future predictions only. Existing predictions and support cases remain historical outputs; no automatic rescoring, case changes or INC expiry/conversion is authorized.
+* **Policy evidence:** [UDM Student Manual 2025](https://udmwebsite.udm.edu.ph/wp-content/uploads/2026/01/Student-Manual-2025-FINAL.pdf), Part II D, printed pages 15–18. Honors require separate guidelines; failed-unit GWA and attendance-related dropping remain unresolved.
+* **Next package:** DEV-AI-WP1A, Cross-Agent Governance Safety Corrections, separately scoped; no new integrations or Codex configuration.
+
 ### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
 * **Status:** `Blocked: recovery required from original development machine`
 * **Current Situation:**
@@ -277,6 +285,8 @@ The following concepts were formally evaluated and **rejected** from the approve
 ---
 
 ## 13. Execution Order
+
+Owner-approved immediate priority: **ACADEMIC-HOTFIX-WP1 → DEV-AI-WP1A → recover UI-WP-MOBILE from the original PC → complete and merge UI-WP-MOBILE**. Then resume the published UI sequence below. Neither hotfix package authorizes reconstruction of the missing mobile implementation.
 
 ```
 [1. UI-WP-MOBILE]                ◄── Blocked: recovery required from original PC

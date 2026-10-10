@@ -62,11 +62,19 @@ All foundational packages (WP-0 through WP-6 and WP-7) were consolidated on feat
 * **Feature Branch:** `feat/cohort-scaffolding`
 * **Implementation Commits:** `44e788a`, `f077fa4`, `882f2fd`, `6e9c939`
 * **Major Delivered Scope:**
-  * Corrected historical pass-rate misclassification in `admin/analytics.php` (evaluating `< 1.75` as failure rather than `$pt > 0`).
+  * Historical implementation used `< 1.75` as subject failure. **Correction:** this conflated prototype risk with subject outcomes; owner-approved ACADEMIC-HOTFIX-WP1 corrects numeric 1.00–4.00 to passing and INC to unresolved. WP-4's merge history remains historical evidence, not policy validation.
   * Corrected pass-rate denominator: strictly excluded dropped courses (`DRP`) (`recognized_outcome_count = passed + failed`), correcting reported pass rates.
   * Removed duplicate GWA recalculations from raw term-batch submission approvals.
   * Created reproducible parity audit tool (`tools/audit_gwa_parity.php`).
 * **Test Evidence:** 108 assertions in `tests/integration/gwa_parity_test.php`; verified 100% GWA parity across 289 baseline profiles.
+
+### ACADEMIC-HOTFIX-WP1 correction in progress (October 10, 2026)
+* **Branch:** `fix/academic-subject-outcome-semantics`; based on DOCS-WP1 PR #27 (`81c6303`). Not committed or merged yet.
+* **Scope:** Subject outcomes and incomplete counts, screen/PDF parity, textual-grade coercion prevention, and corrected future failure-derived prediction features.
+* **Preserved:** Numeric GWA functions and legacy-zero treatment; separate legacy honors-disqualification behavior and thresholds; deferred DO/DU/DRP/FA/UD semantics; stored grades, predictions, cases, SQL dump and model artifacts.
+* **Evidence boundary:** Passing numeric grades may remain HIGH risk. INC is unresolved and is not automatically expired or converted. Existing prediction outputs retain the logic and inputs used when generated.
+* **Policy:** [UDM Student Manual 2025](https://udmwebsite.udm.edu.ph/wp-content/uploads/2026/01/Student-Manual-2025-FINAL.pdf), Part II D, printed pages 15–18; separate honors guidelines and failed-unit GWA policy remain pending verification.
+* **Verification:** See the package execution report for actual totals and unavailable runtime checks; historical package totals are not current acceptance counts.
 
 ---
 
