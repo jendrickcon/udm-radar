@@ -51,7 +51,11 @@ foreach ($raw_loads as $load) {
         elseif ($r['prelim'] !== null && trim((string)$r['prelim']) !== '') { $latestVal = $r['prelim']; $latestType = 'prelim'; }
 
         if ($latestVal !== null) {
-            $pt = ($latestType === 'final_grade') ? normalizePointGrade($latestVal) : normalizeTermGrade($latestVal);
+            // Textual final outcomes have no numeric point or risk average.
+            $finalPoint = canonicalizeFinalGrade($latestVal);
+            $pt = ($latestType === 'final_grade')
+                ? ($finalPoint !== null && is_numeric($finalPoint) ? (float)$finalPoint : null)
+                : normalizeTermGrade($latestVal);
             
             if ($pt !== null) {
                 if ($latestType !== 'final_grade') {

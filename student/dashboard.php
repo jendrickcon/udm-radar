@@ -19,6 +19,8 @@ $profile = $stmtProf->fetch();
 
 $current_gwa = computeStudentGwa($db, $user['id']);
 $historical_gwa = $current_gwa;
+$hasCurrentGwa = $current_gwa !== null;
+$currentGwaDisplay = $hasCurrentGwa ? number_format($current_gwa, 2) : 'N/A';
 
 // --- Fetch ML Prediction from Database ---
 $metaCols = getPredictionFullCompletenessSqlSelect($db);
@@ -313,7 +315,7 @@ require_once '../includes/sidebar.php';
     <div class="stat-grid dashboard-stat-grid" style="margin-bottom: 24px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Cumulative GWA</h4>
-            <h2 style="color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : 'N/A' ?></h2>
+            <h2 id="gwa-card-value" style="color: var(--text-dark);"><?= $currentGwaDisplay ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical Cumulative GWA (Completed Semesters)</p>
         </div>
         <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
@@ -346,26 +348,26 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <?php $isAtRiskGauge = ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || (float)$current_gwa < 2.50); ?>
+    <?php $isAtRiskGauge = $hasCurrentGwa && ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || $current_gwa < 2.50); ?>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
         <div class="card" style="text-align: center; display: flex; flex-direction: column;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <span><?= $isAtRiskGauge ? 'Academic Standing & Recovery Gauge' : 'Honor Track Proximity' ?></span>
+                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : ($isAtRiskGauge ? 'Academic Standing & Recovery Gauge' : 'Honor Track Proximity') ?></span>
                 </h3>
-                <p style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    <?= $isAtRiskGauge 
+                <p id="gwa-gauge-description" style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
+                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : ($isAtRiskGauge
                         ? 'Visualizes where your historical cumulative GWA falls relative to retention threshold (≥ 2.50) and Latin Honor eligibility (≥ 3.25).' 
-                        : 'Shows where your historical cumulative GWA falls on the official 1.00–4.00 scale relative to Latin Honor cutoffs.' ?>
+                        : 'Shows where your historical cumulative GWA falls on the official 1.00–4.00 scale relative to Latin Honor cutoffs.') ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
                 <div style="position: relative; margin-top: 20px; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center;">
-                    <canvas id="honorGauge"></canvas>
+                    <canvas id="honorGauge" role="img" aria-label="Cumulative GWA: <?= $currentGwaDisplay ?>" aria-describedby="gwa-gauge-description"></canvas>
                 </div>
                 <div style="margin-top: 4px;">
-                    <span style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $current_gwa > 0 ? number_format($current_gwa, 2) : '0.00' ?></span>
+                    <span id="gwa-gauge-value" style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $currentGwaDisplay ?></span>
                     <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Cumulative GWA (Historical)</span>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
@@ -688,12 +690,13 @@ function getThemeColors() {
 }
 
 let themeColors = getThemeColors();
-const currentGwaForGauge = <?= json_encode(round((float) $current_gwa, 2)) ?>;
+const currentGwaForGauge = <?= json_encode($hasCurrentGwa ? round($current_gwa, 2) : null) ?>;
 const GAUGE_ROTATION = 270; const GAUGE_CIRCUMFERENCE = 180; const GAUGE_MAX = 4.00;
 
 const needlePlugin = {
     id: 'gwaNeedle',
     afterDraw(chart) {
+        if (currentGwaForGauge === null) return;
         const meta = chart.getDatasetMeta(0); const arc = meta.data[0];
         if (!arc) return;
         const { x: cx, y: cy, outerRadius } = arc.getProps(['x', 'y', 'outerRadius'], true);
