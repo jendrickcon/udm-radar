@@ -14,6 +14,8 @@ Before planning or implementing any new branch or work package, consult the cano
 - **Canonical Roadmap & Upcoming Packages:** [docs/ROADMAP.md](docs/ROADMAP.md)
 - **Completed Work Packages & History Ledger:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
 - **Agent Instructions & Governance Rules:** [AGENTS.md](AGENTS.md)
+- **UI/UX Governance & Interface Standards:** [docs/UI_UX_GOVERNANCE.md](docs/UI_UX_GOVERNANCE.md)
+- **UI/UX Findings Register:** [docs/UI_UX_FINDINGS_REGISTER.md](docs/UI_UX_FINDINGS_REGISTER.md)
 
 
 ## Before Starting Work

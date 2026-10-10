@@ -28,7 +28,7 @@ UDM-RADAR (*Risk Analytics & Decision-support for Academic Records*) is an acade
   5. Enrollment, tuition subsidy (UniFAST), or allowance eligibility.
 * **Scope Exclusion:** Academic Standing tracking and punitive strike systems are **not** part of the approved roadmap.
 
-*For detailed architectural and agent rules, refer to [AGENTS.md](../AGENTS.md).*
+*For detailed architectural and agent rules, refer to [AGENTS.md](../AGENTS.md). For interface standards and usability issues, see [docs/UI_UX_GOVERNANCE.md](UI_UX_GOVERNANCE.md) and [docs/UI_UX_FINDINGS_REGISTER.md](UI_UX_FINDINGS_REGISTER.md).*
 
 ---
 
