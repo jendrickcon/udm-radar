@@ -740,7 +740,7 @@ require_once '../includes/sidebar.php';
     <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
-    <div class="stat-grid">
+    <div class="stat-grid kpi-grid--four">
         <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-dark) !important;" onclick="applyTableFilter('', '')" aria-controls="database-section" aria-label="Filter student directory: view all students">
             <h4>Total Students</h4>
             <h2><?= $stats['total'] ?></h2>

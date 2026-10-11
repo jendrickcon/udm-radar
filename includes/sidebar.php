@@ -53,13 +53,45 @@ if (isset($user) && isset($user['role'])) {
 .nav-badge { background: var(--risk-high); color: white; font-size: 0.75rem; font-weight: 700; padding: 2px 7px; border-radius: 12px; margin-left: auto; line-height: 1.2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .sidebar-link { display: flex; align-items: center; width: 100%; }
 </style>
-<nav id="sidebar" class="sidebar">
+<!-- Mobile Top Bar (Hidden on desktop via CSS) -->
+<header class="mobile-topbar" id="mobile-topbar">
+  <button type="button" class="mobile-nav-toggle" id="mobile-nav-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation menu">
+    <svg class="nav-toggle-icon nav-toggle-icon--menu" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+    <svg class="nav-toggle-icon nav-toggle-icon--close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+  <div class="mobile-topbar__brand">
+    <img src="<?= BASE_URL ?>assets/img/logo_sidebar.png" alt="UDM-RADAR Logo" class="mobile-topbar__logo" onerror="this.style.display='none'">
+    <span class="mobile-topbar__title">UDM-RADAR</span>
+  </div>
+  <div class="mobile-topbar__spacer" aria-hidden="true"></div>
+</header>
+
+<!-- Mobile Navigation Drawer Overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+<nav id="sidebar" class="sidebar" aria-label="Main Navigation">
+  <div class="sidebar-drawer-header">
+    <button type="button" class="sidebar-drawer-close-btn" id="sidebar-drawer-close-btn" aria-label="Close navigation menu">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
   <div class="sidebar-brand">
     <img src="<?= BASE_URL ?>assets/img/logo_sidebar.png" alt="Logo" class="sidebar-logo" onerror="this.style.display='none'">
   </div>
   <ul class="sidebar-nav">
     <?php foreach ($navItems as [$label, $href, $icon]): 
         $badgeHtml = isset($navBadges[$label]) ? '<span class="nav-badge">' . $navBadges[$label] . '</span>' : '';
+        $isActive = basename($_SERVER['PHP_SELF']) === basename($href);
     ?>
     <?php
         $svg = match($label) {
@@ -76,7 +108,7 @@ if (isset($user) && isset($user['role'])) {
         };
     ?>
     <li>
-      <a href="<?= htmlspecialchars($href) ?>" class="sidebar-link <?= basename($_SERVER['PHP_SELF']) === basename($href) ? 'active' : '' ?>">
+      <a href="<?= htmlspecialchars($href) ?>" class="sidebar-link <?= $isActive ? 'active' : '' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon">
             <?= $svg ?>
         </svg>
