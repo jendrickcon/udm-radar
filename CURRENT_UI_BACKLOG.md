@@ -1,5 +1,11 @@
 # UDM-RADAR — Verified Current UI/UX Backlog
 
+> [!NOTE]
+> **Historical Snapshot (Branch `feat/cohort-scaffolding`):** This backlog registers static inspection findings from earlier sprints. Many items have since been resolved across UI-WP1A, DATA-UI-WP1A/B, and DATA-UI-WP2.
+> For current package status, verified implementation history, and active roadmap, see:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
+
 This backlog registers all verified findings on branch `feat/cohort-scaffolding` (`f4009d0`). Every item is classified by exact current evidence, severity, user impact, suggested correction, target work package, and formal-evaluation blocking status.
 
 > [!NOTE]

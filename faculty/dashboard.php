@@ -645,6 +645,7 @@ function renderClassTab(secName) {
                 
                 if (termLabel === 'FIN' && !['INC','DRP','P','DO','DU','FA','UD'].includes(currentGradeStr)) {
                     gradeSum += parseFloat(g.final_grade);
+                    gradeCount++;
                 } else if (termLabel !== 'FIN') {
                     let pointEquivalent = 0;
                     let pct = parseFloat(currentGradeStr);
@@ -653,9 +654,9 @@ function renderClassTab(secName) {
                     else if (pct >= 82) pointEquivalent = 2.00; else if (pct >= 80) pointEquivalent = 1.75; else if (pct >= 78) pointEquivalent = 1.50; else if (pct >= 76) pointEquivalent = 1.25;
                     else if (pct >= 75) pointEquivalent = 1.00; else pointEquivalent = 0.00;
                     gradeSum += pointEquivalent;
+                    gradeCount++;
                 }
                 
-                gradeCount++;
                 if      (g.risk === 'HIGH')                              worstRisk = 'HIGH';
                 else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
             } else {

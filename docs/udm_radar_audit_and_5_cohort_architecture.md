@@ -5,6 +5,12 @@
 **Evaluation Scope**: Capstone Prototype Demonstration on Synthetic Longitudinal Data  
 **Document Version**: 2.0.0 (Post-Audit Synthesis)
 
+> [!NOTE]
+> **Historical Architecture Snapshot:** This document records the comprehensive audit and 5-cohort longitudinal architecture design developed during earlier sprints (covering WP-0 through WP-6).
+> For current project status, completed PRs (including WP-7, Modern UI packages, and DEV-AI-WP1), and the active roadmap, see:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](IMPLEMENTATION_HISTORY.md)
+
 ---
 
 ## 1. Executive Summary & Context

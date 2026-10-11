@@ -1,5 +1,11 @@
 # UDM-RADAR Audit Findings Governance and Post-WP Plan
 
+> [!NOTE]
+> **Historical Governance Snapshot:** This document captures post-audit governance planning from earlier sprints.
+> For current active statuses, resolved items, and approved upcoming work packages, see:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
+
 **Purpose:** Preserve the four current UI/UX audit documents as traceable evidence, prevent static findings from being mistaken for browser-verified facts, and map confirmed or provisional findings to the correct future work packages.
 
 **Source reports already stored in the repository:**

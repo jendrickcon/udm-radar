@@ -1,5 +1,11 @@
 # UDM-RADAR — Current UI/UX Validation Report
 
+> [!NOTE]
+> **Historical Snapshot (Branch `feat/cohort-scaffolding`, October 1, 2026):** This report documents initial static UI/UX validation findings from earlier sprints. Subsequent work packages (UI-WP1A, DATA-UI-WP1A/B, DATA-UI-WP2) have already addressed many of these usability and data presentation findings.
+> For current project status and active roadmap, see:
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
+
 **Audit Mode:** Independent Usability Auditor, Product-Idea Reconciler, Academic Workflow Analyst  
 **Date:** October 1, 2026  
 **Branch:** `feat/cohort-scaffolding` (`f4009d0`)  

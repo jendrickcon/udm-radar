@@ -10,7 +10,7 @@ $db = getDB();
 // Safety fallback with explicit type-hints
 if (!function_exists('normalizePointGrade')) {
     function normalizePointGrade(mixed $val): ?float {
-        if ($val === null || trim((string)$val) === '') return null;
+        if ($val === null || !is_numeric($val)) return null;
         return (float)$val;
     }
 }
@@ -84,7 +84,8 @@ foreach ($myLoads as $load) {
                     $classAttention++;
                     $overallAttention++;
                 } else {
-                    $pt = normalizePointGrade($latestVal);
+                    $canon = canonicalizeFinalGrade($latestVal);
+                    $pt = $canon !== null && is_numeric($canon) ? (float)$canon : null;
                     if ($pt !== null) {
                         $classPtSum += $pt; $classPtCount++;
                         $overallPtSum += $pt; $overallPtCount++;
@@ -193,6 +194,8 @@ if ($subjFilter && $secFilter) {
     
     $rawSums = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
     $ptSums  = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
+    // Encoding coverage includes textual outcomes; numeric means must not.
+    $numericCounts = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
 
     foreach ($grades as $g) {
         $stuName = formatNameLastFirst($g['first_name'], '', $g['last_name']);
@@ -208,10 +211,12 @@ if ($subjFilter && $secFilter) {
                         $riskMovement[$pName]['HIGH']++;
                         continue;
                     }
-                    $pt = normalizePointGrade($val);
+                    $canon = canonicalizeFinalGrade($val);
+                    $pt = $canon !== null && is_numeric($canon) ? (float)$canon : null;
                     if ($pt !== null) {
                         $rawSums[$pName] += $pt;
                         $ptSums[$pName] += $pt;
+                        $numericCounts[$pName]++;
                         $riskMovement[$pName][computeRiskFromAvg($pt)]++;
                     }
                 } else {
@@ -220,6 +225,7 @@ if ($subjFilter && $secFilter) {
                     $pt = normalizeTermGrade($pct);
                     if ($pt !== null) {
                         $ptSums[$pName] += $pt;
+                        $numericCounts[$pName]++;
                         $riskMovement[$pName][computeRiskFromAvg($pt)]++;
                     }
                 }
@@ -245,15 +251,15 @@ if ($subjFilter && $secFilter) {
     }
 
     foreach ($periods as $p) {
-        if ($periodEncoded[$p] > 0) {
-            $periodMeans[$p] = $rawSums[$p] / $periodEncoded[$p];
-            $chartMeans[$p]  = round($ptSums[$p] / $periodEncoded[$p], 2);
+        if ($numericCounts[$p] > 0) {
+            $periodMeans[$p] = $rawSums[$p] / $numericCounts[$p];
+            $chartMeans[$p]  = round($ptSums[$p] / $numericCounts[$p], 2);
         }
     }
 
     if ($periodEncoded['Final'] > 0) {
         $latestPeriodName = 'Final';
-        $latestMean = number_format((float) $periodMeans['Final'], 2);
+        $latestMean = $periodMeans['Final'] !== null ? number_format($periodMeans['Final'], 2) : 'N/A';
         $attentionCount = $riskMovement['Final']['HIGH'] + $riskMovement['Final']['MODERATE'];
         $completenessPct = ($periodEncoded['Final'] / $enrolledCount) * 100;
     } elseif ($periodEncoded['Pre-Final'] > 0) {

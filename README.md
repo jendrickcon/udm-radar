@@ -28,12 +28,12 @@ UDM-RADAR is a role-based academic decision-support platform for early risk dete
 - Administrative change, status, support, and export audit trails
 - Responsive dark/light portal interfaces and Chart.js visualizations
 
-### Current Development Focus
+### Project Roadmap & Governance
 
-- Final portal-wide stale-code and data-integrity audit
-- Intervention Audit Trail lifecycle completeness
-- Model governance and version management
-- Candidate-model training, evaluation, controlled promotion, and rollback
+For active Work Package status, completed implementation history, and approved roadmap planning, consult the canonical documentation:
+- **Active Roadmap & Future Planning:** [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Completed Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
+- **Agent Governance & Guidelines:** [AGENTS.md](AGENTS.md)
 
 ## Core Portals
 

@@ -151,6 +151,7 @@ if ($isCurrentTerm) {
                 'nonnumeric_pass_count' => 0,
                 'failing_count' => 0,
                 'dropped_count' => 0,
+                 'incomplete_count' => 0,
                 'missing_or_invalid_count' => 0,
                 'recognized_outcome_count' => 0,
                 'passed' => 0,
@@ -171,6 +172,11 @@ if ($isCurrentTerm) {
             continue;
         }
 
+        if (isIncompleteFinalGrade($canon)) {
+            $histSubjects[$id]['incomplete_count']++;
+            // Recorded INC is unresolved, not a completed pass/fail outcome.
+            continue;
+        }
         if ($canon === 'DRP') {
             $histSubjects[$id]['dropped_count']++;
             $histSubjects[$id]['graded']++;
@@ -244,7 +250,7 @@ if ($isCurrentTerm) {
         . "The curriculum-wide overview below reflects <strong>" . count($subjectWideStats) . "</strong> subjects for the <strong>$periodName</strong> grading period ($syFilter, Sem $semFilter).";
 } else {
     $narrative = "This is a historical outcome report for <strong>$syFilter, Semester $semFilter</strong>, scoped to $scopeText. "
-        . "<strong>$totalHistStudents</strong> students have at least one completed subject outcome on record, with an overall pass rate of <strong>" . number_format($overallHistPassRate, 1) . "%</strong> across <strong>$histGradesCount</strong> graded Final Grade records.";
+        . "<strong>$totalHistStudents</strong> students have at least one completed subject outcome on record, with an overall pass rate of <strong>" . ($overallHistPassRate !== null ? number_format($overallHistPassRate, 1) . '%' : 'N/A') . "</strong> across <strong>$histGradesCount</strong> graded Final Grade records.";
 }
 
 // FIXED: Font sizes scaled slightly to safely constrain tables to a single page
@@ -404,6 +410,7 @@ if ($isCurrentTerm) {
         $isLimitedHist = $s['graded'] > 0 && $coverageVal < 0.8;
         $completeness = $s['enrolled'] > 0 ? number_format($coverageVal * 100, 1) . '%' : '0%';
         if ($isLimitedHist) $completeness .= '<br><span style="font-size:8px; color:#d97706;">Limited Data</span>';
+        $completeness .= '<br><span style="font-size:8px; color:#64748b;">' . $s['incomplete_count'] . ' incomplete</span>';
 
         $html .= '<tr>
             <td><strong>' . htmlspecialchars($s['code']) . '</strong></td>

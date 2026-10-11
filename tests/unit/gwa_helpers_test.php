@@ -3,7 +3,7 @@
  * Unit Test Suite: Canonical Credit-Unit-Weighted GWA & Grade Predicates
  * 
  * Verifies computeWeightedGWA() mathematical accuracy, unit weighting,
- * exclusion of non-numeric statuses & legacy 0.00, inclusion of failing point grades,
+ * exclusion of non-numeric statuses & legacy 0.00, inclusion of low passing point grades,
  * and passing/failing predicate consistency.
  * 
  * Run via CLI: php tests/unit/gwa_helpers_test.php
@@ -87,22 +87,22 @@ $rowsUnequal2 = [
 assertFloatEqual(computeWeightedGWA($rowsUnequal2) ?? 0.0, 2.25, "Unequal units (5u@1.75, 2u@3.50, 3u@2.25) -> 2.25");
 
 // -------------------------------------------------------------------------
-// 3. Inclusion of Failing Point Grades (1.00, 1.25, 1.50)
+// 3. Inclusion of Low Passing Point Grades (1.00, 1.25, 1.50)
 // -------------------------------------------------------------------------
 echo "\n=== 3. Inclusion of Failing Point Grades ===\n";
-// Failing points 1.00, 1.25, 1.50 MUST be included in cumulative GWA
+// Passing points 1.00, 1.25, 1.50 MUST be included in cumulative GWA
 $rowsWithFailingPoints = [
     ['grade' => '3.00', 'units' => 3], // 3 * 3.00 = 9.0
     ['grade' => '1.50', 'units' => 3], // 3 * 1.50 = 4.5
     ['grade' => '1.00', 'units' => 3], // 3 * 1.00 = 3.0
 ];
 // Sum points = 16.5, sum units = 9. GWA = 16.5 / 9 = 1.83.
-assertFloatEqual(computeWeightedGWA($rowsWithFailingPoints) ?? 0.0, 1.83, "Failing points included: [3.00, 1.50, 1.00] (all 3u) -> 1.83");
+assertFloatEqual(computeWeightedGWA($rowsWithFailingPoints) ?? 0.0, 1.83, "Low passing points included: [3.00, 1.50, 1.00] (all 3u) -> 1.83");
 
 $rowsSingleFailing = [
     ['grade' => '1.25', 'units' => 3],
 ];
-assertFloatEqual(computeWeightedGWA($rowsSingleFailing) ?? 0.0, 1.25, "Single failing point: 1.25 @ 3u -> 1.25");
+assertFloatEqual(computeWeightedGWA($rowsSingleFailing) ?? 0.0, 1.25, "Single passing point: 1.25 @ 3u -> 1.25");
 
 // -------------------------------------------------------------------------
 // 4. Exclusion of Textual Statuses (INC, DRP, P, DO, DU, FA, UD, PASSED)
@@ -198,14 +198,8 @@ assertFloatEqual(computeWeightedGWA($rowsShorthand) ?? 0.0, 3.08, "Shorthand inp
 echo "\n=== 8. Passing vs Failing Predicates ===\n";
 $allPoints = ['4.00', '3.75', '3.50', '3.25', '3.00', '2.75', '2.50', '2.25', '2.00', '1.75', '1.50', '1.25', '1.00'];
 foreach ($allPoints as $pt) {
-    $f = (float) $pt;
-    if ($f >= 1.75) {
-        assertEqual(isPassingFinalGrade($pt), true, "isPassingFinalGrade('$pt') = true");
-        assertEqual(isFailingFinalGrade($pt), false, "isFailingFinalGrade('$pt') = false");
-    } else {
-        assertEqual(isPassingFinalGrade($pt), false, "isPassingFinalGrade('$pt') = false");
-        assertEqual(isFailingFinalGrade($pt), true, "isFailingFinalGrade('$pt') = true");
-    }
+    assertEqual(isPassingFinalGrade($pt), true, "isPassingFinalGrade('$pt') = true");
+    assertEqual(isFailingFinalGrade($pt), false, "isFailingFinalGrade('$pt') = false");
 }
 
 // Statuses
@@ -216,7 +210,9 @@ assertEqual(isFailingFinalGrade('P'), false, "isFailingFinalGrade('P') = false")
 assertEqual(isPassingFinalGrade('DRP'), false, "isPassingFinalGrade('DRP') = false (Drop is non-passing)");
 assertEqual(isFailingFinalGrade('DRP'), false, "isFailingFinalGrade('DRP') = false (Drop is non-failing)");
 
-foreach (['INC', 'DO', 'DU', 'FA', 'UD'] as $failStat) {
+assertEqual(isPassingFinalGrade('INC'), false, 'INC is not passed');
+assertEqual(isFailingFinalGrade('INC'), false, 'INC is unresolved, not failed');
+foreach (['DO', 'DU', 'FA', 'UD'] as $failStat) {
     assertEqual(isPassingFinalGrade($failStat), false, "isPassingFinalGrade('$failStat') = false");
     assertEqual(isFailingFinalGrade($failStat), true, "isFailingFinalGrade('$failStat') = true");
 }
@@ -254,6 +250,7 @@ function computeHistoricalSubjectAnalytics(array $gradeEntries): array {
         'nonnumeric_pass_count' => 0,
         'failing_count' => 0,
         'dropped_count' => 0,
+        'incomplete_count' => 0,
         'missing_or_invalid_count' => 0,
         'recognized_outcome_count' => 0,
         'passed' => 0,
@@ -275,6 +272,11 @@ function computeHistoricalSubjectAnalytics(array $gradeEntries): array {
         if ($canon === 'DRP') {
             $stats['dropped_count']++;
             $stats['graded']++;
+            continue;
+        }
+
+        if (isIncompleteFinalGrade($canon)) {
+            $stats['incomplete_count']++;
             continue;
         }
 
@@ -310,23 +312,23 @@ function computeHistoricalSubjectAnalytics(array $gradeEntries): array {
 }
 
 // Scenario A: 8 passes, 1 failure, 1 DRP -> 8 / 9 = 88.89% (not 8 / 10 = 80.00%)
-$resA = computeHistoricalSubjectAnalytics(['2.00', '2.25', '2.50', '2.75', '3.00', '3.25', '3.50', '3.75', '1.50', 'DRP']);
+$resA = computeHistoricalSubjectAnalytics(['2.00', '2.25', '2.50', '2.75', '3.00', '3.25', '3.50', '3.75', '0.00', 'DRP']);
 assertEqual($resA['passed'], 8, "Scenario A: 8 passes");
-assertEqual($resA['failed'], 1, "Scenario A: 1 failure (1.50)");
+assertEqual($resA['failed'], 1, "Scenario A: 1 failure (0.00)");
 assertEqual($resA['dropped_count'], 1, "Scenario A: 1 DRP");
 assertEqual($resA['recognized_outcome_count'], 9, "Scenario A: recognized_outcome_count = 9 (DRP excluded from denominator)");
 assertFloatEqual($resA['pass_rate'] ?? 0.0, 88.89, "Scenario A: Pass rate = 88.89% (not 80.00%)");
 
 // Scenario B: 1 P, 1 numeric pass, 1 numeric failure -> 2 / 3 = 66.67%
-$resB = computeHistoricalSubjectAnalytics(['P', '2.50', '1.25']);
+$resB = computeHistoricalSubjectAnalytics(['P', '2.50', '0.00']);
 assertEqual($resB['nonnumeric_pass_count'], 1, "Scenario B: 1 non-numeric pass (P)");
 assertEqual($resB['numeric_pass_count'], 1, "Scenario B: 1 numeric pass (2.50)");
 assertEqual($resB['passed'], 2, "Scenario B: 2 total passes");
-assertEqual($resB['failed'], 1, "Scenario B: 1 failure (1.25)");
+assertEqual($resB['failed'], 1, "Scenario B: 1 failure (0.00)");
 assertEqual($resB['recognized_outcome_count'], 3, "Scenario B: recognized_outcome_count = 3");
 assertFloatEqual($resB['pass_rate'] ?? 0.0, 66.67, "Scenario B: Pass rate = 66.67%");
-assertEqual($resB['numeric_count'], 2, "Scenario B: numeric_count = 2 (P excluded from numeric mean)");
-assertFloatEqual($resB['mean_grade'] ?? 0.0, 1.88, "Scenario B: Mean grade = (2.50 + 1.25)/2 = 1.88");
+assertEqual($resB['numeric_count'], 1, "Scenario B: numeric_count = 1 (P and legacy zero excluded as before)");
+assertFloatEqual($resB['mean_grade'] ?? 0.0, 2.50, "Scenario B: numeric mean remains 2.50");
 
 // Scenario C: 1 DRP only -> N/A or null, not 0%
 $resC = computeHistoricalSubjectAnalytics(['DRP']);
