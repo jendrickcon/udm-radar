@@ -254,7 +254,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- STAT GRID WITH DRILL-DOWN CAPABILITIES -->
-    <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
+    <div class="stat-grid kpi-grid--five">
         <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" aria-controls="table-card" aria-label="Filter student table: view all students">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total ?></h2>

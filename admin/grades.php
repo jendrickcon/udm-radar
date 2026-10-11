@@ -321,7 +321,7 @@ require_once '../includes/sidebar.php';
     </div>
     <?php endif; ?>
 
-    <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:24px;">
+    <div class="stat-grid section-card-grid">
         <?php foreach ($sections as $sec):
             $avg = $sec['avg_gwa'] !== null ? number_format($sec['avg_gwa'], 2) : '—';
             $riskColor = $sec['at_risk_count'] > 0 ? 'var(--risk-high)' : 'var(--risk-low)';
