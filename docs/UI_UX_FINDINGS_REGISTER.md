@@ -28,8 +28,8 @@ This register converts qualitative audits, static inspection findings, and usabi
 | ID | Title | Role | Severity | Status | Planned Package | Verification Level |
 | :--- | :--- | :--- | :---: | :---: | :---: | :--- |
 | **UX-001** | Pressure-heavy student projection and risk copy | Student | High | Approved | `STUDENT-COPY-WP1` | Source-Confirmed |
-| **UX-002** | Irrelevant Program column in Student Directory | Admin | Low | Approved | `ADMIN-UI-HOTFIX-WP1` | Source-Confirmed |
-| **UX-003** | Admin Dashboard table empty vertical scroll range | Admin | Medium | Requires Verification | `ADMIN-UI-HOTFIX-WP1` | Screenshot-Supported |
+| **UX-002** | Irrelevant Program column in Student Directory | Admin | Low | Resolved | `ADMIN-UI-HOTFIX-WP1` | Browser-Verified |
+| **UX-003** | Admin Dashboard table empty vertical scroll range | Admin | Medium | Resolved | `ADMIN-UI-HOTFIX-WP1` | Browser-Verified |
 | **UX-004** | Overlapping `dashboard.css` and `style.css` systems | Cross-portal | Medium | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
 | **UX-005** | Repetitive interchangeable card hierarchy | Cross-portal | Medium | Proposed | `UI-ROLE-WP1` | Screenshot-Supported |
 | **UX-006** | Inline and page-local style drift | Cross-portal | Medium | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
@@ -61,10 +61,10 @@ This register converts qualitative audits, static inspection findings, and usabi
 * **Description:** The student directory table in `admin/students.php` displays a dedicated `Program` column that repeats `"BSIT"` for every student record in the cohort, wasting horizontal table width.
 * **Evidence:** `admin/students.php` table header and row rendering.
 * **Affected Role:** Administrator.
-* **Severity:** Low | **Confidence:** High | **Verification Level:** Source-Confirmed.
+* **Severity:** Low | **Confidence:** High | **Verification Level:** Browser-Verified.
 * **Approved Action:** Remove the static `Program` column; reclaim column width for student number, year level, and academic standing.
-* **Package:** `ADMIN-UI-HOTFIX-WP1` | **Status:** Approved.
-* **Resolution Evidence:** Pending hotfix execution.
+* **Package:** `ADMIN-UI-HOTFIX-WP1` | **Status:** Resolved.
+* **Resolution Evidence:** Removed static `Program` column header and data cells in `admin/students.php`, reducing table width consumption from 10 to 9 columns. Updated empty-state row fallback and client-side rendering to `colspan="9"`, added `clearStudentDirectoryFilters()`, hid pagination bar when 0 records match, and verified via Playwright regression test suite `tests/browser/admin-table-layout-cleanup.spec.js`.
 
 ---
 
@@ -72,10 +72,10 @@ This register converts qualitative audits, static inspection findings, and usabi
 * **Description:** The primary activity/overview table on `admin/index.php` exhibits an internal vertical scroll container with excess blank vertical space that induces awkward nested scrolling.
 * **Evidence:** Observed in administrator interface screenshots.
 * **Affected Role:** Administrator.
-* **Severity:** Medium | **Confidence:** Medium | **Verification Level:** Requires Verification (Screenshot-Supported).
+* **Severity:** Medium | **Confidence:** High | **Verification Level:** Browser-Verified.
 * **Approved Action:** Inspect bounding boxes and CSS overflow rules in `admin/index.php`; eliminate artificial minimum height reservations and ensure the table height derives naturally from record count.
-* **Package:** `ADMIN-UI-HOTFIX-WP1` | **Status:** Requires Verification.
-* **Resolution Evidence:** Pending hotfix execution.
+* **Package:** `ADMIN-UI-HOTFIX-WP1` | **Status:** Resolved.
+* **Resolution Evidence:** Audited scroll container geometry on `admin/index.php`. Confirmed `.main-content` is the sole page scroll container (`overflow-y: auto`) and `.data-table-scroll` is strictly horizontal-only (`overflow-x: auto; height: auto`). Removed `margin-bottom: 24px` from `#table-card` (`margin-bottom: 0`) to eliminate bottom whitespace accumulation. Implemented an in-table empty-state row (`colspan="8"`) with `clearDashboardFilters()`, hid the pagination bar when 0 records match, safely retained empty-row positioning during table column sorting (`sortTable`), and verified via Playwright regression test suite `tests/browser/admin-table-layout-cleanup.spec.js`.
 
 ---
 
