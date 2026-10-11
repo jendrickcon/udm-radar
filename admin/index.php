@@ -322,7 +322,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- TIER 3: MICRO ACTION (Database & Directory) -->
-    <div class="card scroll-target" id="table-card">
+    <div class="card scroll-target" id="table-card" style="margin-bottom: 0;">
         <div class="table-toolbar">
             <input type="text" id="dashboard-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div style="display: flex; gap: 8px;">
@@ -346,9 +346,6 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <?php if (empty($students)): ?>
-            <p class="empty-state">No students match this filter.</p>
-        <?php else: ?>
         <div class="data-table-scroll" role="region" aria-label="Student Cohort Roster" tabindex="0">
             <table id="admin-table" style="min-width: 900px;">
                 <caption class="sr-only">Student Cohort Roster</caption>
@@ -397,6 +394,14 @@ require_once '../includes/sidebar.php';
                     </tr>
                 </thead>
                 <tbody id="admin-tbody">
+                    <?php if (empty($students)): ?>
+                    <tr id="admin-table-empty-row">
+                        <td colspan="8" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
+                            <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 0.95rem; color: var(--text-dark);">No students match this filter.</p>
+                            <p style="margin: 0; font-size: 0.85rem; color: var(--text-gray);">Try adjusting the year or section filter above.</p>
+                        </td>
+                    </tr>
+                    <?php else: ?>
                     <?php foreach ($students as $s):
                         $riskRaw = $s['risk_level'] !== null ? strtoupper($s['risk_level']) : 'N/A';
                         $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
@@ -430,11 +435,11 @@ require_once '../includes/sidebar.php';
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
-        <div class="pagination-bar" id="pagination-bar"></div>
-        <?php endif; ?>
+        <div class="pagination-bar" id="pagination-bar"<?= empty($students) ? ' style="display:none;"' : '' ?>></div>
     </div>
 </div>
 
@@ -605,6 +610,17 @@ observer.observe(document.documentElement, { attributes: true, attributeFilter: 
 
 
 // --- Search & Pagination Engine ---
+function clearDashboardFilters() {
+    const search = document.getElementById('dashboard-search');
+    const risk = document.getElementById('filter-risk');
+    const status = document.getElementById('filter-status');
+    if (search) search.value = '';
+    if (risk) risk.value = '';
+    if (status) status.value = '';
+    currentPage = 1;
+    renderPage();
+}
+
 const ROWS_PER_PAGE = 25;
 let currentPage = 1;
 
@@ -613,10 +629,10 @@ function getVisibleRows() {
     const riskFilter = document.getElementById('filter-risk')?.value || '';
     const statusFilter = document.getElementById('filter-status')?.value || '';
     
-    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr'));
+    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr:not(#admin-table-empty-row)'));
     
     return allRows.filter(row => {
-        const matchSearch = !term || row.dataset.search.includes(term);
+        const matchSearch = !term || (row.dataset.search && row.dataset.search.includes(term));
         
         let matchRisk = true;
         if (riskFilter === 'AT_RISK') {
@@ -632,10 +648,34 @@ function getVisibleRows() {
 }
 
 function renderPage() {
-    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr'));
+    const allRows = Array.from(document.querySelectorAll('#admin-tbody tr:not(#admin-table-empty-row)'));
     const visible = getVisibleRows();
     
     allRows.forEach(r => r.style.display = 'none'); 
+
+    const bar = document.getElementById('pagination-bar');
+    let emptyRow = document.getElementById('admin-table-empty-row');
+
+    if (visible.length === 0) {
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.id = 'admin-table-empty-row';
+            emptyRow.innerHTML = `
+                <td colspan="8" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
+                    <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 0.95rem; color: var(--text-dark);">No students match the selected filters.</p>
+                    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: var(--text-gray);">Try changing the search term or clearing the active filters.</p>
+                    <button type="button" class="page-btn" onclick="clearDashboardFilters()">Clear filters</button>
+                </td>
+            `;
+            document.getElementById('admin-tbody')?.appendChild(emptyRow);
+        }
+        emptyRow.style.display = '';
+        if (bar) bar.style.display = 'none';
+        return;
+    } else if (emptyRow) {
+        emptyRow.style.display = 'none';
+    }
+    if (bar) bar.style.display = 'flex';
 
     const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
     currentPage = Math.min(currentPage, totalPages);
@@ -643,7 +683,6 @@ function renderPage() {
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
 
-    const bar = document.getElementById('pagination-bar');
     if (!bar) return;
 
     let html = '';
@@ -687,7 +726,7 @@ let currentSortDir = 'asc';
 function sortTable(colIndex) {
     const tbody = document.getElementById('admin-tbody');
     if (!tbody) return;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const rows = Array.from(tbody.querySelectorAll('tr:not(#admin-table-empty-row)'));
     if (!rows.length) return;
 
     if (currentSortCol === colIndex) {
@@ -757,6 +796,8 @@ function sortTable(colIndex) {
     });
 
     rows.forEach(row => tbody.appendChild(row));
+    const emptyRow = document.getElementById('admin-table-empty-row');
+    if (emptyRow) tbody.appendChild(emptyRow);
     currentPage = 1;
     renderPage();
 }

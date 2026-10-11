@@ -841,7 +841,6 @@ require_once '../includes/sidebar.php';
                     <tr>
                         <th scope="col">Student No.</th>
                         <th scope="col">Name</th>
-                        <th scope="col">Program</th>
                         <th scope="col">Section</th>
                         <th scope="col">Year</th>
                         <th scope="col">Status</th>
@@ -852,6 +851,14 @@ require_once '../includes/sidebar.php';
                     </tr>
                 </thead>
                 <tbody id="students-tbody">
+                    <?php if (empty($students)): ?>
+                    <tr id="students-empty-row">
+                        <td colspan="9" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
+                            <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 0.95rem; color: var(--text-dark);">No students on record.</p>
+                            <p style="margin: 0; font-size: 0.85rem; color: var(--text-gray);">Import an academic roster to populate the student directory.</p>
+                        </td>
+                    </tr>
+                    <?php else: ?>
                     <?php foreach ($students as $s):
                         $uid = $s['user_id'];
                         $searchBlob = strtolower($s['student_number'] . ' ' . formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']) . ' ' . ($s['section'] ?? ''));
@@ -866,7 +873,6 @@ require_once '../includes/sidebar.php';
                                 <?= htmlspecialchars($formattedName) ?>
                             </button>
                         </td>
-                        <td style="color: var(--text-dark); font-size:0.85rem;"><?= htmlspecialchars($s['course'] ?? '—') ?></td>
                         <td style="color: var(--text-dark);"><?= htmlspecialchars($s['section'] ?? '—') ?></td>
                         <td style="color: var(--text-dark);"><?= $s['year_level'] !== null ? htmlspecialchars(ordinalYearLabel($s['year_level'])) : '—' ?></td>
                         <td style="color: var(--text-dark);"><?= htmlspecialchars($statusVal) ?></td>
@@ -884,6 +890,7 @@ require_once '../includes/sidebar.php';
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -1153,6 +1160,19 @@ function triggerCsvExport() {
     window.location.href = 'export_risk_roster.php?' + params.toString();
 }
 
+function clearStudentDirectoryFilters() {
+    const search = document.getElementById('student-search');
+    const risk = document.getElementById('filter-risk');
+    const status = document.getElementById('filter-status');
+    const support = document.getElementById('filter-support');
+    if (search) search.value = '';
+    if (risk) risk.value = '';
+    if (status) status.value = '';
+    if (support) support.value = '';
+    currentPage = 1;
+    renderPage();
+}
+
 const ROWS_PER_PAGE = 25;
 let currentPage = 1;
 function renderPage() {
@@ -1161,10 +1181,10 @@ function renderPage() {
     const supportFilter = document.getElementById('filter-support')?.value || '';
     const statusFilter = document.getElementById('filter-status')?.value || '';
 
-    const allRows = Array.from(document.querySelectorAll('#students-tbody tr'));
+    const allRows = Array.from(document.querySelectorAll('#students-tbody tr:not(#students-empty-row)'));
 
     const visible = allRows.filter(row => {
-        const matchSearch = !term || row.dataset.search.includes(term);
+        const matchSearch = !term || (row.dataset.search && row.dataset.search.includes(term));
         const matchRisk = !riskFilter || row.dataset.risk === riskFilter;
         const matchStatus = !statusFilter || row.dataset.status === statusFilter;
         let matchSupport = true;
@@ -1178,13 +1198,36 @@ function renderPage() {
 
     allRows.forEach(r => r.style.display = 'none');
 
+    const bar = document.getElementById('pagination-bar');
+    let emptyRow = document.getElementById('students-empty-row');
+
+    if (visible.length === 0) {
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.id = 'students-empty-row';
+            emptyRow.innerHTML = `
+                <td colspan="9" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
+                    <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 0.95rem; color: var(--text-dark);">No students match the selected filters.</p>
+                    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: var(--text-gray);">Try changing the search term or clearing the active filters.</p>
+                    <button type="button" class="btn btn--quiet btn--sm" onclick="clearStudentDirectoryFilters()">Clear filters</button>
+                </td>
+            `;
+            document.getElementById('students-tbody')?.appendChild(emptyRow);
+        }
+        emptyRow.style.display = '';
+        if (bar) bar.style.display = 'none';
+        return;
+    } else if (emptyRow) {
+        emptyRow.style.display = 'none';
+    }
+    if (bar) bar.style.display = 'flex';
+
     const totalPages = Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
     currentPage = Math.min(currentPage, totalPages);
 
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     visible.slice(start, start + ROWS_PER_PAGE).forEach(r => r.style.display = '');
 
-    const bar = document.getElementById('pagination-bar');
     if (!bar) return;
 
     let html = '';
