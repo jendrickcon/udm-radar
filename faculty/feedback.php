@@ -125,7 +125,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $parentCaseId = (int)$refRow['case_id'];
 
-            $stmtUpdate = $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', reason_code = ?, message_to_student = ? WHERE id = ? AND faculty_id = ? AND status = 'needs_review'");
+            $hasReasonCode = false;
+            $hasNoticeIssuedAt = false;
+            try {
+                $cols = $db->query("SHOW COLUMNS FROM support_case_referrals")->fetchAll(PDO::FETCH_COLUMN);
+                $hasReasonCode = in_array('reason_code', $cols, true);
+                $hasNoticeIssuedAt = in_array('notice_issued_at', $cols, true);
+            } catch (Throwable $t) {
+                $hasReasonCode = false;
+                $hasNoticeIssuedAt = false;
+            }
+
+            if (!$hasReasonCode) {
+                throw new Exception("Database schema update required: Migration 009 (reason_code) must be applied before issuing notices.");
+            }
+            if (!$hasNoticeIssuedAt) {
+                throw new Exception("Database schema update required: Migration 010 (notice_issued_at) must be applied before issuing notices.");
+            }
+
+            $stmtUpdate = $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', reason_code = ?, message_to_student = ?, notice_issued_at = CURRENT_TIMESTAMP WHERE id = ? AND faculty_id = ? AND status = 'needs_review'");
             $stmtUpdate->execute([$reasonCode, $message, $referralId, $user['id']]);
             if ($stmtUpdate->rowCount() !== 1) throw new Exception("This referral has already been processed.");
 
@@ -272,6 +290,9 @@ $stmtSubj = $db->prepare("SELECT DISTINCT s.id, s.code, s.title FROM faculty_cla
 $stmtSubj->execute([$user['id']]);
 $my_subjects = $stmtSubj->fetchAll(PDO::FETCH_ASSOC);
 
+$concernsCount = countFacultyActionableConcerns($db, (int)$user['id']);
+$referralsCount = countFacultyPendingReferrals($db, (int)$user['id']);
+
 $pageTitle = 'Concerns & Reports';
 $navItems = [
     ['Home',               'index.php',     ''],
@@ -288,8 +309,9 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-.tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; font-family: inherit;}
+.tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; font-family: inherit; display: inline-flex; align-items: center; }
 .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+.tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 6px; font-size: 0.72rem; font-weight: 700; line-height: 1; border-radius: 9999px; background: var(--risk-high); color: #ffffff; margin-left: 6px; }
 .tab-content { display: none; animation: fadeIn 0.3s ease; }
 .tab-content.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -347,8 +369,12 @@ require_once '../includes/sidebar.php';
     <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
     <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
-        <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">Student Concerns</button>
-        <button id="btn-support" class="tab-btn" onclick="switchTab('support')">Academic Support Referrals</button>
+        <button id="btn-inbox" class="tab-btn active" onclick="switchTab('inbox')">
+            Student Concerns<?php if ($concernsCount > 0): ?> <span class="tab-badge" aria-label="<?= $concernsCount ?> actionable concerns"><?= $concernsCount ?></span><?php endif; ?>
+        </button>
+        <button id="btn-support" class="tab-btn" onclick="switchTab('support')">
+            Academic Support Referrals<?php if ($referralsCount > 0): ?> <span class="tab-badge" aria-label="<?= $referralsCount ?> pending referrals"><?= $referralsCount ?></span><?php endif; ?>
+        </button>
         <button id="btn-reports" class="tab-btn" onclick="switchTab('reports')">My Reports to Admin</button>
     </div>
 
@@ -561,8 +587,15 @@ require_once '../includes/sidebar.php';
                                         </button>
                                     <?php else:
                                         $rLabel = !empty($c['reason_code']) ? getSupportReasonLabel($c['reason_code']) : null;
+                                        $issuedFormatted = formatNoticeTimelineDate($c['notice_issued_at'] ?? null);
+                                        $ackFormatted = formatNoticeAcknowledgmentStatus($c['student_acknowledged_at'] ?? null);
                                     ?>
-                                        <button onclick="openViewNoticeModal(<?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>, <?= htmlspecialchars(json_encode($rLabel)) ?>)" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
+                                        <button onclick="openViewNoticeModal(
+                                            <?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>,
+                                            <?= htmlspecialchars(json_encode($rLabel)) ?>,
+                                            <?= htmlspecialchars(json_encode($issuedFormatted)) ?>,
+                                            <?= htmlspecialchars(json_encode($ackFormatted)) ?>
+                                        )" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -756,6 +789,17 @@ require_once '../includes/sidebar.php';
         <h3 style="margin-top: 0; color: var(--text-dark);">Issued Notice Details</h3>
         <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">This is the notice transmitted to the student.</p>
 
+        <div id="viewNoticeTimelineWrap" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;">
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Issued</div>
+                <div id="viewNoticeIssuedAt" style="font-size: 0.85rem; font-weight: 600; color: var(--text-dark);"></div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Student Acknowledgment</div>
+                <div id="viewNoticeAcknowledgedAt" style="font-size: 0.85rem; font-weight: 600; color: var(--text-dark);"></div>
+            </div>
+        </div>
+
         <div id="viewNoticeReasonWrap" style="margin-bottom: 12px; display: none;">
             <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Primary Reason</div>
             <div id="viewNoticeReason" style="font-size: 0.9rem; font-weight: 600; color: var(--accent-blue);"></div>
@@ -816,7 +860,7 @@ function openInterventionModal(caseId, studentName, section, subjTitle) {
     document.getElementById('interventionModal').style.display = 'flex';
 }
 
-function openViewNoticeModal(message, reasonLabel) {
+function openViewNoticeModal(message, reasonLabel, issuedDate = 'Not recorded', ackStatus = 'Not yet acknowledged') {
     document.getElementById('viewNoticeText').textContent = message;
     const reasonWrap = document.getElementById('viewNoticeReasonWrap');
     const reasonEl = document.getElementById('viewNoticeReason');
@@ -828,6 +872,14 @@ function openViewNoticeModal(message, reasonLabel) {
             reasonEl.textContent = '';
             reasonWrap.style.display = 'none';
         }
+    }
+    const issuedEl = document.getElementById('viewNoticeIssuedAt');
+    if (issuedEl) {
+        issuedEl.textContent = issuedDate || 'Not recorded';
+    }
+    const ackEl = document.getElementById('viewNoticeAcknowledgedAt');
+    if (ackEl) {
+        ackEl.textContent = ackStatus || 'Not yet acknowledged';
     }
     document.getElementById('viewNoticeModal').style.display = 'flex';
 }

@@ -231,6 +231,8 @@ $stmtSubj = $db->prepare("SELECT s.id, s.code, s.title FROM grades g JOIN subjec
 $stmtSubj->execute([$user['id']]);
 $my_subjects = $stmtSubj->fetchAll(PDO::FETCH_ASSOC);
 
+$supportNoticesCount = countStudentUnacknowledgedNotices($db, (int)$user['id']);
+
 // Support direct inquiry shortcuts from Dashboard and Grades pages
 $prefillCategory = $_GET['category'] ?? (!empty($_GET['subject_id']) ? 'grade_concern' : 'grade_concern');
 $prefillSubjectId = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : 0;
@@ -261,8 +263,9 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
-    .tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn { background: none; border: none; padding: 12px 24px; font-size: 0.95rem; font-weight: 700; color: var(--text-gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; }
     .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+    .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 6px; font-size: 0.72rem; font-weight: 700; line-height: 1; border-radius: 9999px; background: var(--risk-high); color: #ffffff; margin-left: 6px; }
     .tab-content { display: none; animation: fadeIn 0.3s ease; }
     .tab-content.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -293,7 +296,9 @@ require_once '../includes/sidebar.php';
 
     <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto;">
         <button class="tab-btn active" onclick="switchTab(event, 'tickets')">My Tickets</button>
-        <button class="tab-btn" onclick="switchTab(event, 'support')">Academic Support Notices</button>
+        <button class="tab-btn" onclick="switchTab(event, 'support')">
+            Academic Support Notices<?php if ($supportNoticesCount > 0): ?> <span class="tab-badge" aria-label="<?= $supportNoticesCount ?> unacknowledged notices"><?= $supportNoticesCount ?></span><?php endif; ?>
+        </button>
     </div>
 
     <!-- TAB 1: My Tickets -->
@@ -448,9 +453,22 @@ require_once '../includes/sidebar.php';
                                     <?= htmlspecialchars($n['subj_title']) ?>
                                 </div>
                                 <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text-gray);">
-                                    Issued by <strong style="color: var(--accent-blue); font-size: 0.95rem;"><?= htmlspecialchars($n['fac_fname'] . ' ' . $n['fac_lname']) ?></strong> 
-                                    on <?= date('F j, Y', strtotime($n['updated_at'])) ?>
+                                    Issued by <strong style="color: var(--accent-blue); font-size: 0.95rem;"><?= htmlspecialchars($n['fac_fname'] . ' ' . $n['fac_lname']) ?></strong>
                                 </div>
+                                <div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-gray); display: flex; flex-direction: column; gap: 4px;">
+                                    <div>
+                                        <strong>Received:</strong> <?= htmlspecialchars(formatNoticeTimelineDate($n['notice_issued_at'] ?? null)) ?>
+                                    </div>
+                                    <div>
+                                        <strong><?= !empty($n['student_acknowledged_at']) ? 'Acknowledged:' : 'Acknowledgment:' ?></strong>
+                                        <?= htmlspecialchars(formatNoticeAcknowledgmentStatus($n['student_acknowledged_at'] ?? null)) ?>
+                                    </div>
+                                </div>
+                                <?php if (!empty($n['reason_code'])): ?>
+                                <div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-gray);">
+                                    <strong>Primary Reason:</strong> <span style="color: var(--accent-blue); font-weight: 600;"><?= htmlspecialchars(getSupportReasonLabel($n['reason_code'])) ?></span>
+                                </div>
+                                <?php endif; ?>
                             </div>
                             <?php if ($n['student_acknowledged_at']): ?>
                                 <span style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">ACKNOWLEDGED</span>
@@ -474,7 +492,7 @@ require_once '../includes/sidebar.php';
                                 </form>
                             </div>
                         <?php else: ?>
-                            <p style="margin: 0; font-size: 0.8rem; color: var(--text-gray);"><em>Acknowledged on <?= date('F j, Y, g:i a', strtotime($n['student_acknowledged_at'])) ?></em></p>
+                            <p style="margin: 0; font-size: 0.8rem; color: var(--text-gray);"><em>Acknowledged on <?= htmlspecialchars(formatNoticeTimelineDate($n['student_acknowledged_at'])) ?></em></p>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
