@@ -1044,3 +1044,47 @@ function getMlGovernanceSecret(): ?string {
     // 3. Fail closed if not configured
     return null;
 }
+
+// =========================================================================
+// ACADEMIC SUPPORT REASON VOCABULARY & HELPERS (FACULTY-WP1A)
+// =========================================================================
+
+const SUPPORT_REASONS = [
+    'low_assessment_score'       => 'Low recorded assessment score',
+    'missing_course_requirement' => 'Missing course requirement or deliverable',
+    'performance_needs_review'   => 'Current subject performance needs review',
+    'incomplete_grade_data'      => 'Incomplete or provisional grade information',
+    'consultation_recommended'   => 'Faculty consultation recommended',
+    'other_academic_concern'     => 'Other Faculty-observed academic concern',
+];
+
+/**
+ * Returns the canonical map of approved academic support reason keys and human-readable labels.
+ *
+ * @return array<string, string>
+ */
+function getSupportReasons(): array {
+    return SUPPORT_REASONS;
+}
+
+/**
+ * Validates whether a provided reason key exists in the approved canonical vocabulary.
+ * Exact string match without loose trimming to align with DB binary check constraint.
+ */
+function isValidSupportReason(?string $key): bool {
+    if ($key === null || $key === '') {
+        return false;
+    }
+    return array_key_exists($key, SUPPORT_REASONS);
+}
+
+/**
+ * Returns the human-readable label for a reason key, or a safe fallback if null/unrecognized.
+ */
+function getSupportReasonLabel(?string $key, string $fallback = 'Not specified'): string {
+    if ($key === null || trim($key) === '') {
+        return $fallback;
+    }
+    $trimmed = trim($key);
+    return SUPPORT_REASONS[$trimmed] ?? 'Unknown reason';
+}

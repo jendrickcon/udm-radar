@@ -97,23 +97,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         elseif ($action === 'issue_notice') {
             $referralId = (int)($_POST['referral_id'] ?? 0);
             if ($referralId <= 0) throw new Exception("Invalid support referral.");
-            
-            $message = trim($_POST['message_to_student'] ?? '');
-            if (empty($message)) throw new Exception("A message to the student is required.");
+
+            $reasonCode = trim((string)($_POST['reason_code'] ?? ''));
+            if (!isValidSupportReason($reasonCode)) {
+                throw new Exception("Please select a valid primary reason.");
+            }
+
+            $message = trim((string)($_POST['message_to_student'] ?? ''));
+            if (empty($message)) {
+                throw new Exception("A message to the student is required.");
+            }
+            if (mb_strlen($message) < 10) {
+                throw new Exception("Message to the student must be at least 10 characters.");
+            }
+            if (mb_strlen($message) > 2000) {
+                throw new Exception("Message to the student cannot exceed 2,000 characters.");
+            }
 
             $db->beginTransaction();
-            
+
             $stmtOwner = $db->prepare("SELECT case_id, status FROM support_case_referrals WHERE id = ? AND faculty_id = ? FOR UPDATE");
             $stmtOwner->execute([$referralId, $user['id']]);
             $refRow = $stmtOwner->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($refRow === false) throw new Exception("Unauthorized: Support referral does not belong to you.");
             if ($refRow['status'] !== 'needs_review') throw new Exception("This referral has already been processed.");
-            
+
             $parentCaseId = (int)$refRow['case_id'];
 
-            $stmtUpdate = $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', message_to_student = ? WHERE id = ? AND faculty_id = ? AND status = 'needs_review'");
-            $stmtUpdate->execute([$message, $referralId, $user['id']]);
+            $stmtUpdate = $db->prepare("UPDATE support_case_referrals SET status = 'action_taken', reason_code = ?, message_to_student = ? WHERE id = ? AND faculty_id = ? AND status = 'needs_review'");
+            $stmtUpdate->execute([$reasonCode, $message, $referralId, $user['id']]);
             if ($stmtUpdate->rowCount() !== 1) throw new Exception("This referral has already been processed.");
 
             // 1. Record in support_actions
@@ -137,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $db->commit();
-            
+
             $success = "Subject-specific academic notice sent to student successfully.";
         }
         elseif ($action === 'submit_report') {
@@ -546,8 +559,10 @@ require_once '../includes/sidebar.php';
                                         <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['section'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_title'])) ?>')" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; white-space: nowrap;">
                                             Review & Issue
                                         </button>
-                                    <?php else: ?>
-                                        <button onclick="openViewNoticeModal(<?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>)" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
+                                    <?php else:
+                                        $rLabel = !empty($c['reason_code']) ? getSupportReasonLabel($c['reason_code']) : null;
+                                    ?>
+                                        <button onclick="openViewNoticeModal(<?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>, <?= htmlspecialchars(json_encode($rLabel)) ?>)" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -699,7 +714,7 @@ require_once '../includes/sidebar.php';
         <h3 style="margin-top: 0; color: var(--text-dark);">Issue Subject Notice</h3>
         <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">Sending a notice to <strong id="modalStudentName" style="color: var(--accent-blue);"></strong> of <strong id="modalSection" style="color: var(--text-dark);"></strong> regarding <strong id="modalSubjTitle" style="color: var(--text-dark);"></strong>. This requires the student to acknowledge receipt.</p>
         
-        <form method="POST" action="feedback.php?tab=support" class="safe-submit-form">
+        <form method="POST" action="feedback.php?tab=support" class="safe-submit-form" id="issueNoticeForm">
             <input type="hidden" name="action" value="issue_notice">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
             <!-- FIXED: name was "case_id" but the backend (issue_notice, above)
@@ -711,8 +726,21 @@ require_once '../includes/sidebar.php';
                  function's DOM lookup; only the submitted field name changed. -->
             <input type="hidden" name="referral_id" id="modalCaseId">
             
-            <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:6px;">Message to Student</label>
-            <textarea name="message_to_student" required rows="4" placeholder="e.g., Please schedule an advising session with me this week to discuss your trajectory in this class." style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); resize:vertical; font-family: inherit; margin-bottom: 16px;"></textarea>
+            <div style="margin-bottom: 16px;">
+                <label for="modalReasonCode" style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:6px;">Primary Academic-Support Reason <span style="color: var(--risk-high);">*</span></label>
+                <select name="reason_code" id="modalReasonCode" required style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); font-family: inherit; font-size: 0.85rem;">
+                    <option value="" disabled selected>Select a reason...</option>
+                    <?php foreach (getSupportReasons() as $rCode => $rName): ?>
+                        <option value="<?= htmlspecialchars($rCode, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($rName, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label for="modalMessageToStudent" style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:6px;">Personalized Student Guidance <span style="color: var(--risk-high);">*</span></label>
+                <textarea name="message_to_student" id="modalMessageToStudent" required minlength="10" maxlength="2000" rows="4" placeholder="Provide clear, constructive academic guidance (e.g., specific topics to review, requirement deadlines, or recommended consultation details)..." style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-dark); resize:vertical; font-family: inherit; font-size: 0.85rem;"></textarea>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Minimum 10 characters, maximum 2,000 characters. Visible to student upon receipt.</span>
+            </div>
             
             <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button type="button" onclick="document.getElementById('interventionModal').style.display='none'" class="btn-danger-outline" style="border-color: transparent; color: var(--text-dark);">Cancel</button>
@@ -726,7 +754,14 @@ require_once '../includes/sidebar.php';
 <div id="viewNoticeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
     <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
         <h3 style="margin-top: 0; color: var(--text-dark);">Issued Notice Details</h3>
-        <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">This is the exact message you transmitted to the student.</p>
+        <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">This is the notice transmitted to the student.</p>
+
+        <div id="viewNoticeReasonWrap" style="margin-bottom: 12px; display: none;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Primary Reason</div>
+            <div id="viewNoticeReason" style="font-size: 0.9rem; font-weight: 600; color: var(--accent-blue);"></div>
+        </div>
+
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Message to Student</div>
         <div id="viewNoticeText" style="background: var(--bg-color); border: 1px solid var(--border-color); padding: 16px; border-radius: 6px; font-size: 0.9rem; color: var(--text-dark); margin-bottom: 16px; white-space: pre-wrap; line-height: 1.4;"></div>
         <div style="display: flex; justify-content: flex-end;">
             <button type="button" onclick="document.getElementById('viewNoticeModal').style.display='none'" class="btn-primary">Close</button>
@@ -770,11 +805,30 @@ function openInterventionModal(caseId, studentName, section, subjTitle) {
     document.getElementById('modalStudentName').innerText = studentName;
     document.getElementById('modalSection').innerText = section;
     document.getElementById('modalSubjTitle').innerText = subjTitle;
+    const reasonSelect = document.getElementById('modalReasonCode');
+    if (reasonSelect) {
+        reasonSelect.selectedIndex = 0;
+    }
+    const msgInput = document.getElementById('modalMessageToStudent');
+    if (msgInput) {
+        msgInput.value = '';
+    }
     document.getElementById('interventionModal').style.display = 'flex';
 }
 
-function openViewNoticeModal(message) {
+function openViewNoticeModal(message, reasonLabel) {
     document.getElementById('viewNoticeText').textContent = message;
+    const reasonWrap = document.getElementById('viewNoticeReasonWrap');
+    const reasonEl = document.getElementById('viewNoticeReason');
+    if (reasonWrap && reasonEl) {
+        if (reasonLabel) {
+            reasonEl.textContent = reasonLabel;
+            reasonWrap.style.display = 'block';
+        } else {
+            reasonEl.textContent = '';
+            reasonWrap.style.display = 'none';
+        }
+    }
     document.getElementById('viewNoticeModal').style.display = 'flex';
 }
 

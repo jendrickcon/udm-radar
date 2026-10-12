@@ -28,6 +28,7 @@ if (($argv[1] ?? '') === '--worker') {
     $_POST = [
         'action' => 'issue_notice',
         'referral_id' => (string)$referralId,
+        'reason_code' => 'low_assessment_score',
         'message_to_student' => $message,
         'csrf_token' => $csrfToken,
     ];
@@ -157,7 +158,7 @@ try {
     $term = getCurrentTerm();
     $stmtCase = $db->prepare("INSERT INTO academic_support_cases
         (student_id, trigger_risk_level, trigger_predicted_gwa, prediction_source, school_year, semester, status)
-        VALUES (?, 'HIGH', 1.72, 'concurrency_test', ?, ?, 'needs_review')");
+        VALUES (?, 'HIGH', 1.72, 'decision_tree', ?, ?, 'needs_review')");
     $stmtCase->execute([(int)$student['id'], $term['school_year'], (int)$term['semester']]);
     $caseId = (int)$db->lastInsertId();
 
@@ -198,9 +199,13 @@ try {
         'Exactly one overlapping notice submission succeeds'
     );
 
-    $stmtState = $db->prepare('SELECT status FROM support_case_referrals WHERE id = ?');
+    $stmtState = $db->prepare('SELECT status, reason_code FROM support_case_referrals WHERE id = ?');
     $stmtState->execute([$referralId]);
-    assertCondition($stmtState->fetchColumn() === 'action_taken', 'Referral transitions to action_taken once');
+    $savedRef = $stmtState->fetch();
+    assertCondition(
+        $savedRef['status'] === 'action_taken' && $savedRef['reason_code'] === 'low_assessment_score',
+        'Referral transitions to action_taken once with reason_code recorded'
+    );
 
     $stmtActionCount = $db->prepare("SELECT COUNT(*) FROM support_actions WHERE case_id = ? AND action_type = 'academic_notice_sent'");
     $stmtActionCount->execute([$caseId]);
