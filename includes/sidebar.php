@@ -10,15 +10,9 @@ if (isset($user) && isset($user['role'])) {
     $badgeDb = getDB();
     
     if ($user['role'] === 'faculty') {
-        // FIXED: Faculty now counts the new support_case_referrals table
-        $stmtBadges = $badgeDb->prepare("
-            SELECT 
-                (SELECT COUNT(DISTINCT f.id) FROM feedback_reports f JOIN student_profiles sp ON sp.user_id = f.submitted_by JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section JOIN users u ON u.id = f.submitted_by WHERE fcl.faculty_user_id = ? AND u.role = 'student' AND f.status IN ('open', 'faculty_review'))
-                +
-                (SELECT COUNT(*) FROM support_case_referrals WHERE faculty_id = ? AND status = 'needs_review')
-        ");
-        $stmtBadges->execute([$user['id'], $user['id']]);
-        $count = (int)$stmtBadges->fetchColumn();
+        $concerns = countFacultyActionableConcerns($badgeDb, (int)$user['id']);
+        $referrals = countFacultyPendingReferrals($badgeDb, (int)$user['id']);
+        $count = $concerns + $referrals;
         if ($count > 0) $navBadges['Concerns & Reports'] = $count;
         
     } elseif ($user['role'] === 'admin') {
@@ -36,15 +30,7 @@ if (isset($user) && isset($user['role'])) {
         }
         
     } elseif ($user['role'] === 'student') {
-        // FIXED: Student counts child referrals waiting for their acknowledgment
-        $stmtBadges = $badgeDb->prepare("
-            SELECT COUNT(r.id) 
-            FROM support_case_referrals r 
-            JOIN academic_support_cases c ON r.case_id = c.id 
-            WHERE c.student_id = ? AND r.status = 'action_taken'
-        ");
-        $stmtBadges->execute([$user['id']]);
-        $count = (int)$stmtBadges->fetchColumn();
+        $count = countStudentUnacknowledgedNotices($badgeDb, (int)$user['id']);
         if ($count > 0) $navBadges['Feedback & Support'] = $count;
     }
 }

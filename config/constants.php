@@ -1044,3 +1044,123 @@ function getMlGovernanceSecret(): ?string {
     // 3. Fail closed if not configured
     return null;
 }
+
+// =========================================================================
+// ACADEMIC SUPPORT REASON VOCABULARY & HELPERS (FACULTY-WP1A)
+// =========================================================================
+
+const SUPPORT_REASONS = [
+    'low_assessment_score'       => 'Low recorded assessment score',
+    'missing_course_requirement' => 'Missing course requirement or deliverable',
+    'performance_needs_review'   => 'Current subject performance needs review',
+    'incomplete_grade_data'      => 'Incomplete or provisional grade information',
+    'consultation_recommended'   => 'Faculty consultation recommended',
+    'other_academic_concern'     => 'Other Faculty-observed academic concern',
+];
+
+/**
+ * Returns the canonical map of approved academic support reason keys and human-readable labels.
+ *
+ * @return array<string, string>
+ */
+function getSupportReasons(): array {
+    return SUPPORT_REASONS;
+}
+
+/**
+ * Validates whether a provided reason key exists in the approved canonical vocabulary.
+ * Exact string match without loose trimming to align with DB binary check constraint.
+ */
+function isValidSupportReason(?string $key): bool {
+    if ($key === null || $key === '') {
+        return false;
+    }
+    return array_key_exists($key, SUPPORT_REASONS);
+}
+
+/**
+ * Returns the human-readable label for a reason key, or a safe fallback if null/unrecognized.
+ */
+function getSupportReasonLabel(?string $key, string $fallback = 'Not specified'): string {
+    if ($key === null || trim($key) === '') {
+        return $fallback;
+    }
+    $trimmed = trim($key);
+    return SUPPORT_REASONS[$trimmed] ?? 'Unknown reason';
+}
+
+// =========================================================================
+// ACADEMIC SUPPORT NOTICE TIMELINE & TAB BADGE HELPERS (FACULTY-WP1A)
+// =========================================================================
+
+/**
+ * Formats a notice timeline timestamp into standardized human-readable date and time.
+ * Standard format: 'October 13, 2026 at 12:28 AM' ('F j, Y \a\t g:i A').
+ */
+function formatNoticeTimelineDate(?string $timestamp, string $fallback = 'Not recorded'): string {
+    if ($timestamp === null || trim($timestamp) === '' || $timestamp === '0000-00-00 00:00:00') {
+        return $fallback;
+    }
+    $ts = strtotime($timestamp);
+    if ($ts === false || $ts <= 0) {
+        return $fallback;
+    }
+    return date('F j, Y \a\t g:i A', $ts);
+}
+
+/**
+ * Formats student acknowledgment status or timestamp.
+ * Returns 'Not yet acknowledged' if unacknowledged, or formatted date/time.
+ */
+function formatNoticeAcknowledgmentStatus(?string $timestamp): string {
+    if ($timestamp === null || trim($timestamp) === '' || $timestamp === '0000-00-00 00:00:00') {
+        return 'Not yet acknowledged';
+    }
+    return formatNoticeTimelineDate($timestamp, 'Not yet acknowledged');
+}
+
+/**
+ * Counts active student concerns requiring attention from the specified faculty member.
+ */
+function countFacultyActionableConcerns(PDO $db, int $facultyUserId): int {
+    if ($facultyUserId <= 0) return 0;
+    $stmt = $db->prepare("
+        SELECT COUNT(DISTINCT f.id)
+        FROM feedback_reports f
+        JOIN student_profiles sp ON sp.user_id = f.submitted_by
+        JOIN faculty_class_loads fcl ON fcl.subject_id = f.subject_id AND fcl.section = sp.section
+        JOIN users u ON u.id = f.submitted_by
+        WHERE fcl.faculty_user_id = ? AND u.role = 'student' AND f.status IN ('open', 'faculty_review')
+    ");
+    $stmt->execute([$facultyUserId]);
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Counts pending academic support referrals requiring review or notice issuance by faculty.
+ */
+function countFacultyPendingReferrals(PDO $db, int $facultyUserId): int {
+    if ($facultyUserId <= 0) return 0;
+    $stmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM support_case_referrals
+        WHERE faculty_id = ? AND status = 'needs_review'
+    ");
+    $stmt->execute([$facultyUserId]);
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Counts issued academic support notices requiring acknowledgment by the specified student.
+ */
+function countStudentUnacknowledgedNotices(PDO $db, int $studentUserId): int {
+    if ($studentUserId <= 0) return 0;
+    $stmt = $db->prepare("
+        SELECT COUNT(r.id)
+        FROM support_case_referrals r
+        JOIN academic_support_cases c ON r.case_id = c.id
+        WHERE c.student_id = ? AND r.status = 'action_taken' AND r.student_acknowledged_at IS NULL
+    ");
+    $stmt->execute([$studentUserId]);
+    return (int)$stmt->fetchColumn();
+}
