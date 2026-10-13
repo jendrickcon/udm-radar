@@ -225,18 +225,18 @@
                 if (e.key === 'Tab') {
                     var s = document.getElementById('sidebar');
                     if (!s) return;
-                    var focusables = Array.from(s.querySelectorAll('button:not([disabled]), a[href]:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'));
-                    var tBtn = document.getElementById('mobile-nav-toggle');
-                    if (tBtn) focusables.unshift(tBtn);
+                    var focusables = Array.from(s.querySelectorAll('button:not([disabled]), a[href]:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function(el) {
+                        return el.tabIndex >= 0 && el.getClientRects().length && window.getComputedStyle(el).visibility !== 'hidden';
+                    });
 
                     if (!focusables.length) return;
                     var first = focusables[0];
                     var last = focusables[focusables.length - 1];
 
-                    if (e.shiftKey && document.activeElement === first) {
+                    if (e.shiftKey && (document.activeElement === first || !s.contains(document.activeElement))) {
                         e.preventDefault();
                         last.focus();
-                    } else if (!e.shiftKey && document.activeElement === last) {
+                    } else if (!e.shiftKey && (document.activeElement === last || !s.contains(document.activeElement))) {
                         e.preventDefault();
                         first.focus();
                     }

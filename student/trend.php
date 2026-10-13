@@ -170,7 +170,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 16px;">
+    <div class="stat-grid kpi-grid--three" style="margin-bottom: 16px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Latest Completed Semester</h4>
             <h2 style="color: var(--accent-blue);"><?= $latest_hist !== null ? number_format($latest_hist, 2) : 'N/A' ?></h2>

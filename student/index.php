@@ -109,7 +109,19 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
-<div class="main-content">
+<style>
+.student-home .home-details { flex: 1; min-width: 0; grid-template-columns: 140px minmax(0, 1fr); gap: 8px; overflow-wrap: anywhere; }
+.student-home .home-profile { flex-wrap: wrap; }
+.student-home .home-panels > * { min-width: 0; }
+.student-home .home-attention { flex-wrap: wrap; gap: 16px; }
+.student-home .home-attention a { min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 600px) {
+    .student-home .home-profile { padding: 16px !important; }
+    .student-home .home-details { flex-basis: 100%; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .student-home .home-details > span:nth-child(even) { margin-bottom: 12px; }
+}
+</style>
+<div class="main-content student-home">
     <div class="header" style="margin-bottom: 24px;">
         <div>
             <h1>Welcome, <?= htmlspecialchars($fName) ?></h1>
@@ -118,7 +130,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($attentionSubjects > 0): ?>
-    <div style="background: rgba(220, 38, 38, 0.08); border-left: 4px solid var(--risk-high); padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="home-attention" style="background: rgba(220, 38, 38, 0.08); border-left: 4px solid var(--risk-high); padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h4 style="margin: 0 0 4px 0; color: var(--risk-high); font-size: 1rem;">Action Required</h4>
             <p style="margin: 0; color: var(--text-dark); font-size: 0.9rem;">You have <strong><?= $attentionSubjects ?> current subject<?= $attentionSubjects > 1 ? 's' : '' ?></strong> requiring closer academic attention.</p>
@@ -127,11 +139,11 @@ require_once '../includes/sidebar.php';
     </div>
     <?php endif; ?>
 
-    <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
+    <div class="card home-profile" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
         <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
             <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
         </div>
-        <div style="flex:1; display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
+        <div class="home-details" style="display:grid; font-size:0.95rem; color: var(--text-dark);">
             <span style="font-weight:700;">Name</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
             <span style="font-weight:700;">Student No.</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($p['student_number'] ?? '—') ?></span>
             <span style="font-weight:700;">Program</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($p['course'] ?? '—') ?> (<?= htmlspecialchars($p['year_level'] ?? '') ?> — <?= htmlspecialchars($p['section'] ?? '') ?>)</span>
@@ -141,7 +153,7 @@ require_once '../includes/sidebar.php';
     <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 12px; font-weight: 700; text-transform: uppercase;">Current Term Snapshot</h2>
     <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 16px;">S.Y. <?= $currentSy ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</p>
     
-    <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
+    <div class="stat-grid kpi-grid--four" style="margin-bottom: 32px;">
         <div class="stat-card" style="border-left-color: var(--text-dark);">
             <h4>Enrolled Subjects</h4><h2 style="color: var(--text-dark);"><?= $enrolledSubjects ?></h2>
         </div>
@@ -156,7 +168,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; align-items: start;">
+<div class="home-panels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 24px; align-items: start;">
         <div class="card">
             <div class="table-title" style="margin-bottom: 16px;">Quick Actions</div>
             <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">

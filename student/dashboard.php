@@ -244,6 +244,109 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
+.student-dashboard > .header { flex-wrap: wrap; gap: 16px; }
+.student-dashboard .analysis-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.student-dashboard .analysis-panels > * { min-width: 0; }
+.student-dashboard .stat-card-heading-with-info { position: relative; flex-wrap: wrap; }
+.student-dashboard .risk-info-icon { position: static; }
+.student-dashboard .risk-info-icon .tooltip-text { left: 0; right: auto; max-width: 100%; }
+.student-dashboard .subject-heading, .student-dashboard .calculator-heading,
+.student-dashboard .calculator-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.student-dashboard .subject-heading button, .student-dashboard .calculator-actions button { min-height: 44px; }
+.student-dashboard .calculator-actions > * { min-width: 0; }
+.student-dashboard .data-table-scroll { max-width: 100%; }
+.student-dashboard #calculator-section input, .student-dashboard #calculator-section select { min-height: 44px; }
+@media (max-width: 1100px) {
+    .student-dashboard .analysis-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+    .student-dashboard .calculator-actions { width: 100%; }
+    .student-dashboard .calculator-actions > div { flex: 1 1 100%; }
+    .student-dashboard .card { padding: 16px; }
+
+    .student-subjects-table {
+        min-width: 0 !important;
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .student-subjects-table thead {
+        display: none;
+    }
+    .student-subjects-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    .student-subjects-table tr {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+    .student-subjects-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 0 !important;
+        border: none !important;
+        border-bottom: 1px dashed var(--border-color) !important;
+        text-align: right !important;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 0.88rem;
+    }
+    .student-subjects-table td:last-child {
+        border-bottom: none !important;
+    }
+    .student-subjects-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 0.78rem;
+        color: var(--text-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        text-align: left;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    .student-subjects-table td.card-cell-code {
+        display: block;
+        padding: 0 0 2px 0 !important;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--accent-blue) !important;
+        text-align: left !important;
+        border: none !important;
+    }
+    .student-subjects-table td.card-cell-code::before {
+        display: none;
+    }
+    .student-subjects-table td.card-cell-title {
+        display: block;
+        padding: 0 0 8px 0 !important;
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text-dark) !important;
+        text-align: left !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        margin-bottom: 4px;
+        white-space: normal !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        line-height: 1.35;
+    }
+    .student-subjects-table td.card-cell-title::before {
+        display: none;
+    }
+}
+
 /* CSS for the Scroll Fade Indicator */
 .triage-scroll { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
 .triage-scroll::-webkit-scrollbar { width: 6px; }
@@ -265,7 +368,7 @@ require_once '../includes/sidebar.php';
 .triage-fade.hidden { opacity: 0; }
 </style>
 
-<div class="main-content">
+<div class="main-content student-dashboard">
     <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h1>Analytics Dashboard</h1>
@@ -349,7 +452,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php $isAtRiskGauge = $hasCurrentGwa && ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || $current_gwa < 2.50); ?>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
+    <div class="analysis-panels" style="gap: 24px; margin-bottom: 24px; align-items: stretch;">
         <div class="card" style="text-align: center; display: flex; flex-direction: column;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
@@ -437,14 +540,15 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="card" style="margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="subject-heading" style="margin-bottom: 16px;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
             <button onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
                 <span>Open Grade Goal Calculator</span>
             </button>
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+        <div class="data-table-scroll" role="region" aria-label="Current subjects and predictions" tabindex="0">
+        <table class="student-subjects-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
             <thead>
                 <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
                     <th style="padding: 12px; text-align: left; color: var(--text-dark);">Code</th>
@@ -473,11 +577,11 @@ require_once '../includes/sidebar.php';
                     $rowRiskBg = match($subj['final_risk']) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
                 ?>
                 <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 12px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($subj['code']) ?></td>
-                    <td style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
-                    <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= htmlspecialchars($subj['units']) ?></td>
+                    <td class="card-cell-code" data-label="Code" style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($subj['code']) ?></td>
+                    <td class="card-cell-title" data-label="Subject Title" style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
+                    <td data-label="Units" style="padding: 12px; text-align: center; color: var(--text-dark);"><?= htmlspecialchars($subj['units']) ?></td>
                     
-                    <td style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
+                    <td data-label="Current Prelim" style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
                         <?php if ($subj['prelim_raw'] !== null): ?>
                             <?= round((float)$subj['prelim_raw']) ?>%
                         <?php else: ?>
@@ -485,15 +589,15 @@ require_once '../includes/sidebar.php';
                         <?php endif; ?>
                     </td>
 
-                    <td style="padding: 12px; text-align: center; font-weight: 700; color: <?= $finalCol ?>;">
+                    <td data-label="Projected Grade" style="padding: 12px; text-align: center; font-weight: 700; color: <?= $finalCol ?>;">
                         <?= $subj['predicted_final'] !== null ? number_format($subj['predicted_final'], 2) : '<span style="color: var(--text-gray);">—</span>' ?>
                     </td>
-                    <td style="padding: 12px; text-align: center;">
+                    <td data-label="Subject Risk" style="padding: 12px; text-align: center;">
                         <span style="background: <?= $rowRiskBg ?>; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
                             <?= $subj['predicted_final'] !== null ? $subj['final_risk'] : 'N/A' ?>
                         </span>
                     </td>
-                    <td style="padding: 12px; text-align: center;">
+                    <td data-label="Action" style="padding: 12px; text-align: center;">
                         <?php if (!empty($subj['subject_id'])): ?>
                             <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$subj['subject_id'] ?>&period=prelim" 
                                style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.78rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
@@ -509,10 +613,11 @@ require_once '../includes/sidebar.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     </div>
 
     <div id="calculator-section" class="card" style="display: none; border: 2px solid var(--accent-blue); background-color: var(--card-bg);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="calculator-heading" style="margin-bottom: 16px;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
@@ -520,7 +625,7 @@ require_once '../includes/sidebar.php';
                 </h3>
                 <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0;">Input percentage grades to compute your final point grade, or pick a Target to back-calculate.</p>
             </div>
-            <div style="display: flex; gap: 16px; align-items: center;">
+            <div class="calculator-actions">
                 <div style="background: var(--bg-color); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
                     <span style="font-size: 0.75rem; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Scenario Semester GWA</span><br>
                     <span id="projected-gwa" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-blue);">0.00</span>
@@ -532,6 +637,7 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
+        <div class="data-table-scroll" role="region" aria-label="Grade goal calculator" tabindex="0">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
             <thead>
                 <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
@@ -570,6 +676,7 @@ require_once '../includes/sidebar.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
@@ -583,7 +690,7 @@ function toggleCalculator() {
     const calcDiv = document.getElementById('calculator-section');
     if (calcDiv.style.display === 'none') {
         calcDiv.style.display = 'block';
-        calcDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        calcDiv.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
         document.querySelectorAll('.calc-prelim').forEach(el => computeRowFinal(el));
     } else {
         calcDiv.style.display = 'none';

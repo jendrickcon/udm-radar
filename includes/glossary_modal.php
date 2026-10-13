@@ -248,12 +248,28 @@ $isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) &&
 <script>
 let lastGlossaryTrigger = null;
 
+function sizeGlossaryModal() {
+    const overlay = document.getElementById('glossary-drawer-overlay');
+    if (!overlay || !overlay.classList.contains('open')) return;
+    const drawer = document.getElementById('glossary-drawer');
+    if (!drawer) return;
+    const vv = window.visualViewport;
+    const height = vv ? vv.height : window.innerHeight;
+    const top = vv ? vv.offsetTop : 0;
+    overlay.style.setProperty('--guide-height', height + 'px');
+    overlay.style.setProperty('--guide-top', top + 'px');
+    drawer.style.setProperty('--guide-height', height + 'px');
+    drawer.style.setProperty('--guide-top', top + 'px');
+}
+
 function openGlossaryModal(tabId = null, triggerEl = null) {
     const overlay = document.getElementById('glossary-drawer-overlay');
     if (overlay) {
         lastGlossaryTrigger = triggerEl || document.activeElement;
         overlay.classList.add('open');
+        sizeGlossaryModal();
         document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
         if (tabId) {
             switchGuideTab(tabId);
         }
@@ -267,10 +283,17 @@ function closeGlossaryModal() {
     if (overlay) {
         overlay.classList.remove('open');
         document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
         const trigger = lastGlossaryTrigger || document.getElementById('udm-floating-help-btn');
         if (trigger && typeof trigger.focus === 'function') trigger.focus();
         lastGlossaryTrigger = null;
     }
+}
+
+window.addEventListener('resize', sizeGlossaryModal);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', sizeGlossaryModal);
+    window.visualViewport.addEventListener('scroll', sizeGlossaryModal);
 }
 
 function switchGuideTab(tabId) {

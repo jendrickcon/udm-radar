@@ -331,7 +331,7 @@ test.describe('UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids', () =>
             // Press Tab from last element -> should wrap to first focusable element
             await page.keyboard.press('Tab');
             const activeElementAfterTab = await page.evaluate(() => document.activeElement.id || document.activeElement.tagName);
-            expect(['mobile-nav-toggle', 'sidebar-drawer-close-btn']).toContain(activeElementAfterTab);
+            expect(activeElementAfterTab).toBe('sidebar-drawer-close-btn');
 
             // Now press Shift+Tab -> should wrap back to last element
             await page.keyboard.press('Shift+Tab');

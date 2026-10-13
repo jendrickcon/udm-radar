@@ -742,12 +742,24 @@ require_once '../includes/sidebar.php';
 </div>
 
 <!-- Modal: Issue Notice -->
-<div id="interventionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-    <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <h3 style="margin-top: 0; color: var(--text-dark);">Issue Subject Notice</h3>
+<style>
+.faculty-notice-overlay { display: none; position: fixed; top: var(--notice-top, 0px); left: 0; width: 100%; height: 100vh; height: var(--notice-height, 100dvh); padding: 16px; background: rgba(0,0,0,0.5); z-index: 21000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.faculty-notice-overlay .notice-card { width: 100%; max-width: 500px; max-height: 100%; min-height: 0; margin: 0; padding: 24px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.faculty-notice-overlay .notice-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.faculty-notice-overlay .notice-actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0; padding-top: 12px; }
+.faculty-notice-overlay .notice-actions button, .faculty-notice-overlay select { min-height: 44px; }
+@media (max-width: 600px), (max-height: 500px) {
+    .faculty-notice-overlay { padding: 12px; }
+    .faculty-notice-overlay .notice-card { padding: 16px; }
+}
+</style>
+
+<div id="interventionModal" class="faculty-notice-overlay" role="dialog" aria-modal="true" aria-labelledby="issueNoticeTitle">
+    <form method="POST" action="feedback.php?tab=support" class="card notice-card safe-submit-form" id="issueNoticeForm">
+        <div class="notice-body">
+        <h3 id="issueNoticeTitle" tabindex="-1" style="margin-top: 0; color: var(--text-dark);">Issue Subject Notice</h3>
         <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">Sending a notice to <strong id="modalStudentName" style="color: var(--accent-blue);"></strong> of <strong id="modalSection" style="color: var(--text-dark);"></strong> regarding <strong id="modalSubjTitle" style="color: var(--text-dark);"></strong>. This requires the student to acknowledge receipt.</p>
-        
-        <form method="POST" action="feedback.php?tab=support" class="safe-submit-form" id="issueNoticeForm">
+
             <input type="hidden" name="action" value="issue_notice">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
             <!-- FIXED: name was "case_id" but the backend (issue_notice, above)
@@ -775,18 +787,19 @@ require_once '../includes/sidebar.php';
                 <span style="display: block; font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Minimum 10 characters, maximum 2,000 characters. Visible to student upon receipt.</span>
             </div>
             
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button type="button" onclick="document.getElementById('interventionModal').style.display='none'" class="btn-danger-outline" style="border-color: transparent; color: var(--text-dark);">Cancel</button>
+            </div>
+            <div class="notice-actions">
+                <button type="button" onclick="closeFacultyNotice()" class="btn-danger-outline" style="border-color: transparent; color: var(--text-dark);">Cancel</button>
                 <button type="submit" class="btn-primary">Send Notice</button>
             </div>
         </form>
-    </div>
 </div>
 
 <!-- Modal: View Sent Notice -->
-<div id="viewNoticeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-    <div class="card" style="width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <h3 style="margin-top: 0; color: var(--text-dark);">Issued Notice Details</h3>
+<div id="viewNoticeModal" class="faculty-notice-overlay" role="dialog" aria-modal="true" aria-labelledby="viewNoticeTitle">
+    <div class="card notice-card">
+        <div class="notice-body">
+        <h3 id="viewNoticeTitle" tabindex="-1" style="margin-top: 0; color: var(--text-dark);">Issued Notice Details</h3>
         <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 20px;">This is the notice transmitted to the student.</p>
 
         <div id="viewNoticeTimelineWrap" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;">
@@ -807,8 +820,9 @@ require_once '../includes/sidebar.php';
 
         <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; margin-bottom: 4px;">Message to Student</div>
         <div id="viewNoticeText" style="background: var(--bg-color); border: 1px solid var(--border-color); padding: 16px; border-radius: 6px; font-size: 0.9rem; color: var(--text-dark); margin-bottom: 16px; white-space: pre-wrap; line-height: 1.4;"></div>
-        <div style="display: flex; justify-content: flex-end;">
-            <button type="button" onclick="document.getElementById('viewNoticeModal').style.display='none'" class="btn-primary">Close</button>
+        </div>
+        <div class="notice-actions">
+            <button type="button" onclick="closeFacultyNotice()" class="btn-primary">Close</button>
         </div>
     </div>
 </div>
@@ -844,6 +858,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// The notice lifecycle is presentation-only; existing form payloads and handlers stay intact.
+let activeFacultyNotice = null;
+let facultyNoticeTrigger = null;
+let facultyNoticeBackground = [];
+let facultyNoticeScrollLocks = [];
+
+function sizeFacultyNotice() {
+    if (!activeFacultyNotice) return;
+    const viewport = window.visualViewport;
+    activeFacultyNotice.style.setProperty('--notice-height', (viewport ? viewport.height : window.innerHeight) + 'px');
+    activeFacultyNotice.style.setProperty('--notice-top', (viewport ? viewport.offsetTop : 0) + 'px');
+}
+
+function openFacultyNotice(id) {
+    if (activeFacultyNotice) closeFacultyNotice();
+    facultyNoticeTrigger = document.activeElement;
+    activeFacultyNotice = document.getElementById(id);
+    activeFacultyNotice.style.display = 'flex';
+    sizeFacultyNotice();
+    facultyNoticeBackground = Array.from(document.body.children)
+        .filter(el => el !== activeFacultyNotice && !el.contains(activeFacultyNotice))
+        .map(el => ({ el, inert: el.inert }));
+    facultyNoticeBackground.forEach(({ el }) => { el.inert = true; });
+    facultyNoticeScrollLocks = [document.documentElement, document.body, ...document.querySelectorAll('.main-content')]
+        .map(el => ({ el, overflow: el.style.overflow }));
+    facultyNoticeScrollLocks.forEach(({ el }) => { el.style.overflow = 'hidden'; });
+    activeFacultyNotice.querySelector('.notice-body').scrollTop = 0;
+    activeFacultyNotice.querySelector('h3').focus({ preventScroll: true });
+}
+
+function closeFacultyNotice() {
+    if (!activeFacultyNotice) return;
+    activeFacultyNotice.style.display = 'none';
+    activeFacultyNotice = null;
+    facultyNoticeBackground.forEach(({ el, inert }) => { el.inert = inert; });
+    facultyNoticeScrollLocks.forEach(({ el, overflow }) => { el.style.overflow = overflow; });
+    if (facultyNoticeTrigger && facultyNoticeTrigger.isConnected) facultyNoticeTrigger.focus({ preventScroll: true });
+    facultyNoticeBackground = [];
+    facultyNoticeScrollLocks = [];
+    facultyNoticeTrigger = null;
+}
+
+document.addEventListener('keydown', event => {
+    if (!activeFacultyNotice) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeFacultyNotice();
+    } else if (event.key === 'Tab') {
+        const controls = Array.from(activeFacultyNotice.querySelectorAll('button, input, select, textarea, a[href], [tabindex]'))
+            .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) {
+            event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) {
+            event.preventDefault(); first.focus();
+        }
+    }
+});
+document.addEventListener('focusin', event => {
+    if (activeFacultyNotice && !activeFacultyNotice.contains(event.target)) activeFacultyNotice.querySelector('h3').focus({ preventScroll: true });
+});
+window.addEventListener('resize', sizeFacultyNotice);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', sizeFacultyNotice);
+    window.visualViewport.addEventListener('scroll', sizeFacultyNotice);
+}
+
 function openInterventionModal(caseId, studentName, section, subjTitle) {
     document.getElementById('modalCaseId').value = caseId;
     document.getElementById('modalStudentName').innerText = studentName;
@@ -857,7 +940,7 @@ function openInterventionModal(caseId, studentName, section, subjTitle) {
     if (msgInput) {
         msgInput.value = '';
     }
-    document.getElementById('interventionModal').style.display = 'flex';
+    openFacultyNotice('interventionModal');
 }
 
 function openViewNoticeModal(message, reasonLabel, issuedDate = 'Not recorded', ackStatus = 'Not yet acknowledged') {
@@ -881,7 +964,7 @@ function openViewNoticeModal(message, reasonLabel, issuedDate = 'Not recorded', 
     if (ackEl) {
         ackEl.textContent = ackStatus || 'Not yet acknowledged';
     }
-    document.getElementById('viewNoticeModal').style.display = 'flex';
+    openFacultyNotice('viewNoticeModal');
 }
 
 function toggleThread(ticketId) {

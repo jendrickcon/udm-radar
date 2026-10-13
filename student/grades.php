@@ -97,6 +97,95 @@ require_once '../includes/sidebar.php';
     .grades-page { padding-left: 20px !important; padding-right: 20px !important; }
     .grades-card { padding: 16px; }
 }
+@media (max-width: 600px) {
+    .grades-page { padding: 16px !important; padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+    .grades-card { padding: 14px; border-radius: 10px; }
+    .grades-table-scroll {
+        overflow-x: visible;
+        width: 100%;
+    }
+    .current-grades-table, .history-grades-table {
+        min-width: 0 !important;
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .current-grades-table thead, .history-grades-table thead {
+        display: none;
+    }
+    .current-grades-table tbody, .history-grades-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    .current-grades-table tr, .history-grades-table tr {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+    .current-grades-table td, .history-grades-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 0 !important;
+        border: none !important;
+        border-bottom: 1px dashed var(--border-color) !important;
+        text-align: right !important;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 0.88rem;
+    }
+    .current-grades-table td:last-child, .history-grades-table td:last-child {
+        border-bottom: none !important;
+    }
+    .current-grades-table td::before, .history-grades-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 0.78rem;
+        color: var(--text-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        text-align: left;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    .current-grades-table td.card-cell-code, .history-grades-table td.card-cell-code {
+        display: block;
+        padding: 0 0 2px 0 !important;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--accent-blue) !important;
+        text-align: left !important;
+        border: none !important;
+    }
+    .current-grades-table td.card-cell-code::before, .history-grades-table td.card-cell-code::before {
+        display: none;
+    }
+    .current-grades-table td.card-cell-title, .history-grades-table td.card-cell-title {
+        display: block;
+        padding: 0 0 8px 0 !important;
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text-dark) !important;
+        text-align: left !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        margin-bottom: 4px;
+        white-space: normal !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        line-height: 1.35;
+    }
+    .current-grades-table td.card-cell-title::before, .history-grades-table td.card-cell-title::before {
+        display: none;
+    }
+}
 </style>
 
 <div class="main-content grades-page">
@@ -185,15 +274,15 @@ require_once '../includes/sidebar.php';
                         }
                     ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td class="compact-cell" style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($g['code']) ?></td>
-                        <td class="subject-cell" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
-                        <td class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
+                        <td class="compact-cell card-cell-code" data-label="Code" style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($g['code']) ?></td>
+                        <td class="subject-cell card-cell-title" data-label="Subject Title" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 12px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
+                        <td class="compact-cell" data-label="Units" style="padding: 12px; text-align: center; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
                         
-                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prelim) ?></td>
-                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($midterm) ?></td>
-                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prefinal) ?></td>
+                        <td class="compact-cell" data-label="Prelim" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prelim) ?></td>
+                        <td class="compact-cell" data-label="Midterm" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($midterm) ?></td>
+                        <td class="compact-cell" data-label="Pre-Final" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prefinal) ?></td>
                         
-                        <td class="compact-cell" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);">
+                        <td class="compact-cell" data-label="Final Grade" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);">
                             <?php if ($finalGrade !== null): ?>
                                 <?= formatFinalGrade($finalGrade) ?>
                             <?php elseif ($finalGradeStatus !== null): ?>
@@ -202,14 +291,14 @@ require_once '../includes/sidebar.php';
                                 <span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>
                             <?php endif; ?>
                         </td>
-                        <td class="compact-cell" style="padding: 12px; text-align: left;">
+                        <td class="compact-cell" data-label="Subject Risk" style="padding: 12px; text-align: left;">
                             <span class="badge custom-tooltip tooltip-top-right <?= $riskBadgeClass($liveRisk) ?>" style="display: inline-flex; align-items: center; gap: 5px;" tabindex="0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                 <?= htmlspecialchars(ucfirst(strtolower($liveRisk))) ?>
                                 <span class="tooltip-text" role="tooltip"><?= htmlspecialchars($subjTooltip) ?></span>
                             </span>
                         </td>
-                        <td class="compact-cell" style="padding: 12px; text-align: center;">
+                        <td class="compact-cell" data-label="Action" style="padding: 12px; text-align: center;">
                             <?php if (!empty($g['subject_id'])): ?>
                                 <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$g['subject_id'] ?>&period=prelim" 
                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
@@ -252,10 +341,10 @@ require_once '../includes/sidebar.php';
                 <tbody>
                     <?php foreach ($termGrades as $g): ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td class="compact-cell" style="padding: 10px; font-weight: 600; color: var(--text-dark);"><?= htmlspecialchars($g['code']) ?></td>
-                        <td class="subject-cell" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 10px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
-                        <td class="compact-cell" style="padding: 10px; text-align: center; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
-                        <td class="compact-cell" style="padding: 10px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatFinalGrade($g['final_grade']) ?></td>
+                        <td class="compact-cell card-cell-code" data-label="Code" style="padding: 10px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($g['code']) ?></td>
+                        <td class="subject-cell card-cell-title" data-label="Subject Title" title="<?= htmlspecialchars($g['title']) ?>" style="padding: 10px; color: var(--text-dark);"><?= htmlspecialchars($g['title']) ?></td>
+                        <td class="compact-cell" data-label="Units" style="padding: 10px; text-align: center; color: var(--text-gray);"><?= htmlspecialchars($g['units']) ?></td>
+                        <td class="compact-cell" data-label="Final Grade" style="padding: 10px; text-align: center; font-weight: 700; color: var(--text-dark);"><?= formatFinalGrade($g['final_grade']) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>

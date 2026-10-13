@@ -18,6 +18,6 @@ $pageTitle = $pageTitle ?? APP_NAME;
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
     
-    <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/dashboard.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/dashboard.css?v=<?= file_exists(__DIR__ . '/../assets/css/dashboard.css') ? filemtime(__DIR__ . '/../assets/css/dashboard.css') : 1 ?>">
 </head>
 <body>

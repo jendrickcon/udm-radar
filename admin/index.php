@@ -115,6 +115,14 @@ require_once '../includes/sidebar.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+.admin-dashboard .dashboard-charts > * { min-width: 0; }
+.admin-dashboard .roster-controls { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.admin-dashboard .roster-controls > * { max-width: 100%; min-height: 44px; }
+@media (max-width: 600px) {
+    .admin-dashboard .roster-controls { width: 100%; }
+    .admin-dashboard .roster-controls > * { flex: 1 1 100%; }
+}
+
 /* Dashboard Specific Elements */
 .sortable-col { cursor: pointer; user-select: none; transition: background 0.15s; }
 .sortable-col:hover { background: var(--table-header-bg) !important; }
@@ -163,7 +171,7 @@ require_once '../includes/sidebar.php';
 [data-theme="dark"] .kpi-drilldown:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
 </style>
 
-<div class="main-content">
+<div class="main-content admin-dashboard">
     <div class="header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
         <div>
             <h1 style="margin: 0 0 4px 0;">Admin Dashboard</h1>
@@ -305,7 +313,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- CHARTS -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 32px;">
+    <div class="dashboard-charts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 24px; margin-bottom: 32px;">
         <div class="card" style="position: relative; height: 320px; margin-bottom: 0;">
             <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">College-Wide Risk Distribution</div>
             <div style="position: relative; height: 240px; width: 100%;">
@@ -325,7 +333,7 @@ require_once '../includes/sidebar.php';
     <div class="card scroll-target" id="table-card" style="margin-bottom: 0;">
         <div class="table-toolbar">
             <input type="text" id="dashboard-search" class="search-box" placeholder="Search by name, student no., or section…">
-            <div style="display: flex; gap: 8px;">
+            <div class="roster-controls">
                 <select id="filter-risk" class="filter-select" onchange="currentPage=1; renderPage();">
                     <option value="">All Risks</option>
                     <option value="AT_RISK">At-Risk (High & Mod)</option>
