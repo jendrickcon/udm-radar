@@ -86,7 +86,22 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 
-<div class="main-content">
+<style>
+.faculty-home .home-details { flex: 1; min-width: 0; grid-template-columns: 140px minmax(0, 1fr); gap: 8px; overflow-wrap: anywhere; }
+.faculty-home .home-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.faculty-home .home-profile { flex-wrap: wrap; }
+.faculty-home .home-panels > * { min-width: 0; }
+.faculty-home .home-attention { flex-wrap: wrap; gap: 16px; }
+.faculty-home .home-attention a { min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 600px) {
+    .faculty-home .home-profile { padding: 16px !important; }
+    .faculty-home .home-details { flex-basis: 100%; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .faculty-home .home-details > span:nth-child(even) { margin-bottom: 12px; }
+    .faculty-home .home-quick-actions { grid-template-columns: minmax(0, 1fr); }
+    .faculty-home .home-class-preview { flex-wrap: wrap; gap: 12px; }
+}
+</style>
+<div class="main-content faculty-home">
     <div class="header" style="margin-bottom: 24px;">
         <div>
             <h1>Welcome, <?= htmlspecialchars($p['first_name'] ?? $user['first_name']) ?></h1>
@@ -95,7 +110,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <?php if ($attentionClasses > 0): ?>
-    <div style="background: rgba(217, 119, 6, 0.08); border-left: 4px solid var(--risk-mod); padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="home-attention" style="background: rgba(217, 119, 6, 0.08); border-left: 4px solid var(--risk-mod); padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h4 style="margin: 0 0 4px 0; color: var(--risk-mod); font-size: 1rem;">Work Requiring Attention</h4>
             <p style="margin: 0; color: var(--text-dark); font-size: 0.9rem;"><strong><?= $attentionClasses ?> assigned class<?= $attentionClasses > 1 ? 'es have' : ' has' ?></strong> incomplete Preliminary grade records.</p>
@@ -104,11 +119,11 @@ require_once '../includes/sidebar.php';
     </div>
     <?php endif; ?>
 
-    <div class="card" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
+    <div class="card home-profile" style="display:flex; align-items:center; gap:24px; padding:28px; margin-bottom: 24px;">
         <div style="width:80px; height:80px; border-radius:50%; background:var(--bg-color); border: 2px solid var(--border-color); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
             <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent-blue);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </div>
-        <div style="flex:1; display:grid; grid-template-columns: 140px 1fr; gap:8px; font-size:0.95rem; color: var(--text-dark);">
+        <div class="home-details" style="display:grid; font-size:0.95rem; color: var(--text-dark);">
             <span style="font-weight:700;">Name</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($displayName) ?></span>
             <span style="font-weight:700;">Faculty ID</span><span style="color: var(--text-gray);">: <?= htmlspecialchars($p['user_id'] ?? '—') ?></span>
             <span style="font-weight:700;">Department</span><span style="color: var(--text-gray);">: College of Computing Studies</span>
@@ -118,7 +133,7 @@ require_once '../includes/sidebar.php';
     <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 12px; font-weight: 700; text-transform: uppercase;">Current Teaching Snapshot</h2>
     <p style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 16px;">S.Y. <?= $currentSy ?>, <?= $currentSem === '1' ? 'First' : 'Second' ?> Semester</p>
     
-    <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
+    <div class="stat-grid kpi-grid--four" style="margin-bottom: 32px;">
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Assigned Class Loads</h4><h2 style="color: var(--text-dark);"><?= count($myLoads) ?></h2>
         </div>
@@ -133,9 +148,9 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; align-items: start;">        <div class="card">
+<div class="home-panels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 24px; align-items: start;">        <div class="card">
             <div class="table-title" style="margin-bottom: 16px;">Quick Actions</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="home-quick-actions" style="display: grid; gap: 12px;">
                 <a href="dashboard.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; color: var(--text-dark); font-weight: 600; text-align: center;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
                     <span>Dashboard</span>
@@ -163,7 +178,7 @@ require_once '../includes/sidebar.php';
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <?php foreach($classPreview as $cp): ?>
                     <a href="grades.php" style="text-decoration: none; color: inherit; display: block;">
-                        <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
+                        <div class="home-class-preview" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
                             <!-- FIXED: Styling ensures long titles get truncated with ellipsis if they overflow -->
                             <div style="flex: 1; min-width: 0; display: flex; align-items: baseline;">
                                 <span style="font-weight: 700; color: var(--accent-blue); margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="<?= htmlspecialchars($cp['title']) ?>"><?= htmlspecialchars($cp['title']) ?></span>

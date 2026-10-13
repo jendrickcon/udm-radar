@@ -344,11 +344,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [data-theme="dark"] #icon-sun  { opacity: 1; transform: rotate(0deg); }
 
         @media (max-width: 768px) {
-            body { flex-direction: column; }
+            body { flex-direction: column; height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; }
             .academic-bg { display: none; }
-            .brand-section { padding: 40px 20px 20px; }
-            .login-section { padding: 20px; align-items: flex-start; }
-            .login-card { padding: 30px 20px; box-shadow: none; background: transparent; border: none; }
+            .brand-section { flex: none; padding: 20px 20px 0; }
+            .brand-logo { width: 120px; height: 120px; margin-bottom: 8px; }
+            .brand-tagline { margin-bottom: 8px; }
+            .login-section { flex: none; min-width: 0; padding: 16px 20px 84px; align-items: flex-start; }
+            .login-card { padding: 16px 0; box-shadow: none; background: transparent; border: none; }
+        }
+
+        /* Keep short landscape screens and keyboard-reduced windows scrollable. */
+        @media (min-width: 769px) and (max-height: 650px) {
+            body { height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; align-items: flex-start; }
+            .brand-section, .login-section { min-width: 0; padding: 24px 20px 84px; }
+            .brand-logo { width: 180px; height: 180px; }
+            .login-card { padding: 24px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .chart-bar, .chart-line, .chart-arrow { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
+            body, .brand-tagline, .brand-logo, .login-card, .form-control,
+            .btn-login, .theme-toggle-fab, .theme-toggle-fab svg,
+            .chart-bar, .chart-line, .chart-arrow { transition: none; }
         }
     </style>
 </head>

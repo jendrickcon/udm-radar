@@ -160,7 +160,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat-grid kpi-grid--three">
         <div class="stat-card" style="border-left: 4px solid var(--text-dark);">
             <h4 style="margin: 0; color: var(--text-gray); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Assigned Class Loads</h4>
             <h2 style="margin: 8px 0 0; color: var(--text-dark); font-size: 2rem;"><?= $total_assigned_classes ?></h2>

@@ -63,6 +63,13 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
+.admin-settings .settings-grid > * { min-width: 0; }
+.admin-settings .settings-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-settings .governance-heading { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) {
+    .admin-settings .settings-metrics { grid-template-columns: minmax(0, 1fr); }
+}
+
 .governance-metric { font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 2px; }
 .governance-label { font-size: 0.75rem; color: var(--text-gray); text-transform: uppercase; font-weight: 600; }
 .metric-box { padding: 10px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; text-align: center; }
@@ -70,7 +77,7 @@ require_once '../includes/sidebar.php';
 .worse-metric { color: var(--risk-high) !important; }
 </style>
 
-<div class="main-content">
+<div class="main-content admin-settings">
     <div class="header" style="margin-bottom: 24px;">
         <div>
             <h1>Settings & System Governance</h1>
@@ -78,7 +85,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); align-items: start; gap: 24px;">
+    <div class="stat-grid settings-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); align-items: start; gap: 24px;">
 
         <!-- 1. Change Password Card -->
         <div class="card" style="margin-bottom: 0;">
@@ -108,7 +115,7 @@ require_once '../includes/sidebar.php';
 
         <!-- 2. AI Model Governance Card -->
         <div class="card" style="margin-bottom: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <div class="governance-heading" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                 <div class="table-title" style="margin-bottom: 0;">AI Model Governance</div>
                 <span class="badge" style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); border: 1px solid rgba(5, 150, 105, 0.3);">Active Model Online</span>
             </div>
@@ -120,7 +127,7 @@ require_once '../includes/sidebar.php';
             <!-- Active Model Status -->
             <div style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
                 <h4 style="margin: 0 0 12px 0; color: var(--text-dark); font-size: 0.9rem; text-transform: uppercase;">Active Model Performance</h4>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                <div class="settings-metrics" style="gap: 10px;">
                     <div class="metric-box">
                         <div class="governance-metric" id="active-mae"><?= $activeMetrics['mae'] ?></div>
                         <div class="governance-label">MAE</div>
@@ -157,7 +164,7 @@ require_once '../includes/sidebar.php';
                     <span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;" id="candidate-timestamp">Just now</span>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                <div class="settings-metrics" style="gap: 10px; margin-bottom: 16px;">
                     <div class="metric-box">
                         <div class="governance-metric" id="candidate-mae">--</div>
                         <div class="governance-label">MAE</div>
