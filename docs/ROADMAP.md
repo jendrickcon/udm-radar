@@ -109,16 +109,8 @@ The core academic and database foundation was remediated across Work Packages WP
 * **Scope:** Six guidance files; corrected academic contracts, complete Git-layer inspection, scratch mutation-path safety, installed pinned Playwright verification, advisory recovery, and guidance-versus-permission clarification. No runtime or dependency changes.
 
 ### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
-* **Status:** `Blocked: original implementation unavailable for recovery`
-* **Temporarily bypassed:** Independent packages may advance if they do not modify mobile navigation, responsive grid architecture, or the expected mobile-package files. This package remains approved, not cancelled or abandoned.
-* **Current Situation:**
-  * The implementation was previously created and tested.
-  * It exists only in a machine-local stash on the original computer.
-  * It is not present on the current machine or GitHub.
-  * It must not be reconstructed from memory or approximated.
-  * Recovery requires converting the original stash to a branch on that machine or exporting a complete patch including untracked files.
-  * *(A machine-local stash identifier is recorded here solely as an operational recovery pointer, not a permanent architectural dependency.)*
-* **Planned Deliverables:**
+* **Status:** Complete and Merged — [PR #34](https://github.com/jendrickcon/udm-radar/pull/34) (`17e8898`).
+* **Delivered Scope:**
   1. Accessible mobile top bar ($\le 900\text{px}$) with minimum $44\times 44\text{px}$ touch targets.
   2. Off-canvas navigation drawer with focus containment, Escape dismissal, and overlay click closure.
   3. Background scroll locking while drawer is open.
@@ -127,6 +119,7 @@ The core academic and database foundation was remediated across Work Packages WP
   6. Responsive Admin Students four-card KPI grid ($4\text{ col} \rightarrow 2\text{ col} \rightarrow 1\text{ col}$).
   7. Responsive Admin Grades section-card grid ($3\text{ col} \rightarrow 2\text{ col} \rightarrow 1\text{ col}$).
   8. Seamless coexistence with the floating Academic Guide.
+* **Test Evidence:** 25 passing browser tests in `tests/browser/ui-wp-mobile-navigation-grids.spec.js`.
 
 ---
 
@@ -140,24 +133,28 @@ On October 10, 2026, the project owner approved temporary resequencing around th
 * **Evidence boundary:** Repository observations and synthetic data establish technical availability; user needs remain hypotheses until stakeholder validation. Do not invent prerequisites, deadlines, official status, consultation schedules, or institutional procedures.
 
 ### ADMIN-WP1A: Data Coverage and Encoding Freshness
-* **Status:** Planned and Approved, subject to DOMAIN-AUDIT-WP1 data/scope findings and a separate reviewed implementation package.
-* **Scope candidates:** Current-term encoding coverage, missing-data triage, prediction-source/completeness/freshness summaries, and stale-prediction indicators where reliable timestamps support them.
-* **Safeguards:** Missing data is not student failure. No public Faculty ranking, inferred deadlines, disciplinary monitoring, or automatic prediction regeneration. Counts must distinguish current records from prediction-time snapshots and unknown provenance.
+* **Status:** Complete and Merged — [PR #31](https://github.com/jendrickcon/udm-radar/pull/31) (`c0c0712`).
+* **Delivered Scope:** Current-term encoding coverage, prediction completeness and provenance review (`admin/coverage.php`), accessible coverage filter controls, and Data Coverage section in the Academic Guide.
+* **Test Evidence:** 34 passing browser tests in `tests/browser/admin-grade-coverage.spec.js`.
 
-### FACULTY-WP1A: Structured Intervention Reasons and Follow-Up
-* **Status:** Planned and Approved, subject to audit and a reviewed storage/workflow contract after ADMIN-WP1A merges.
-* **Scope candidates:** Optional Faculty-observed academic reason tags plus custom explanation; clarification, consultation, subject-review, and calculator next actions only where supported by approved data/workflows.
-* **Safeguards:** Faculty review remains individual; no diagnoses or notices sent automatically from model output. Acknowledgment means receipt only. Do not claim observations about missing submissions or prerequisites without supporting evidence.
+### SUPPORT-WP1: Structured Reasons, Notice Timeline, and Actionable Badges
+* **Status:** Complete and Merged — [PR #35](https://github.com/jendrickcon/udm-radar/pull/35) (`3cb99c2`).
+* **Delivered Scope:** Structured faculty-observed support reason vocabulary (Migration 009), notice issuance timestamp (Migration 010), notice timeline records for faculty and students, and per-tab actionable alert badges.
+* **Test Evidence:** 212 passed assertions across unit, integration, and browser test suites.
+
+### ADMIN-UI-HOTFIX-WP1: Student Directory and Dashboard Table Cleanup
+* **Status:** Complete and Merged — [PR #33](https://github.com/jendrickcon/udm-radar/pull/33) (`5621352`).
+* **Delivered Scope:** Reclaimed table width in student directory by removing static Program column, eliminated empty dashboard table scroll ranges, added in-table empty-state rows.
+* **Test Evidence:** 9 passing browser tests in `tests/browser/admin-table-layout-cleanup.spec.js`.
+
+### DOCS-UX-WP1: UI/UX Governance and Findings Register
+* **Status:** Complete and Merged — [PR #32](https://github.com/jendrickcon/udm-radar/pull/32) (`1804315`).
+* **Delivered Scope:** Established durable interface standards in `docs/UI_UX_GOVERNANCE.md`, qualitative audit in `docs/audits/UDM_RADAR_VIBE_CODED_AUDIT_2026-10-10.md`, and tracked usability issues in `docs/UI_UX_FINDINGS_REGISTER.md`.
 
 ### Mobile-overlap boundary
 Preserve `admin/grades.php`, `admin/index.php`, `admin/students.php`, `assets/js/ui.js`, `includes/sidebar.php`, and `tests/browser/ui-wp-mobile-navigation-grids.spec.js` during independent packages. No mobile top bar/drawer selectors, navigation behavior, KPI cardinalities, or Section-card breakpoints may be reconstructed or changed. For DATA-UI-WP3 only, `assets/css/dashboard.css` may receive narrowly scoped operational-table classes after selector-overlap review; broad shared/mobile/grid changes remain excluded. Any other overlap requires owner approval.
 
 STUDENT-WP1A remains an audit candidate, not an added execution commitment in this temporary eight-step order. Grade-goal presets and transparent suggested attention must use supported numeric data, disclose coverage, avoid guarantees or punitive standing/benefit language, and never invent prerequisite effects.
-
-### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
-* **Status:** `Blocked: original implementation unavailable for recovery`
-* **Goal:** Deliver fully responsive mobile navigation, off-canvas drawers, and balanced KPI/section grids.
-* **Dependencies:** Branch or patch export recovered from the original development machine.
 
 ### DATA-UI-WP3: Operational Tables and Workflow Actions
 * **Status:** `Planned and Approved`
@@ -335,9 +332,5 @@ The former post-mobile roadmap synchronization gate no longer blocks this owner-
 * **October 2026 — Removal of Academic Standing & Strikes:** Removed strike countdowns, academic standing flags, and scholarship predictions to avoid punitive framing.
 * **October 2026 — Blue Indicator Border Contract:** Reserved active blue borders (`var(--accent-blue)`) strictly for opened roster drilldowns.
 * **October 2026 — DEV-AI-WP1 Adoption:** Adopted two-tier AI development governance (`AGENTS.md` for portable cross-agent guidance; `.agents/` for Antigravity extensions). Rejected third-party MCP servers and external plugins.
-* **October 2026 — Mobile Recovery Isolation:** UI-WP-MOBILE recovery paused safely until branch/patch transfer from the original PC; reconstruction from memory strictly barred.
-* **October 2026 — Historical Document Duplicates Retention:** The repository currently preserves root and `docs/audits/` copies of four historical planning documents (`CURRENT_DEMO_PLAYBOOK.md`, `CURRENT_UI_BACKLOG.md`, `CURRENT_UI_VALIDATION_REPORT.md`, `EXTERNAL_IDEA_RECONCILIATION.md`) annotated with historical snapshot banners. Their canonical location will be determined in a subsequent documentation-cleanup package before removing duplicates; they must not continue to be edited concurrently without review.
-
-
-
-* **October 10, 2026 — Owner-Approved Mobile Bypass:** UI-WP-MOBILE remains approved but blocked because the original implementation is unavailable for recovery. Independent audit, coverage, Faculty support, and operational-table packages may proceed in the Section 13 order with explicit mobile-overlap controls; no abandonment or reconstruction is authorized. This replaces the earlier requirement to finish mobile before all independent work.
+* **October 2026 — Documentation Consolidation (DEV-REPO-HYGIENE-WP1):** Consolidated historical duplicate planning documents (`CURRENT_DEMO_PLAYBOOK.md`, `CURRENT_UI_BACKLOG.md`, `CURRENT_UI_VALIDATION_REPORT.md`, `EXTERNAL_IDEA_RECONCILIATION.md`) by removing root duplicates and preserving canonical copies under `docs/audits/`. Relocated `udm_radar_audit_and_5_cohort_architecture.md` into `docs/audits/` and repaired relative repository links.
+* **October 2026 — UI-WP-MOBILE Recovery & Merge:** Recovered mobile navigation and responsive card grid implementation, verified with 25 automated Playwright browser checks, and merged via PR #34 (`17e8898`).
