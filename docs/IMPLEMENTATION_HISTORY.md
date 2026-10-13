@@ -279,4 +279,81 @@ All foundational packages (WP-0 through WP-6 and WP-7) were consolidated on feat
 * **Temporary order:** DOMAIN-AUDIT-WP1 → ADMIN-WP1A → FACULTY-WP1A → DATA-UI-WP3 → recover/complete UI-WP-MOBILE → UI-WP1B → DATA-UI-WP4 → Final Cross-Portal Browser Validation.
 * **Audit gate:** DOMAIN-AUDIT-WP1 is read-only. Implementation packages require supported data, reviewed scope, and their own branches/PRs; finish and merge one before starting the next. Proposed Student planning and curriculum features do not become approved commitments through resequencing.
 * **Recovery gate:** Once mobile is recovered, re-evaluate whether to finish it immediately or finish the active independent package first. Preserve the original stash and review integration against current main.
-* **Canonical plan:** See [ROADMAP.md](ROADMAP.md), Sections 8 and 13. No unmerged independent package is recorded as complete.
+* **Canonical plan:** See [ROADMAP.md](ROADMAP.md), Sections 8 and 13.
+
+---
+
+## Evaluation Readiness & Modern Data-UI Phase (PR #31 to PR #35)
+
+### ADMIN-WP1A: Data Coverage and Prediction Provenance Review
+* **Status:** Complete and Merged
+* **PR Number:** [PR #31](https://github.com/jendrickcon/udm-radar/pull/31)
+* **Merge Commit:** `c0c0712` (into `main`)
+* **Feature Branch:** `feat/admin-grade-coverage-provenance`
+* **Implementation Commits:** `802fc83`, `e926a0e`
+* **Major Delivered Scope:**
+  * Added `admin/coverage.php` displaying section-level grade-encoding completion rates across Prelim, Midterm, and Pre-Final terms.
+  * Added prediction completeness and provenance breakdown (complete, provisional, calculation fallback, insufficient data).
+  * Introduced Data Coverage tab in the slide-in Academic Guide drawer.
+  * Created dedicated helper functions in `includes/grade_coverage.php` and scoped stylesheet `assets/css/grade-coverage.css`.
+* **Test Evidence:** 34 passing browser tests in `tests/browser/admin-grade-coverage.spec.js`; 28 assertions in `tests/unit/grade_coverage_test.php`.
+
+---
+
+### DOCS-UX-WP1: UI/UX Governance and Findings Register
+* **Status:** Complete and Merged
+* **PR Number:** [PR #32](https://github.com/jendrickcon/udm-radar/pull/32)
+* **Merge Commit:** `1804315` (into `main`)
+* **Feature Branch:** `docs/ui-ux-governance`
+* **Implementation Commits:** `b606bda`, `492cd40`
+* **Major Delivered Scope:**
+  * Established living interface standards in `docs/UI_UX_GOVERNANCE.md` (calm workbench thesis, card discipline, student-safe copy).
+  * Preserved qualitative heuristic review in `docs/audits/UDM_RADAR_VIBE_CODED_AUDIT_2026-10-10.md`.
+  * Initialized usability findings tracking ledger in `docs/UI_UX_FINDINGS_REGISTER.md` (seeded issues UX-001 through UX-010).
+
+---
+
+### ADMIN-UI-HOTFIX-WP1: Student Directory and Dashboard Table Cleanup
+* **Status:** Complete and Merged
+* **PR Number:** [PR #33](https://github.com/jendrickcon/udm-radar/pull/33)
+* **Merge Commit:** `5621352` (into `main`)
+* **Feature Branch:** `fix/admin-table-layout-cleanup`
+* **Implementation Commits:** `7dabc33`, `bb6b2c4`, `460d0ee`
+* **Major Delivered Scope:**
+  * Reclaimed table width in student directory (`admin/students.php`) by removing static `Program: BSIT` column (reduced from 10 to 9 columns).
+  * Eliminated artificial vertical scroll overflow in the Admin Dashboard primary overview table (`admin/index.php`).
+  * Implemented centered in-table empty-state rows (`colspan="9"` and `colspan="8"`) with filter-reset controls (`clearStudentDirectoryFilters()`, `clearDashboardFilters()`).
+* **Test Evidence:** 9 passing browser tests in `tests/browser/admin-table-layout-cleanup.spec.js`.
+
+---
+
+### UI-WP-MOBILE: Mobile Navigation and Responsive Card Grids
+* **Status:** Complete and Merged
+* **PR Number:** [PR #34](https://github.com/jendrickcon/udm-radar/pull/34)
+* **Merge Commit:** `17e8898` (into `main`)
+* **Feature Branch:** `feat/ui-wp-mobile-navigation-grids`
+* **Implementation Commits:** `08d1ed3`, `4b35179`, `6d369b3`
+* **Major Delivered Scope:**
+  * Recovered and delivered accessible mobile top bar ($\le 900\text{px}$) with sticky header and $\ge 44\times 44\text{px}$ touch targets.
+  * Off-canvas mobile navigation drawer with focus trapping, Escape dismissal, overlay backdrop click closure, and background scroll locking.
+  * Short-height ($390\times 700$) and landscape ($844\times 390$) scrolling support.
+  * Responsive five-card KPI grid on Admin Dashboard ($5\text{ col} \rightarrow 3+2 \rightarrow 2\text{ col} \rightarrow 1\text{ col}$).
+  * Responsive four-card KPI grid on Admin Students ($4\text{ col} \rightarrow 2\text{ col} \rightarrow 1\text{ col}$).
+  * Responsive three-column section grid on Admin Grades ($3\text{ col} \rightarrow 2\text{ col} \rightarrow 1\text{ col}$).
+* **Test Evidence:** 25 passing browser tests in `tests/browser/ui-wp-mobile-navigation-grids.spec.js`.
+
+---
+
+### SUPPORT-WP1: Structured Reasons, Notice Timeline, and Actionable Badges
+* **Status:** Complete and Merged
+* **PR Number:** [PR #35](https://github.com/jendrickcon/udm-radar/pull/35)
+* **Merge Commit:** `3cb99c2` (into `main`)
+* **Feature Branch:** `feat/faculty-support-reason-capture`
+* **Implementation Commits:** `e5bb0b0`, `6eabdee`, `5178661`, `79e0dd2`
+* **Major Delivered Scope:**
+  * Migration 009: Added `reason_code` with binary database CHECK constraint enforcing 6 approved supportive reasons.
+  * Migration 010: Added `notice_issued_at DATETIME NULL` to track exact notice issuance timestamp.
+  * Notice Timeline: Faculty modal displays "Issued" and "Student acknowledgment"; student notice cards display "Received" and "Acknowledged".
+  * Per-Tab Alert Badges: Actionable counts on Faculty "Student Concerns" and "Academic Support Referrals", and Student "Academic Support Notices".
+  * Large Count Scaling: Badges expand cleanly without clipping for high counts ($99, 100, 125$) while preserving accessible `aria-label` descriptions.
+* **Test Evidence:** 212 passed assertions across unit, integration, and browser test suites (14 browser tests in `tests/browser/faculty-support-notice-reasons.spec.js`, 53 unit tests in `tests/unit/support_reasons_test.php`, 46 unit tests in `tests/unit/notice_timeline_and_tab_badges_test.php`, 35 integration tests in `tests/integration/support_reason_storage_test.php`, 28 integration tests in `tests/integration/notice_timeline_storage_test.php`, 10 integration tests in `tests/integration/faculty_notice_concurrency_test.php`, 26 integration tests in `tests/integration/support_workflow_reconciliation_test.php`).

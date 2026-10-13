@@ -8,8 +8,8 @@
 > [!NOTE]
 > **Historical Architecture Snapshot:** This document records the comprehensive audit and 5-cohort longitudinal architecture design developed during earlier sprints (covering WP-0 through WP-6).
 > For current project status, completed PRs (including WP-7, Modern UI packages, and DEV-AI-WP1), and the active roadmap, see:
-> - **Canonical Roadmap:** [docs/ROADMAP.md](ROADMAP.md)
-> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](IMPLEMENTATION_HISTORY.md)
+> - **Canonical Roadmap:** [docs/ROADMAP.md](../ROADMAP.md)
+> - **Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](../IMPLEMENTATION_HISTORY.md)
 
 ---
 
@@ -44,7 +44,7 @@ Expanding the synthetic environment to **5 longitudinal cohorts across Years 1 t
 
 ## 2. Environment & System Setup Verification
 
-In accordance with [SETUP.md](file:///C:/xampp/htdocs/udm-radar/SETUP.md) and [CONTRIBUTING.md](file:///C:/xampp/htdocs/udm-radar/CONTRIBUTING.md), the local development environment has been audited, repaired, and verified:
+In accordance with [SETUP.md](../../SETUP.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md), the local development environment has been audited, repaired, and verified:
 
 ```mermaid
 flowchart LR
@@ -70,7 +70,7 @@ flowchart LR
 
 ## 3. Codebase Architecture & Workflow Audit
 
-### 3.1 Academic Rules & Grading Conventions ([`config/constants.php`](file:///C:/xampp/htdocs/udm-radar/config/constants.php))
+### 3.1 Academic Rules & Grading Conventions ([`config/constants.php`](../../config/constants.php))
 - **Scale Definition**: UdM operates on a $1.00$ (Passing / $75\%$) to $4.00$ (Excellent / $99\text{--}100\%$) scale. Grades below $1.75$ are considered high risk / failing.
 - **Term Grades vs. Final Grade**:
   - Preliminary, Midterm, and Pre-Final are strictly raw percentages ($0\text{--}100$).
@@ -86,7 +86,7 @@ flowchart LR
   - $1.75 \le \text{GWA} < 2.50 \implies \text{MODERATE Risk}$ (Satisfactory)
   - $\text{GWA} < 1.75 \implies \text{HIGH Risk}$ (Fair / Failing)
 
-### 3.2 Dual-Mode Analytics Architecture ([`admin/analytics.php`](file:///C:/xampp/htdocs/udm-radar/admin/analytics.php))
+### 3.2 Dual-Mode Analytics Architecture ([`admin/analytics.php`](../../admin/analytics.php))
 The analytics engine operates in two mutually exclusive modes based on the active term filter:
 - **Mode A: Live In-Progress Term (`2026-2027`, Sem 1)**:
   - Joins `student_profiles` with `predictions` (latest timestamp/ID) and active enrolled grades (`is_current = 1`).
@@ -96,13 +96,13 @@ The analytics engine operates in two mutually exclusive modes based on the activ
   - Computes cohort passing rates, failure rates, non-numeric status frequencies, and average official point grades.
 
 ### 3.3 Grade Workflow & Administrative Audit
-1. **Faculty Grade Encoding** ([`faculty/grades.php`](file:///C:/xampp/htdocs/udm-radar/faculty/grades.php)):
+1. **Faculty Grade Encoding** ([`faculty/grades.php`](../../faculty/grades.php)):
    - Restricted by row-level authorization to assigned subject and section in `faculty_class_loads`.
    - Preliminary, Midterm, and Pre-Final submissions enter `pending_grade_batches`.
-2. **Administrator Approval** ([`admin/grades.php`](file:///C:/xampp/htdocs/udm-radar/admin/grades.php)):
+2. **Administrator Approval** ([`admin/grades.php`](../../admin/grades.php)):
    - Admin inspects pending batches, verifies term percentage bounds ($0\text{--}100$), and approves or rejects.
    - On approval, writes to `grades`, recalculates student GWA, and logs actions into `admin_change_log`.
-3. **Intervention Lifecycle** ([`admin/activity.php`](file:///C:/xampp/htdocs/udm-radar/admin/activity.php)):
+3. **Intervention Lifecycle** ([`admin/activity.php`](../../admin/activity.php)):
    - High-risk predictions in `api/batch_predict.php` automatically create an `academic_support_cases` ticket (`status = 'needs_review'`).
    - Admin/Faculty assign referrals (`support_case_referrals`), notify the student, and require student receipt acknowledgment (`support_status_history`).
 
@@ -122,17 +122,17 @@ flowchart TD
 ```
 
 ### Gap 1: Silent ML Feature Contract Mismatch (High Severity)
-- **Root Cause**: In [`api/predict.php`](file:///C:/xampp/htdocs/udm-radar/api/predict.php#L92), the PHP bridge constructs the feature payload with key `'current_prelim_point_avg'`. However, [`python_ml/decision_tree.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/decision_tree.py#L23) reads `grade_data.get('current_prelim_avg', 0)`.
+- **Root Cause**: In [`api/predict.php`](../../api/predict.php#L92), the PHP bridge constructs the feature payload with key `'current_prelim_point_avg'`. However, [`python_ml/decision_tree.py`](../../python_ml/decision_tree.py#L23) reads `grade_data.get('current_prelim_avg', 0)`.
 - **Impact**: Because Python’s `.get()` falls back to `0.0`, the preliminary point average was silently dropped to zero during live inference! For example, a student with a historical GWA of `3.07` and a current prelim of `2.91` was predicted at `2.83` (assuming prelim $= 0$) instead of their true predicted GWA of `3.05`.
-- **Secondary Impact**: In [`python_ml/app.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/app.py#L29), candidate model upload checks for `current_prelim_point_avg`, whereas [`python_ml/training_data.csv`](file:///C:/xampp/htdocs/udm-radar/python_ml/training_data.csv#L1) contains `current_prelim_avg`, causing staging validation to reject the dataset.
+- **Secondary Impact**: In [`python_ml/app.py`](../../python_ml/app.py#L29), candidate model upload checks for `current_prelim_point_avg`, whereas [`python_ml/training_data.csv`](../../python_ml/training_data.csv#L1) contains `current_prelim_avg`, causing staging validation to reject the dataset.
 - **Required Fix**: Harmonize the feature naming across PHP, `app.py`, `decision_tree.py`, and `training_data.csv`. Support fallback key aliases defensively in `decision_tree.py`.
 
 ### Gap 2: Overwritten Training Script (Medium Severity)
-- **Root Cause**: [`python_ml/train_model.py`](file:///C:/xampp/htdocs/udm-radar/python_ml/train_model.py) was accidentally overwritten in a previous commit with the contents of `decision_tree.py`. The training logic (train/test split, regression metrics calculation, and serialization to `model.pkl`) was completely severed from the CLI.
+- **Root Cause**: [`python_ml/train_model.py`](../../python_ml/train_model.py) was accidentally overwritten in a previous commit with the contents of `decision_tree.py`. The training logic (train/test split, regression metrics calculation, and serialization to `model.pkl`) was completely severed from the CLI.
 - **Required Fix**: Restore the training pipeline script with regression evaluation (MAE, RMSE, $R^2$), tree rule export, and candidate staging support.
 
 ### Gap 3: Stale Lifecycle Filter Logic in Admin Pages (Medium Severity)
-- **Root Cause**: Database migration `001_add_student_record_status.sql` introduced `student_profiles.record_status` (`Active`, `Archived`, `Graduated`) to separate account lifecycle from academic progress (`status` = `Regular`/`Irregular`). While several queries were updated, filter dropdowns in [`admin/index.php`](file:///C:/xampp/htdocs/udm-radar/admin/index.php#L28) and [`admin/faculty.php`](file:///C:/xampp/htdocs/udm-radar/admin/faculty.php#L249) still query `WHERE status != 'Archived'`.
+- **Root Cause**: Database migration `001_add_student_record_status.sql` introduced `student_profiles.record_status` (`Active`, `Archived`, `Graduated`) to separate account lifecycle from academic progress (`status` = `Regular`/`Irregular`). While several queries were updated, filter dropdowns in [`admin/index.php`](../../admin/index.php#L28) and [`admin/faculty.php`](../../admin/faculty.php#L249) still query `WHERE status != 'Archived'`.
 - **Impact**: Graduated and archived students continue to appear in active section and year-level filter dropdowns.
 - **Required Fix**: Align all active-population filter queries to `WHERE record_status = 'Active'`.
 
@@ -341,6 +341,6 @@ sequenceDiagram
      2. Drop all temporary backup tables: `DROP TABLE IF EXISTS _backup_student_profiles_course_wp6, _backup_student_profiles_gwa_wp4;`.
      3. Confirm the pre-export gate query returns **0 rows**.
      4. Confirm `information_schema.TABLES` reports exactly **18 application base tables**.
-     5. Only then regenerate canonical dump [`database/udm_radar.sql`](file:///C:/xampp/htdocs/udm-radar/database/udm_radar.sql), ERD, and Data Dictionary.
+     5. Only then regenerate canonical dump [`database/udm_radar.sql`](../../database/udm_radar.sql), ERD, and Data Dictionary.
 
 

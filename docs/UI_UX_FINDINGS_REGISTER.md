@@ -35,7 +35,7 @@ This register converts qualitative audits, static inspection findings, and usabi
 | **UX-006** | Inline and page-local style drift | Cross-portal | Medium | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
 | **UX-007** | Prediction explanation discoverability & transparency | Admin | Medium | Resolved | `ADMIN-WP1A` | Authenticated-Browser Verified |
 | **UX-008** | Role-specific dashboard workflow differentiation | Cross-portal | Medium | Proposed | `UI-ROLE-WP1` | Source-Confirmed |
-| **UX-009** | Authenticated mobile-verification gap | Cross-portal | High | Blocked | `UI-WP-MOBILE` | Blocked (Hardware Unavailable) |
+| **UX-009** | Authenticated mobile-verification gap | Cross-portal | High | Partially resolved | `UI-WP-MOBILE` | Requires verification (Emulation verified; physical hardware pending) |
 | **UX-010** | External Chart.js CDN dependency review | Cross-portal | Low | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
 
 ---
@@ -138,10 +138,10 @@ This register converts qualitative audits, static inspection findings, and usabi
 * **Description:** Comprehensive authenticated mobile device verification remains unperformed because physical test devices are unavailable in the development environment.
 * **Evidence:** Documented in PR #30 roadmap resequencing.
 * **Affected Role:** Mobile / Cross-portal.
-* **Severity:** High | **Confidence:** High | **Verification Level:** Blocked (Hardware Unavailable).
-* **Approved Action:** Package `UI-WP-MOBILE` is placed on hold; desktop and tablet work proceed independently until hardware verification is available.
-* **Package:** `UI-WP-MOBILE` | **Status:** Blocked.
-* **Resolution Evidence:** Awaiting physical device availability.
+* **Severity:** High | **Confidence:** High | **Verification Level:** Requires verification (Automated emulation verified; physical hardware verification outstanding).
+* **Approved Action:** Deliver responsive navigation drawer and adaptive card grids via `UI-WP-MOBILE`; verify layout breakpoints and focus traps via automated browser emulation; retain physical-device and authenticated on-hardware verification as an ongoing verification requirement.
+* **Package:** `UI-WP-MOBILE` | **Status:** Partially resolved.
+* **Resolution Evidence:** Mobile navigation drawer and responsive KPI/section grids implemented and verified across viewports ($390\text{px}$, $768\text{px}$, $900\text{px}$, $1440\text{px}$) via 25 automated Playwright browser tests in `tests/browser/ui-wp-mobile-navigation-grids.spec.js` (PR #34, commit `17e8898`). Physical hardware and credential-dependent on-device verification remain outstanding.
 
 ---
 
