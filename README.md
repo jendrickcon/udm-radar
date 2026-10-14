@@ -10,11 +10,11 @@ UDM-RADAR is a role-based academic decision-support platform for early risk dete
 
 ## Project Film
 
-A 60-second illustrated tour of the Student, Faculty, and Admin portals, showing academic planning, Faculty guidance, and Admin data review. Click the preview to watch the film.
+A 60-second illustrated tour of the Student, Faculty, and Admin portals, showing academic planning, Faculty guidance, and Admin data review. Play the film below with sound to hear the jazz-electronic soundtrack.
 
-[![Watch the UDM-RADAR project film introducing the Student, Faculty, and Admin portals](docs/media/udm-radar-project-film-poster.png)](docs/media/udm-radar-project-film.mp4)
+https://github.com/user-attachments/assets/fde979b0-e4c3-4814-91ea-dc3fd33d82c2
 
-[Watch or download the film (MP4, 1080p)](docs/media/udm-radar-project-film.mp4)
+[Download the film (MP4, 1080p)](https://github.com/jendrickcon/udm-radar/raw/refs/heads/main/docs/media/udm-radar-project-film.mp4)
 
 > Prototype performance on synthetic academic records. The film uses illustrative interface examples; estimates are advisory and are not recorded final grades.
 
