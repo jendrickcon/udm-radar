@@ -177,6 +177,14 @@ assertTest(
     str_contains($facultySource, 'Migration 010 (notice_issued_at) must be applied before issuing notices'),
     "faculty/feedback.php guards against missing Migration 010 before notice issuance"
 );
+assertTest(
+    !str_contains($facultySource, 'f.updated_at'),
+    "faculty/feedback.php does not reference non-existent feedback_reports.updated_at in queries"
+);
+assertTest(
+    preg_match('/UPDATE\s+feedback_reports\s+SET\b[^;]*\bupdated_at\s*=/i', $facultySource) === 0,
+    "faculty/feedback.php does not attempt to UPDATE non-existent feedback_reports.updated_at column"
+);
 
 // Tab badges, accessibility, and zero suppression
 assertTest(
@@ -240,6 +248,14 @@ assertTest(
 assertTest(
     str_contains($studentSource, 'formatNoticeAcknowledgmentStatus($n[\'student_acknowledged_at\']'),
     "Student notice card uses formatNoticeAcknowledgmentStatus"
+);
+assertTest(
+    !str_contains($studentSource, 'f.updated_at'),
+    "student/feedback.php does not reference non-existent feedback_reports.updated_at in queries"
+);
+assertTest(
+    preg_match('/UPDATE\s+feedback_reports\s+SET\b[^;]*\bupdated_at\s*=/i', $studentSource) === 0,
+    "student/feedback.php does not attempt to UPDATE non-existent feedback_reports.updated_at column"
 );
 
 // -----------------------------------------------------------------------------
