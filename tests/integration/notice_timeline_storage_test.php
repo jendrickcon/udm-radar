@@ -101,8 +101,8 @@ try {
 
     // Create a test parent case
     $insCase = $db->prepare("
-        INSERT INTO academic_support_cases (student_id, school_year, semester, trigger_risk_level, status)
-        VALUES (?, '2026-2027', '1st', 'HIGH', 'needs_review')
+        INSERT INTO academic_support_cases (student_id, trigger_risk_level, trigger_predicted_gwa, prediction_source, school_year, semester, status)
+        VALUES (?, 'HIGH', 1.72, 'decision_tree', '2026-2027', 1, 'needs_review')
     ");
     $insCase->execute([$studentId]);
     $createdCaseId = (int)$db->lastInsertId();
