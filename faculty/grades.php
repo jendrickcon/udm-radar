@@ -7,6 +7,23 @@ requireRole('faculty');
 $user = currentUser();
 $db = getDB();
 
+// 1. Fetch authenticated faculty assigned classes first
+$stmtClasses = $db->prepare("
+    SELECT fcl.subject_id, fcl.section, s.code, s.title
+    FROM faculty_class_loads fcl
+    JOIN subjects s ON s.id = fcl.subject_id
+    WHERE fcl.faculty_user_id = ?
+    ORDER BY s.title, fcl.section
+");
+$stmtClasses->execute([$user['id']]);
+$myClasses = $stmtClasses->fetchAll(PDO::FETCH_ASSOC);
+
+// Map of authorized class keys for O(1) server-side lookup
+$authorizedClasses = [];
+foreach ($myClasses as $c) {
+    $authorizedClasses[$c['subject_id'] . '_' . $c['section']] = $c;
+}
+
 // --- SMART ROUTING RESOLVER ---
 $selectedClass = trim($_GET['class'] ?? '');
 $selectedTerm = trim($_GET['term'] ?? 'prelim');
@@ -14,6 +31,16 @@ $targetStudentId = 0;
 $feedbackId = (int) ($_GET['feedback_id'] ?? 0);
 $routingError = '';
 $activeFeedbackId = $feedbackId;
+
+// Support alternative parameter contract subject_id + section if class is not provided
+$hasSubjectParam = isset($_GET['subject_id']) && trim((string)$_GET['subject_id']) !== '';
+$hasSectionParam = isset($_GET['section']) && trim((string)$_GET['section']) !== '';
+if ($selectedClass === '' && $hasSubjectParam && $hasSectionParam) {
+    $selectedClass = (int)$_GET['subject_id'] . '_' . trim((string)$_GET['section']);
+}
+
+// Track whether a specific class route was explicitly requested
+$hasExplicitClassParam = isset($_GET['class']) || ($hasSubjectParam && $hasSectionParam);
 
 if ($feedbackId > 0) {
     $stmtFeedback = $db->prepare("
@@ -29,8 +56,10 @@ if ($feedbackId > 0) {
 
     if (!$fb) {
         $routingError = 'The concern could not be opened because it is unavailable or does not belong to one of your assigned classes.';
+        $selectedClass = '';
     } elseif (empty($fb['subject_id']) || empty($fb['section']) || empty($fb['student_id'])) {
         $routingError = 'The concern does not contain enough class information to open a roster automatically.';
+        $selectedClass = '';
     } else {
         $selectedClass = (int) $fb['subject_id'] . '_' . trim($fb['section']);
         $targetStudentId = (int) $fb['student_id'];
@@ -39,6 +68,12 @@ if ($feedbackId > 0) {
         $ticketTerm = strtolower(trim((string) $fb['grade_period']));
         $selectedTerm = in_array($ticketTerm, $allowedTerms, true) ? $ticketTerm : 'prelim';
     }
+} elseif ($hasExplicitClassParam) {
+    // Validate explicit class parameter against authenticated faculty load
+    if ($selectedClass === '' || !isset($authorizedClasses[$selectedClass])) {
+        $selectedClass = '';
+        $routingError = 'The requested class is unavailable. Please select one of your assigned classes.';
+    }
 }
 
 $error = $routingError;
@@ -46,21 +81,23 @@ $success = '';
 
 if (($_GET['action'] ?? '') === 'fetch_roster') {
     header('Content-Type: application/json');
-    $reqClass = $_GET['class'] ?? '';
-    $reqTerm  = $_GET['term'] ?? 'prelim';
+    $reqClass = trim($_GET['class'] ?? '');
+    $reqTerm  = trim($_GET['term'] ?? 'prelim');
     
-    $selectedSubjId = 0; $selectedSection = '';
-    if ($reqClass) {
-        $parts = explode('_', $reqClass);
-        if (count($parts) === 2) { $selectedSubjId = (int)$parts[0]; $selectedSection = $parts[1]; }
+    $selectedSubjId = 0;
+    $selectedSection = '';
+    if ($reqClass !== '') {
+        $parts = explode('_', $reqClass, 2);
+        if (count($parts) === 2 && ctype_digit($parts[0])) {
+            $selectedSubjId = (int)$parts[0];
+            $selectedSection = $parts[1];
+        }
     }
-    
-    $students = []; $hasPendingBatch = false;
-    if ($selectedSubjId && $selectedSection) {
-        $stmtOwn = $db->prepare("SELECT id FROM faculty_class_loads WHERE faculty_user_id = ? AND subject_id = ? AND section = ?");
-        $stmtOwn->execute([$user['id'], $selectedSubjId, $selectedSection]);
-        if (!$stmtOwn->fetchColumn()) { echo json_encode(['error' => 'Unauthorized']); exit; }
 
+    $students = [];
+    $hasPendingBatch = false;
+    $classKey = $selectedSubjId . '_' . $selectedSection;
+    if ($selectedSubjId > 0 && $selectedSection !== '' && isset($authorizedClasses[$classKey])) {
         $stmtRoster = $db->prepare("
             SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade, sp.student_number, sp.section, u.first_name, u.middle_name, u.last_name, s.code AS subj_code, s.title AS subj_title
             FROM grades g
@@ -68,14 +105,18 @@ if (($_GET['action'] ?? '') === 'fetch_roster') {
             WHERE g.subject_id = ? AND sp.section = ? AND g.is_current = 1 AND sp.record_status = 'Active' ORDER BY u.last_name, u.first_name
         ");
         $stmtRoster->execute([$selectedSubjId, $selectedSection]);
-        $students = $stmtRoster->fetchAll();
-        
+        $students = $stmtRoster->fetchAll(PDO::FETCH_ASSOC);
+
         $stmtPending = $db->prepare("SELECT id FROM pending_grade_batches WHERE subject_id = ? AND section = ? AND term_type = ? AND status = 'pending'");
         $stmtPending->execute([$selectedSubjId, $selectedSection, $reqTerm]);
         $hasPendingBatch = (bool)$stmtPending->fetch();
+
+        echo json_encode(['students' => $students, 'hasPendingBatch' => $hasPendingBatch, 'subjId' => $selectedSubjId, 'section' => $selectedSection, 'term' => $reqTerm]);
+        exit;
+    } else {
+        echo json_encode(['error' => 'The requested class is unavailable. Please select one of your assigned classes.']);
+        exit;
     }
-    echo json_encode(['students' => $students, 'hasPendingBatch' => $hasPendingBatch, 'subjId' => $selectedSubjId, 'section' => $selectedSection, 'term' => $reqTerm]);
-    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submit_batch') {
@@ -163,10 +204,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
 
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-$stmtClasses = $db->prepare("SELECT fcl.subject_id, fcl.section, s.code, s.title FROM faculty_class_loads fcl JOIN subjects s ON s.id = fcl.subject_id WHERE fcl.faculty_user_id = ? ORDER BY s.title, fcl.section");
-$stmtClasses->execute([$user['id']]);
-$myClasses = $stmtClasses->fetchAll();
-
 if (!in_array($selectedTerm, ['prelim', 'midterm', 'prefinal'])) $selectedTerm = 'prelim';
 
 $pageTitle = 'Term Grade Submission';
@@ -200,8 +237,8 @@ html { overflow-y: scroll; }
         </div>
     </div>
         
-    <?php if ($error): ?><p style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-    <?php if ($success): ?><p style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
+    <?php if ($error): ?><p id="routing-error-alert" role="alert" style="background:rgba(220, 38, 38, 0.1); color:var(--risk-high); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-high); font-weight:600;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
+    <?php if ($success): ?><p role="status" style="background:rgba(5, 150, 105, 0.1); color:var(--risk-low); padding:12px 16px; border-radius:6px; margin-bottom:16px; border-left:4px solid var(--risk-low); font-weight:600;"><?= htmlspecialchars($success) ?></p><?php endif; ?>
 
     <div class="card" style="margin-bottom: 24px;">
         <form method="GET" action="grades.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
@@ -230,7 +267,7 @@ html { overflow-y: scroll; }
     <div id="roster-card" class="card animate-fade-up" style="display: none; padding: 0; overflow: hidden;">
         <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
-                <h3 style="color: var(--text-dark); font-size: 1.1rem; font-weight: 700; margin: 0 0 6px 0;"><span id="roster-subj-code"></span> — Class Roster</h3>
+                <h3 id="roster-heading" tabindex="-1" style="color: var(--text-dark); font-size: 1.1rem; font-weight: 700; margin: 0 0 6px 0; outline: none;"><span id="roster-subj-code"></span> — Class Roster</h3>
                 <div style="font-size: 0.85rem; color: var(--text-gray); display:flex; flex-direction:column; gap:4px;">
                     <span style="font-weight:600; color:var(--accent-blue);" id="roster-subj-title"></span>
                     <span>Section: <strong style="color:var(--text-dark);" id="roster-section"></strong></span>
@@ -290,6 +327,7 @@ html { overflow-y: scroll; }
 <script>
 const targetStudentId = <?= json_encode($targetStudentId) ?>;
 const activeFeedbackId = <?= json_encode($activeFeedbackId) ?>;
+const initialSelectedClass = <?= json_encode($selectedClass) ?>;
 
 function updateNoteUI() {
     const type = document.getElementById('submission_type').value;
@@ -333,17 +371,65 @@ document.addEventListener('DOMContentLoaded', () => {
         msgContainer.style.display = 'block';
     }
 
+    function syncUrlState() {
+        if (!window.history || !window.history.replaceState) return;
+        try {
+            const url = new URL(window.location.href);
+            if (classSelect.value) {
+                url.searchParams.set('class', classSelect.value);
+            } else {
+                url.searchParams.delete('class');
+            }
+            if (termSelect.value && termSelect.value !== 'prelim') {
+                url.searchParams.set('term', termSelect.value);
+            } else {
+                url.searchParams.delete('term');
+            }
+            if (url.searchParams.has('feedback_id') && classSelect.value !== initialSelectedClass) {
+                url.searchParams.delete('feedback_id');
+            }
+            url.searchParams.delete('subject_id');
+            url.searchParams.delete('section');
+            window.history.replaceState(null, '', url.pathname + url.search);
+        } catch (e) {
+            // Safe fallback for isolated or restricted environments
+        }
+    }
+
+    function getScrollBehavior() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    }
+
     function loadRoster(userInitiated = false) {
-        if (!classSelect.value) { showMessage(`<div class="card animate-fade-up" style="text-align: center; padding: 40px;"><h3 style="color: var(--text-gray);">Please select a class to submit term grades.</h3></div>`); return; }
-        if (rosterCard.style.display !== 'none') { tbody.style.opacity = '0.4'; tbody.style.pointerEvents = 'none'; } else { showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--text-gray);"><span style="font-weight:600;">Loading student roster...</span></div>`); }
+        if (!classSelect.value) {
+            showMessage(`<div class="card animate-fade-up" style="text-align: center; padding: 40px;"><h3 style="color: var(--text-gray);">Please select a class to submit term grades.</h3></div>`);
+            return;
+        }
+        if (rosterCard.style.display !== 'none') {
+            tbody.style.opacity = '0.4';
+            tbody.style.pointerEvents = 'none';
+        } else {
+            showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--text-gray);"><span style="font-weight:600;">Loading student roster...</span></div>`);
+        }
 
         fetch(`grades.php?action=fetch_roster&class=${encodeURIComponent(classSelect.value)}&term=${encodeURIComponent(termSelect.value)}`)
             .then(res => res.json())
             .then(data => {
-                if (data.error) { showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--risk-high); font-weight:600;">${data.error}</div>`); return; }
-                tbody.style.opacity = '1'; tbody.style.pointerEvents = 'auto';
+                if (data.error) {
+                    showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--risk-high); font-weight:600;">${data.error}</div>`);
+                    return;
+                }
+                tbody.style.opacity = '1';
+                tbody.style.pointerEvents = 'auto';
                 renderTable(data);
-                if (userInitiated && rosterCard.style.display !== 'none') { setTimeout(() => { rosterCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
+
+                const scrollBehavior = getScrollBehavior();
+
+                if (userInitiated && rosterCard.style.display !== 'none') {
+                    setTimeout(() => {
+                        rosterCard.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+                    }, 50);
+                }
 
                 if (targetStudentId && !userInitiated) {
                     requestAnimationFrame(() => { requestAnimationFrame(() => {
@@ -355,12 +441,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (activeFeedbackId && targetReason) targetReason.value = 'Correction related to ticket #' + activeFeedbackId;
 
                         targetRow.classList.add('target-student-row');
-                        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                        targetRow.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'nearest' });
                         setTimeout(() => { if (targetInput) targetInput.focus({ preventScroll: true }); }, 650);
                         setTimeout(() => { targetRow.classList.add('target-student-faded'); }, 5000);
                     });});
+                } else if (!userInitiated && initialSelectedClass) {
+                    requestAnimationFrame(() => {
+                        const rosterHeading = document.getElementById('roster-heading') || rosterCard;
+                        if (rosterHeading) {
+                            rosterHeading.focus({ preventScroll: true });
+                        }
+                        setTimeout(() => {
+                            rosterCard.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+                        }, 80);
+                    });
                 }
-            }).catch(err => { tbody.style.opacity = '1'; tbody.style.pointerEvents = 'auto'; showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--risk-high); font-weight:600;">Error loading roster.</div>`); });
+            }).catch(err => {
+                tbody.style.opacity = '1';
+                tbody.style.pointerEvents = 'auto';
+                showMessage(`<div class="card animate-fade-up" style="text-align:center; padding: 40px; color: var(--risk-high); font-weight:600;">Error loading roster.</div>`);
+            });
     }
 
     function renderTable(data) {
@@ -397,9 +497,28 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = rowsHtml;
     }
 
-    classSelect.addEventListener('change', () => loadRoster(true));
-    termSelect.addEventListener('change', () => loadRoster(true));
+    classSelect.addEventListener('change', () => {
+        syncUrlState();
+        loadRoster(true);
+    });
+    termSelect.addEventListener('change', () => {
+        syncUrlState();
+        loadRoster(true);
+    });
     document.getElementById('submission_type').addEventListener('change', updateNoteUI);
+
+    window.addEventListener('popstate', () => {
+        try {
+            const url = new URL(window.location.href);
+            const classParam = url.searchParams.get('class') || '';
+            const termParam = url.searchParams.get('term') || 'prelim';
+            if (classSelect.value !== classParam || termSelect.value !== termParam) {
+                classSelect.value = classParam;
+                termSelect.value = termParam;
+                loadRoster(false);
+            }
+        } catch (e) {}
+    });
 
     document.querySelectorAll('.safe-submit-form').forEach(f => {
         f.addEventListener('submit', function() {
