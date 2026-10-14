@@ -8,6 +8,16 @@ UDM-RADAR is a role-based academic decision-support platform for early risk dete
 
 > UDM-RADAR provides decision support. Predictions and risk classifications do not automatically change grades, determine official honors eligibility, impose disciplinary action, or replace Faculty, adviser, registrar, or administrator judgment.
 
+## Project Film
+
+A 60-second illustrated tour of the Student, Faculty, and Admin portals, showing academic planning, Faculty guidance, and Admin data review. Click the preview to watch the film.
+
+[![Watch the UDM-RADAR project film introducing the Student, Faculty, and Admin portals](docs/media/udm-radar-project-film-poster.png)](docs/media/udm-radar-project-film.mp4)
+
+[Watch or download the film (MP4, 1080p)](docs/media/udm-radar-project-film.mp4)
+
+> Prototype performance on synthetic academic records. The film uses illustrative interface examples; estimates are advisory and are not recorded final grades.
+
 ## Current Project Status
 
 ### Completed
