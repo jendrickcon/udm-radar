@@ -111,7 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             $stmtReply = $db->prepare("INSERT INTO feedback_messages (feedback_id, sender_id, message) VALUES (?, ?, ?)");
             $stmtReply->execute([$ticketId, $user['id'], $replyMessage]);
-            $db->prepare("UPDATE feedback_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$ticketId]);
             $db->commit();
 
             $success = "Reply posted successfully.";
@@ -192,7 +191,7 @@ $stmtTickets = $db->prepare("
             WHEN f.status = 'rejected' THEN 4 
             ELSE 5 
         END,
-        f.updated_at DESC, 
+        f.created_at DESC,
         f.id DESC
 ");
 $stmtTickets->execute([$user['id']]);

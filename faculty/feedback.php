@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $db->beginTransaction();
-            $db->prepare("UPDATE feedback_reports SET status = 'resolved', updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$ticketId]);
+            $db->prepare("UPDATE feedback_reports SET status = 'resolved' WHERE id = ?")->execute([$ticketId]);
             $db->prepare("INSERT INTO feedback_status_history (feedback_id, changed_by, old_status, new_status, note) VALUES (?, ?, ?, 'resolved', 'Faculty manually resolved the query.')")->execute([$ticketId, $user['id'], $ticket['status']]);
             $db->commit();
             
@@ -89,7 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             $stmtReply = $db->prepare("INSERT INTO feedback_messages (feedback_id, sender_id, message) VALUES (?, ?, ?)");
             $stmtReply->execute([$ticketId, $user['id'], $replyMessage]);
-            $db->prepare("UPDATE feedback_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$ticketId]);
             $db->commit();
 
             $success = "Reply posted successfully.";
@@ -230,7 +229,7 @@ $stmtInbox = $db->prepare("
             WHEN f.status = 'rejected' THEN 4 
             ELSE 5 
         END,
-        COALESCE(f.updated_at, f.created_at) DESC, 
+        f.created_at DESC,
         f.id DESC
 ");
 $stmtInbox->execute([$user['id']]);
