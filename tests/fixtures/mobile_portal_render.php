@@ -45,7 +45,7 @@ $attentionSubjects = $attentionClasses = 1;
 $enrolledSubjects = 6; $totalUnits = 18; $encodedCount = 4; $missingCount = 2;
 $recentActivities = [];
 $myLoads = [1, 2]; $uniqueSections = ['SYN-3A']; $uniqueStudents = [1, 2]; $pendingRecordsCount = 2;
-$classPreview = [['title' => 'Synthetic Advanced Information Systems and Application Development', 'section' => 'SYN-3A', 'students' => 35, 'pct' => 75]];
+$classPreview = [['subject_id' => 1, 'title' => 'Synthetic Advanced Information Systems and Application Development', 'section' => 'SYN-3A', 'students' => 35, 'pct' => 75]];
 $totalAdminActions = $openReports = $pendingApprovals = $supportReviews = 1;
 $lastRunText = 'No run in this controlled fixture';
 $years = ['1', '2', '3', '4']; $sections = ['SYN-3A']; $yearFilter = $sectionFilter = '';
