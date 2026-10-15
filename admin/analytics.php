@@ -440,64 +440,83 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <!-- Wired Interactive Filters -->
-    <form method="GET" action="analytics.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
+    <!-- Wired Interactive Filters (MOB-021) -->
+    <form method="GET" action="analytics.php" class="card analytics-filter-card">
 
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Academic Scope</label>
-            <div style="display: flex; gap: 8px;">
-                <select name="sy" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                    <?php foreach($dbSys as $sy): ?>
-                        <option value="<?= htmlspecialchars($sy) ?>" <?= $syFilter === $sy ? 'selected' : '' ?>>S.Y. <?= htmlspecialchars($sy) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="semester" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                    <option value="1" <?= $semFilter === '1' ? 'selected' : '' ?>>Semester 1</option>
-                    <option value="2" <?= $semFilter === '2' ? 'selected' : '' ?>>Semester 2</option>
-                </select>
+        <div class="analytics-filter-group analytics-filter-group--scope">
+            <span class="analytics-filter-group__label">Academic Scope</span>
+            <div class="analytics-filter-controls analytics-filter-controls--dual">
+                <div class="analytics-filter-field">
+                    <label for="filter-sy" class="sr-only">School Year</label>
+                    <select id="filter-sy" name="sy" class="analytics-filter-select" aria-label="School Year">
+                        <?php foreach($dbSys as $sy): ?>
+                            <option value="<?= htmlspecialchars($sy) ?>" <?= $syFilter === $sy ? 'selected' : '' ?>>S.Y. <?= htmlspecialchars($sy) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="analytics-filter-field">
+                    <label for="filter-semester" class="sr-only">Semester</label>
+                    <select id="filter-semester" name="semester" class="analytics-filter-select" aria-label="Semester">
+                        <option value="1" <?= $semFilter === '1' ? 'selected' : '' ?>>Semester 1</option>
+                        <option value="2" <?= $semFilter === '2' ? 'selected' : '' ?>>Semester 2</option>
+                    </select>
+                </div>
             </div>
         </div>
 
         <?php if ($isCurrentTerm): ?>
-        <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Grading Period</label>
-            <select name="period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                <?php foreach($allowedPeriods as $key => $label): ?>
-                    <option value="<?= htmlspecialchars($key) ?>" <?= $periodFilter === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                <?php endforeach; ?>
-            </select>
+        <div class="analytics-filter-group analytics-filter-group--period">
+            <label for="filter-period" class="analytics-filter-group__label">Grading Period</label>
+            <div class="analytics-filter-controls">
+                <div class="analytics-filter-field">
+                    <select id="filter-period" name="period" class="analytics-filter-select" aria-label="Grading Period">
+                        <?php foreach($allowedPeriods as $key => $label): ?>
+                            <option value="<?= htmlspecialchars($key) ?>" <?= $periodFilter === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
         </div>
         <?php endif; ?>
 
-        <div style="display: flex; flex-direction: column; gap: 4px; border-left: 2px solid var(--border-color); padding-left: 16px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Curriculum Isolation</label>
-            <div style="display: flex; gap: 8px;">
-                <select name="year_level" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                    <option value="">All Years</option>
-                    <?php foreach($dbYears as $yl): ?>
-                        <option value="<?= (int) $yl ?>" <?= $yearFilter === (string) $yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select name="subject_id" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                    <option value="">All Subjects</option>
-                    <?php foreach($dbSubjects as $subj): ?>
-                        <option value="<?= htmlspecialchars($subj['id']) ?>" <?= $subjectFilter === (string)$subj['id'] ? 'selected' : '' ?>><?= htmlspecialchars($subj['code']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+        <div class="analytics-filter-group analytics-filter-group--curriculum">
+            <span class="analytics-filter-group__label">Curriculum Isolation</span>
+            <div class="analytics-filter-controls analytics-filter-controls--triple">
+                <div class="analytics-filter-field">
+                    <label for="filter-year-level" class="sr-only">Year Level</label>
+                    <select id="filter-year-level" name="year_level" class="analytics-filter-select" aria-label="Year Level">
+                        <option value="">All Years</option>
+                        <?php foreach($dbYears as $yl): ?>
+                            <option value="<?= (int) $yl ?>" <?= $yearFilter === (string) $yl ? 'selected' : '' ?>><?= htmlspecialchars(ordinalYearLabel($yl)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="analytics-filter-field">
+                    <label for="filter-subject-id" class="sr-only">Subject</label>
+                    <select id="filter-subject-id" name="subject_id" class="analytics-filter-select" aria-label="Subject">
+                        <option value="">All Subjects</option>
+                        <?php foreach($dbSubjects as $subj): ?>
+                            <option value="<?= htmlspecialchars($subj['id']) ?>" <?= $subjectFilter === (string)$subj['id'] ? 'selected' : '' ?>><?= htmlspecialchars($subj['code']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <?php if ($isCurrentTerm): ?>
-                <select name="section" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
-                    <option value="">All Sections</option>
-                    <?php foreach($dbSections as $sec): ?>
-                        <option value="<?= htmlspecialchars($sec) ?>" <?= $sectionFilter === (string)$sec ? 'selected' : '' ?>><?= htmlspecialchars($sec) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="analytics-filter-field">
+                    <label for="filter-section" class="sr-only">Section</label>
+                    <select id="filter-section" name="section" class="analytics-filter-select" aria-label="Section">
+                        <option value="">All Sections</option>
+                        <?php foreach($dbSections as $sec): ?>
+                            <option value="<?= htmlspecialchars($sec) ?>" <?= $sectionFilter === (string)$sec ? 'selected' : '' ?>><?= htmlspecialchars($sec) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <?php endif; ?>
             </div>
         </div>
 
-        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; height: 100%;">
-            <a href="analytics.php" style="padding: 9px 16px; color: var(--text-gray); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Reset</a>
-            <button type="submit" style="background: var(--accent-blue); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
+        <div class="analytics-filter-actions">
+            <a href="analytics.php" class="btn btn--secondary analytics-filter-btn analytics-filter-btn--reset">Reset</a>
+            <button type="submit" class="btn btn--primary analytics-filter-btn analytics-filter-btn--apply">
                 Apply Filters
             </button>
         </div>
@@ -585,11 +604,12 @@ require_once '../includes/sidebar.php';
             <?php if (empty($sectionData)): ?>
                 <p class="empty-state">No section data matches your current filter.</p>
             <?php else: ?>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+            <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Section Comparison Table" tabindex="0">
+                <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view full matrix &rarr;</div>
+                <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 800px;">
                     <thead>
                         <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Section</th>
+                            <th class="table-col--sticky" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Section</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Students</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Mean GWA</th>
                             <th style="padding: 12px; text-align: center; color: var(--risk-low); white-space: nowrap;">Low</th>
@@ -605,7 +625,7 @@ require_once '../includes/sidebar.php';
                             $secCov = $d['total'] > 0 ? number_format(($d['coverage_count'] / $d['total']) * 100, 1) . '%' : '0%';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 700; color: var(--accent-blue); white-space: nowrap;"><?= htmlspecialchars($sec) ?></td>
+                            <td class="table-col--sticky" style="padding: 12px; font-weight: 700; color: var(--accent-blue); white-space: nowrap;"><?= htmlspecialchars($sec) ?></td>
                             <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $d['total'] ?></td>
                             <td style="padding: 12px; text-align: center; color: var(--text-dark); font-weight: 700;"><?= $secMean ?></td>
                             <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $d['risks']['LOW'] ?></td>
@@ -630,11 +650,12 @@ require_once '../includes/sidebar.php';
             <?php if (empty($subjectWideStats)): ?>
                 <p class="empty-state">No subjects found matching the current filter scope.</p>
             <?php else: ?>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Curriculum-Wide Overview Table" tabindex="0">
+                <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view full matrix &rarr;</div>
+                <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
                     <thead>
                         <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                            <th class="table-col--sticky" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Total Graded</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Mean Score</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Pass Rate</th>
@@ -647,7 +668,7 @@ require_once '../includes/sidebar.php';
                             $passRate = $s['graded'] > 0 ? number_format(($s['passed'] / $s['graded']) * 100, 1) . '%' : '—';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;"><?= htmlspecialchars($s['code']) ?></td>
+                            <td class="table-col--sticky" style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;"><?= htmlspecialchars($s['code']) ?></td>
                             <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $s['graded'] ?> / <?= $s['enrolled'] ?></td>
                             <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= $meanGrade ?></td>
                             <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= $passRate ?></td>
@@ -697,11 +718,12 @@ require_once '../includes/sidebar.php';
             <?php if (empty($subjectSectionStats)): ?>
                 <p class="empty-state">No section bottlenecks found matching the current filter scope.</p>
             <?php else: ?>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 1100px;">
+            <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Subject and Section Bottleneck Table" tabindex="0">
+                <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view full matrix &rarr;</div>
+                <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 1100px;">
                     <thead>
                         <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
+                            <th class="table-col--sticky" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
                             <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Section</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Enrolled</th>
                             <th style="padding: 12px; text-align: center; color: var(--accent-blue); white-space: nowrap;">Data Coverage</th>
@@ -721,7 +743,7 @@ require_once '../includes/sidebar.php';
                             $isLimData = ($s['enrolled'] > 0 && ($s['graded'] / $s['enrolled']) < 0.8) && $s['graded'] > 0;
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;">
+                            <td class="table-col--sticky" style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap;">
                                 <div style="line-height: 1.2;">
                                     <?= htmlspecialchars($s['code']) ?><br>
                                     <span style="font-weight: 400; font-size: 0.8rem; color: var(--text-gray);"><?= htmlspecialchars($s['title']) ?></span>
@@ -795,11 +817,12 @@ require_once '../includes/sidebar.php';
             <?php if (empty($histSubjects)): ?>
                 <p class="empty-state">No subject outcomes found for the selected historical term.</p>
             <?php else: ?>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Completed Subject Outcomes Table" tabindex="0">
+                <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view full matrix &rarr;</div>
+                <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
                     <thead>
                         <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap; width: 1%;">Subject</th>
+                            <th class="table-col--sticky" style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap; width: 1%;">Subject</th>
                             <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Title</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">Students</th>
                             <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;">Mean Official Final Grade</th>
@@ -815,7 +838,7 @@ require_once '../includes/sidebar.php';
                             $completeness = $s['enrolled'] > 0 ? number_format(($s['graded'] / $s['enrolled']) * 100, 1) . '%' : '0%';
                         ?>
                         <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= htmlspecialchars($s['code']) ?></td>
+                            <td class="table-col--sticky" style="padding: 12px; font-weight: 700; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= htmlspecialchars($s['code']) ?></td>
                             <td title="<?= htmlspecialchars($s['title']) ?>" style="padding: 12px; color: var(--text-gray); max-width: 0; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($s['title']) ?></td>
                             <td style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= $s['enrolled'] ?></td>
                             <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark); white-space: nowrap; width: 1%;"><?= $meanGrade ?></td>

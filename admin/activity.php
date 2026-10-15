@@ -391,7 +391,7 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
         <div class="card" style="padding: 0; overflow: hidden;">
             <div style="display:flex; align-items:center; justify-content:space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color);"><div><h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin:0 0 4px 0;">Open Feedback Reports</h3></div></div>
             <?php if (empty($feedback)): ?><p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px; display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--risk-low);"><polyline points="20 6 9 17 4 12"></polyline></svg> All caught up! No open reports.</p><?php else: ?>
-                <div style="overflow-x: auto;">
+                <div class="activity-inbox-desktop-view" style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                         <thead>
                             <tr style="background: var(--table-header-bg);">
@@ -423,6 +423,59 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card View (MOB-023 Category A) -->
+                <div class="activity-inbox-mobile-cards">
+                    <?php foreach ($feedback as $f): ?>
+                    <div class="card" style="margin-bottom:0; padding:16px; border:1px solid var(--border-color); border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+                            <div>
+                                <div style="font-weight:700; color:var(--text-dark); font-size:1rem;"><?= htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) ?></div>
+                                <div style="font-size:0.75rem; color:var(--text-gray); margin-top:2px;">
+                                    <?= ucfirst($f['role']) ?> • <?= date('M j, Y', strtotime($f['created_at'])) ?>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="purpose-pill pill-gray" style="font-size:0.72rem; padding:3px 8px; font-weight:600;">
+                                    <?= ucwords(str_replace('_', ' ', $f['category'])) ?>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <div style="font-weight:600; color:var(--text-dark); font-size:0.9rem; margin-bottom:4px;">
+                                "<?= htmlspecialchars($f['title'] ?? 'Report') ?>"
+                            </div>
+                            <div style="font-size:0.85rem; color:var(--text-gray); line-height:1.4;">
+                                <?= nl2br(htmlspecialchars($f['message'] ?? $f['initial_message'] ?? '')) ?>
+                            </div>
+                        </div>
+
+                        <div>
+                            <?php if ($f['status'] === 'awaiting_admin'): ?>
+                                <div style="text-align:center; padding:8px; background:rgba(30,77,183,0.08); border-radius:6px; color:var(--accent-blue); font-size:0.85rem; font-weight:600;">Awaiting Fix</div>
+                            <?php elseif ($f['status'] === 'faculty_review'): ?>
+                                <div style="text-align:center; padding:8px; background:rgba(217,119,6,0.08); border-radius:6px; color:var(--risk-mod); font-size:0.85rem; font-weight:600;">With Faculty</div>
+                            <?php else: ?>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                    <form method="POST" action="activity.php" class="safe-submit-form" onsubmit="return confirm('Mark this report as resolved?');" style="margin:0;">
+                                        <input type="hidden" name="action" value="resolve_feedback">
+                                        <input type="hidden" name="feedback_id" value="<?= $f['id'] ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                        <button type="submit" class="btn btn--primary" style="width:100%; min-height:44px; background:rgba(5, 150, 105, 0.1); color:var(--risk-low); border:1px solid rgba(5, 150, 105, 0.3); font-weight:600; font-size:0.85rem; justify-content:center;">Resolve</button>
+                                    </form>
+                                    <form method="POST" action="activity.php" class="safe-submit-form" onsubmit="return confirm('Reject this report?');" style="margin:0;">
+                                        <input type="hidden" name="action" value="reject_feedback">
+                                        <input type="hidden" name="feedback_id" value="<?= $f['id'] ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                        <button type="submit" class="btn btn--secondary" style="width:100%; min-height:44px; background:rgba(220, 38, 38, 0.1); color:var(--risk-high); border:1px solid rgba(220, 38, 38, 0.3); font-weight:600; font-size:0.85rem; justify-content:center;">Reject</button>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -672,8 +725,8 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
 
             <div class="card" style="padding: 0; overflow: hidden;">
                 <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;"><div><h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0 0 4px 0;">System Audit Log</h3><p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">Permanent administrative record of all data modifications.</p></div></div>
-                <div style="max-height: 400px; overflow-y: auto; padding: 0;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <div class="audit-log-desktop-view" style="max-height: 400px; overflow-y: auto; padding: 0;">
+                    <table class="audit-log-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                         <tbody>
                             <?php foreach ($logs as $l): ?>
                             <tr>
@@ -686,6 +739,24 @@ require_once '../includes/header.php'; require_once '../includes/sidebar.php';
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card View (MOB-023 Category A) -->
+                <div class="audit-log-mobile-cards">
+                    <?php foreach ($logs as $l): ?>
+                    <div class="card" style="margin-bottom:0; padding:14px 16px; border:1px solid var(--border-color); border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-weight:600; font-size:0.8rem; color:var(--text-gray);"><?= date('M j, Y', strtotime($l['created_at'])) ?></span>
+                            <span class="purpose-pill pill-blue" style="font-size:0.7rem; padding:2px 8px; font-weight:600; text-transform:uppercase;"><?= htmlspecialchars($l['target_type']) ?></span>
+                        </div>
+                        <div style="font-weight:600; color:var(--text-dark); font-size:0.9rem; margin-bottom:4px;">
+                            <?= htmlspecialchars($l['a_first'] . ' ' . $l['a_last']) ?>
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--text-gray);">
+                            <?= htmlspecialchars($l['field_changed']) ?>: <span style="text-decoration: line-through;"><?= htmlspecialchars($l['old_value'] ?? '(empty)') ?></span> &rarr; <strong style="color:var(--text-dark);"><?= htmlspecialchars($l['new_value']) ?></strong>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>

@@ -99,7 +99,6 @@ require_once '../includes/sidebar.php';
     .faculty-home .home-details { flex-basis: 100%; grid-template-columns: minmax(0, 1fr); gap: 4px; }
     .faculty-home .home-details > span:nth-child(even) { margin-bottom: 12px; }
     .faculty-home .home-quick-actions { grid-template-columns: minmax(0, 1fr); }
-    .faculty-home .home-class-preview { flex-wrap: wrap; gap: 12px; }
 }
 </style>
 <div class="main-content faculty-home">
@@ -177,21 +176,20 @@ require_once '../includes/sidebar.php';
                 <p class="empty-state">No active classes assigned.</p>
             <?php else: ?>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <?php foreach($classPreview as $cp): ?>
-                    <?php
+                    <?php foreach($classPreview as $cp):
                         $classParam = (int)($cp['subject_id'] ?? 0) . '_' . ($cp['section'] ?? '');
                         $classHref = 'grades.php?class=' . rawurlencode($classParam);
+                        $badgeColor = $cp['pct'] === 100 ? 'var(--risk-low)' : 'var(--risk-mod)';
                     ?>
                     <a href="<?= htmlspecialchars($classHref) ?>" style="text-decoration: none; color: inherit; display: block;" aria-label="Open grade submission for <?= htmlspecialchars($cp['title']) ?> Section <?= htmlspecialchars($cp['section']) ?>">
-                        <div class="home-class-preview" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
-                            <!-- FIXED: Styling ensures long titles get truncated with ellipsis if they overflow -->
-                            <div style="flex: 1; min-width: 0; display: flex; align-items: baseline;">
-                                <span style="font-weight: 700; color: var(--accent-blue); margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="<?= htmlspecialchars($cp['title']) ?>"><?= htmlspecialchars($cp['title']) ?></span>
-                                <span style="color: var(--text-dark); font-weight: 600; flex-shrink: 0;">— <?= htmlspecialchars($cp['section']) ?></span>
+                        <div class="home-class-preview">
+                            <div class="home-class-preview__main">
+                                <span class="home-class-preview__title" title="<?= htmlspecialchars($cp['title']) ?>"><?= htmlspecialchars($cp['title']) ?></span>
+                                <span class="home-class-preview__section">— <?= htmlspecialchars($cp['section']) ?></span>
                             </div>
-                            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-                                <span style="font-size: 0.85rem; color: var(--text-gray); margin-right: 12px;"><?= $cp['students'] ?> students</span>
-                                <span style="font-size: 0.85rem; font-weight: 600; color: <?= $cp['pct'] === 100 ? 'var(--risk-low)' : 'var(--risk-mod)' ?>;"><?= $cp['pct'] ?>% Prelim encoded</span>
+                            <div class="home-class-preview__meta">
+                                <span class="home-class-preview__students"><?= $cp['students'] ?> students</span>
+                                <span class="home-class-preview__badge" style="color: <?= $badgeColor ?>;"><?= $cp['pct'] ?>% Prelim encoded</span>
                             </div>
                         </div>
                     </a>

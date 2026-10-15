@@ -527,80 +527,150 @@ require_once '../includes/sidebar.php';
                 <?php if (empty($support_cases)): ?>
                     <p style="color: var(--text-gray); font-size: 0.9rem; padding: 20px 24px; margin: 0;">No active subject referrals require your attention.</p>
                 <?php else: ?>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                        <thead>
-                            <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                                <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Student Context</th>
-                                <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600; width: 25%;">Your Subject</th>
-                                <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Subject Snapshot</th>
-                                <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Status</th>
-                                <th style="padding: 10px 24px; text-align: center; color:var(--text-dark); font-weight:600; width: 15%;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($support_cases as $c): ?>
-                            <tr style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 10px 24px; vertical-align: middle;">
-                                    <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 4px; font-size: 1.05rem;"><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></div>
-                                    <div style="font-size: 0.85rem; color: var(--text-gray); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                        <span><span style="font-family: monospace; color: var(--text-dark);"><?= htmlspecialchars($c['student_no']) ?></span> • <?= htmlspecialchars($c['section']) ?></span>
-                                        <span class="purpose-pill <?= ($c['program_risk'] === 'HIGH' ? 'pill-red' : 'pill-amber') ?>" style="font-size: 0.65rem; padding: 2px 6px;">
-                                            PROGRAM RISK: <?= strtoupper(htmlspecialchars($c['program_risk'])) ?>
-                                        </span>
+                    <div class="referrals-desktop-view">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                            <thead>
+                                <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                                    <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Student Context</th>
+                                    <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600; width: 25%;">Your Subject</th>
+                                    <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Subject Snapshot</th>
+                                    <th style="padding: 10px 24px; text-align: left; color:var(--text-dark); font-weight:600;">Status</th>
+                                    <th style="padding: 10px 24px; text-align: center; color:var(--text-dark); font-weight:600; width: 15%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($support_cases as $c): ?>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 10px 24px; vertical-align: middle;">
+                                        <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 4px; font-size: 1.05rem;"><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></div>
+                                        <div style="font-size: 0.85rem; color: var(--text-gray); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <span><span style="font-family: monospace; color: var(--text-dark);"><?= htmlspecialchars($c['student_no']) ?></span> • <?= htmlspecialchars($c['section']) ?></span>
+                                            <span class="purpose-pill <?= ($c['program_risk'] === 'HIGH' ? 'pill-red' : 'pill-amber') ?>" style="font-size: 0.65rem; padding: 2px 6px;">
+                                                PROGRAM RISK: <?= strtoupper(htmlspecialchars($c['program_risk'])) ?>
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td style="padding: 10px 24px; vertical-align: middle;">
+                                        <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 2px;"><?= htmlspecialchars($c['subj_code']) ?></div>
+                                        <div style="font-size: 0.8rem; color: var(--text-gray);">
+                                            <?= htmlspecialchars($c['subj_title']) ?>
+                                        </div>
+                                    </td>
+
+                                    <td style="padding: 10px 24px; vertical-align: middle;">
+                                        <div style="margin-bottom: 2px; font-size: 0.85rem; color: var(--text-gray);">
+                                            Subject Risk: <strong style="color: var(--risk-high);"><?= strtoupper(htmlspecialchars($c['subject_risk_level'])) ?></strong>
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: var(--text-gray);">
+                                            Score: <strong style="color: var(--text-dark);"><?= number_format($c['latest_term_grade'], 0) ?>%</strong>
+                                            <span style="font-size: 0.75rem;">(<?= ucfirst($c['latest_term_checked']) ?>)</span>
+                                        </div>
+                                    </td>
+
+                                    <td style="padding: 10px 24px; vertical-align: middle;">
+                                        <?php if ($c['status'] === 'needs_review'): ?>
+                                            <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">NEEDS REVIEW</span>
+                                        <?php elseif ($c['status'] === 'action_taken'): ?>
+                                            <span style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">NOTICE SENT</span>
+                                        <?php elseif ($c['status'] === 'acknowledged'): ?>
+                                            <span style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">ACKNOWLEDGED</span>
+                                        <?php else: ?>
+                                            <span style="background: var(--bg-color); color: var(--text-gray); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">CLOSED</span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <td style="padding: 10px 24px; vertical-align: middle; text-align: center;">
+                                        <?php if ($c['status'] === 'needs_review'): ?>
+                                            <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['section'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_title'])) ?>')" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; white-space: nowrap;">
+                                                Review & Issue
+                                            </button>
+                                        <?php else:
+                                            $rLabel = !empty($c['reason_code']) ? getSupportReasonLabel($c['reason_code']) : null;
+                                            $issuedFormatted = formatNoticeTimelineDate($c['notice_issued_at'] ?? null);
+                                            $ackFormatted = formatNoticeAcknowledgmentStatus($c['student_acknowledged_at'] ?? null);
+                                        ?>
+                                            <button onclick="openViewNoticeModal(
+                                                <?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>,
+                                                <?= htmlspecialchars(json_encode($rLabel)) ?>,
+                                                <?= htmlspecialchars(json_encode($issuedFormatted)) ?>,
+                                                <?= htmlspecialchars(json_encode($ackFormatted)) ?>
+                                            )" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile Card View (MOB-023 Category A) -->
+                    <div class="referrals-mobile-cards">
+                        <?php foreach ($support_cases as $c):
+                            $rLabel = !empty($c['reason_code']) ? getSupportReasonLabel($c['reason_code']) : null;
+                            $issuedFormatted = formatNoticeTimelineDate($c['notice_issued_at'] ?? null);
+                            $ackFormatted = formatNoticeAcknowledgmentStatus($c['student_acknowledged_at'] ?? null);
+                        ?>
+                        <div class="referral-card card" style="margin-bottom:0; padding:16px; border:1px solid var(--border-color); border-radius:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+                                <div>
+                                    <div style="font-weight:700; color:var(--text-dark); font-size:1.05rem; line-height:1.3;"><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></div>
+                                    <div style="font-size:0.85rem; color:var(--text-gray); margin-top:2px;">
+                                        <span style="font-family:monospace; color:var(--text-dark); font-weight:600;"><?= htmlspecialchars($c['student_no']) ?></span> • <?= htmlspecialchars($c['section']) ?>
                                     </div>
-                                </td>
-                                
-                                <td style="padding: 10px 24px; vertical-align: middle;">
-                                    <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 2px;"><?= htmlspecialchars($c['subj_code']) ?></div>
-                                    <div style="font-size: 0.8rem; color: var(--text-gray);">
-                                        <?= htmlspecialchars($c['subj_title']) ?>
-                                    </div>
-                                </td>
-                                
-                                <td style="padding: 10px 24px; vertical-align: middle;">
-                                    <div style="margin-bottom: 2px; font-size: 0.85rem; color: var(--text-gray);">
-                                        Subject Risk: <strong style="color: var(--risk-high);"><?= strtoupper(htmlspecialchars($c['subject_risk_level'])) ?></strong>
-                                    </div>
-                                    <div style="font-size: 0.85rem; color: var(--text-gray);">
-                                        Score: <strong style="color: var(--text-dark);"><?= number_format($c['latest_term_grade'], 0) ?>%</strong> 
-                                        <span style="font-size: 0.75rem;">(<?= ucfirst($c['latest_term_checked']) ?>)</span>
-                                    </div>
-                                </td>
-                                
-                                <td style="padding: 10px 24px; vertical-align: middle;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                                    <span class="purpose-pill <?= ($c['program_risk'] === 'HIGH' ? 'pill-red' : 'pill-amber') ?>" style="font-size:0.65rem; padding:2px 6px;">
+                                        PROGRAM: <?= strtoupper(htmlspecialchars($c['program_risk'])) ?>
+                                    </span>
                                     <?php if ($c['status'] === 'needs_review'): ?>
-                                        <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">NEEDS REVIEW</span>
+                                        <span class="badge" style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); border: 1px solid rgba(217, 119, 6, 0.3); font-size: 0.72rem; padding: 3px 8px;">NEEDS REVIEW</span>
                                     <?php elseif ($c['status'] === 'action_taken'): ?>
-                                        <span style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">NOTICE SENT</span>
+                                        <span class="badge" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); font-size: 0.72rem; padding: 3px 8px;">NOTICE SENT</span>
                                     <?php elseif ($c['status'] === 'acknowledged'): ?>
-                                        <span style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">ACKNOWLEDGED</span>
+                                        <span class="badge" style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); border: 1px solid rgba(5, 150, 105, 0.3); font-size: 0.72rem; padding: 3px 8px;">ACKNOWLEDGED</span>
                                     <?php else: ?>
-                                        <span style="background: var(--bg-color); color: var(--text-gray); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">CLOSED</span>
+                                        <span class="badge" style="background: var(--bg-color); color: var(--text-gray); border: 1px solid var(--border-color); font-size: 0.72rem; padding: 3px 8px;">CLOSED</span>
                                     <?php endif; ?>
-                                </td>
-                                
-                                <td style="padding: 10px 24px; vertical-align: middle; text-align: center;">
-                                    <?php if ($c['status'] === 'needs_review'): ?>
-                                        <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['section'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_title'])) ?>')" style="background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.3); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.2s; white-space: nowrap;">
-                                            Review & Issue
-                                        </button>
-                                    <?php else:
-                                        $rLabel = !empty($c['reason_code']) ? getSupportReasonLabel($c['reason_code']) : null;
-                                        $issuedFormatted = formatNoticeTimelineDate($c['notice_issued_at'] ?? null);
-                                        $ackFormatted = formatNoticeAcknowledgmentStatus($c['student_acknowledged_at'] ?? null);
-                                    ?>
-                                        <button onclick="openViewNoticeModal(
-                                            <?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>,
-                                            <?= htmlspecialchars(json_encode($rLabel)) ?>,
-                                            <?= htmlspecialchars(json_encode($issuedFormatted)) ?>,
-                                            <?= htmlspecialchars(json_encode($ackFormatted)) ?>
-                                        )" class="btn-secondary" style="white-space: nowrap;">View Notice</button>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+
+                            <div style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:6px; padding:10px 12px; margin-bottom:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div>
+                                    <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-gray); font-weight:600; display:block;">Subject</span>
+                                    <span style="font-weight:600; color:var(--accent-blue); font-size:0.85rem; display:block;"><?= htmlspecialchars($c['subj_code']) ?></span>
+                                    <span style="font-size:0.8rem; color:var(--text-gray); line-height:1.2; display:block;"><?= htmlspecialchars($c['subj_title']) ?></span>
+                                </div>
+                                <div>
+                                    <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-gray); font-weight:600; display:block;">Subject Snapshot</span>
+                                    <span style="font-size:0.85rem; color:var(--text-gray); display:block;">
+                                        Risk: <strong style="color:var(--risk-high);"><?= strtoupper(htmlspecialchars($c['subject_risk_level'])) ?></strong>
+                                    </span>
+                                    <span style="font-size:0.85rem; color:var(--text-gray); display:block;">
+                                        Score: <strong style="color:var(--text-dark);"><?= number_format($c['latest_term_grade'], 0) ?>%</strong> <span style="font-size:0.75rem;">(<?= ucfirst($c['latest_term_checked']) ?>)</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <?php if ($c['status'] === 'needs_review'): ?>
+                                    <button onclick="openInterventionModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['first_name'] . ' ' . $c['last_name'])) ?>', '<?= htmlspecialchars(addslashes($c['section'])) ?>', '<?= htmlspecialchars(addslashes($c['subj_title'])) ?>')" class="btn btn--primary" style="width:100%; min-height:44px; font-size:0.9rem; justify-content:center;">
+                                        Review & Issue Notice
+                                    </button>
+                                <?php else: ?>
+                                    <button onclick="openViewNoticeModal(
+                                        <?= htmlspecialchars(json_encode($c['message_to_student'] ?? 'No message found.')) ?>,
+                                        <?= htmlspecialchars(json_encode($rLabel)) ?>,
+                                        <?= htmlspecialchars(json_encode($issuedFormatted)) ?>,
+                                        <?= htmlspecialchars(json_encode($ackFormatted)) ?>
+                                    )" class="btn btn--secondary" style="width:100%; min-height:44px; font-size:0.9rem; justify-content:center;">
+                                        View Notice
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>

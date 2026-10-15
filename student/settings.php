@@ -56,9 +56,9 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="stat-grid" style="grid-template-columns: 1fr 1fr; align-items: start;">
+    <div class="settings-layout">
 
-        <div class="card">
+        <div class="card settings-card">
             <div class="table-title">Change Password</div>
 
             <?php if ($error): ?>
@@ -72,19 +72,19 @@ require_once '../includes/sidebar.php';
                 <div style="margin-bottom:16px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Current Password</label>
                     <input type="password" name="current_password" required
-                           style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark);">
+                           style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark); box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:16px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">New Password</label>
                     <input type="password" name="new_password" required minlength="8"
-                           style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark);">
+                           style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark); box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:20px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Confirm New Password</label>
                     <input type="password" name="confirm_password" required minlength="8"
-                           style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark);">
+                           style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; font-size:1rem; background:var(--card-bg); color:var(--text-dark); box-sizing:border-box;">
                 </div>
-                <button type="submit" style="width:100%; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                <button type="submit" style="width:100%; min-height:44px; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
                     Update Password
                 </button>
             </form>

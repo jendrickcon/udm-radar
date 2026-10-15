@@ -99,17 +99,17 @@ require_once '../includes/sidebar.php';
             <form method="POST" action="settings.php">
                 <div style="margin-bottom:16px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Current Password</label>
-                    <input type="password" name="current_password" required style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
+                    <input type="password" name="current_password" required style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit; box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:16px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">New Password</label>
-                    <input type="password" name="new_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
+                    <input type="password" name="new_password" required minlength="8" style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit; box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:20px;">
                     <label style="display:block; font-weight:600; font-size:0.9rem; margin-bottom:6px; color:var(--text-dark);">Confirm New Password</label>
-                    <input type="password" name="confirm_password" required minlength="8" style="width:100%; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit;">
+                    <input type="password" name="confirm_password" required minlength="8" style="width:100%; min-height:44px; padding:12px 14px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-dark); font-family: inherit; box-sizing:border-box;">
                 </div>
-                <button type="submit" style="width:100%; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-family: inherit;">Update Password</button>
+                <button type="submit" style="width:100%; min-height:44px; padding:14px; background:var(--sidebar-bg); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-family: inherit;">Update Password</button>
             </form>
         </div>
 

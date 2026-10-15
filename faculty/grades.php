@@ -244,7 +244,7 @@ html { overflow-y: scroll; }
         <form method="GET" action="grades.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
             <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1; max-width: 380px;">
                 <label style="font-weight:600; font-size:0.85rem; color: var(--text-gray);">Select Class &amp; Section</label>
-                <select id="classSelect" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                <select id="classSelect" style="min-height: 44px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                     <option value="">— Select a class —</option>
                     <?php foreach ($myClasses as $c): $val = $c['subject_id'] . '_' . $c['section']; ?>
                         <option value="<?= htmlspecialchars($val) ?>" <?= $selectedClass === $val ? 'selected' : '' ?>><?= htmlspecialchars($c['title'] . ' — ' . $c['section']) ?></option>
@@ -253,7 +253,7 @@ html { overflow-y: scroll; }
             </div>
             <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1; max-width: 200px;">
                 <label style="font-weight:600; font-size:0.85rem; color: var(--text-gray);">Select Term</label>
-                <select id="termSelect" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                <select id="termSelect" style="min-height: 44px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                     <option value="prelim" <?= $selectedTerm === 'prelim' ? 'selected' : '' ?>>Prelim</option>
                     <option value="midterm" <?= $selectedTerm === 'midterm' ? 'selected' : '' ?>>Midterm</option>
                     <option value="prefinal" <?= $selectedTerm === 'prefinal' ? 'selected' : '' ?>>Pre-Final</option>
@@ -288,7 +288,7 @@ html { overflow-y: scroll; }
             <div style="padding: 16px 24px; background: var(--card-bg); border-bottom: 1px solid var(--border-color); display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
                     <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Submission Purpose</label>
-                    <select name="submission_type" id="submission_type" onchange="updateNoteUI()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <select name="submission_type" id="submission_type" onchange="updateNoteUI()" style="width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                         <option value="initial_encoding">Initial Term Submission</option>
                         <option value="bulk_correction">Bulk Grade Correction</option>
                         <option value="grade_concern">Student Grade Concern</option>
@@ -296,19 +296,20 @@ html { overflow-y: scroll; }
                 </div>
                 <div style="flex: 2; min-width: 300px;">
                     <label id="note_label" style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-gray); margin-bottom:4px;">Submission Note (Optional)</label>
-                    <input type="text" name="batch_note" id="batch_note" placeholder="e.g., Routine initial prelim grade submission" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
+                    <input type="text" name="batch_note" id="batch_note" placeholder="e.g., Routine initial prelim grade submission" style="width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;">
                 </div>
             </div>
 
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Student Roster Grade Submission Table" tabindex="0">
+                <span class="table-scroll-hint" aria-hidden="true">Scroll horizontally to view all columns &rarr;</span>
+                <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                         <tr style="background: var(--table-header-bg);">
-                            <th style="padding: 14px 24px; text-align: left; color: var(--text-dark); width: 150px;">Student No.</th>
-                            <th style="padding: 14px; text-align: left; color: var(--text-dark); width: 280px;">Name</th>
-                            <th style="padding: 14px; text-align: center; color: var(--text-dark); width: 100px;">Current</th>
-                            <th style="padding: 14px; text-align: left; color: var(--text-dark); width: 140px;">New Grade</th>
-                            <th style="padding: 14px 24px; text-align: left; color: var(--text-dark);">Individual Reason <span style="font-weight:normal; font-size:0.75rem; color:var(--text-gray);">(Overrides shared note)</span></th>
+                            <th scope="col" class="table-col--sticky" style="padding: 14px 24px; text-align: left; color: var(--text-dark); width: 150px;">Student No.</th>
+                            <th scope="col" style="padding: 14px; text-align: left; color: var(--text-dark); width: 280px;">Name</th>
+                            <th scope="col" style="padding: 14px; text-align: center; color: var(--text-dark); width: 100px;">Current</th>
+                            <th scope="col" style="padding: 14px; text-align: left; color: var(--text-dark); width: 140px;">New Grade</th>
+                            <th scope="col" style="padding: 14px 24px; text-align: left; color: var(--text-dark);">Individual Reason <span style="font-weight:normal; font-size:0.75rem; color:var(--text-gray);">(Overrides shared note)</span></th>
                         </tr>
                     </thead>
                     <tbody id="roster-tbody"></tbody>
@@ -316,7 +317,7 @@ html { overflow-y: scroll; }
             </div>
             
             <div style="padding: 20px 24px; background: var(--bg-color); border-top: 1px solid var(--border-color); text-align: right;">
-                <button type="submit" class="submit-btn" style="background:var(--accent-blue); color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:600; cursor:pointer; font-size: 0.95rem; font-family: inherit; transition: opacity 0.2s;">
+                <button type="submit" class="submit-btn" style="background:var(--accent-blue); color:white; border:none; min-height:44px; padding:12px 24px; border-radius:8px; font-weight:600; cursor:pointer; font-size: 0.95rem; font-family: inherit; transition: opacity 0.2s;">
                     Submit to Administration
                 </button>
             </div>
@@ -487,11 +488,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let reqLogic = isUpdate ? `oninput="let r = document.getElementById('reason_${s.student_id}'); let t = document.getElementById('submission_type').value; if(t !== 'bulk_correction') { r.required = (this.value.trim() !== '' && this.value.trim() !== '${currentRaw}'); }"` : '';
             
             rowsHtml += `<tr id="row_${s.student_id}" style="border-bottom: 1px solid var(--border-color);">
-                <td style="padding: 12px 24px; color: var(--text-gray); font-family: monospace;">${s.student_number}</td>
+                <td class="table-col--sticky" style="padding: 12px 24px; color: var(--text-gray); font-family: monospace;">${s.student_number}</td>
                 <td style="padding: 12px; font-weight: 600; color: var(--text-dark);">${formattedName}</td>
                 <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-gray);">${currentDisplay}</td>
-                <td style="padding: 12px;"><input type="text" id="input_${s.student_id}" name="grades[${s.student_id}]" placeholder="e.g. 85" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); text-align: center; font-family: inherit;" ${reqLogic}></td>
-                <td style="padding: 12px 24px;"><input type="text" id="reason_${s.student_id}" name="reasons[${s.student_id}]" placeholder="Optional..." style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;"></td>
+                <td style="padding: 12px;"><input type="text" id="input_${s.student_id}" name="grades[${s.student_id}]" placeholder="e.g. 85" style="width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); text-align: center; font-family: inherit;" ${reqLogic}></td>
+                <td style="padding: 12px 24px;"><input type="text" id="reason_${s.student_id}" name="reasons[${s.student_id}]" placeholder="Optional..." style="width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;"></td>
             </tr>`;
         });
         tbody.innerHTML = rowsHtml;

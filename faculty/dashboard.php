@@ -366,16 +366,18 @@ require_once '../includes/sidebar.php';
             </button>
         </div>
 
-        <div id="tab-content-class" class="data-table-scroll" role="region" aria-label="Class Performance Roster" tabindex="0">
-            <table style="width: 100%; border-collapse: collapse;">
+        <div id="tab-content-class" class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Class Performance Roster" tabindex="0">
+            <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view matrix &rarr;</div>
+            <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse;">
                 <caption class="sr-only">Class Performance Roster</caption>
                 <thead><tr id="class-thead-row" style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color);"></tr></thead>
                 <tbody id="roster-body-class"></tbody>
             </table>
         </div>
 
-        <div id="tab-content-overall" class="data-table-scroll" role="region" aria-label="Overall Section Standing" tabindex="0" style="display:none;">
-            <table style="width: 100%; border-collapse: collapse;">
+        <div id="tab-content-overall" class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Overall Section Standing" tabindex="0" style="display:none;">
+            <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view matrix &rarr;</div>
+            <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse;">
                 <caption class="sr-only">Overall Section Standing</caption>
                 <thead>
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
@@ -401,8 +403,9 @@ require_once '../includes/sidebar.php';
                 <strong>Note:</strong> This ranking is an academic reference only. Selection for programs or events should also consider eligibility, interest, availability, conduct, and program-specific requirements.
             </div>
         </div>
-        <div class="data-table-scroll" role="region" aria-label="Top Academic Performers Ranking" tabindex="0">
-            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+        <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Top Academic Performers Ranking" tabindex="0">
+            <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view matrix &rarr;</div>
+            <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
                 <caption class="sr-only">Top Academic Performers Ranking</caption>
                 <thead>
                     <tr style="background:var(--table-header-bg); border-bottom: 2px solid var(--border-color); color:var(--text-dark);">
@@ -473,8 +476,9 @@ require_once '../includes/sidebar.php';
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
             Detailed grade breakdown for your assigned subjects.
         </p>
-        <div class="data-table-scroll" role="region" aria-label="Student Grade Breakdown" tabindex="0">
-            <table style="width:100%; border-collapse: collapse;">
+        <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Student Grade Breakdown" tabindex="0">
+            <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view matrix &rarr;</div>
+            <table class="table-matrix data-table" style="width:100%; border-collapse: collapse;">
                 <caption class="sr-only">Student Grade Breakdown</caption>
                 <thead>
                     <tr style="background:var(--table-header-bg); border-bottom:1px solid var(--border-color);">
@@ -675,7 +679,7 @@ function renderClassTab(secName) {
 
         const escapedName = s.full_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         html += `<tr style="border-bottom:1px solid var(--border-color);">
-            <td style="font-weight:600; padding:12px;">
+            <td class="table-col--sticky" style="font-weight:600; padding:12px;">
                 <button type="button" class="table-record-link" onclick="openGradeModal('${s.user_id}', '${secName}')" aria-label="View grade breakdown for ${escapedName}">
                     ${s.full_name}
                 </button>
