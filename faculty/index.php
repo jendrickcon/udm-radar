@@ -64,6 +64,7 @@ foreach ($myLoads as $load) {
     if ($classTotal > 0 && $classEncoded < $classTotal) $attentionClasses++;
 
     $classPreview[] = [
+        'subject_id' => (int) $load['subject_id'],
         'title' => $load['title'], // FIXED: Use title instead of code
         'section' => $load['section'],
         'students' => $classTotal,
@@ -177,7 +178,11 @@ require_once '../includes/sidebar.php';
             <?php else: ?>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <?php foreach($classPreview as $cp): ?>
-                    <a href="grades.php" style="text-decoration: none; color: inherit; display: block;">
+                    <?php
+                        $classParam = (int)($cp['subject_id'] ?? 0) . '_' . ($cp['section'] ?? '');
+                        $classHref = 'grades.php?class=' . rawurlencode($classParam);
+                    ?>
+                    <a href="<?= htmlspecialchars($classHref) ?>" style="text-decoration: none; color: inherit; display: block;" aria-label="Open grade submission for <?= htmlspecialchars($cp['title']) ?> Section <?= htmlspecialchars($cp['section']) ?>">
                         <div class="home-class-preview" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
                             <!-- FIXED: Styling ensures long titles get truncated with ellipsis if they overflow -->
                             <div style="flex: 1; min-width: 0; display: flex; align-items: baseline;">
