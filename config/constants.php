@@ -719,10 +719,10 @@ function getPredictionExplanationMetadata(array $prediction, string $audience = 
     $riskUpper = strtoupper(trim((string) $risk));
     $actionAdvice = match ($riskUpper) {
         'HIGH' => ($audience === 'student')
-            ? 'We strongly encourage meeting with your subject instructors or visiting the academic support office during consultation hours.'
+            ? 'You may benefit from meeting with your subject instructors or visiting the academic support office during consultation hours.'
             : 'Consider initiating an academic referral or sending an early consultation notice to discuss support options.',
         'MODERATE' => ($audience === 'student')
-            ? 'Focus on upcoming midterm deliverables and consider joining peer review sessions in flagged subjects.'
+            ? 'You may want to focus on upcoming midterm deliverables and consider joining peer review sessions in subjects with a risk indicator.'
             : 'Monitor upcoming assessment scores and offer targeted guidance before midterms.',
         'LOW' => ($audience === 'student')
             ? 'You are maintaining solid academic progress. Keep up your current study habits and pace.'

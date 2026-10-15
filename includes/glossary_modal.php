@@ -115,8 +115,7 @@ $isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) &&
                         <li><strong>In-Term Evaluations:</strong> Encoded as raw percentages (0%–100%).</li>
                         <li><strong>Semester Final Grades &amp; GWA:</strong> Recorded on the 1.00–4.00 point scale.</li>
                         <li><strong>Special Statuses:</strong> <code>INC</code> (Incomplete), <code>DO</code> (Dropped Officially), <code>DU</code> (Dropped Unofficially).</li>
-                        <li><strong>Passing vs. Retention:</strong> While 1.00 is passing for individual course credit, grades below 1.75 indicate academic vulnerability and disqualify from Latin honors.</li>
-                        <li><strong>Latin Honors Thresholds:</strong> Summa Cum Laude (3.76 – 4.00), Magna Cum Laude (3.51 – 3.75), Cum Laude (3.25 – 3.50).</li>
+                        <li><strong>Course Results and Risk Indicators:</strong> A recorded course result and a UDM-RADAR risk indicator describe different things. Under the prototype’s current thresholds, a passing result may still display a High Risk indicator below 1.75. The indicator is advisory and does not change the recorded subject result.</li>
                     </ul>
                 </div>
             </div>
@@ -134,7 +133,7 @@ $isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) &&
                                 <span class="status-dot risk-low"></span> Low Risk (≥ 2.50)
                             </strong>
                             <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-gray);">
-                                Corresponds to "Very Satisfactory" and higher. Strong, stable academic trajectory.
+                                Corresponds to Very Satisfactory and higher.
                             </p>
                         </div>
                         <div style="border-left: 3px solid var(--risk-mod); padding: 8px 12px; background: rgba(217, 119, 6, 0.06); border-radius: 4px;">
@@ -150,7 +149,7 @@ $isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) &&
                                 <span class="status-dot risk-high"></span> High Risk (&lt; 1.75)
                             </strong>
                             <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-gray);">
-                                Corresponds to "Fair", barely "Passed", or failing history. Critical vulnerability; proactive faculty mentoring and support referrals advised.
+                                Corresponds to the Fair range or below. Faculty mentoring and support may help.
                             </p>
                         </div>
                     </div>
@@ -180,7 +179,7 @@ $isGuideAdmin = ($currentUserRole === 'admin' || (!empty($_GET['guide_role']) &&
                         This system is an institutional evaluation prototype operating on <strong>synthetic and de-identified academic records</strong>. It demonstrates predictive analytics and academic decision-support workflows for the Universidad de Manila College of Computing Studies.
                     </p>
                     <p style="margin: 0; font-size: 0.85rem; color: var(--text-dark); line-height: 1.55;">
-                        Projections and risk scores are non-punitive, non-binding, and intended exclusively to facilitate early mentoring, tutoring, and retention support.
+                        Projections and risk scores are non-punitive, non-binding, and intended exclusively to facilitate early mentoring and tutoring support.
                     </p>
                 </div>
             </div>

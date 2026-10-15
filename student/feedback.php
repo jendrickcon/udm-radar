@@ -465,14 +465,14 @@ require_once '../includes/sidebar.php';
                                 </div>
                                 <?php if (!empty($n['reason_code'])): ?>
                                 <div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-gray);">
-                                    <strong>Primary Reason:</strong> <span style="color: var(--accent-blue); font-weight: 600;"><?= htmlspecialchars(getSupportReasonLabel($n['reason_code'])) ?></span>
+                                    <strong>Reason shared by Faculty:</strong> <span style="color: var(--accent-blue); font-weight: 600;"><?= htmlspecialchars(getSupportReasonLabel($n['reason_code'])) ?></span>
                                 </div>
                                 <?php endif; ?>
                             </div>
                             <?php if ($n['student_acknowledged_at']): ?>
                                 <span style="background: rgba(5, 150, 105, 0.1); color: var(--risk-low); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">ACKNOWLEDGED</span>
                             <?php else: ?>
-                                <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">ACTION REQUIRED</span>
+                                <span style="background: rgba(217, 119, 6, 0.1); color: var(--risk-mod); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">NOT YET ACKNOWLEDGED</span>
                             <?php endif; ?>
                         </div>
                         

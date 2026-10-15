@@ -132,8 +132,8 @@ require_once '../includes/sidebar.php';
     <?php if ($attentionSubjects > 0): ?>
     <div class="home-attention" style="background: rgba(220, 38, 38, 0.08); border-left: 4px solid var(--risk-high); padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h4 style="margin: 0 0 4px 0; color: var(--risk-high); font-size: 1rem;">Action Required</h4>
-            <p style="margin: 0; color: var(--text-dark); font-size: 0.9rem;">You have <strong><?= $attentionSubjects ?> current subject<?= $attentionSubjects > 1 ? 's' : '' ?></strong> requiring closer academic attention.</p>
+            <h4 style="margin: 0 0 4px 0; color: var(--risk-high); font-size: 1rem;">For Your Review</h4>
+            <p style="margin: 0; color: var(--text-dark); font-size: 0.9rem;"><?= $attentionSubjects ?> current subject<?= $attentionSubjects > 1 ? 's' : '' ?> have a risk indicator. Open your dashboard to see the details and suggested next steps.</p>
         </div>
         <a href="dashboard.php" class="btn-primary" style="text-decoration: none; padding: 8px 16px; background: var(--risk-high); font-size: 0.85rem;">View Dashboard</a>
     </div>
@@ -210,7 +210,7 @@ require_once '../includes/sidebar.php';
                             <span style="color: var(--text-gray); font-size: 0.8rem;"><?= $date ?></span>
                         </div>
                         <p style="margin: 0; font-size: 0.85rem; color: var(--text-dark);">
-                            Academic trajectory evaluated. Current risk level classified as <strong><?= htmlspecialchars(ucfirst(strtolower($act['risk_level']))) ?></strong>.
+                            A new estimate was recorded. Current risk indicator: <strong><?= htmlspecialchars(ucfirst(strtolower($act['risk_level']))) ?></strong>.
                         </p>
                     </div>
                     <?php endforeach; ?>
