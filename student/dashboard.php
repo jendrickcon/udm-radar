@@ -52,7 +52,7 @@ $risk_factors = [];
 $at_risk_count = 0;
 
 if (($profile['status'] ?? 'Regular') === 'Irregular') {
-    $risk_factors[] = ['type' => 'danger', 'text' => 'Historical: Irregular enrollment status detected, which statistically increases graduation delay risk.'];
+    $risk_factors[] = ['type' => 'danger', 'text' => 'Historical: Your record shows an irregular enrollment pattern. Your Faculty adviser can help you plan your remaining terms.'];
 }
 
 foreach ($current_subjects as &$subj) {
@@ -77,13 +77,13 @@ foreach ($current_subjects as &$subj) {
         if ($subjRisk === 'HIGH') {
             $triage_alerts[] = [
                 'level' => 'HIGH',
-                'text' => "<strong>High Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. A significant intervention is required.",
+                'text' => "<strong>High Risk indicator:</strong> Your current grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. Additional grades may change this estimate. Consider discussing it with your Faculty adviser.",
             ];
             $at_risk_count++;
         } elseif ($subjRisk === 'MODERATE') {
             $triage_alerts[] = [
                 'level' => 'MODERATE',
-                'text' => "<strong>Moderate Risk:</strong> Your grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. This is dragging down your projected GWA.",
+                'text' => "<strong>Moderate Risk indicator:</strong> Your current grade in <strong>{$displayTitle}</strong> is " . round((float)$subj['prelim_raw']) . "%. This may affect your current estimate. Reviewing this subject may help.",
             ];
             $at_risk_count++;
         }
@@ -123,19 +123,19 @@ $explanation = getPredictionExplanationMetadata($ml_prediction ?: [
 ], 'student');
 
 if ($at_risk_count > 0) {
-    $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: You are below the Very Satisfactory threshold (< 2.50) in {$at_risk_count} current subject(s)."];
+    $risk_factors[] = ['type' => 'warning', 'text' => "Current Term: {$at_risk_count} current subject(s) have an estimate below 2.50. Additional grades may change this estimate."];
 }
 if ($historical_gwa !== null && $display_predicted_gwa !== null) {
     $diff = round($display_predicted_gwa - $historical_gwa, 2);
     
     if ($diff < 0) { 
         $drop = number_format(abs($diff), 2);
-        $risk_factors[] = ['type' => 'warning', 'text' => "Trajectory: Model projects a {$drop} point drop in your GWA based on current pacing."];
+        $risk_factors[] = ['type' => 'warning', 'text' => "Trajectory: The current estimate is {$drop} lower than your historical GWA. Additional grades may change this estimate."];
     } elseif ($diff > 0) {
         $gain = number_format($diff, 2);
-        $risk_factors[] = ['type' => 'success', 'text' => "Trajectory: Excellent pacing! Model projects a {$gain} point increase over your historical GWA."];
+        $risk_factors[] = ['type' => 'success', 'text' => "Trajectory: The current estimate is {$gain} higher than your historical GWA."];
     } else {
-        $risk_factors[] = ['type' => 'info', 'text' => "Trajectory: Consistent pacing. You are projected to perfectly maintain your historical GWA."];
+        $risk_factors[] = ['type' => 'info', 'text' => "Trajectory: The current estimate is close to your historical GWA."];
     }
 }
 
@@ -160,18 +160,22 @@ if (!empty($gradedSubjects)) {
     if (computeRiskFromAvg($lowestGrade) !== 'LOW') {
         $risk_factors[] = [
             'type' => 'info',
-            'text' => "Focus Recommendation: Your weakest current grade is in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>. Prioritize study time on {$plural} first!",
+            'text' => count($titles) > 1
+                ? "Focus suggestion: Your lowest current grades are in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>. Spending some extra study time there may help."
+                : "Focus suggestion: Your lowest current grade is in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>. Spending some extra study time there may help.",
         ];
     } else {
         $risk_factors[] = [
             'type' => 'info',
-            'text' => "Optimization Strategy: You are performing safely across the board! However, your lowest grade is in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>. Direct your extra effort toward {$plural}.",
+            'text' => count($titles) > 1
+                ? "Suggestion: Your current grades look steady. Your lowest grades are in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>."
+                : "Suggestion: Your current grades look steady. Your lowest grade is in <strong>{$subjectList}</strong> at <strong>" . round((float)$lowestRaw) . "%</strong>.",
         ];
     }
 }
 
 if (empty($risk_factors)) {
-    $risk_factors[] = ['type' => 'success', 'text' => 'Positive: No immediate risk factors detected. Consistent performance maintained.'];
+    $risk_factors[] = ['type' => 'success', 'text' => 'Positive: No risk factors are showing in your current records.'];
 }
 
 $riskBg = match($display_risk) {
@@ -185,30 +189,22 @@ $riskTooltip = "";
 $isAiSource = getPredictionSourceFamily($prediction_source) === 'model';
 if ($display_risk === 'HIGH') {
     $riskTooltip = $isAiSource
-        ? "High Risk: The AI model evaluated your trajectory and classified it as High Risk, typically driven by historical failed subjects or a low GWA trajectory."
-        : "High Risk: Based on your current recorded grades, your projected GWA is critically low (below 1.75) or you have multiple past failed subjects on record.";
+        ? "Estimate is in the High Risk range and may change as more grades are recorded."
+        : "Current estimate is below 1.75 and may change as more grades are recorded.";
 } elseif ($display_risk === 'MODERATE') {
-    $riskTooltip = $isAiSource
-        ? "Moderate Risk: The AI model evaluated your trajectory as Moderate Risk. Minor interventions and focus are recommended to secure your standing."
-        : "Moderate Risk: Based on your current recorded grades, your projected GWA is hovering near the safe threshold. Consistent effort is needed.";
+    $riskTooltip = "Current estimate is in the Moderate Risk range, from 1.75 to 2.49.";
 } elseif ($display_risk === 'LOW') {
-    $riskTooltip = $isAiSource
-        ? "Low Risk: Excellent. The AI model projects a highly stable trajectory."
-        : "Low Risk: Based on your current recorded grades, your projected GWA is well within the safe, highly satisfactory threshold.";
+    $riskTooltip = "Current estimate is in the Low Risk range, 2.50 and above.";
 } else {
     $riskTooltip = "There isn't enough recorded academic data yet to generate a prediction.";
 }
 
 $shortRiskSummary = match($display_risk) {
     'HIGH' => $isAiSource
-        ? 'Trajectory driven by historical failed subjects or low pacing.'
-        : 'Projected GWA is critically low or includes past failed subjects.',
-    'MODERATE' => $isAiSource
-        ? 'Borderline trajectory; academic monitoring recommended.'
-        : 'Projected GWA hovering near the retention threshold.',
-    'LOW' => $isAiSource
-        ? 'Model projects a stable, satisfactory trajectory.'
-        : 'Projected GWA well within safe standing threshold.',
+        ? "High Risk indicator: The AI-based projection places your current estimate in the High Risk range. Past records and current grades can both affect it, and additional grades may change it. Consider discussing it with your Faculty adviser."
+        : "High Risk indicator: Based on your current recorded grades, your current estimate is below 1.75. Additional grades may change this estimate. Consider discussing next steps with your Faculty adviser.",
+    'MODERATE' => "Moderate Risk indicator: Your current estimate is between 1.75 and 2.49. Reviewing your subjects may help. Additional grades may change this estimate.",
+    'LOW' => "Low Risk indicator: Your current estimate is 2.50 or above. Additional grades may change this estimate.",
     default => 'Insufficient academic data to determine trajectory.'
 };
 
@@ -457,12 +453,10 @@ require_once '../includes/sidebar.php';
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : ($isAtRiskGauge ? 'Academic Standing & Recovery Gauge' : 'Honor Track Proximity') ?></span>
+                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'GWA Reference Gauge' ?></span>
                 </h3>
                 <p id="gwa-gauge-description" style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : ($isAtRiskGauge
-                        ? 'Visualizes where your historical cumulative GWA falls relative to retention threshold (≥ 2.50) and Latin Honor eligibility (≥ 3.25).' 
-                        : 'Shows where your historical cumulative GWA falls on the official 1.00–4.00 scale relative to Latin Honor cutoffs.') ?>
+                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows your historical cumulative GWA against the prototype’s 2.50 and 3.25 reference lines. These are guidance markers, not official academic-standing decisions.' ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -474,16 +468,8 @@ require_once '../includes/sidebar.php';
                     <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Cumulative GWA (Historical)</span>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
-                    <?php if ($isAtRiskGauge): ?>
-                        <span style="color: var(--risk-high);">● High Risk (&lt; 1.75)</span>
-                        <span style="color: var(--risk-mod);">● Moderate (1.75–2.49)</span>
-                        <span style="color: var(--risk-low);">● Safe Standing (≥ 2.50)</span>
-                        <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
-                    <?php else: ?>
-                        <span style="color: var(--accent-blue);">● Cum Laude (<?= number_format(CUM_LAUDE, 2) ?>)</span>
-                        <span style="color: #1d4ed8;">● Magna (<?= number_format(MAGNA_CUM_LAUDE, 2) ?>)</span>
-                        <span style="color: #b45309;">● Summa (<?= number_format(SUMMA_CUM_LAUDE, 2) ?>)</span>
-                    <?php endif; ?>
+                    <span style="color: var(--risk-low);">● 2.50 reference line</span>
+                    <span style="color: var(--accent-blue);">● 3.25 reference line</span>
                 </div>
             </div>
         </div>
@@ -516,7 +502,7 @@ require_once '../includes/sidebar.php';
                 <?php if (empty($triage_alerts)): ?>
                     <p style="font-size: 0.85rem; color: var(--risk-low); font-weight: 600; display: flex; align-items: center; gap: 6px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        <span>All current subjects are within safe thresholds.</span>
+                        <span>No current subjects are showing a risk indicator.</span>
                     </p>
                 <?php else: ?>
                     <div>
@@ -749,7 +735,7 @@ function seekGrades(targetSelect) {
     if (pfLocked) currentTotal += (pfVal * WEIGHT_PREFINAL); else missingWeight += WEIGHT_PREFINAL;
 
     if (missingWeight === 0) {
-        alert("All terms are locked. Cannot reverse-calculate.");
+        alert("All terms already have grades, so there is nothing left to calculate.");
         targetSelect.value = ''; return;
     }
 
@@ -757,7 +743,7 @@ function seekGrades(targetSelect) {
     const requiredGrade = Math.ceil(pointsNeeded / missingWeight);
 
     if (requiredGrade > 100) {
-        alert("Mathematically impossible! You would need higher than 100% on remaining terms.");
+        alert("This target is not reachable with the remaining terms, because it would need more than 100%. Try a lower target.");
         targetSelect.value = '';
         if (!pLocked) pInput.value = ''; if (!mLocked) mInput.value = ''; if (!pfLocked) pfInput.value = '';
     } else {

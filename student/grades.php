@@ -266,11 +266,11 @@ require_once '../includes/sidebar.php';
                         if ($finalGradeStatus !== null) {
                             $subjTooltip = "Status: $finalGradeStatus. This is a recorded academic status, not a numeric grade — risk is not calculated for this subject until it's resolved.";
                         } elseif ($liveRisk === 'HIGH') {
-                            $subjTooltip = "High Risk: Your current subject grade point is below 1.75 (79% or lower). Significant focus is required to prevent failure.";
+                            $subjTooltip = "High Risk indicator: The current grade point is below 1.75 (79% or lower). This advisory indicator is separate from the subject’s recorded pass/fail result. Consider discussing the record with your Faculty adviser.";
                         } elseif ($liveRisk === 'MODERATE') {
-                            $subjTooltip = "Moderate Risk: Your current subject grade point is between 1.75 and 2.25 (80% - 85%). Improvement is recommended.";
+                            $subjTooltip = "Moderate Risk indicator: Your current subject grade point is between 1.75 and 2.49 (80% - 85%). Reviewing this subject may help. Additional grades may change this estimate.";
                         } elseif ($liveRisk === 'LOW') {
-                            $subjTooltip = "Low Risk: Excellent. Your current subject grade point is 2.50 (86%) or higher.";
+                            $subjTooltip = "Low Risk indicator: Your current subject grade point is 2.50 (86%) or higher. Additional grades may change this estimate.";
                         }
                     ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">

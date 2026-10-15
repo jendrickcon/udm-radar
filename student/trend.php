@@ -174,15 +174,15 @@ require_once '../includes/sidebar.php';
         <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <h4>Latest Completed Semester</h4>
             <h2 style="color: var(--accent-blue);"><?= $latest_hist !== null ? number_format($latest_hist, 2) : 'N/A' ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Most recent completed-term GWA</p>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Recorded Term GWA</p>
         </div>
         <div class="stat-card" style="border-left-color: #0d9488;">
-            <h4>Latest Current Period</h4>
+            <h4>Current Snapshot GWA</h4>
             <h2 style="color: #0d9488;"><?= $latest_curr !== null ? number_format($latest_curr, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= $curr_coverage_text ?></p>
         </div>
         <div class="stat-card" style="border-left-color: var(--risk-mod);">
-            <h4>Projected Semester GWA</h4>
+            <h4>Estimated GWA</h4>
             <h2 style="color: var(--risk-mod);"><?= $pred_gwa !== null ? number_format($pred_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                 <?= $prediction ? 'Generated on ' . date('M j, Y', strtotime($prediction['generated_at'])) : 'No Prediction Available' ?>
@@ -199,9 +199,9 @@ require_once '../includes/sidebar.php';
             <p class="empty-state">Not enough data recorded yet to plot a trajectory line chart.</p>
         <?php else: ?>
             <div style="display: flex; gap: 20px; margin-bottom: 16px; font-size: 0.8rem; font-weight: 600; color: var(--text-gray); flex-wrap: wrap;">
-                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-blue);"></div> Completed Semester GWA</span>
-                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: #0d9488;"></div> Current Term Snapshot</span>
-                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--risk-mod);"></div> Projected Semester GWA</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-blue);"></div> Recorded Term GWA</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: #0d9488;"></div> Current Snapshot GWA</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--risk-mod);"></div> Estimated GWA</span>
             </div>
             
             <div style="position: relative; height: 350px; width: 100%;">
@@ -283,7 +283,7 @@ const trendChart = new Chart(ctx, {
                     label: function(context) {
                         let label = context.dataset.label || '';
                         let type = semDataTypes[context.dataIndex];
-                        let prefix = type === 'historical' ? 'Official Term GWA: ' : (type === 'current' ? 'Active Snapshot GWA: ' : 'Predicted GWA: ');
+                        let prefix = type === 'historical' ? 'Recorded Term GWA: ' : (type === 'current' ? 'Current Snapshot GWA: ' : 'Estimated GWA: ');
                         return `${prefix}${context.parsed.y.toFixed(2)}`;
                     }
                 }
