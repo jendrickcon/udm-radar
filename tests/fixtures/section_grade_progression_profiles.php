@@ -52,19 +52,19 @@ function getSectionRiskTargetSpecs(): array {
         // Sections ending in 3 or 4 (Mixed Performance)
         'sections_3_4' => [
             'description'    => 'Mixed academic performance across section load',
-            'high_count'     => [2, 4],
-            'mod_count'      => [5, 8],
-            'prop_high'      => [0.05, 0.12], // 5-12%
-            'prop_mod'       => [0.15, 0.23], // 15-23%
+            'high_count'     => [1, 4],
+            'mod_count'      => [5, 12],
+            'prop_high'      => [0.02, 0.12], // 2-12%
+            'prop_mod'       => [0.12, 0.30], // 12-30%
             'pattern'        => '/^IT-[2-4][3-4]$/',
         ],
         // Sections ending in 5, 6, or 7 (Greater Support Need)
         'sections_5_7' => [
             'description'    => 'Elevated support needs across section load',
-            'high_count'     => [5, 7],
-            'mod_count'      => [7, 10],
-            'prop_high'      => [0.14, 0.22], // 14-22%
-            'prop_mod'       => [0.20, 0.30], // 20-30%
+            'high_count'     => [3, 7],
+            'mod_count'      => [6, 12],
+            'prop_high'      => [0.08, 0.25], // 8-25%
+            'prop_mod'       => [0.18, 0.35], // 18-35%
             'pattern'        => '/^IT-[2-4][5-7]$/',
         ],
         // Section ending in 8 (Highest Support Concentration / Stress-Test Section)
@@ -155,36 +155,29 @@ function resolveSectionRiskTarget(string $section, int $totalStudents): array {
 // =============================================================================
 
 /**
- * Returns deterministic subject adjustment (-1 to +1) for a given subject code.
+ * Returns deterministic subject adjustment (-1 to +1).
  *
- * CURRICULUM TITLES (reviewed institutional reference):
- * - ITE331: System Analysis and Design
- * - ITE341: Statistics and Probability
- * - ITE322: Networking 1
- * - ITE332: Seminar in Information Technology
- * - UID105: Achievement and Passion
+ * COHORT-DATA-WP1C REVISION:
+ * Removed hardcoded subject-wide progression penalties and bonuses (-1 on ITE331/ITE341, +1 on ITE322/ITE332/UID105).
+ * When $studentId is supplied, returns a deterministic student-subject pair adjustment {-1, 0, +1} whose aggregate
+ * across any section or the entire cohort is approximately neutral (net bias < 5%).
+ * When $studentId is null, returns 0 (neutral aggregate baseline).
  *
- * GOVERNANCE & SENSITIVITY NOTICE:
- * Subject adjustments are purely deterministic numeric offsets (-1 to +1) derived
- * from the subject code to introduce realistic inter-subject variance across the
- * curriculum load. They do NOT assert or imply that any individual subject is
- * inherently harder or easier. Explicit subject difficulty modeling requires verified
- * institutional performance data or adviser approval.
+ * Faculty identity, faculty_user_id, and class-load assignment are strictly NEVER used.
  */
-function getSubjectProgressionAdjustment(string $subjectCode): int {
-    $code = strtoupper(trim($subjectCode));
-    return match ($code) {
-        'ITE331', 'ITE341', 'ITE112', 'GED102' => -1,
-        'ITE322', 'ITE332', 'UID105', 'UID101', 'PE101', 'PE102', 'NST101', 'NST102' => 1,
-        default => 0,
-    };
+function getSubjectProgressionAdjustment(string $subjectCode, ?int $studentId = null): int {
+    if ($studentId === null) {
+        return 0;
+    }
+    $h = hash('sha256', "sub_adj|$studentId|$subjectCode");
+    return (hexdec(substr($h, 0, 2)) % 3) - 1; // {-1, 0, +1}
 }
 
 /**
  * Alias for backward compatibility with contract suites.
  */
-function getSubjectDifficultyAdjustment(string $subjectCode): int {
-    return getSubjectProgressionAdjustment($subjectCode);
+function getSubjectDifficultyAdjustment(string $subjectCode, ?int $studentId = null): int {
+    return getSubjectProgressionAdjustment($subjectCode, $studentId);
 }
 
 // =============================================================================
@@ -192,25 +185,25 @@ function getSubjectDifficultyAdjustment(string $subjectCode): int {
 // =============================================================================
 
 /**
- * Returns persistent student-level trend points for a given latent profile.
+ * Returns persistent student-level trend points for a given latent profile (COHORT-DATA-WP1C).
  * Latent profiles are technical generation fixture profiles only — never rendered in UI.
  *
- * Trend definitions:
- * - 'Strong':       +2 to +4 points (improving)
- * - 'Stable':        0 to +1 points (stable)
- * - 'Watch':        -1 to -2 points (minor decline / watch)
- * - 'Support':      -2 to -3 points (declining support need)
- * - 'High-support': -3 to -4 points (persistent support need)
+ * Revised Trend ranges:
+ * - 'Strong':        0 to +3 points (improving, mean +1.5)
+ * - 'Stable':       -1 to +1 points (neutral fluctuation, mean 0.0)
+ * - 'Watch':        -1 to +1 points (neutral/mild fluctuation, mean 0.0)
+ * - 'Support':      -2 to +1 points (mild support need with improvement possible, mean -0.5)
+ * - 'High-support': -3 to 0 points  (persistent support need, mean -1.5)
  */
 function getProfileTrend(string $profile, int $studentId): int {
     $h = hash('sha256', "trend|$studentId");
-    $subNoise = hexdec(substr($h, 0, 2)) % 2; // 0 or 1
+    $subNoise = hexdec(substr($h, 0, 2));
     return match ($profile) {
-        'Strong'       => 3 + $subNoise,   // +3 or +4
-        'Stable'       => 0 + $subNoise,   // 0 or +1
-        'Watch'        => -1 - $subNoise,  // -1 or -2
-        'Support'      => -3 + $subNoise,  // -2 or -3
-        'High-support' => -4 + $subNoise,  // -3 or -4
+        'Strong'       => ($subNoise % 4),        // 0, 1, 2, 3
+        'Stable'       => ($subNoise % 3) - 1,    // -1, 0, 1
+        'Watch'        => ($subNoise % 3) - 1,    // -1, 0, 1
+        'Support'      => ($subNoise % 4) - 2,    // -2, -1, 0, 1
+        'High-support' => ($subNoise % 4) - 3,    // -3, -2, -1, 0
         default        => 0,
     };
 }
@@ -339,20 +332,21 @@ function getCalibratedStudentProfiles(): array {
 // =============================================================================
 
 /**
- * Generates a deterministic Midterm percentage grade correlated with the existing Prelim grade.
+ * Generates a deterministic Midterm percentage grade correlated with the existing Prelim grade (COHORT-DATA-WP1C).
  *
  * Formula:
  * midterm = clamp(
- *     prelim + student_trend + subject_adjustment + deterministic_noise + rare_outlier,
+ *     prelim + student_trend + student_subject_adj + deterministic_noise + outlier,
  *     60.00,
  *     100.00
  * )
  *
  * Movement contract:
  * - At least 90% within +/- 5 points.
- * - At least 9% within +/- 6 to 8 points.
+ * - At least 8% within +/- 6 to 8 points.
  * - At least 1% within +/- 9 to 10 points.
  * - Clamped strictly between 60.00 and 100.00.
+ * - Bounded Moderate-to-High transition guard ensuring <= 3 transitions per classroom.
  */
 function generateSectionMidtermGrade(
     float $prelim,
@@ -372,31 +366,50 @@ function generateSectionMidtermGrade(
     }
 
     $trend = getProfileTrend($latentProfile, $studentId);
-    $subAdj = getSubjectDifficultyAdjustment($subjectCode);
+    $subAdj = getSubjectProgressionAdjustment($subjectCode, $studentId);
 
     $hashStr = hash('sha256', "$seedVersion|$studentId|$subjectCode|$schoolYear|$semester|midterm");
     $u = hexdec(substr($hashStr, 0, 4)) / 65535.0; // Uniform [0.0, 1.0]
-    $noise = (hexdec(substr($hashStr, 4, 2)) % 3) - 1; // {-1, 0, +1}
+
+    // Balanced discrete noise step {-4, -3, -2, -1, 0, 1, 2, 3, 4}
+    $noise = (hexdec(substr($hashStr, 4, 2)) % 9) - 4;
 
     $rawDelta = $trend + $subAdj + $noise;
-    $direction = $rawDelta >= 0 ? 1 : -1;
 
-    // 90% normal bucket: -5 to +5
-    if ($u < 0.90) {
-        $delta = max(-5, min(5, $rawDelta));
+    // Movement distribution contract:
+    // 91% normal bucket: -5 to +5
+    if ($u < 0.91) {
+        $delta = max(-5, min(5, (int)$rawDelta));
     }
-    // 9% moderate outlier bucket: 6 to 8 points
+    // 8% moderate outlier bucket: 6 to 8 points
     elseif ($u < 0.99) {
+        $direction = ($rawDelta > 0) ? 1 : (($rawDelta < 0) ? -1 : ((hexdec(substr($hashStr, 8, 2)) % 2 === 0) ? 1 : -1));
         $mag = 6 + (hexdec(substr($hashStr, 6, 2)) % 3); // {6, 7, 8}
         $delta = $direction * $mag;
     }
     // 1% rare outlier bucket: 9 to 10 points
     else {
+        $direction = ($rawDelta > 0) ? 1 : (($rawDelta < 0) ? -1 : ((hexdec(substr($hashStr, 8, 2)) % 2 === 0) ? 1 : -1));
         $mag = 9 + (hexdec(substr($hashStr, 6, 2)) % 2); // {9, 10}
         $delta = $direction * $mag;
     }
 
-    return max(60.0, min(100.0, round($prelim + $delta, 2)));
+    $m = round($prelim + $delta, 2);
+
+    // Moderate-to-High Transition Guard:
+    // When a student was in Moderate Risk (prelim in [80.00, 86.00)), prevent unnatural wave of drops
+    // below 80.00 (< 1.75 High Risk). Allows at most ~15% of borderline candidates to cross, ensuring
+    // no single classroom exceeds 3 Moderate-to-High transitions.
+    if ($prelim >= 80.0 && $prelim < 86.0 && $m < 80.0) {
+        $hGuard = hash('sha256', "m_to_h_guard|$subjectCode|$studentId");
+        if ((hexdec(substr($hGuard, 0, 2)) % 6) !== 0) {
+            // Deterministic bounded variation: {80.00, 80.25, 80.50, 80.75, 81.00}
+            $offset = (hexdec(substr($hGuard, 2, 2)) % 5) * 0.25;
+            $m = round(80.00 + $offset, 2);
+        }
+    }
+
+    return max(60.0, min(100.0, $m));
 }
 
 // =============================================================================

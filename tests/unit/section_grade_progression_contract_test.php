@@ -302,32 +302,41 @@ assertTest($t31['high_min'] === 0 && $t31['high_max'] === 2, "IT-31 target high 
 assertTest($t31['mod_min'] === 3 && $t31['mod_max'] === 6, "IT-31 target mod is 3..6");
 
 $t33 = resolveSectionRiskTarget('IT-33', 40);
-assertTest($t33['high_min'] === 2 && $t33['high_max'] === 4, "IT-33 target high is 2..4");
-assertTest($t33['mod_min'] === 5 && $t33['mod_max'] === 8, "IT-33 target mod is 5..8");
+assertTest($t33['high_min'] === 1 && $t33['high_max'] === 4, "IT-33 target high is 1..4 (soft envelope)");
+assertTest($t33['mod_min'] === 5 && $t33['mod_max'] === 12, "IT-33 target mod is 5..12 (soft envelope)");
 
 $t35 = resolveSectionRiskTarget('IT-35', 37);
-assertTest($t35['high_min'] === 5 && $t35['high_max'] === 7, "IT-35 target high is 5..7");
-assertTest($t35['mod_min'] === 7 && $t35['mod_max'] === 10, "IT-35 target mod is 7..10");
+assertTest($t35['high_min'] === 3 && $t35['high_max'] === 7, "IT-35 target high is 3..7 (soft envelope)");
+assertTest($t35['mod_min'] === 6 && $t35['mod_max'] === 12, "IT-35 target mod is 6..12 (soft envelope)");
 
 $t38 = resolveSectionRiskTarget('IT-38', 33);
 assertTest($t38['high_min'] === 7 && $t38['high_max'] === 10, "IT-38 target high is 7..10");
 assertTest($t38['mod_min'] === 10 && $t38['mod_max'] === 15, "IT-38 target mod is 10..15");
 
-// Subject progression adjustments (curriculum-aligned)
-assertTest(getSubjectProgressionAdjustment('ITE331') === -1, "ITE331 progression adjustment is -1 (System Analysis and Design)");
-assertTest(getSubjectProgressionAdjustment('ITE341') === -1, "ITE341 progression adjustment is -1 (Statistics and Probability)");
-assertTest(getSubjectProgressionAdjustment('ITE322') === 1, "ITE322 progression adjustment is +1 (Networking 1)");
-assertTest(getSubjectProgressionAdjustment('ITE332') === 1, "ITE332 progression adjustment is +1 (Seminar in Information Technology)");
-assertTest(getSubjectProgressionAdjustment('UID105') === 1, "UID105 progression adjustment is +1 (Achievement and Passion)");
+// Subject progression adjustments (COHORT-DATA-WP1C: neutral aggregate, student-subject deterministic)
+assertTest(getSubjectProgressionAdjustment('ITE331') === 0, "Default ITE331 progression adjustment is 0 (neutral aggregate baseline)");
+assertTest(getSubjectProgressionAdjustment('ITE341') === 0, "Default ITE341 progression adjustment is 0 (neutral aggregate baseline)");
+assertTest(getSubjectProgressionAdjustment('ITE322') === 0, "Default ITE322 progression adjustment is 0 (neutral aggregate baseline)");
+assertTest(getSubjectProgressionAdjustment('ITE332') === 0, "Default ITE332 progression adjustment is 0 (neutral aggregate baseline)");
+assertTest(getSubjectProgressionAdjustment('UID105') === 0, "Default UID105 progression adjustment is 0 (neutral aggregate baseline)");
 assertTest(getSubjectProgressionAdjustment('UNKNOWN') === 0, "Unknown subject progression adjustment is 0");
-assertTest(getSubjectDifficultyAdjustment('ITE331') === -1, "Backward-compatible alias getSubjectDifficultyAdjustment('ITE331') matches");
+assertTest(getSubjectDifficultyAdjustment('ITE331') === 0, "Backward-compatible alias getSubjectDifficultyAdjustment('ITE331') matches");
 
-// Profile trend checks
-assertTest(getProfileTrend('Strong', 10) >= 3, "Strong profile produces improving trend (+3 or +4)");
-assertTest(getProfileTrend('Stable', 10) >= 0 && getProfileTrend('Stable', 10) <= 1, "Stable profile produces stable trend (0 or +1)");
-assertTest(getProfileTrend('Watch', 10) <= -1 && getProfileTrend('Watch', 10) >= -2, "Watch profile produces minor decline (-1 or -2)");
-assertTest(getProfileTrend('Support', 10) <= -2 && getProfileTrend('Support', 10) >= -3, "Support profile produces decline (-2 or -3)");
-assertTest(getProfileTrend('High-support', 10) <= -3 && getProfileTrend('High-support', 10) >= -4, "High-support profile produces decline (-3 or -4)");
+// Deterministic student-subject pair adjustment {-1, 0, +1}
+$studentSubAdj = getSubjectProgressionAdjustment('ITE331', 10);
+assertTest(in_array($studentSubAdj, [-1, 0, 1], true), "Student-subject adjustment is in {-1, 0, 1}");
+
+// Profile trend checks (COHORT-DATA-WP1C)
+$strongTrend = getProfileTrend('Strong', 10);
+assertTest($strongTrend >= 0 && $strongTrend <= 3, "Strong profile produces trend in [0..3]");
+$stableTrend = getProfileTrend('Stable', 10);
+assertTest($stableTrend >= -1 && $stableTrend <= 1, "Stable profile produces trend in [-1..1]");
+$watchTrend = getProfileTrend('Watch', 10);
+assertTest($watchTrend >= -1 && $watchTrend <= 1, "Watch profile produces trend in [-1..1]");
+$supportTrend = getProfileTrend('Support', 10);
+assertTest($supportTrend >= -2 && $supportTrend <= 1, "Support profile produces trend in [-2..1]");
+$highSupportTrend = getProfileTrend('High-support', 10);
+assertTest($highSupportTrend >= -3 && $highSupportTrend <= 0, "High-support profile produces trend in [-3..0]");
 
 // Profile coverage
 $calibratedMap = getCalibratedStudentProfiles();

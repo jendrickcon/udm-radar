@@ -508,6 +508,103 @@ assertTest($passwordsCleanUnaltered, "All 288 section account password hashes re
 $resReSeed = runSeeder(['--target=scratch']);
 assertTest($resReSeed['code'] === 0, "Re-seeding scratch database succeeds idempotently");
 
+// -----------------------------------------------------------------------------
+// 11. Balanced Synthetic Progression & Guardrails (COHORT-DATA-WP1C)
+// -----------------------------------------------------------------------------
+echo "\n=== 11. Balanced Synthetic Progression & Guardrails (COHORT-DATA-WP1C) ===\n";
+
+// A. Section directional mixture & Section means
+$progStmt = $db->query("
+    SELECT sp.section, s.code, g.prelim, g.midterm
+    FROM grades g
+    JOIN student_profiles sp ON sp.user_id = g.student_id
+    JOIN subjects s ON s.id = g.subject_id
+    WHERE g.student_id IN ($inClause)
+      AND g.is_current = 1
+      AND g.school_year = '2026-2027'
+      AND g.semester = 1
+");
+$allGradeRows = $progStmt->fetchAll();
+
+$secMap = [];
+$subMap = [];
+$classMap = [];
+
+foreach ($allGradeRows as $gr) {
+    $sec = $gr['section'];
+    $sub = $gr['code'];
+    $p = (float) $gr['prelim'];
+    $m = (float) $gr['midterm'];
+    $delta = round($m - $p, 2);
+
+    $dir = ($delta > 0.0) ? 'pos' : (($delta < 0.0) ? 'neg' : 'zero');
+
+    $secMap[$sec]['p_sum'] = ($secMap[$sec]['p_sum'] ?? 0) + $p;
+    $secMap[$sec]['m_sum'] = ($secMap[$sec]['m_sum'] ?? 0) + $m;
+    $secMap[$sec]['count'] = ($secMap[$sec]['count'] ?? 0) + 1;
+    $secMap[$sec][$dir] = ($secMap[$sec][$dir] ?? 0) + 1;
+
+    if ($delta >= -2.0 && $delta <= 2.0) {
+        $secMap[$sec]['near_stable'] = ($secMap[$sec]['near_stable'] ?? 0) + 1;
+    }
+    if ($delta > 2.0) {
+        $secMap[$sec]['mat_improved'] = ($secMap[$sec]['mat_improved'] ?? 0) + 1;
+    }
+    if ($delta < -2.0) {
+        $secMap[$sec]['mat_declined'] = ($secMap[$sec]['mat_declined'] ?? 0) + 1;
+    }
+
+    $subMap[$sub]['count'] = ($subMap[$sub]['count'] ?? 0) + 1;
+    $subMap[$sub][$dir] = ($subMap[$sub][$dir] ?? 0) + 1;
+
+    $clsKey = "$sec|$sub";
+    $classMap[$clsKey]['count'] = ($classMap[$clsKey]['count'] ?? 0) + 1;
+    $classMap[$clsKey][$dir] = ($classMap[$clsKey][$dir] ?? 0) + 1;
+    if ($p >= 80.0 && $p < 86.0 && $m < 80.0) {
+        $classMap[$clsKey]['m_to_h'] = ($classMap[$clsKey]['m_to_h'] ?? 0) + 1;
+    }
+}
+
+// Assertions on sections: mean delta in [-1.5, +1.5], each has pos, zero, neg, near_stable
+foreach ($secMap as $sec => $sData) {
+    $n = $sData['count'];
+    $pMean = $sData['p_sum'] / $n;
+    $mMean = $sData['m_sum'] / $n;
+    $deltaMean = round($mMean - $pMean, 2);
+
+    assertTest(abs($deltaMean) <= 1.5, sprintf("Section %s mean delta %+.2f is within +/-1.5%%", $sec, $deltaMean));
+    assertTest(($sData['pos'] ?? 0) > 0, sprintf("Section %s has positive movement grades (%d)", $sec, $sData['pos'] ?? 0));
+    assertTest(($sData['zero'] ?? 0) > 0, sprintf("Section %s has unchanged grades (delta=0: %d)", $sec, $sData['zero'] ?? 0));
+    assertTest(($sData['neg'] ?? 0) > 0, sprintf("Section %s has negative movement grades (%d)", $sec, $sData['neg'] ?? 0));
+    assertTest(($sData['near_stable'] ?? 0) > 0, sprintf("Section %s has near-stable grades ([-2..+2]: %d)", $sec, $sData['near_stable'] ?? 0));
+}
+
+// Assertions on subjects: both positive and negative movement, net directional bias <= 50%
+foreach ($subMap as $sub => $sbData) {
+    $n = $sbData['count'];
+    $pos = $sbData['pos'] ?? 0;
+    $neg = $sbData['neg'] ?? 0;
+    $netBias = abs($pos - $neg) / $n * 100.0;
+
+    assertTest($pos > 0 && $neg > 0, sprintf("Subject %s has both positive (%d) and negative (%d) movement", $sub, $pos, $neg));
+    assertTest($netBias <= 50.0, sprintf("Subject %s net directional bias %.1f%% is <= 50%%", $sub, $netBias));
+}
+
+// Classroom guard: every classroom has >= 1 improving student (positive movement); max M->H transitions <= 3
+$allClassroomsHaveImp = true;
+$maxTransitions = 0;
+foreach ($classMap as $cls => $cData) {
+    if (($cData['pos'] ?? 0) === 0) {
+        $allClassroomsHaveImp = false;
+    }
+    $mToH = $cData['m_to_h'] ?? 0;
+    if ($mToH > $maxTransitions) {
+        $maxTransitions = $mToH;
+    }
+}
+assertTest($allClassroomsHaveImp, "Every subject-section classroom has at least 1 student with positive movement (0 classrooms with zero improving)");
+assertTest($maxTransitions <= 3, sprintf("Moderate-to-High transitions per classroom is %d (contract <= 3)", $maxTransitions));
+
 echo "\n========================================================================\n";
 echo "INTEGRATION TEST SUMMARY: $totalTests tests executed, $failedTests failures.\n";
 echo "========================================================================\n";

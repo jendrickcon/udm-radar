@@ -123,6 +123,10 @@ require_once '../includes/sidebar.php';
     .admin-dashboard .roster-controls > * { flex: 1 1 100%; }
 }
 
+@keyframes batchSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .batch-spinner { animation: none !important; } }
+#table-card { min-width: 0; max-width: 100%; overflow-x: auto; }
+
 /* Dashboard Specific Elements */
 .sortable-col { cursor: pointer; user-select: none; transition: background 0.15s; }
 .sortable-col:hover { background: var(--table-header-bg) !important; }
@@ -218,22 +222,28 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
 
     <!-- SYSTEM-WIDE PREDICTION UPDATE -->
-    <div class="card" style="margin-bottom: 24px; padding: 16px 24px; border-left: 4px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div style="flex: 1; min-width: 200px;">
-            <h3 style="margin: 0 0 6px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">System-Wide Prediction Update</h3>
-            <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem; line-height: 1.4;">
-                Recalculate academic predictions and derived risk classifications for all active students. Decision Tree results are used when the trained model is available.
-            </p>
-            <p style="margin: 6px 0 0 0; color: var(--text-gray); font-size: 0.8rem; font-weight: 600;">
-                Last run: <?= htmlspecialchars($lastRunText) ?>
-            </p>
+    <div class="card" style="margin-bottom: 24px; padding: 16px 24px; border-left: 4px solid var(--border-color); display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div style="flex: 1; min-width: 200px;">
+                <h3 style="margin: 0 0 6px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">System-Wide Prediction Update</h3>
+                <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem; line-height: 1.4;">
+                    Recalculate academic predictions and derived risk classifications for all active students. Decision Tree results are used when the trained model is available.
+                </p>
+                <p style="margin: 6px 0 0 0; color: var(--text-gray); font-size: 0.8rem; line-height: 1.4;">
+                    Prediction basis: recorded academic history and current Prelim grades. Midterm records are available for academic review but are not included in the current trained prediction model.
+                </p>
+                <p style="margin: 6px 0 0 0; color: var(--text-gray); font-size: 0.8rem; font-weight: 600;">
+                    Last run: <?= htmlspecialchars($lastRunText) ?>
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2); display: inline-flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span>Run Predictions</span>
+                </button>
+            </div>
         </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="runBatchBtn" class="control-btn" onclick="runBatchPredictions()" style="padding: 10px 20px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(30, 77, 183, 0.2); display: inline-flex; align-items: center; gap: 8px;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                <span>Run Predictions</span>
-            </button>
-        </div>
+        <div id="batchPredictStatus" role="status" aria-live="polite" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; line-height: 1.4;"></div>
     </div>
 
     <!-- TIER 2: POPULATION DATA & FILTERS -->
@@ -492,13 +502,30 @@ function triggerSnapshotExportPdf() {
 
 const csrfToken = <?= json_encode(getCsrfToken()) ?>;
 
+let isBatchRunning = false;
+
 function runBatchPredictions() {
+    if (isBatchRunning) {
+        return;
+    }
+
     const btn = document.getElementById('runBatchBtn');
+    const statusDiv = document.getElementById('batchPredictStatus');
     const originalText = btn.innerHTML;
     
-    btn.innerHTML = '<span style="color: white;">⏳ Processing...</span>';
+    isBatchRunning = true;
+    btn.innerHTML = '<span class="batch-spinner" style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:batchSpin 0.8s linear infinite; vertical-align:middle; margin-right:6px;" aria-hidden="true"></span><span>Running Batch Predict…</span>';
     btn.style.opacity = '0.7';
     btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+
+    if (statusDiv) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = 'var(--bg-light, #f8f9fa)';
+        statusDiv.style.border = '1px solid var(--border-color, #e2e8f0)';
+        statusDiv.style.color = 'var(--text-dark, #2d3748)';
+        statusDiv.innerHTML = '<strong>Batch prediction is running.</strong> Keep this page open while UDM-RADAR processes the eligible student records.';
+    }
 
     fetch('../api/batch_predict.php', {
         method: 'POST',
@@ -510,23 +537,56 @@ function runBatchPredictions() {
             csrf_token: csrfToken
         })
     })
-    .then(response => response.json())
+    .then(async response => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const serverMsg = data && data.error ? data.error : ('Server error (HTTP ' + response.status + ')');
+            throw new Error(serverMsg);
+        }
+        return data;
+    })
     .then(data => {
-        if(data.status === 'success') {
-            alert(data.message);
-            window.location.reload(); 
+        if (data && data.status === 'success') {
+            const metrics = data.metrics || {};
+            const total = metrics.total_processed ?? 0;
+            const success = metrics.success_count ?? 0;
+            const skipped = metrics.fail_count ?? 0;
+            const cases = metrics.cases_created ?? 0;
+
+            if (statusDiv) {
+                statusDiv.style.background = '#e6f4ea';
+                statusDiv.style.border = '1px solid #137333';
+                statusDiv.style.color = '#137333';
+                statusDiv.innerHTML = `<strong>Batch Prediction Complete:</strong> Processed ${total} student${total === 1 ? '' : 's'} (${success} evaluated, ${skipped} skipped for insufficient data). Created ${cases} support case${cases === 1 ? '' : 's'}. Refreshing view…`;
+            }
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
-            alert('Error: ' + (data.error || 'Unknown error occurred.'));
+            throw new Error(data && data.error ? data.error : 'Unexpected response format.');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('A network error occurred while reaching the prediction service.');
-    })
-    .finally(() => {
+        console.error('Batch Predict Error:', error);
+        if (statusDiv) {
+            statusDiv.style.background = '#fce8e6';
+            statusDiv.style.border = '1px solid #c5221f';
+            statusDiv.style.color = '#c5221f';
+
+            let message = 'The request did not finish in this page. Before running it again, check the latest prediction results to avoid creating a duplicate batch.';
+            if (error.message && error.message.includes('already running')) {
+                message = 'A batch prediction is already running. Please wait for the current job to finish.';
+            } else if (error.message && !error.message.includes('Server error') && !error.message.includes('Failed to fetch')) {
+                message = error.message;
+            }
+            statusDiv.innerHTML = `<strong>Notice:</strong> ${message}`;
+        }
         btn.innerHTML = originalText;
         btn.style.opacity = '1';
         btn.disabled = false;
+        btn.removeAttribute('aria-disabled');
+        isBatchRunning = false;
     });
 }
 
