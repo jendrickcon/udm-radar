@@ -255,6 +255,11 @@ require_once '../includes/sidebar.php';
 @media (max-width: 1100px) {
     .student-dashboard .analysis-panels { grid-template-columns: minmax(0, 1fr); }
 }
+.distinction-label-compact { display: none; }
+@media (max-width: 420px) {
+    .distinction-label-full { display: none !important; }
+    .distinction-label-compact { display: inline !important; }
+}
 @media (max-width: 600px) {
     .student-dashboard .calculator-actions { width: 100%; }
     .student-dashboard .calculator-actions > div { flex: 1 1 100%; }
@@ -447,29 +452,54 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <?php $isAtRiskGauge = $hasCurrentGwa && ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || $current_gwa < 2.50); ?>
+    <?php
+    $isAtRiskGauge = $hasCurrentGwa && ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || $current_gwa < 2.50);
+    $accessibleGaugeSummary = '';
+    if ($hasCurrentGwa) {
+        $valFormatted = number_format($current_gwa, 2);
+        if ($current_gwa < 3.25) {
+            $accessibleGaugeSummary = "Historical cumulative GWA: {$valFormatted} on a scale from 1.00 to 4.00. The configured academic-distinction range begins at 3.25. The current value is below the distinction threshold. Official eligibility requires full institutional review.";
+        } else {
+            $accessibleGaugeSummary = "Historical cumulative GWA: {$valFormatted} on a scale from 1.00 to 4.00. The configured academic-distinction range begins at 3.25. The current value is within the configured academic-distinction range. Official eligibility requires full institutional review.";
+        }
+    } else {
+        $accessibleGaugeSummary = "Historical cumulative GWA is not available because no numeric final grades have been recorded.";
+    }
+    ?>
     <div class="analysis-panels" style="gap: 24px; margin-bottom: 24px; align-items: stretch;">
         <div class="card" style="text-align: center; display: flex; flex-direction: column;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction Proximity' ?></span>
+                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction' ?></span>
                 </h3>
                 <p id="gwa-gauge-description" style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows how your historical cumulative GWA compares with the prototype’s configured distinction markers. These markers are for guidance only and do not determine official eligibility.' ?>
+                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows your historical cumulative GWA and where the configured academic distinction range begins. Official eligibility remains subject to full institutional review.' ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                <div style="position: relative; margin-top: 20px; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center;">
-                    <canvas id="honorGauge" role="img" aria-label="Cumulative GWA: <?= $currentGwaDisplay ?>" aria-describedby="gwa-gauge-description"></canvas>
+                <div style="position: relative; margin-top: 16px; height: 180px; width: 100%; display: flex; justify-content: center; align-items: center;">
+                    <canvas id="honorGauge" role="img" aria-label="Cumulative GWA: <?= $currentGwaDisplay ?>" aria-describedby="gwa-gauge-description gwa-gauge-accessible-summary"></canvas>
                 </div>
+                <div id="gwa-gauge-accessible-summary" class="sr-only"><?= htmlspecialchars($accessibleGaugeSummary) ?></div>
                 <div style="margin-top: 4px;">
                     <span id="gwa-gauge-value" style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $currentGwaDisplay ?></span>
-                    <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Cumulative GWA (Historical)</span>
+                    <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Historical Cumulative GWA</span>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
-                    <span style="color: var(--risk-low);">● 2.50 Lower distinction marker</span>
-                    <span style="color: var(--accent-blue);">● 3.25 Higher distinction marker</span>
+                <div class="gauge-threshold-callout" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; font-size: 0.78rem; font-weight: 700; color: var(--text-dark);">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--primary);" aria-hidden="true"></span>
+                    <span class="distinction-label-full">Academic distinction begins at 3.25</span>
+                    <span class="distinction-label-compact">Distinction starts: 3.25</span>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 14px; margin-top: 8px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-gray);">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--surface-muted); border: 1px solid var(--border-color);" aria-hidden="true"></span>
+                        General academic range (1.00–3.24)
+                    </span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-dark);">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--primary);" aria-hidden="true"></span>
+                        Academic distinction range (3.25–4.00)
+                    </span>
                 </div>
             </div>
         </div>
@@ -795,23 +825,35 @@ function calculateOverallGwa() {
 
 function getThemeColors() {
     const root = getComputedStyle(document.documentElement);
-    return { base: root.getPropertyValue('--border-color').trim(), blue: root.getPropertyValue('--accent-blue').trim(), text: root.getPropertyValue('--text-dark').trim() };
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+        // Region 1: Muted slate-blue
+        base: isDark ? '#315670' : '#CBD5E1',
+        // Region 2: Restrained CCS-compatible highlight color
+        highlight: root.getPropertyValue('--primary').trim() || (isDark ? '#60A5FA' : '#1769AA'),
+        text: root.getPropertyValue('--text-dark').trim() || (isDark ? '#F4FAFC' : '#102A43')
+    };
 }
 
 let themeColors = getThemeColors();
 const currentGwaForGauge = <?= json_encode($hasCurrentGwa ? round($current_gwa, 2) : null) ?>;
-const GAUGE_ROTATION = 270; const GAUGE_CIRCUMFERENCE = 180; const GAUGE_MAX = 4.00;
+const GAUGE_MIN = 1.00;
+const GAUGE_MAX = 4.00;
+const GAUGE_THRESHOLD = 3.25;
+const GAUGE_ROTATION = 270;
+const GAUGE_CIRCUMFERENCE = 180;
 
 const needlePlugin = {
     id: 'gwaNeedle',
     afterDraw(chart) {
         if (currentGwaForGauge === null) return;
-        const meta = chart.getDatasetMeta(0); const arc = meta.data[0];
-        if (!arc) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data || !meta.data[0]) return;
+        const arc = meta.data[0];
         const { x: cx, y: cy, outerRadius } = arc.getProps(['x', 'y', 'outerRadius'], true);
         const needleLength = outerRadius * 0.88;
-        const clamped = Math.max(0, Math.min(GAUGE_MAX, currentGwaForGauge));
-        const fraction = clamped / GAUGE_MAX;
+        const clamped = Math.max(GAUGE_MIN, Math.min(GAUGE_MAX, currentGwaForGauge));
+        const fraction = (clamped - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN);
         const chartJsAngleDeg = GAUGE_ROTATION + (GAUGE_CIRCUMFERENCE * fraction);
         const canvasAngleDeg = chartJsAngleDeg - 90;
         const angleRad = canvasAngleDeg * Math.PI / 180;
@@ -819,9 +861,56 @@ const needlePlugin = {
         const tipY = cy + needleLength * Math.sin(angleRad);
         const { ctx } = chart;
         ctx.save();
-        const needleColor = getComputedStyle(document.documentElement).getPropertyValue('--text-dark').trim();
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tipX, tipY); ctx.lineWidth = 3; ctx.strokeStyle = needleColor; ctx.lineCap = 'round'; ctx.stroke();
-        ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fillStyle = needleColor; ctx.fill();
+        const needleColor = getComputedStyle(document.documentElement).getPropertyValue('--text-dark').trim() || '#102A43';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(tipX, tipY);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = needleColor;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = needleColor;
+        ctx.fill();
+        ctx.restore();
+    }
+};
+
+const thresholdPlugin = {
+    id: 'distinctionThresholdTick',
+    afterDraw(chart) {
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data || !meta.data[0]) return;
+        const arc = meta.data[0];
+        const { x: cx, y: cy, innerRadius, outerRadius } = arc.getProps(['x', 'y', 'innerRadius', 'outerRadius'], true);
+
+        // 3.25 on scale 1.00 - 4.00 is fraction (3.25 - 1.00) / (4.00 - 1.00) = 0.75
+        const fraction = (GAUGE_THRESHOLD - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN);
+        const chartJsAngleDeg = GAUGE_ROTATION + (GAUGE_CIRCUMFERENCE * fraction);
+        const canvasAngleDeg = chartJsAngleDeg - 90;
+        const angleRad = canvasAngleDeg * Math.PI / 180;
+
+        const innerX = cx + (innerRadius - 3) * Math.cos(angleRad);
+        const innerY = cy + (innerRadius - 3) * Math.sin(angleRad);
+        const outerX = cx + (outerRadius + 6) * Math.cos(angleRad);
+        const outerY = cy + (outerRadius + 6) * Math.sin(angleRad);
+
+        const { ctx } = chart;
+        ctx.save();
+        const strokeColor = getComputedStyle(document.documentElement).getPropertyValue('--text-dark').trim() || '#102A43';
+        ctx.beginPath();
+        ctx.moveTo(innerX, innerY);
+        ctx.lineTo(outerX, outerY);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(outerX, outerY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = strokeColor;
+        ctx.fill();
         ctx.restore();
     }
 };
@@ -829,9 +918,27 @@ const needlePlugin = {
 const ctxGauge = document.getElementById('honorGauge').getContext('2d');
 const honorGaugeChart = new Chart(ctxGauge, {
     type: 'doughnut',
-    data: { labels: ['Below', 'Cum Laude', 'Magna', 'Summa'], datasets: [{ data: [3.25, 0.25, 0.25, 0.25], backgroundColor: [themeColors.base, themeColors.blue, '#1d4ed8', '#b45309'], borderWidth: 0, circumference: GAUGE_CIRCUMFERENCE, rotation: GAUGE_ROTATION }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { animateRotate: true, animateScale: false } },
-    plugins: [needlePlugin]
+    data: {
+        labels: ['General academic range', 'Academic distinction range'],
+        datasets: [{
+            data: [2.25, 0.75], // 1.00-3.25 (75%) and 3.25-4.00 (25%)
+            backgroundColor: [themeColors.base, themeColors.highlight],
+            borderWidth: 0,
+            circumference: GAUGE_CIRCUMFERENCE,
+            rotation: GAUGE_ROTATION
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '75%',
+        plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+        },
+        animation: { animateRotate: true, animateScale: false }
+    },
+    plugins: [needlePlugin, thresholdPlugin]
 });
 
 const observer = new MutationObserver(() => {
@@ -839,7 +946,7 @@ const observer = new MutationObserver(() => {
     const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
     honorGaugeChart.options.animation = !isReducedMotion;
     honorGaugeChart.data.datasets[0].backgroundColor[0] = themeColors.base;
-    honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.blue;
+    honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.highlight;
     honorGaugeChart.update('none');
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
