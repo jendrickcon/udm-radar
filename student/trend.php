@@ -300,6 +300,8 @@ const trendChart = new Chart(ctx, {
 
 const observer = new MutationObserver(() => {
     colors = getChartColors();
+    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
+    trendChart.options.animation = !isReducedMotion;
     trendChart.options.scales.x.ticks.color = colors.text;
     trendChart.options.scales.x.grid.color = colors.border;
     trendChart.options.scales.y.ticks.color = colors.text;
@@ -316,9 +318,9 @@ const observer = new MutationObserver(() => {
         if (semDataTypes[ctx.p1DataIndex] === 'current' || semDataTypes[ctx.p0DataIndex] === 'current') return colors.current;
         return colors.historical;
     };
-    trendChart.update();
+    trendChart.update('none');
 });
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
 </script>
 <?php endif; ?>
 

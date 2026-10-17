@@ -128,7 +128,7 @@ $requiredTerms = [
     'midterm',
     '1.75',
     '2.50',
-    'GWA Reference Gauge',
+    'Academic Distinction Proximity',
 ];
 
 $combinedApproved = implode("\n", $contents);
@@ -241,18 +241,18 @@ assertCheck(
     "COPY-011: Low Risk stat-card summary matches exact approved text"
 );
 
-// COPY-012: student/dashboard.php - GWA Reference Gauge
+// COPY-012: student/dashboard.php - Academic Distinction Proximity
 assertCheck(
-    str_contains($contents['dashboard'], "<span><?= !\$hasCurrentGwa ? 'Cumulative GWA' : 'GWA Reference Gauge' ?></span>"),
-    "COPY-012: Gauge title is 'GWA Reference Gauge' when GWA exists"
+    str_contains($contents['dashboard'], "<span><?= !\$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction Proximity' ?></span>"),
+    "COPY-012: Gauge title is 'Academic Distinction Proximity' when GWA exists"
 );
 assertCheck(
-    str_contains($contents['dashboard'], "'Shows your historical cumulative GWA against the prototype’s 2.50 and 3.25 reference lines. These are guidance markers, not official academic-standing decisions.'"),
+    str_contains($contents['dashboard'], "'Shows how your historical cumulative GWA compares with the prototype’s configured distinction markers. These markers are for guidance only and do not determine official eligibility.'"),
     "COPY-012: Gauge description matches exact approved guidance text"
 );
 assertCheck(
-    str_contains($contents['dashboard'], '● 2.50 reference line') && str_contains($contents['dashboard'], '● 3.25 reference line'),
-    "COPY-012: Gauge legend renders approved 2.50 and 3.25 reference lines"
+    str_contains($contents['dashboard'], '● 2.50 Lower distinction marker') && str_contains($contents['dashboard'], '● 3.25 Higher distinction marker'),
+    "COPY-012: Gauge legend renders approved distinction markers"
 );
 
 // COPY-013: student/dashboard.php - Empty triage state

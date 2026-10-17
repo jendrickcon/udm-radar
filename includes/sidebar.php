@@ -104,14 +104,14 @@ if (isset($user) && isset($user['role'])) {
     <?php endforeach; ?>
   </ul>
   <div class="sidebar-footer">
-    <button onclick="toggleTheme()" class="theme-toggle-btn">
+    <button type="button" onclick="toggleTheme()" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark mode">
       <div class="theme-icon-wrapper">
           <svg id="sidebar-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           <svg id="sidebar-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </div>
       <span id="theme-toggle-text">Dark Mode</span>
     </button>
-    <a href="<?= BASE_URL ?>logout.php" class="logout-btn">
+    <a href="<?= BASE_URL ?>logout.php" class="logout-btn" id="logout-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         <span>Logout</span>
     </a>
@@ -123,10 +123,14 @@ if (isset($user) && isset($user['role'])) {
 <script>
 function toggleTheme() {
     const html = document.documentElement;
-    const currentTheme = html.getAttribute('data-theme');
+    const currentTheme = html.getAttribute('data-theme') || 'light';
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    html.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
+    if (window.UDMDisplayPreferences && typeof window.UDMDisplayPreferences.savePreferences === 'function') {
+        window.UDMDisplayPreferences.savePreferences({ theme: newTheme });
+    } else {
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    }
     updateToggleText(newTheme);
 }
 function updateToggleText(theme) {
@@ -137,5 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateToggleText(document.documentElement.getAttribute('data-theme'));
     const activeLink = document.querySelector('.sidebar-link.active');
     if (activeLink) activeLink.scrollIntoView({ block: 'nearest' });
+});
+window.addEventListener('udm-radar:display-preferences-changed', (e) => {
+    if (e.detail && e.detail.activeTheme) {
+        updateToggleText(e.detail.activeTheme);
+    }
 });
 </script>

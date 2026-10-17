@@ -1,42 +1,184 @@
 :root {
-    /* Light Theme (Formal Pastel Blue) */
-    --bg-color: #F0F4F8;          
-    --sidebar-bg: #0F172A;        
-    --sidebar-hover: rgba(255, 255, 255, 0.05); /* Softer hover state for the sidebar */
-    --card-bg: #FFFFFF;           
-    --text-dark: #1E293B;         
-    --text-gray: #64748B;         
-    --accent-blue: #1E4DB7;       
-    --border-color: #E2E8F0;      
+    /* Classic baseline defaults for isolated mocks/specs */
+    --primary: #1E4DB7;
+    --primary-light: #3B82F6;
+    --secondary: #0D9488;
+    --accent: #D97706;
+    --bg-light: #F0F4F8;
+    --bg-color: #F0F4F8;
+    --sidebar-bg: #0F172A;
+    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --card-bg: #FFFFFF;
+    --surface-muted: #E2E8F0;
+    --text-dark: #1E293B;
+    --text-gray: #64748B;
+    --accent-blue: #1E4DB7;
+    --border-color: #E2E8F0;
     --table-header-bg: rgba(30, 77, 183, 0.08);
     --shadow-sm: 0 4px 15px rgba(15, 23, 42, 0.04);
-    
-    /* Fixed Risk Colors */
+
+    /* Fixed Risk Colors & Semantic Text Contrast Tokens */
     --risk-low: #059669;
     --risk-mod: #D97706;
     --risk-high: #DC2626;
-    --gold: #C9A227;              
-    --honor-magna: #4338CA;        /* Magna Cum Laude — deliberately distinct from --accent-blue so it doesn't blend into the adjacent Dean's Lister tier in charts */
+    --gold: #C9A227;
+    --honor-magna: #4338CA;
+    --risk-low-text: #FFFFFF;
+    --risk-mod-text: #FFFFFF;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #FFFFFF;
 }
 
 [data-theme="dark"] {
-    /* Dark Theme */
-    --bg-color: #0B1120;          
-    --sidebar-bg: #020617;        
-    --sidebar-hover: rgba(255, 255, 255, 0.05);     
-    --card-bg: #1E293B;           
-    --text-dark: #F8FAFC;         
-    --text-gray: #94A3B8;         
-    --accent-blue: #6C8EEF;       
-    --border-color: #334155;      
+    /* Classic Dark baseline defaults for isolated mocks/specs */
+    --primary: #6C8EEF;
+    --primary-light: #93C5FD;
+    --secondary: #14B8A6;
+    --accent: #F59E0B;
+    --bg-light: #0B1120;
+    --bg-color: #0B1120;
+    --sidebar-bg: #020617;
+    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --card-bg: #1E293B;
+    --surface-muted: #334155;
+    --text-dark: #F8FAFC;
+    --text-gray: #94A3B8;
+    --accent-blue: #6C8EEF;
+    --border-color: #334155;
     --table-header-bg: rgba(108, 142, 239, 0.1);
     --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.3);
-    
+
     --risk-low: #10B981;
     --risk-mod: #F59E0B;
     --risk-high: #EF4444;
-    --gold: #E0BB4D;              
+    --gold: #E0BB4D;
     --honor-magna: #818CF8;
+    --risk-low-text: #022C22;
+    --risk-mod-text: #451A03;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #451A03;
+}
+
+/* CCS Colors Style (Default Active Theme) */
+html[data-color-style="ccs"] {
+    /* CCS Colors Light */
+    --primary: #1769AA;
+    --primary-light: #2D9CDB;
+    --secondary: #0F8B8D;
+    --accent: #E8B923;
+    --bg-light: #EAF7F8;
+    --bg-color: #EAF7F8;
+    --sidebar-bg: #0C1B2E;
+    --sidebar-hover: rgba(255, 255, 255, 0.07);
+    --card-bg: #FFFFFF;
+    --surface-muted: #DDF1F3;
+    --text-dark: #102A43;
+    --text-gray: #486581;
+    --accent-blue: #1769AA;
+    --border-color: #B7DDE2;
+    --table-header-bg: rgba(23, 105, 170, 0.08);
+    --shadow-sm: 0 4px 15px rgba(16, 42, 67, 0.05);
+
+    --risk-low: #059669;
+    --risk-mod: #D97706;
+    --risk-high: #DC2626;
+    --gold: #C9A227;
+    --honor-magna: #1E4DB7;
+    --risk-low-text: #FFFFFF;
+    --risk-mod-text: #FFFFFF;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #FFFFFF;
+}
+
+html[data-color-style="ccs"][data-theme="dark"] {
+    /* CCS Colors Dark */
+    --primary: #60A5FA;
+    --primary-light: #7DD3FC;
+    --secondary: #34D399;
+    --accent: #F4C95D;
+    --bg-light: #071526;
+    --bg-color: #071526;
+    --sidebar-bg: #030C17;
+    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --card-bg: #10243A;
+    --surface-muted: #17324D;
+    --text-dark: #F4FAFC;
+    --text-gray: #B8D4E3;
+    --accent-blue: #60A5FA;
+    --border-color: #315670;
+    --table-header-bg: rgba(96, 165, 250, 0.1);
+    --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.35);
+
+    --risk-low: #10B981;
+    --risk-mod: #F59E0B;
+    --risk-high: #EF4444;
+    --gold: #F4C95D;
+    --honor-magna: #818CF8;
+    --risk-low-text: #022C22;
+    --risk-mod-text: #451A03;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #451A03;
+}
+
+/* Classic UDM-RADAR Style */
+html[data-color-style="classic"] {
+    /* Classic Light */
+    --primary: #1E4DB7;
+    --primary-light: #3B82F6;
+    --secondary: #0D9488;
+    --accent: #D97706;
+    --bg-light: #F0F4F8;
+    --bg-color: #F0F4F8;
+    --sidebar-bg: #0F172A;
+    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --card-bg: #FFFFFF;
+    --surface-muted: #E2E8F0;
+    --text-dark: #1E293B;
+    --text-gray: #64748B;
+    --accent-blue: #1E4DB7;
+    --border-color: #E2E8F0;
+    --table-header-bg: rgba(30, 77, 183, 0.08);
+    --shadow-sm: 0 4px 15px rgba(15, 23, 42, 0.04);
+
+    --risk-low: #059669;
+    --risk-mod: #D97706;
+    --risk-high: #DC2626;
+    --gold: #C9A227;
+    --honor-magna: #4338CA;
+    --risk-low-text: #FFFFFF;
+    --risk-mod-text: #FFFFFF;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #FFFFFF;
+}
+
+html[data-color-style="classic"][data-theme="dark"] {
+    /* Classic Dark */
+    --primary: #6C8EEF;
+    --primary-light: #93C5FD;
+    --secondary: #14B8A6;
+    --accent: #F59E0B;
+    --bg-light: #0B1120;
+    --bg-color: #0B1120;
+    --sidebar-bg: #020617;
+    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --card-bg: #1E293B;
+    --surface-muted: #334155;
+    --text-dark: #F8FAFC;
+    --text-gray: #94A3B8;
+    --accent-blue: #6C8EEF;
+    --border-color: #334155;
+    --table-header-bg: rgba(108, 142, 239, 0.1);
+    --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.3);
+
+    --risk-low: #10B981;
+    --risk-mod: #F59E0B;
+    --risk-high: #EF4444;
+    --gold: #E0BB4D;
+    --honor-magna: #818CF8;
+    --risk-low-text: #022C22;
+    --risk-mod-text: #451A03;
+    --risk-high-text: #FFFFFF;
+    --gold-text: #451A03;
 }
 
 * { 
@@ -196,9 +338,10 @@ tr:last-child td { border-bottom: none; }
 
 .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; color: white; display: inline-block; }
 .badge.na { background: var(--border-color); color: var(--text-gray); }
-.badge.low  { background-color: var(--risk-low); }
-.badge.mod  { background-color: var(--risk-mod); }
-.badge.high { background-color: var(--risk-high); }
+.badge.low  { background-color: var(--risk-low); color: var(--risk-low-text, white); }
+.badge.mod  { background-color: var(--risk-mod); color: var(--risk-mod-text, white); }
+.badge.high { background-color: var(--risk-high); color: var(--risk-high-text, white); }
+.badge.gold { background-color: var(--gold); color: var(--gold-text, white); }
 
 .empty-state { color: var(--text-gray); font-style: italic; padding: 20px 0; text-align: center; }
 

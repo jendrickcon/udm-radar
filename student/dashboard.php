@@ -453,10 +453,10 @@ require_once '../includes/sidebar.php';
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'GWA Reference Gauge' ?></span>
+                    <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction Proximity' ?></span>
                 </h3>
                 <p id="gwa-gauge-description" style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows your historical cumulative GWA against the prototype’s 2.50 and 3.25 reference lines. These are guidance markers, not official academic-standing decisions.' ?>
+                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows how your historical cumulative GWA compares with the prototype’s configured distinction markers. These markers are for guidance only and do not determine official eligibility.' ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -468,8 +468,8 @@ require_once '../includes/sidebar.php';
                     <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Cumulative GWA (Historical)</span>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
-                    <span style="color: var(--risk-low);">● 2.50 reference line</span>
-                    <span style="color: var(--accent-blue);">● 3.25 reference line</span>
+                    <span style="color: var(--risk-low);">● 2.50 Lower distinction marker</span>
+                    <span style="color: var(--accent-blue);">● 3.25 Higher distinction marker</span>
                 </div>
             </div>
         </div>
@@ -836,9 +836,13 @@ const honorGaugeChart = new Chart(ctxGauge, {
 
 const observer = new MutationObserver(() => {
     themeColors = getThemeColors();
-    honorGaugeChart.data.datasets[0].backgroundColor[0] = themeColors.base; honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.blue; honorGaugeChart.update();
+    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
+    honorGaugeChart.options.animation = !isReducedMotion;
+    honorGaugeChart.data.datasets[0].backgroundColor[0] = themeColors.base;
+    honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.blue;
+    honorGaugeChart.update('none');
 });
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
 
 // Scrolling Fade Observer Script
 (function () {
