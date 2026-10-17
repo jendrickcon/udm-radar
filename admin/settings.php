@@ -191,6 +191,11 @@ require_once '../includes/sidebar.php';
 
         </div>
     </div>
+
+    <?php
+    $dispPref = (isset($root) ? $root : dirname(__DIR__)) . '/includes/display_preferences_control.php';
+    if (file_exists($dispPref)) require_once $dispPref;
+    ?>
 </div>
 
 <script>

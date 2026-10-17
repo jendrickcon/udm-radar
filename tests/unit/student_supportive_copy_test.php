@@ -128,7 +128,7 @@ $requiredTerms = [
     'midterm',
     '1.75',
     '2.50',
-    'GWA Reference Gauge',
+    'Academic Distinction',
 ];
 
 $combinedApproved = implode("\n", $contents);
@@ -241,18 +241,18 @@ assertCheck(
     "COPY-011: Low Risk stat-card summary matches exact approved text"
 );
 
-// COPY-012: student/dashboard.php - GWA Reference Gauge
+// COPY-012: student/dashboard.php - Academic Distinction
 assertCheck(
-    str_contains($contents['dashboard'], "<span><?= !\$hasCurrentGwa ? 'Cumulative GWA' : 'GWA Reference Gauge' ?></span>"),
-    "COPY-012: Gauge title is 'GWA Reference Gauge' when GWA exists"
+    str_contains($contents['dashboard'], "<span><?= !\$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction' ?></span>"),
+    "COPY-012: Gauge title is 'Academic Distinction' when GWA exists"
 );
 assertCheck(
-    str_contains($contents['dashboard'], "'Shows your historical cumulative GWA against the prototype’s 2.50 and 3.25 reference lines. These are guidance markers, not official academic-standing decisions.'"),
+    str_contains($contents['dashboard'], "'Shows your historical cumulative GWA in relation to the configured academic-distinction ranges. Official qualification remains subject to complete institutional criteria and authorized review.'"),
     "COPY-012: Gauge description matches exact approved guidance text"
 );
 assertCheck(
-    str_contains($contents['dashboard'], '● 2.50 reference line') && str_contains($contents['dashboard'], '● 3.25 reference line'),
-    "COPY-012: Gauge legend renders approved 2.50 and 3.25 reference lines"
+    str_contains($contents['dashboard'], 'Dean’s List · starts at 3.25') && str_contains($contents['dashboard'], 'Magna Cum Laude · starts at 3.50') && str_contains($contents['dashboard'], 'Summa Cum Laude · starts at 3.75'),
+    "COPY-012: Gauge legend renders approved three distinction bands"
 );
 
 // COPY-013: student/dashboard.php - Empty triage state
