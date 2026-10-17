@@ -128,10 +128,12 @@ $latest_curr = $current_midterm_gwa ?? $current_prelim_gwa ?? null;
 $pred_gwa = $prediction['predicted_gwa'] ?? null;
 
 // Dynamic coverage text
-if ($current_midterm_gwa !== null) {
-    $curr_coverage_text = "Based on {$encoded_midterm_count} of {$total_current} subjects";
+if ($current_midterm_gwa !== null && $current_prelim_gwa !== null) {
+    $curr_coverage_text = "Recorded coverage: Prelim {$encoded_prelim_count} of {$total_current}; Midterm {$encoded_midterm_count} of {$total_current}";
+} elseif ($current_midterm_gwa !== null) {
+    $curr_coverage_text = "Recorded coverage: Midterm {$encoded_midterm_count} of {$total_current}";
 } elseif ($current_prelim_gwa !== null) {
-    $curr_coverage_text = "Based on {$encoded_prelim_count} of {$total_current} subjects";
+    $curr_coverage_text = "Recorded coverage: Prelim {$encoded_prelim_count} of {$total_current}";
 } else {
     $curr_coverage_text = "Active term snapshot";
 }

@@ -1056,6 +1056,9 @@ require_once '../includes/sidebar.php';
             <tbody id="modal-grades-body"></tbody>
         </table>
         </div>
+        <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 8px; margin-bottom: 0;">
+            Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+        </p>
 
         <div style="margin-top:18px; border-top:1px solid var(--border-color); padding-top:14px;">
             <button type="button" id="modal-history-toggle" onclick="toggleHistory()" style="background:var(--bg-color); border:1px solid var(--border-color); color:var(--accent-blue); padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;">

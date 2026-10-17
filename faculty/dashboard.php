@@ -393,6 +393,10 @@ require_once '../includes/sidebar.php';
                 <tbody id="roster-body-overall"></tbody>
             </table>
         </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-gray); margin: 12px 24px; padding-bottom: 12px;">
+            Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+        </p>
     </div>
 
     <div class="card">
@@ -474,7 +478,7 @@ require_once '../includes/sidebar.php';
         <button class="modal-close" onclick="closeGradeModal()">Close</button>
         <h2 id="grade-modal-name" style="color:var(--text-dark); margin-bottom:2px;"></h2>
         <p style="color:var(--text-gray); font-size:0.88rem; margin-bottom:16px;">
-            Detailed grade breakdown for your assigned subjects.
+            Detailed grade breakdown for your assigned subjects. Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
         </p>
         <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Student Grade Breakdown" tabindex="0">
             <div class="table-scroll-hint" aria-hidden="true">&larr; Swipe or scroll horizontally to view matrix &rarr;</div>
@@ -624,47 +628,64 @@ function renderClassTab(secName) {
         subjects.forEach(subj => {
             const g = grades[subj.id];
             
-            let currentGradeStr = '—';
-            let termLabel = '';
-            
-            // FIXED: Avoid parseFloat returning NaN by performing string check FIRST
-            if (g && g.final_grade !== null && g.final_grade !== undefined && g.final_grade !== '') { 
-                if (['INC','DRP','P','DO','DU','FA','UD'].includes(String(g.final_grade).toUpperCase())) {
-                    currentGradeStr = String(g.final_grade).toUpperCase();
-                } else {
-                    currentGradeStr = parseFloat(g.final_grade).toFixed(2);
-                }
-                termLabel = 'FIN'; 
-            }
-            else if (g && g.prefinal !== null && g.prefinal !== undefined && g.prefinal !== '') { currentGradeStr = Math.round(parseFloat(g.prefinal)) + '%'; termLabel = 'PRE-F'; }
-            else if (g && g.midterm !== null && g.midterm !== undefined && g.midterm !== '') { currentGradeStr = Math.round(parseFloat(g.midterm)) + '%'; termLabel = 'MID'; }
-            else if (g && g.prelim !== null && g.prelim !== undefined && g.prelim !== '') { currentGradeStr = Math.round(parseFloat(g.prelim)) + '%'; termLabel = 'PRE'; }
+            let hasFinal = (g && g.final_grade !== null && g.final_grade !== undefined && g.final_grade !== '');
+            let hasPrefinal = (g && g.prefinal !== null && g.prefinal !== undefined && g.prefinal !== '');
+            let hasMidterm = (g && g.midterm !== null && g.midterm !== undefined && g.midterm !== '');
+            let hasPrelim = (g && g.prelim !== null && g.prelim !== undefined && g.prelim !== '');
 
-            if (currentGradeStr !== '—') {
+            if (hasFinal) {
+                let currentGradeStr = ['INC','DRP','P','DO','DU','FA','UD'].includes(String(g.final_grade).toUpperCase())
+                    ? String(g.final_grade).toUpperCase()
+                    : parseFloat(g.final_grade).toFixed(2);
                 const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
                 gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center; vertical-align:middle;">
                     ${currentGradeStr}<br>
-                    <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">${termLabel}</span>
+                    <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">FIN</span>
                 </td>`;
-                
-                if (termLabel === 'FIN' && !['INC','DRP','P','DO','DU','FA','UD'].includes(currentGradeStr)) {
+                if (!['INC','DRP','P','DO','DU','FA','UD'].includes(currentGradeStr)) {
                     gradeSum += parseFloat(g.final_grade);
                     gradeCount++;
-                } else if (termLabel !== 'FIN') {
-                    let pointEquivalent = 0;
-                    let pct = parseFloat(currentGradeStr);
-                    if (pct >= 99) pointEquivalent = 4.00; else if (pct >= 97) pointEquivalent = 3.75; else if (pct >= 95) pointEquivalent = 3.50; else if (pct >= 92) pointEquivalent = 3.25;
-                    else if (pct >= 90) pointEquivalent = 3.00; else if (pct >= 88) pointEquivalent = 2.75; else if (pct >= 86) pointEquivalent = 2.50; else if (pct >= 84) pointEquivalent = 2.25;
-                    else if (pct >= 82) pointEquivalent = 2.00; else if (pct >= 80) pointEquivalent = 1.75; else if (pct >= 78) pointEquivalent = 1.50; else if (pct >= 76) pointEquivalent = 1.25;
-                    else if (pct >= 75) pointEquivalent = 1.00; else pointEquivalent = 0.00;
-                    gradeSum += pointEquivalent;
-                    gradeCount++;
                 }
-                
-                if      (g.risk === 'HIGH')                              worstRisk = 'HIGH';
-                else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
+            } else if (hasPrefinal) {
+                let currentGradeStr = Math.round(parseFloat(g.prefinal)) + '%';
+                const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
+                gradeCells += `<td class="grade-cell ${cls}" style="padding:12px; text-align:center; vertical-align:middle;">
+                    ${currentGradeStr}<br>
+                    <span style="font-size:0.65rem; color:var(--text-gray); font-weight:normal;">PRE-F</span>
+                </td>`;
+                let pct = parseFloat(currentGradeStr);
+                let pointEquivalent = 0;
+                if (pct >= 99) pointEquivalent = 4.00; else if (pct >= 97) pointEquivalent = 3.75; else if (pct >= 95) pointEquivalent = 3.50; else if (pct >= 92) pointEquivalent = 3.25;
+                else if (pct >= 90) pointEquivalent = 3.00; else if (pct >= 88) pointEquivalent = 2.75; else if (pct >= 86) pointEquivalent = 2.50; else if (pct >= 84) pointEquivalent = 2.25;
+                else if (pct >= 82) pointEquivalent = 2.00; else if (pct >= 80) pointEquivalent = 1.75; else if (pct >= 78) pointEquivalent = 1.50; else if (pct >= 76) pointEquivalent = 1.25;
+                else if (pct >= 75) pointEquivalent = 1.00; else pointEquivalent = 0.00;
+                gradeSum += pointEquivalent;
+                gradeCount++;
+            } else if (hasPrelim || hasMidterm) {
+                let pStr = hasPrelim ? Math.round(parseFloat(g.prelim)) + '%' : '—';
+                let mStr = hasMidterm ? Math.round(parseFloat(g.midterm)) + '%' : '—';
+                const cls = g.risk === 'HIGH' ? 'grade-high' : (g.risk === 'MODERATE' ? 'grade-mod' : 'grade-low');
+                gradeCells += `<td class="grade-cell ${cls}" style="padding:8px; text-align:center; vertical-align:middle; font-size:0.85rem; line-height:1.3;">
+                    <div><span style="font-size:0.7rem; color:var(--text-gray); font-weight:600;">P:</span> ${pStr}</div>
+                    <div><span style="font-size:0.7rem; color:var(--text-gray); font-weight:600;">M:</span> ${mStr}</div>
+                </td>`;
+
+                let activePct = hasMidterm ? parseFloat(g.midterm) : parseFloat(g.prelim);
+                let pointEquivalent = 0;
+                let pct = activePct;
+                if (pct >= 99) pointEquivalent = 4.00; else if (pct >= 97) pointEquivalent = 3.75; else if (pct >= 95) pointEquivalent = 3.50; else if (pct >= 92) pointEquivalent = 3.25;
+                else if (pct >= 90) pointEquivalent = 3.00; else if (pct >= 88) pointEquivalent = 2.75; else if (pct >= 86) pointEquivalent = 2.50; else if (pct >= 84) pointEquivalent = 2.25;
+                else if (pct >= 82) pointEquivalent = 2.00; else if (pct >= 80) pointEquivalent = 1.75; else if (pct >= 78) pointEquivalent = 1.50; else if (pct >= 76) pointEquivalent = 1.25;
+                else if (pct >= 75) pointEquivalent = 1.00; else pointEquivalent = 0.00;
+                gradeSum += pointEquivalent;
+                gradeCount++;
             } else {
                 gradeCells += `<td class="grade-none" style="padding:12px; text-align:center; vertical-align:middle;">—</td>`;
+            }
+
+            if (g) {
+                if (g.risk === 'HIGH') worstRisk = 'HIGH';
+                else if (g.risk === 'MODERATE' && worstRisk !== 'HIGH') worstRisk = 'MODERATE';
             }
         });
 
@@ -826,8 +847,10 @@ function sortClassTab(colIndex) {
         if (emptyA) return 1;
         if (emptyB) return -1;
 
-        const numA = parseFloat(cellA);
-        const numB = parseFloat(cellB);
+        const matchA = cellA.match(/[-+]?\d*\.?\d+/);
+        const matchB = cellB.match(/[-+]?\d*\.?\d+/);
+        const numA = matchA ? parseFloat(matchA[0]) : NaN;
+        const numB = matchB ? parseFloat(matchB[0]) : NaN;
 
         if (!isNaN(numA) && !isNaN(numB)) {
             return classSortDir === 'desc' ? numB - numA : numA - numB;

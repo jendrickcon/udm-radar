@@ -272,6 +272,7 @@ require_once '../includes/sidebar.php';
                         } elseif ($liveRisk === 'LOW') {
                             $subjTooltip = "Low Risk indicator: Your current subject grade point is 2.50 (86%) or higher. Additional grades may change this estimate.";
                         }
+                        $inquirePeriod = $prefinal !== null ? 'prefinal' : ($midterm !== null ? 'midterm' : 'prelim');
                     ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
                         <td class="compact-cell card-cell-code" data-label="Code" style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($g['code']) ?></td>
@@ -300,7 +301,7 @@ require_once '../includes/sidebar.php';
                         </td>
                         <td class="compact-cell" data-label="Action" style="padding: 12px; text-align: center;">
                             <?php if (!empty($g['subject_id'])): ?>
-                                <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$g['subject_id'] ?>&period=prelim" 
+                                <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$g['subject_id'] ?>&period=<?= $inquirePeriod ?>"
                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
                                    title="Inquire about this grade in Feedback & Support">
                                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -315,6 +316,9 @@ require_once '../includes/sidebar.php';
                 </tbody>
             </table>
             </div>
+            <p style="font-size: 0.85rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0;">
+                Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+            </p>
         <?php endif; ?>
     </div>
 
