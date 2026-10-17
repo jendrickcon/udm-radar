@@ -5,6 +5,18 @@
 
 ---
 
+## PEF/CC planning export — owner-approved WP1
+
+**PEF-CC-WP1: Authenticated Student Preview and Excel Export** is implemented on `feat/student-pef-cc-planning-export`, based on verified `origin/main` `9e25af295b11bbae8c4d61ea98a0b586afd20ad7` (PR #48, 2026-10-17). Its original implementation/test base was `7445edd`; PR #48 adds cohort fixtures/tools/tests without changing runtime, helpers, navigation or dependencies. It awaits owner implementation review and is **not merged**. See [PEF_CC_EXPORT.md](PEF_CC_EXPORT.md) for the exact product, academic, security and private-deployment contracts.
+
+The package adds Student-owned completed-term preview, canonical Recorded Term GWA and coverage, manual proposed subjects, export-only target details, signed stale-preview protection and a private two-sheet Excel writer. Limits are 13 recorded and 12 proposed subjects; no rows are truncated. Every Curriculum Checklist remains **Reference / Requires Review**. No predictions or year-level gate are required. The sanitized WP0B candidate v0.1 was accepted as a technical input outside Git; WP0B is not recorded as a merged package.
+
+WP2/WP3 remain **Requires Policy Verification**. Automatic suggestions, irregular classification, curriculum applicability, prerequisite/offering/load decisions, graduation estimates and multi-term Study Plan are excluded. Themes, cohort seeding and manuscript work are separate. Final actual-paper inspection and logo authorization remain release gates; production ACL/runtime/scheduler checks remain deployment tasks. No institutional approval or official submission is claimed.
+
+Git is the primary migration path for this unmerged feature branch. The separately verified local recovery folder and upload-ready ZIP preserve source recovery evidence and the private sanitized template; neither vendor, generated exports nor the original roster workbook belong in Git or the handoff. Continue from the feature branch on the next laptop, not by reconstructing the package from memory.
+
+---
+
 ## 1. Project Boundaries
 
 UDM-RADAR (*Risk Analytics & Decision-support for Academic Records*) is an academic decision-support prototype developed for the Universidad de Manila (UDM).

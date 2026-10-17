@@ -7,6 +7,21 @@
 
 ---
 
+## PEF-CC-WP1 — unmerged implementation record (2026-10-17)
+
+- **Status:** Implemented on feature branch; owner implementation review pending. **Not merged.** No PR or merge commit is claimed.
+- **Branch:** `feat/student-pef-cc-planning-export`.
+- **Verified final base / remote main:** `9e25af295b11bbae8c4d61ea98a0b586afd20ad7` (PR #48). Original implementation and full browser run used `7445eddb16fc35efda49f6990cb9ada9fc569185`; the reviewed fast-forward preserved all 25 WP1 file bytes. PR #48 changes no runtime/helper/navigation/dependency file.
+- **Scope:** 25 approved source/dependency/test/documentation paths. Adds active-Student completed-term preview, read-only owned source queries, readonly shared model, HMAC snapshot, private PhpSpreadsheet 5.10.0 writer, export-only inputs and Student navigation. Existing dompdf lock versions are unchanged.
+- **Academic boundary:** Canonical selected-term GWA, unavailable as blank, full-row coverage, 13/12 capacity rejection, independent exact-code reference CC. No curriculum inference, official pacing, standing, staff approval or Study Plan.
+- **Template input:** Externally accepted sanitized WP0B candidate v0.1, SHA-256 `0e42f6ecbdd386d35e25a658dee0cda4edf48d14d1cdc0b2754a544746160d4c`. This does not mean WP0B was merged. The private binary is excluded from Git.
+- **Verification contract:** New production-bound unit checks, scratch-only owned fixtures and real-login HTTP/browser tests; academic/navigation regressions; offline native Excel checks. Execution results and commands accompany the migration evidence. No live `udm_radar` mutation is authorized.
+- **Delivery boundary:** Validated commits are pushed only to the dedicated branch, without automatic merge. The verified recovery folder/transfer ZIP include an incremental branch Git bundle, binary patch, source copies, sanitized template and manifest. Final implementation HEAD is recorded there to avoid a self-referential commit hash in this file.
+- **Pending release gates:** Owner actual-size print acceptance, institutional logo authorization and deployment-specific Apache ACL/runtime/cleanup scheduling. WP2/WP3 policy decisions remain deferred.
+- **Validation limits:** Accepted template v0.1 clips a valid 96-character section in print; require versioned layout review before release. The five newly merged cohort browser cases unconditionally seed/clean existing scratch cohort data and were not run under WP1's record-preservation boundary. The previously executed 507-case suite had 501 passes, six explicit legacy credential skips and no failures; it is not represented as a complete run of the expanded current suite.
+
+---
+
 ## Foundation Remediation & Intelligence Engine (WP-0 to WP-7)
 
 All foundational packages (WP-0 through WP-6 and WP-7) were consolidated on feature branch `feat/cohort-scaffolding` and merged into `main` via **Pull Request #16** (Merge commit `f408e62`).
