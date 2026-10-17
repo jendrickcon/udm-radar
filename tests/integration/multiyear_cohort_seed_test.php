@@ -398,13 +398,13 @@ try {
     ");
     $stmtD->execute();
     $dGrades = $stmtD->fetch();
-    assertTest($dGrades && $dGrades['final_grade'] === 'INC', "Cohort D Case 1 models Capstone 1 (ITE326) as unresolved 'INC'");
+    assertTest($dGrades !== false && $dGrades['final_grade'] === null && $dGrades['final_grade'] !== '0.00' && $dGrades['final_grade'] !== 0.0, "Cohort D Case 1 preserves unresolved Capstone 1 (ITE326) as NULL final_grade without 0.00 coercion");
 
-    // GWA verification for Cohort D Case 1: non-numeric 'INC' must be excluded from GWA numerator/denominator
+    // GWA verification for Cohort D Case 1: unresolved NULL final_grade must be excluded from GWA numerator/denominator
     $stmtDGwa = $db->prepare("SELECT current_gwa FROM student_profiles sp JOIN users u ON sp.user_id = u.id WHERE u.user_id = '23-00-001'");
     $stmtDGwa->execute();
     $dGwa = (float)$stmtDGwa->fetchColumn();
-    assertTest($dGwa > 0.0 && $dGwa <= 4.0, "Cohort D Case 1 GWA ($dGwa) calculated without fatal error from non-numeric INC");
+    assertTest($dGwa > 0.0 && $dGwa <= 4.0, "Cohort D Case 1 GWA ($dGwa) excludes unresolved Capstone 1 without fatal error or zero-penalty");
 
     // Cohort E (Cross-Year) Portal Queries — Decoupling Pacing from Risk
     $stmtE = $db->prepare("

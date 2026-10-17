@@ -831,7 +831,7 @@ function getMultiyearCohortCases(): array {
                 ['school_year' => '2025-2026', 'semester' => 2, 'subjects' => [
                     ['code' => 'ITE324', 'final_grade' => '2.50', 'risk_level' => 'LOW'],
                     ['code' => 'ITE325', 'final_grade' => '2.50', 'risk_level' => 'LOW'],
-                    ['code' => 'ITE326', 'final_grade' => 'INC',  'risk_level' => 'HIGH'], // Capstone 1 (ITE326) unresolved INC; dependent Capstone 2 (ITE422) requires evaluator review
+                    ['code' => 'ITE326', 'final_grade' => null, 'recorded_status' => 'INC', 'expected_gwa_behavior' => 'excluded', 'expected_portal_behavior' => 'requires review', 'risk_level' => 'HIGH'], // Capstone 1 (ITE326) unresolved INC; dependent Capstone 2 (ITE422) requires evaluator review
                     ['code' => 'ITE327', 'final_grade' => '2.50', 'risk_level' => 'LOW'],
                     ['code' => 'ITE328', 'final_grade' => '2.50', 'risk_level' => 'LOW'],
                     ['code' => 'SD352',  'final_grade' => '2.50', 'risk_level' => 'LOW'],

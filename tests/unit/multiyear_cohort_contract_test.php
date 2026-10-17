@@ -191,11 +191,11 @@ $c4Immersion = $cases[11];
 assertTest(count($c4Capstone['historical_terms']) === 6, "Cohort D Case 1 has 6 completed historical terms (3 completed years)");
 $hasIncCapstone = false;
 foreach ($c4Capstone['historical_terms'][5]['subjects'] as $s) {
-    if ($s['code'] === 'ITE326' && $s['final_grade'] === 'INC') {
+    if ($s['code'] === 'ITE326' && $s['final_grade'] === null && ($s['recorded_status'] ?? null) === 'INC' && ($s['expected_gwa_behavior'] ?? null) === 'excluded') {
         $hasIncCapstone = true;
     }
 }
-assertTest($hasIncCapstone, "Cohort D Case 1 models unresolved Capstone 1 (ITE326) INC");
+assertTest($hasIncCapstone, "Cohort D Case 1 fixture records unresolved Capstone 1 (ITE326) status metadata as INC with null final_grade");
 
 // Check Cohort E characteristics
 $c5Unpassed = $cases[12];

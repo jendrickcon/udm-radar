@@ -355,6 +355,10 @@ try {
                     throw new Exception("Unknown subject code '{$hSubj['code']}' in historical term for {$c['case_id']}");
                 }
                 $subjId = $subjectMap[$hSubj['code']]['id'];
+                $finalGrade = $hSubj['final_grade'] ?? null;
+                if ($finalGrade !== null && !is_numeric($finalGrade)) {
+                    throw new RuntimeException("Schema safety violation: non-numeric grade '{$finalGrade}' cannot be bound to numeric final_grade column for {$c['case_id']}");
+                }
                 $stmtGrade->execute([
                     $uid,
                     $subjId,
@@ -363,7 +367,7 @@ try {
                     null, // prelim is null for completed historical terms
                     null, // midterm is null for completed historical terms
                     null, // prefinal is null
-                    $hSubj['final_grade'],
+                    $finalGrade !== null ? (float)$finalGrade : null,
                     $hSubj['risk_level'],
                     0,    // is_current = 0
                     $facultyId,
@@ -379,15 +383,26 @@ try {
                 throw new Exception("Unknown subject code '{$cSubj['code']}' in current term for {$c['case_id']}");
             }
             $subjId = $subjectMap[$cSubj['code']]['id'];
+            $prelim = $cSubj['prelim'] ?? null;
+            $midterm = $cSubj['midterm'] ?? null;
+            $prefinal = $cSubj['prefinal'] ?? null;
+            $finalGrade = $cSubj['final_grade'] ?? null;
+
+            foreach (['prelim' => $prelim, 'midterm' => $midterm, 'prefinal' => $prefinal, 'final_grade' => $finalGrade] as $colName => $val) {
+                if ($val !== null && !is_numeric($val)) {
+                    throw new RuntimeException("Schema safety violation: non-numeric grade '{$val}' for column '{$colName}' cannot be bound to numeric column for {$c['case_id']}");
+                }
+            }
+
             $stmtGrade->execute([
                 $uid,
                 $subjId,
                 $cTerm['school_year'],
                 $cTerm['semester'],
-                $cSubj['prelim'],
-                $cSubj['midterm'],
-                $cSubj['prefinal'],
-                $cSubj['final_grade'],
+                $prelim !== null ? (float)$prelim : null,
+                $midterm !== null ? (float)$midterm : null,
+                $prefinal !== null ? (float)$prefinal : null,
+                $finalGrade !== null ? (float)$finalGrade : null,
                 $cSubj['risk_level'],
                 1,    // is_current = 1
                 $facultyId,
