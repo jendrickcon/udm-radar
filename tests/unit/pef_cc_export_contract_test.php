@@ -1,0 +1,105 @@
+<?php
+declare(strict_types=1);
+require_once dirname(__DIR__).'/fixtures/pef_cc_fixture.php';
+require_once dirname(__DIR__,2).'/config/pef_cc.php';
+require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
+require_once dirname(__DIR__,2).'/includes/pef_cc_snapshot.php';
+require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
+$config=pefCcConfig();$current=['school_year'=>'2026-2027','semester'=>1];
+$context=pefTestContext(13,['1.00','INC','0.00',null,'3.25']);
+$model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>range(1,12)]),pefTestReference(),$config,$current);
+$key=random_bytes(32);$binding='synthetic-session-A';$student=$context['identity']['id'];$now=2000000000;
+$token=pefCcSignSnapshot($model,$key,$student,$binding,$config,$now);
+pefTestCheck(pefCcVerifySnapshot($token,$model,$key,$student,$binding,$config,$now+1),'Matching owned snapshot verifies');
+pefTestCheck(pefCcVerifySnapshot($token,$model,$key,$student,$binding,$config,$now+599),'Unchanged repeat download valid before expiry');
+foreach(['key','session','student','expiry','future','template'] as $case){
+ $c=$config;if($case==='template')$c['template_sha256']=str_repeat('0',64);
+ $ok=pefCcVerifySnapshot($token,$model,$case==='key'?random_bytes(32):$key,$case==='student'?$student+1:$student,$case==='session'?'other-session':$binding,$c,$case==='expiry'?$now+600:($case==='future'?$now-1:$now));
+ pefTestCheck(!$ok,'Reject snapshot replay/change: '.$case);
+}
+foreach(['','bad',str_repeat('x',2049),$token.'x',substr($token,0,-3).'AAA'] as $bad)pefTestCheck(!pefCcVerifySnapshot($bad,$model,$key,$student,$binding,$config,$now),'Reject malformed or tampered envelope');
+foreach(['identity','grade','units','section','proposed','reference'] as $case){
+ $data=$model->data;
+ if($case==='identity')$data['identity']['name'].=' CHANGED';
+ if($case==='grade')$data['recorded'][0]['grade']='4.00';
+ if($case==='units')$data['recorded'][0]['units']=9;
+ if($case==='section')$data['planning']['section']='CHANGED';
+ if($case==='proposed')$data['proposed']=array_reverse($data['proposed']);
+ if($case==='reference')$data['cc']['rows'][0]['prereq']='CHANGED';
+ pefTestCheck(!pefCcVerifySnapshot($token,new PefCcViewModel($data),$key,$student,$binding,$config,$now),'Stale authoritative/preview evidence rejected: '.$case);
+}
+pefTestCheck(!str_contains($token,$binding)&&!str_contains($token,bin2hex($key)),'Snapshot exposes neither signing key nor raw session binding');
+pefTestCheck(pefCcCanonicalJson(['b'=>1,'a'=>2])===pefCcCanonicalJson(['a'=>2,'b'=>1]),'Canonical snapshot stable across object key order');
+pefTestCheck(pefCcCanonicalJson([1,2])!==pefCcCanonicalJson([2,1]),'Canonical snapshot preserves academic row order');
+foreach(['current','duplicate'] as $case){
+ $c=pefTestContext();$extra=$c['records'][0];$extra['id']=99;$extra['school_year']='2023-2024';
+ if($case==='current'){$extra['code']=$c['catalog'][3]['code'];$extra['subject_id']=$c['catalog'][3]['id'];$extra['is_current']=1;$extra['school_year']='2026-2027';$extra['semester']=1;}
+ $c['records'][]=$extra;
+ $a=pefCcBuildViewModel($c,pefTestInputs(),pefTestReference(),$config,$current);$c['records'][3]['grade']='1.25';$b=pefCcBuildViewModel($c,pefTestInputs(),pefTestReference(),$config,$current);
+ $signed=pefCcSignSnapshot($a,$key,$student,$binding,$config,$now);
+ $row=$case==='current'?3:0;pefTestCheck($a->data['cc']['rows'][$row]['state']===$b->data['cc']['rows'][$row]['state'],'Visible CC state stable while '.$case.' evidence changes');
+ pefTestCheck(!pefCcVerifySnapshot($signed,$b,$key,$student,$binding,$config,$now),'Changed hidden '.$case.' evidence invalidates snapshot');
+}
+pefTestThrows(fn()=>new PefCcViewModel(['db'=>new stdClass()]),'No mutable objects in model');
+try {
+ $reference=pefCcTemplateReference($config);$before=hash_file('sha256',$config['template_path']);
+ $build=fn(array $ctx,array $input=[])=>pefCcBuildViewModel($ctx,pefTestInputs($input),$reference,$config,$current);
+ $model=$build($context,['subject_ids'=>range(1,12)]);
+ $generated=pefCcGenerateWorkbook($model,$config);
+ try {
+  pefTestCheck(is_file($generated['path'])&&$generated['bytes']===filesize($generated['path']),'Complete private file exists with reported byte count');
+  pefTestCheck(hash_file('sha256',$generated['path'])===$generated['sha256'],'Generated checksum matches output');
+  pefTestCheck(preg_match('/^pefcc-[a-f0-9]{32}\.xlsx$/',basename($generated['path']))===1,'Random fixed-format private basename contains no Student values');
+  $book=\PhpOffice\PhpSpreadsheet\IOFactory::load($generated['path']);$template=\PhpOffice\PhpSpreadsheet\IOFactory::load($config['template_path']);
+  pefTestCheck($book->getSheetNames()===['PEF','CC'],'Writer creates no extra sheets');
+  pefTestCheck(str_contains((string)$book->getSheetByName('CC')->getCell('A3')->getValue(),'Reference / Requires Review'),'Generated CC title visibly states applicability review boundary');
+  $pef=$book->getSheetByName('PEF');
+  pefTestCheck($pef->getCell('C37')->getDataType()==='n'&&$pef->getCell('C37')->getValue()===$model->data['gwa'],'GWA is canonical numeric scalar');
+  pefTestCheck($pef->getCell('A35')->getValue()===$model->data['recorded'][12]['code'],'Thirteenth recorded subject written, not dropped');
+  pefTestCheck($pef->getCell('A65')->getValue()===$model->data['proposed'][11]['code'],'Twelfth proposed subject written');
+  pefTestCheck((float)$pef->getCell('G66')->getCalculatedValue()===(float)array_sum(array_column($model->data['proposed'],'units')),'Proposed total formula evaluates accurately');
+  pefTestCheck($pef->getCell('G66')->getOldCalculatedValue()!==null,'Formula cached total supplied');
+  foreach(['C38','C42','F45','B68','B70','D68','D70','G68','G70'] as $cell)pefTestCheck($pef->getCell($cell)->getValue()===null,'Withheld approval/standing blank '.$cell);
+  foreach(['PEF','CC'] as $name){$s=$book->getSheetByName($name);$t=$template->getSheetByName($name);
+   pefTestCheck($s->getMergeCells()===$t->getMergeCells(),'Merge geometry preserved '.$name);
+   pefTestCheck($s->getPageSetup()->getPrintArea()===$t->getPageSetup()->getPrintArea(),'Print area preserved '.$name);
+   pefTestCheck($s->getPageSetup()->getPaperSize()===$t->getPageSetup()->getPaperSize(),'Paper configuration preserved '.$name);
+   pefTestCheck(count($s->getDataValidationCollection())===count($t->getDataValidationCollection()),'Validation preserved '.$name);
+   pefTestCheck(count($s->getConditionalStylesCollection())===count($t->getConditionalStylesCollection()),'Conditional formatting preserved '.$name);
+  }
+  $parts=static function(string $path):array{$z=new ZipArchive();$z->open($path);$a=[];for($i=0;$i<$z->numFiles;$i++){ $n=$z->getNameIndex($i);if(str_starts_with($n,'xl/media/'))$a[]=hash('sha256',$z->getFromIndex($i));}$z->close();sort($a);return $a;};
+  pefTestCheck($parts($generated['path'])===$parts($config['template_path']),'Original logo image bytes preserved');
+  $book->disconnectWorksheets();$template->disconnectWorksheets();
+ } finally { pefCcRemoveOutput($generated['path'],$config); }
+ pefTestCheck(!file_exists($generated['path']),'Success cleanup removes owned output');
+ pefCcRemoveOutput($generated['path'],$config);pefTestCheck(true,'Cleanup is idempotent');
+ $empty=$build(pefTestContext(3,['INC']));$out=pefCcGenerateWorkbook($empty,$config);
+ try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);pefTestCheck($book->getSheetByName('PEF')->getCell('C37')->getValue()===null,'All-INC unavailable GWA is truly blank');$book->disconnectWorksheets();}finally{pefCcRemoveOutput($out['path'],$config);}
+ $blank=$build(pefTestContext(3,['','   ',null]));$out=pefCcGenerateWorkbook($blank,$config);
+ try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);foreach(['F23','F24','F25','C37']as$cell)pefTestCheck($book->getSheetByName('PEF')->getCell($cell)->getValue()===null,'Blank/whitespace/null final grade and GWA stay actual blank '.$cell);$book->disconnectWorksheets();}finally{pefCcRemoveOutput($out['path'],$config);}
+ // Writer defense independent of form rejection: even control/newline prefixes cannot create formulas.
+ $payloads=['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("https://invalid.example")',"\t=1+1","\r=1+1","\n=1+1","\r\n=1+1",'Unicode 界 ñ','../name.xlsx','a<>:"|?*'];
+ $data=$model->data;
+ foreach($payloads as $i=>$payload){$data['recorded'][$i]['title']=$payload;}
+ $data['planning']['section']='=HYPERLINK("https://invalid.example")';
+ $out=pefCcGenerateWorkbook(new PefCcViewModel($data),$config);
+ try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);$s=$book->getSheetByName('PEF');
+  foreach($payloads as $i=>$payload){$cell=$s->getCell('B'.($i+23));$expected=str_replace(["\r\n","\r"],"\n",$payload);pefTestCheck($cell->getDataType()==='s'&&$cell->getValue()===$expected,'Untrusted source text literal with documented newline normalization at row '.($i+23));}
+  pefTestCheck($s->getCell('A51')->getDataType()==='s','Formula-looking section stored as explicit text');
+  $z=new ZipArchive();$z->open($out['path']);$formulas=0;for($i=0;$i<$z->numFiles;$i++){ $n=$z->getNameIndex($i);$x=$z->getFromIndex($i);if(str_ends_with($n,'.rels'))pefTestCheck(!str_contains($x,'TargetMode="External"'),'No injected external relationship '.$n);if(str_starts_with($n,'xl/worksheets/sheet')&&str_ends_with($n,'.xml')){$formulas+=preg_match_all('/<f(?:\s[^>]*)?>/',$x);}}
+  $z->close();pefTestCheck($formulas===9,'Injection introduces zero additional formulas');$book->disconnectWorksheets();
+ }finally{pefCcRemoveOutput($out['path'],$config);}
+ $beforeFiles=glob($config['temp_path'].'/pefcc-*')?:[];
+ pefTestThrows(fn()=>pefCcGenerateWorkbook($build(pefTestContext(14)),$config),'Overflow rejected before output');
+ pefTestThrows(fn()=>pefCcGenerateWorkbook($model,pefCcConfig(['max_output_bytes'=>1])),'Forced output-size failure rejected');
+ $invalid=$model->data;$invalid['recorded'][0]['title']="Bad\x01XML";
+ pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($invalid),$config),'XML-invalid source text rejected even at writer boundary');
+ pefTestCheck((glob($config['temp_path'].'/pefcc-*')?:[])===$beforeFiles,'Failure path leaves no temporary file');
+ pefTestCheck(hash_file('sha256',$config['template_path'])===$before,'Generation never overwrites template');
+ pefTestThrows(fn()=>pefCcRemoveOutput($config['template_path'],$config),'Cleanup refuses template path');
+ pefTestThrows(fn()=>pefCcRemoveOutput($config['temp_path'].'/../outside.xlsx',$config),'Cleanup rejects traversal');
+ $unrelated=$config['temp_path'].'/unrelated-'.bin2hex(random_bytes(8)).'.txt';file_put_contents($unrelated,'Synthetic unrelated sentinel');
+ $owned=$config['temp_path'].'/pefcc-'.bin2hex(random_bytes(16)).'.tmp';file_put_contents($owned,'Synthetic abandoned output');touch($owned,time()-1000);
+ try{$dry=pefCcCleanupExports($config,false);pefTestCheck(file_exists($owned),'Dry cleanup preserves abandoned output');$done=pefCcCleanupExports($config,true);pefTestCheck(!file_exists($owned)&&file_exists($unrelated),'Bounded reaper removes only owned aged file');}finally{if(file_exists($owned))unlink($owned);unlink($unrelated);}
+} catch(Throwable $e){pefTestCheck(false,'Writer prerequisite/contract: '.$e->getMessage());}
+pefTestFinish();
