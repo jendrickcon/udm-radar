@@ -62,6 +62,12 @@ function pefCcPageInvalid(string $field, array $fieldErrors): string
     return isset($fieldErrors[$field]) ? ' aria-invalid="true"' : '';
 }
 
+function pefCcPagePrintIssue(string $field, array $fieldErrors): string
+{
+    return isset($fieldErrors[$field]) ? ' aria-invalid="true" aria-describedby="pef-print-limit-explanation" class="pef-cc-print-invalid" title="'
+        . pefCcPageEscape($fieldErrors[$field]) . '"' : '';
+}
+
 /** Bound actual bytes as well as Content-Length, including chunked form requests. */
 function pefCcPageBodyWithinLimit(int $limit): bool
 {
@@ -267,6 +273,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
     <?php if ($errors !== []): ?>
     <section class="card pef-cc-errors" role="alert" tabindex="-1" data-testid="preview-errors">
         <h2>Review before exporting</h2>
+        <?php if (in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true)): ?><p id="pef-print-limit-explanation"><?= pefCcPageEscape(PEF_CC_PRINT_LIMIT_MESSAGE) ?> Read-only record values require record review; your safe planning choices are retained.</p><?php endif; ?>
         <ul><?php foreach (array_unique($errors) as $error): ?><li><?= pefCcPageEscape($error) ?></li><?php endforeach; ?></ul>
         <a class="btn btn--secondary" href="enrolment_planning.php">Reload planning records</a>
     </section>
@@ -350,7 +357,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
     <?php if ($data !== null): ?>
     <section class="card" aria-labelledby="evidence-heading">
         <h2 id="evidence-heading">Recorded academic evidence</h2>
-        <p class="pef-cc-muted"><?= pefCcPageEscape($data['evaluation']['school_year'] . ' · ' . $data['evaluation']['label']) ?> · <?= pefCcPageEscape($data['identity']['name']) ?></p>
+        <p class="pef-cc-muted"><?= pefCcPageEscape($data['evaluation']['school_year'] . ' · ' . $data['evaluation']['label']) ?> · <span<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name']) ?></span></p>
         <dl class="pef-cc-coverage">
             <div><dt>Recorded subjects</dt><dd><span data-testid="recorded-count"><?= (int) $data['recorded_count'] ?></span> of 13</dd></div>
             <div><dt>Recorded Term GWA</dt><dd data-testid="term-gwa"><?= $data['gwa'] === null ? 'Unavailable' : pefCcPageEscape(number_format($data['gwa'], 2)) ?></dd></div>
@@ -361,7 +368,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
         <p class="pef-cc-help">Term GWA follows the current recorded-grade calculation. Blank, NULL, textual outcomes, numeric zero, and unusable units are excluded. An unavailable GWA exports as a blank cell, never 0.00.</p>
         <p class="table-scroll-hint">Scroll the table horizontally to review every column.</p>
         <div class="data-table-scroll" tabindex="0" role="region" aria-label="Recorded evaluation subjects"><table class="data-table pef-cc-recorded-table"><caption>All selected-term records, including unavailable results</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th><th scope="col">Final grade</th><th scope="col">Outcome</th><th scope="col">GWA coverage</th></tr></thead><tbody>
-        <?php foreach ($data['recorded'] as $row): ?><tr><td><?= pefCcPageEscape($row['code'] ?? 'Unavailable') ?></td><td><?= pefCcPageEscape($row['title'] ?? 'Subject requires review') ?></td><td><?= pefCcPageEscape($row['units'] ?? '—') ?></td><td><?= pefCcPageEscape(pefCcPageGrade($row['grade'] ?? null)) ?></td><td><?= pefCcPageEscape($row['outcome']) ?></td><td><?= pefCcPageEscape(str_replace('_', ' ', $row['gwa_reason'])) ?></td></tr><?php endforeach; ?>
+        <?php foreach ($data['recorded'] as $index => $row): ?><tr><td<?= pefCcPagePrintIssue('recorded.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code'] ?? 'Unavailable') ?></td><td<?= pefCcPagePrintIssue('recorded.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title'] ?? 'Subject requires review') ?></td><td><?= pefCcPageEscape($row['units'] ?? '—') ?></td><td><?= pefCcPageEscape(pefCcPageGrade($row['grade'] ?? null)) ?></td><td><?= pefCcPageEscape($row['outcome']) ?></td><td><?= pefCcPageEscape(str_replace('_', ' ', $row['gwa_reason'])) ?></td></tr><?php endforeach; ?>
         <?php if ($data['recorded'] === []): ?><tr><td colspan="6" class="empty-state">No records for the selected term.</td></tr><?php endif; ?>
         </tbody></table></div>
     </section>
@@ -372,15 +379,15 @@ require_once __DIR__ . '/../includes/sidebar.php';
         <h2 id="pef-preview-heading">PEF preview · planning copy</h2>
         <p class="pef-cc-muted">The workbook uses these same reviewed values and all the recorded rows shown above.</p>
         <dl class="pef-cc-preview-fields">
-            <div><dt>Student</dt><dd><?= pefCcPageEscape($data['identity']['name']) ?></dd></div>
-            <div><dt>Student number</dt><dd><?= pefCcPageEscape($data['identity']['student_number']) ?></dd></div>
+            <div><dt>Student</dt><dd<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name']) ?></dd></div>
+            <div><dt>Student number</dt><dd<?= pefCcPagePrintIssue('identity.student_number', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['student_number']) ?></dd></div>
             <div><dt>College / program</dt><dd><?= pefCcPageEscape($data['identity']['college'] . ' / ' . $data['identity']['program']) ?></dd></div>
             <div><dt>Evaluation term</dt><dd><?= pefCcPageEscape($data['evaluation']['school_year'] . ' · ' . $data['evaluation']['label']) ?></dd></div>
             <div><dt>Target term</dt><dd><?= pefCcPageEscape($data['planning']['target_year']) ?> · <?= $data['planning']['target_semester'] === 1 ? 'First Semester' : 'Second Semester' ?></dd></div>
             <div><dt>Recorded current section</dt><dd><?= pefCcPageEscape($data['policy']['recorded_section'] ?? 'Unavailable') ?></dd></div>
             <div><dt>Proposed section</dt><dd><?= pefCcPageEscape($data['planning']['section'] === '' ? 'Blank' : $data['planning']['section']) ?></dd></div>
         </dl>
-        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Proposed subjects"><table class="data-table"><caption><?= $data['policy']['mode'] === 'regular' ? 'Nominal subjects · read-only' : 'Manually proposed subjects' ?> · <?= (int) $data['proposed_count'] ?> of 12</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th></tr></thead><tbody><?php foreach ($data['proposed'] as $row): ?><tr><td><?= pefCcPageEscape($row['code']) ?></td><td><?= pefCcPageEscape($row['title']) ?></td><td><?= pefCcPageEscape($row['units']) ?></td></tr><?php endforeach; ?><?php if ($data['proposed'] === []): ?><tr><td colspan="3" class="empty-state"><?= $data['policy']['mode'] === 'irregular' ? 'No proposed subjects selected. This copy may still be exported.' : 'Nominal subject plan unavailable. Evaluator review is required before export.' ?></td></tr><?php endif; ?></tbody></table></div>
+        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Proposed subjects"><table class="data-table"><caption><?= $data['policy']['mode'] === 'regular' ? 'Nominal subjects · read-only' : 'Manually proposed subjects' ?> · <?= (int) $data['proposed_count'] ?> of 12</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th></tr></thead><tbody><?php foreach ($data['proposed'] as $index => $row): ?><tr><td<?= pefCcPagePrintIssue('proposed.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code']) ?></td><td<?= pefCcPagePrintIssue('proposed.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title']) ?></td><td><?= pefCcPageEscape($row['units']) ?></td></tr><?php endforeach; ?><?php if ($data['proposed'] === []): ?><tr><td colspan="3" class="empty-state"><?= $data['policy']['mode'] === 'irregular' ? 'No proposed subjects selected. This copy may still be exported.' : 'Nominal subject plan unavailable. Evaluator review is required before export.' ?></td></tr><?php endif; ?></tbody></table></div>
         <p class="pef-cc-help">Academic Standing, Previous Academic Standing, Evaluator, Dean, signatures, and approval dates remain blank.</p>
         <p><?= pefCcPageEscape($data['disclosure']) ?></p>
         <?php if ($preview !== ''): ?>

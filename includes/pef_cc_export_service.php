@@ -244,8 +244,13 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         || ($data['recorded_count'] ?? -1) !== count($data['recorded'] ?? [])
         || ($data['proposed_count'] ?? -1) !== count($data['proposed'] ?? [])
         || ($data['template_hash'] ?? null) !== $config['template_sha256']
-        || ($data['template_version'] ?? null) !== $config['template_version']) {
+        || ($data['template_version'] ?? null) !== $config['template_version']
+        || ($data['print_contract'] ?? null) !== $config['printable']) {
         throw new RuntimeException('Refresh a valid planning preview before downloading.');
+    }
+    $printErrors = pefCcPrintableErrors($data['identity'], $data['recorded'], $data['proposed'], $data['planning']['section'], $config);
+    if ($printErrors !== []) {
+        throw new PefCcValidationException([PEF_CC_PRINT_LIMIT_MESSAGE], $printErrors);
     }
     $started = hrtime(true);
     $checkDeadline = static function () use ($started, $config): void {

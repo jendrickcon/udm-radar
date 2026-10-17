@@ -72,6 +72,33 @@ function pefCcSafeText(mixed $value, bool $required = false, int $max = 32767): 
         && mb_strlen($value, 'UTF-8') <= $max && (!$required || trim($value) !== '');
 }
 
+const PEF_CC_PRINT_LIMIT_MESSAGE = 'The planning form contains text that exceeds the printable form limit. Review the highlighted value before downloading.';
+
+/** Reject unprintable source text without repairing or truncating academic evidence. */
+function pefCcPrintableErrors(array $identity, array $recorded, array $proposed, mixed $section, array $config): array
+{
+    $limits = $config['printable'];
+    $fields = [];
+    $check = static function (mixed $value, string $key, string $label, int $limit, bool $required = true) use (&$fields): void {
+        if (!pefCcSafeText($value, $required, $limit)
+            || preg_match('/[\t\r\n\x{85}\x{2028}\x{2029}]/u', $value) !== 0) {
+            $fields[$key] = $label . ' must be one line of at most ' . $limit . ' Unicode characters. Recorded values are not changed.';
+        }
+    };
+    $check($identity['name'] ?? null, 'identity.name', 'Student name', $limits['name']);
+    $check($identity['student_number'] ?? null, 'identity.student_number', 'Student number', $limits['student_number']);
+    foreach (['recorded' => $recorded, 'proposed' => $proposed] as $type => $rows) {
+        foreach ($rows as $index => $row) {
+            foreach (['code', 'title'] as $field) {
+                $check($row[$field] ?? null, $type . '.' . $index . '.' . $field,
+                    ucfirst($type) . ' subject ' . ($index + 1) . ' ' . $field, $limits[$type . '_' . $field]);
+            }
+        }
+    }
+    $check($section, 'section', 'Proposed section', $limits['section'], false);
+    return $fields;
+}
+
 function pefCcNormalizeInputs(array $input, array $config): array
 {
     $allowed = ['evaluation_year', 'evaluation_semester', 'target_year', 'target_semester', 'section', 'subject_ids'];
@@ -432,6 +459,12 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $errors[] = 'Proposed subjects exceed the 12-row capacity. Remove subjects before previewing.';
         $fieldErrors['subject_ids'] = 'Choose no more than twelve proposed subjects.';
     }
+    $printErrors = pefCcPrintableErrors($identity, $recordedRows, $proposed, $planningInput['section'], $config);
+    if ($printErrors !== []) {
+        $errors[] = PEF_CC_PRINT_LIMIT_MESSAGE;
+        $errors = array_merge($errors, array_values($printErrors));
+        $fieldErrors = array_replace($fieldErrors, $printErrors);
+    }
     $errors = array_values(array_unique($errors));
     $gwa = $termGwaEligible ? computeWeightedGWA($gwaRows) : null;
     return new PefCcViewModel([
@@ -449,6 +482,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         'cc' => pefCcBuildReferenceCc($records, $reference),
         'disclosure' => $config['disclosure'], 'prototype_disclosure' => $config['prototype_disclosure'],
         'template_version' => $config['template_version'], 'template_hash' => $config['template_sha256'],
+        'print_contract' => $config['printable'],
         'exportable' => $errors === [], 'errors' => $errors, 'field_errors' => $fieldErrors,
     ]);
 }

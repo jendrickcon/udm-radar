@@ -80,11 +80,22 @@ try {
  // Writer defense independent of form rejection: even control/newline prefixes cannot create formulas.
  $payloads=['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("https://invalid.example")',"\t=1+1","\r=1+1","\n=1+1","\r\n=1+1",'Unicode 界 ñ','../name.xlsx','a<>:"|?*'];
  $data=$model->data;
- foreach($payloads as $i=>$payload){$data['recorded'][$i]['title']=$payload;}
+ $primitive=new \PhpOffice\PhpSpreadsheet\Spreadsheet();$primitiveSheet=$primitive->getActiveSheet();
+ foreach($payloads as $i=>$payload){
+  pefCcWriteCell($primitiveSheet,'A'.($i+1),$payload);
+  $cell=$primitiveSheet->getCell('A'.($i+1));$expected=str_replace(["\r\n","\r"],"\n",$payload);
+  pefTestCheck($cell->getDataType()==='s'&&$cell->getValue()===$expected,'Low-level explicit typing and newline normalization retained for payload '.($i+1));
+  if(preg_match('/[\t\r\n]/',$payload)){
+   $invalid=$model->data;$invalid['recorded'][$i]['title']=$payload;
+   pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($invalid),$config),'Multiline/control source title now rejected by print contract before export');
+   $data['recorded'][$i]['title']='LINEFEED REJECTED';
+  }else{$data['recorded'][$i]['title']=$payload;}
+ }
+ $primitive->disconnectWorksheets();
  $data['planning']['section']='=HYPERLINK("https://invalid.example")';
  $out=pefCcGenerateWorkbook(new PefCcViewModel($data),$config);
  try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);$s=$book->getSheetByName('PEF');
-  foreach($payloads as $i=>$payload){$cell=$s->getCell('B'.($i+23));$expected=str_replace(["\r\n","\r"],"\n",$payload);pefTestCheck($cell->getDataType()==='s'&&$cell->getValue()===$expected,'Untrusted source text literal with documented newline normalization at row '.($i+23));}
+  foreach($payloads as $i=>$payload){$cell=$s->getCell('B'.($i+23));$expected=preg_match('/[\t\r\n]/',$payload)?'LINEFEED REJECTED':$payload;pefTestCheck($cell->getDataType()==='s'&&$cell->getValue()===$expected,'Within-contract untrusted source text remains literal at row '.($i+23));}
   pefTestCheck($s->getCell('A51')->getDataType()==='s','Formula-looking section stored as explicit text');
   $z=new ZipArchive();$z->open($out['path']);$formulas=0;for($i=0;$i<$z->numFiles;$i++){ $n=$z->getNameIndex($i);$x=$z->getFromIndex($i);if(str_ends_with($n,'.rels'))pefTestCheck(!str_contains($x,'TargetMode="External"'),'No injected external relationship '.$n);if(str_starts_with($n,'xl/worksheets/sheet')&&str_ends_with($n,'.xml')){$formulas+=preg_match_all('/<f(?:\s[^>]*)?>/',$x);}}
   $z->close();pefTestCheck($formulas===9,'Injection introduces zero additional formulas');$book->disconnectWorksheets();

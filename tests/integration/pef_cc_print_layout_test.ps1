@@ -8,14 +8,17 @@ param(
 # Opt-in, synthetic-only native Excel review. No database, printer job, or workbook save.
 # Generate samples first with pefTestPrintSamples() in a fresh private directory.
 $ErrorActionPreference = 'Stop'
+if($MinimumDataFontPoints -lt 8){throw 'The current project print-review floor cannot be weakened below 8pt.'}
 $samplesRoot = (Resolve-Path -LiteralPath $SampleDirectory).Path
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
 foreach ($path in @($samplesRoot,$outputRoot)) {
     if ($path -match '[\\/]htdocs(?:[\\/]|$)') { throw 'Print evidence must be outside web roots.' }
 }
 if (Test-Path -LiteralPath $outputRoot) { throw 'Use a new output directory; previous print evidence is immutable.' }
-$samples = Get-Content -Raw -LiteralPath (Join-Path $samplesRoot 'samples.json') | ConvertFrom-Json
-$required = @('normal','blank','section96','wide96','unicode96','capacity','long-text')
+$matrix = Get-Content -Raw -LiteralPath (Join-Path $samplesRoot 'samples.json') | ConvertFrom-Json
+if($matrix.matrix -ne 'sd-operational-wp1.1'){throw 'Use the operational catalogue matrix, with extreme cases rejected before export.'}
+$samples = $matrix.cases
+$required = @('normal','blank','section96','wide96','unicode96','capacity','catalogue-1','catalogue-2','catalogue-3','catalogue-4','catalogue-5')
 if ((@($samples.PSObject.Properties.Name | Sort-Object) -join ',') -ne (@($required | Sort-Object) -join ',')) { throw 'The complete synthetic stress matrix is required.' }
 New-Item -ItemType Directory -Path $outputRoot | Out-Null
 $excel=$null; $book=$null; $results=@()
@@ -45,11 +48,13 @@ try {
                 headers=@($page.LeftHeader,$page.CenterHeader,$page.RightHeader);footers=@($page.LeftFooter,$page.CenterFooter,$page.RightFooter)}
         }
         $pef=$book.Worksheets.Item('PEF')
+        $cc=$book.Worksheets.Item('CC')
+        $entry.cc_name=[string]$cc.Range('B1').Value2
         $anchor=$pef.Range('A49:G49')
         $entry.anchor=@{left=$anchor.Left;top=$anchor.Top;width=$anchor.Width}
         $entry.section_wrap=$pef.Range('A51').WrapText
         $entry.section_row_height=$pef.Rows.Item(51).RowHeight
-        $cells=@('A10','A51')
+        $cells=@('A10','A12','A51')
         foreach($row in 23..35){$cells+=@(('A'+$row),('B'+$row))}
         foreach($row in 54..65){$cells+=@(('A'+$row),('B'+$row))}
         foreach($address in $cells){
@@ -61,7 +66,7 @@ try {
         $book.Close($false);[void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($book);$book=$null
         if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash){throw 'Read-only review changed a sample.'}
     }
-    @{excel_version=$excel.Version;excel_build=$excel.Build;active_printer=$excel.ActivePrinter;minimum_data_font_points=$MinimumDataFontPoints;cases=$results} |
+    @{excel_version=$excel.Version;excel_build=$excel.Build;active_printer=$excel.ActivePrinter;minimum_data_font_points=$MinimumDataFontPoints;cases=$results;defensive_rejections=$matrix.defensive_rejections;operational_metrics=$matrix.metrics} |
         ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $outputRoot 'native-excel.json') -Encoding UTF8
 } finally {
     if($null -ne $book){$book.Close($false);[void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($book)}
@@ -89,7 +94,16 @@ for case in native['cases']:
             check(len(pdf.pages)==1, name, sheet['name']+' exports to one page')
             page=pdf.pages[0]
             check(abs(page.width-612)<0.1 and abs(page.height-936)<0.1, name, sheet['name']+' actual 8.5 x 13 inch PDF')
-            if sheet['name']!='PEF': continue
+            if sheet['name']!='PEF':
+                cc_chars=[c for c in page.chars if not c['text'].isspace()]
+                cc_flat=''.join(c['text'] for c in cc_chars)
+                for label,value in [('Student name',case['cc_name']),('active GED101 code','GED101'),('active Physical Activity title prefix','Physical Activity')]:
+                    needle=re.sub(r'\s','',value);pos=cc_flat.find(needle)
+                    check(pos>=0,name,'CC '+label+' complete value located')
+                    if pos>=0:
+                        size=min(c['size'] for c in cc_chars[pos:pos+len(needle)])
+                        check(size>=native['minimum_data_font_points'],name,'CC '+label+' font >= '+str(native['minimum_data_font_points'])+'pt (observed '+str(round(size,2))+')')
+                continue
             # The retained filled target-term/section panel is the coordinate
             # anchor. Infer the printer's scale from its native merged width.
             panels=[r for r in page.rects if r['width']>350 and 70<r['height']<130 and 450<r['top']<550]
@@ -117,6 +131,11 @@ for case in native['cases']:
                 row=int(re.search(r'\d+',field['cell'])[0])
                 if row==10 and name_panel:
                     top,bottom=name_panel['top'],name_panel['bottom']
+                elif row==12:
+                    number_panel=next((r for r in page.rects if r['width']>350 and 160<r['top']<180 and 15<r['height']<25),None)
+                    if not number_panel:
+                        check(False,name,'A12 native printed number boundary found');continue
+                    top,bottom=number_panel['top'],number_panel['bottom']
                 elif 23<=row<=35 and len(recorded)==14:
                     top,bottom=recorded[row-23:row-21]
                 elif 54<=row<=65 and len(proposed)==13:
@@ -146,7 +165,9 @@ for case in native['cases']:
                 size=min(c['size'] for c in glyphs)
                 check(visible,name,label+' all glyphs within printed cell / no label or border overlap')
                 check(size>=native['minimum_data_font_points'],name,label+' variable-data font >= '+str(native['minimum_data_font_points'])+'pt (observed '+str(round(size,2))+')')
-out={'assertions':len(checks),'failures':sum(not c['passed'] for c in checks),'checks':checks,
+for name,result in native['defensive_rejections'].items():
+    check(result['preview_rejected'] and result['export_rejected'] and not result['output_created'],name,'Extreme/out-of-contract value rejected before generating a print file')
+out={'assertions':len(checks),'failures':sum(not c['passed'] for c in checks),'checks':checks,'operational_metrics':native['operational_metrics'],
      'limits':'Native Excel PDF geometry plus separate raster review; owner actual Print Preview and physical printer acceptance remain required. The 8pt data floor is a review criterion, not an asserted institutional standard.'}
 (root/'print-results.json').write_text(json.dumps(out,indent=2),encoding='utf-8')
 for c in checks:

@@ -21,6 +21,14 @@ function pefCcConfig(array $overrides = []): array
         'snapshot_ttl' => 600,
         'max_request_bytes' => 16384,
         'section_max' => 96,
+        // Project print-review bounds, not institutional identity/catalogue rules.
+        // Native Excel's separate 8pt gate must pass before owner acceptance.
+        'printable' => [
+            'version' => 'sd-operational-wp1.1', 'review_floor_points' => 8,
+            'name' => 60, 'student_number' => 20,
+            'recorded_code' => 6, 'recorded_title' => 46,
+            'proposed_code' => 6, 'proposed_title' => 46, 'section' => 96,
+        ],
         'generation_timeout' => 30,
         'max_output_bytes' => 5242880,
         'cleanup_age_seconds' => 600,

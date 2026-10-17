@@ -6,6 +6,50 @@ This is a Student-prepared planning copy for evaluator review. It is not an offi
 
 ## Academic and data contract
 
+### Printable-input review contract (2026-10-18)
+
+PR #51 remains **Draft**. The owner accepted the software, SD mapping, ownership/security and standard export paths. This continuation adds bounded text validation and an owner print-review package; it does not approve a release or revise the private template.
+
+The approved sanitized SD mapping has 58 subjects: maximum code **6 characters**, maximum canonical title **46 characters**, shared by `Physical Activity Towards Health and Fitness 1` through `4`. Verified section syntax is five characters (`IT-32`, for example); the existing proposed-section limit remains **96 Unicode characters**. The longest normal synthetic acceptance name is **58 characters**: `DELA CRUZ-SANTOS, ALEXANDRA ISABELLA SYNTHETIC MARIA REYES`. Row capacities remain 13 recorded / 12 proposed. Legacy CY/DS entries are not operational acceptance inputs.
+
+| Printable field | Proposed enforced boundary |
+| --- | ---: |
+| Student display name, after uppercase conversion | 60 Unicode characters |
+| Student number | 20 |
+| Recorded subject code / title | 6 / 46 |
+| Proposed subject code / title | 6 / 46 |
+| Proposed section | 96 |
+
+Each value must be a single line without tabs/line separators. These are project print-review bounds, not institutional name or catalogue policies. Every active SD catalogue value fits; none is truncated. An arbitrary 150-character title or 20-character code is a defensive test, not a normal CCS requirement. Names and student numbers are proposed review limits based on synthetic acceptance values, not a claim about every institutional identity.
+
+The model and writer independently reject out-of-contract values. The page names and highlights the offending read-only field, with an accessible explanation; safe section/subject selections remain. Rejection does not change records or GWA, sign a usable preview, generate a file, or shrink/truncate text. Print-contract version/limits are part of the signed preview. The writer also rejects forged `exportable` flags and changed contract metadata. Low-level literal string typing remains tested; multiline source titles are now rejected rather than exported across rows.
+
+**Acceptance remains blocked.** Length validation alone is not a typography guarantee. At the unchanged v0.2-r2 geometry, the real catalogue matrix (all 58 subjects in recorded and proposed positions) has contained codes, complete titles, readable normal names, intact CC geometry, one-page Folio output and complete 96-character sections, but PEF fields still render at **7.44 pt**, and inspected active CC codes/title text at **6.12 pt**. The unchanged **8 pt project floor** is not an official institutional standard. The operational native Excel run has **1,328 checks / 228 failures, all font-floor assertions**. Seven extreme/over-boundary cases reject before output. No assertion is weakened or old failure counted as passed.
+
+Fresh software checks: **702 PHP assertions passed**, including the new 149-assertion contract suite; **16 generated-static-HTML browser cases passed** in light/dark at 390/1440 widths using Playwright 1.63.0. These new browser cases use actual page markup and shared CSS with mocked file routes; they do not prove authentication. Database-backed tests, cohort seeding and the full browser suite were not rerun in this print-only phase. The prior 11 Midterm failures remain an environmental fixed-cohort fixture dependency, not passes or PEF defects; no database, Midterm or prediction code was changed.
+
+For future authorized DB tests, synthetic subject codes now fit six characters and their titles retain the full ownership token. Cleanup checks both exact code and title, including the older manifest format. No DB fixture creation or cleanup was executed in this phase.
+
+### Owner desktop Excel acceptance
+
+Use only the private, hash-verified synthetic acceptance package. Do not upload its workbook or synthetic exports to Git. No owner desktop Print Preview or physical print has been performed by automated PDF checks.
+
+1. Deploy v0.2-r2 to `C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r2\template.xlsx`, after verifying SHA-256 `c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02`. Preserve v0.1 and v0.2-r2; the deployment copy must match the supplied version, never an edited overwrite.
+2. Open `normal-synthetic.xlsx` in desktop Excel.
+3. Open `operational-maximum-synthetic.xlsx` (13 recorded / 12 proposed, real maximum-length catalogue titles, 58-character synthetic name).
+4. Open `section96-synthetic.xlsx`.
+5. Confirm Folio **8.5 × 13 inches** with a driver that actually supports Folio.
+6. Confirm Portrait orientation on both sheets.
+7. Confirm one-page PEF output in actual Print Preview.
+8. Inspect all subject-code borders.
+9. Inspect complete subject titles at actual size; require at least 8 pt under the current project floor.
+10. Inspect full-name readability and completeness.
+11. Inspect full section visibility and label clearance.
+12. Inspect blank signatures/approval fields and their clearance.
+13. Export both sheets to PDF and inspect them; this is supporting evidence, not automatic owner acceptance.
+14. If available, inspect one physical Folio print.
+15. Record **Accepted** or **Rejected**, the exact workbook/sheet/cell/field, observed font size, Excel/driver/paper settings, reviewer and date. Leave the physical result **Not performed** if no print was made. PR #51 must remain Draft while the 8 pt gate or owner acceptance is unresolved.
+
 The ownership key is the authenticated `users.id`. The server reloads identity, the Student's own complete grade history, and the subject catalogue using SELECTs in a consistent read-only transaction. Student IDs, identity, grades, units, GWA, staff names, cell addresses, paths and filenames cannot be supplied by the browser.
 
 A completed evaluation term must have a valid consecutive school-year pair, semester 1 or 2, and exclusively historical rows. It must precede the current configured academic term. All rows are inspected before filtering. Mixed current/history flags, current or future terms, orphan subjects, duplicate records/codes, unsupported grades, incompatible identity and unusable source data require record review and block export. The page does not repair records or select a best/latest attempt.
@@ -131,6 +175,7 @@ C:\xampp\php\php.exe tests/unit/pef_cc_view_model_test.php
 C:\xampp\php\php.exe tests/unit/pef_cc_template_test.php
 C:\xampp\php\php.exe tests/unit/pef_cc_export_contract_test.php
 C:\xampp\php\php.exe tests/unit/pef_cc_curriculum_test.php
+C:\xampp\php\php.exe tests/unit/pef_cc_print_contract_test.php
 ```
 
 Database fixtures require explicit `DB_NAME=udm_radar_scratch` and prove `SELECT DATABASE()` before mutations. They add random owned synthetic users/subjects/grades, remove only their own rows and compare whole-table fingerprints to preserve existing records. They never rebuild/truncate or fall back to `udm_radar`. A compatible migrated scratch schema must already exist. Inspect test paths and prerequisites before use.
@@ -167,6 +212,6 @@ WP2/WP3 remain deferred. The approved narrow SD nominal list is part of WP1; bro
 
 Before release: resolve maximum-text print failures, obtain owner actual-size Excel Print Preview/paper acceptance, and verify production Apache ACLs/runtime/cleanup scheduling. Logo use is authorized. If valid source text does not fit, require a versioned template review; do not truncate, reduce accepted limits, weaken tests or shrink fonts further.
 
-**Native Excel review, 2026-10-18:** v0.2-r2 fits normal, original 96-character, 96-wide-Latin and 96-wide-Unicode sections without label overlap, on one Folio page per sheet. Capacity remains 13/12. The opt-in `tests/integration/pef_cc_print_layout_test.ps1` reopens synthetic samples read-only, exports PDF, checks actual page dimensions, native grid/glyph bounds and a declared 8 pt variable-data review floor. PDF text presence alone is insufficient; raster review corroborates the geometry. This is not a substitute for owner Print Preview or institutional-printer acceptance.
+**Earlier unbounded stress review, 2026-10-18:** v0.2-r2 fits normal, original 96-character, 96-wide-Latin and 96-wide-Unicode sections without label overlap, on one Folio page per sheet. Capacity remains 13/12. Its earlier arbitrary long-text failures remain preserved as historical evidence; the current operational matrix and rejection behavior are described above. The opt-in `tests/integration/pef_cc_print_layout_test.ps1` reopens synthetic samples read-only, exports PDF, checks actual page dimensions, native grid/glyph bounds and the 8 pt floor. PDF text presence alone is insufficient; raster review corroborates the geometry. This is not a substitute for owner Print Preview or institutional-printer acceptance.
 
-The complete print stress gate remains **Failed**: maximum-length codes can cross cell borders, long titles render around 3.96–5.4 pt, and several normal/capacity fields are 7.44 pt under the retained scaling. The 8 pt floor is an explicit review criterion, not an asserted institutional standard. These failures are preserved, not waived; LibreOffice is unavailable. No actual print job or Windows default-printer change occurred. The software can be reviewed as a draft; release remains blocked.
+The earlier unbounded stress gate **Failed** on 20-character codes and 150-character titles; that evidence is preserved, not converted into passes. Those values are now defensive rejection cases rather than accepted operational maxima. The current real-catalogue gate still **Fails** on fonts below 8 pt, as recorded above. The floor is a project review criterion, not an institutional standard. LibreOffice is unavailable. No actual print job or Windows default-printer change occurred. Software and print acceptance remain distinct; PR #51 stays Draft.

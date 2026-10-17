@@ -67,31 +67,76 @@ function pefTestReference(): array {
         'grade_cell'=>'E'.($i+7),'remark_cell'=>'F'.($i+7),'status_cell'=>'G'.($i+7)];
     return ['version'=>'2022-2023','rows'=>$rows];
 }
+/** Catalogue-derived print data; identities/grades remain entirely synthetic. */
+function pefTestOperationalContext(array $subjects, ?string $name = null): array {
+    $c=pefTestContext(0);$c['catalog']=[];$c['records']=[];
+    $c['identity']['name']=$name??'DELA CRUZ-SANTOS, ALEXANDRA ISABELLA SYNTHETIC MARIA REYES';
+    foreach($subjects as $i=>$subject){
+        $s=['id'=>1001+$i,'code'=>$subject['code'],'title'=>$subject['title'],'units'=>$subject['units'],
+            'year_level'=>$subject['year_level'],'semester'=>$subject['semester']];
+        $c['catalog'][]=$s;
+        $c['records'][]=['id'=>2001+$i,'subject_id'=>$s['id'],'school_year'=>'2024-2025','semester'=>2,
+            'is_current'=>0,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>'3.25'];
+    }
+    return $c;
+}
+
+/** Full ownership token is in the title; compact codes fit the operational contract. */
+function pefTestSubjectIdentity(array $manifest, int $index): array {
+    if($index<0||$index>=15||!preg_match('/^[0-9a-f]{10}$/',$manifest['token']??''))throw new RuntimeException('Invalid subject fixture identity');
+    if(($manifest['subject_format']??null)==='compact-print-v1')return [
+        'code'=>'P'.strtoupper(substr($manifest['token'],0,3)).str_pad((string)($index+1),2,'0',STR_PAD_LEFT),
+        'title'=>'Synthetic '.$manifest['token'].' subject '.($index+1)];
+    if(isset($manifest['subject_format']))throw new RuntimeException('Unknown subject fixture format');
+    // Preserve safe cleanup of older private manifests; never reinterpret them.
+    return ['code'=>'PC'.$manifest['token'].str_pad((string)($index+1),2,'0',STR_PAD_LEFT),'title'=>'Synthetic planning subject '.($index+1)];
+}
 /** Explicit private synthetic print samples; no database connection or original roster access. */
 function pefTestPrintSamples(string $directory): array {
     $real=realpath($directory);
     if(!$real||preg_match('~[\\\\/]htdocs(?:[\\\\/]|$)~i',$real)||glob($real.'/*'))throw new RuntimeException('Fresh private print directory outside web roots required');
     require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
     $config=pefCcConfig();$reference=pefCcTemplateReference($config);$cases=[];
-    $cases['normal']=[pefTestContext(6),[1,2],'IT-32'];
-    $cases['blank']=[pefTestContext(3,[null]),[],''];
-    $cases['section96']=[pefTestContext(),[1],str_repeat('SYNTHETIC ',9).'ABCDEF'];
-    $cases['wide96']=[pefTestContext(),[1],str_repeat('W',96)];
-    $cases['unicode96']=[pefTestContext(),[1],str_repeat('界',96)];
-    $cases['capacity']=[pefTestContext(13),range(1,12),'IT-32'];
-    $long=pefTestContext(13,['3.25']);$long['identity']['name']=str_repeat('SYNTHETIC ',14).'EXAMPLE';
-    foreach(['records','catalog'] as $list)foreach($long[$list] as $i=>&$s){
-        $s['code']=str_pad('SYN'.str_pad((string)$i,2,'0',STR_PAD_LEFT),20,'W');
-        $s['title']=str_pad('Synthetic course in information systems architecture and enterprise technology integration practice',150,' synthetic');
-    }unset($s);
-    $cases['long-text']=[$long,range(1,12),str_repeat('SYNTHETIC ',9).'ABCDEF'];
-    $result=[];
+    $mapping=pefCcCurriculum();$all=array_merge(...array_column($mapping['mapping']['terms'],'subjects'));
+    $normal=pefTestOperationalContext(array_slice($all,0,6),'EXAMPLE, SYNTHETIC');
+    $cases['normal']=[$normal,[1001,1002],'IT-32'];
+    $blank=pefTestOperationalContext(array_slice($all,0,3),'EXAMPLE, SYNTHETIC');
+    foreach($blank['records'] as &$r)$r['grade']=null;unset($r);
+    $cases['blank']=[$blank,[],''];
+    foreach(['section96'=>str_repeat('SYNTHETIC ',9).'ABCDEF','wide96'=>str_repeat('W',96),'unicode96'=>str_repeat('界',96)] as $key=>$section)$cases[$key]=[$normal,[1001],$section];
+    $longest=$all;usort($longest,static fn(array $a,array $b):int=>mb_strlen($b['title'])<=>mb_strlen($a['title']));
+    $capacity=pefTestOperationalContext(array_slice($longest,0,13));$capacity['identity']['student_number']='SYN-ACCEPTANCE-00001';
+    $cases['capacity']=[$capacity,range(1001,1012),'IT-32'];
+    foreach(array_chunk($all,12) as $index=>$subjects){
+        $c=pefTestOperationalContext($subjects);$cases['catalogue-'.($index+1)]=[$c,array_column($c['catalog'],'id'),'IT-32'];
+    }
+    $result=['matrix'=>'sd-operational-wp1.1','curriculum_sha256'=>$mapping['sha256'],'cases'=>[],
+        'metrics'=>['active_subjects'=>count($all),'code_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['code']),$all)),
+            'title_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['title']),$all)),
+            'normal_name'=>$capacity['identity']['name'],'normal_name_characters'=>mb_strlen($capacity['identity']['name']),
+            'student_number_characters'=>mb_strlen($capacity['identity']['student_number']),'verified_section'=>'IT-32','verified_section_characters'=>5,
+            'recorded_rows'=>13,'proposed_rows'=>12], 'defensive_rejections'=>[]];
     foreach($cases as $name=>[$context,$ids,$section]){
         $model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>$ids,'section'=>$section]),$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
         $out=pefCcGenerateWorkbook($model,$config);$path=$real.'/'.$name.'.xlsx';
         try{if(!copy($out['path'],$path))throw new RuntimeException('Print sample copy failed');}
         finally{pefCcRemoveOutput($out['path'],$config);}
-        $result[$name]=['path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$section,'recorded_count'=>count($model->data['recorded']),'proposed_count'=>count($model->data['proposed'])];
+        $result['cases'][$name]=['role'=>'operational','path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$section,
+            'recorded_count'=>count($model->data['recorded']),'proposed_count'=>count($model->data['proposed']),
+            'recorded_codes'=>array_column($model->data['recorded'],'code'),'proposed_codes'=>array_column($model->data['proposed'],'code')];
+    }
+    foreach(['name147','code20','title150','name61','number21','code7','title47'] as $case){
+        $c=$normal;
+        if(str_starts_with($case,'name'))$c['identity']['name']=str_repeat('W',(int)substr($case,4));
+        if($case==='number21')$c['identity']['student_number']=str_repeat('S',21);
+        if(str_starts_with($case,'code')){$c['records'][0]['code']=str_repeat('W',(int)substr($case,4));$c['catalog'][0]['code']=$c['records'][0]['code'];}
+        if(str_starts_with($case,'title')){$c['records'][0]['title']=str_repeat('W',(int)substr($case,5));$c['catalog'][0]['title']=$c['records'][0]['title'];}
+        $m=pefCcBuildViewModel($c,pefTestInputs(['subject_ids'=>[1001],'section'=>'IT-32']),$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
+        if($m->data['exportable']||!in_array(PEF_CC_PRINT_LIMIT_MESSAGE,$m->data['errors'],true))throw new RuntimeException('Defensive print case was not visibly rejected: '.$case);
+        $files=glob($config['temp_path'].'/pefcc-*')?:[];$rejected=false;
+        try{pefCcGenerateWorkbook($m,$config);}catch(RuntimeException){$rejected=true;}
+        if(!$rejected||(glob($config['temp_path'].'/pefcc-*')?:[])!==$files)throw new RuntimeException('Defensive print case produced an output');
+        $result['defensive_rejections'][$case]=['preview_rejected'=>true,'export_rejected'=>true,'output_created'=>false];
     }
     file_put_contents($real.'/samples.json',json_encode($result,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
     return $result;
@@ -142,6 +187,13 @@ function pefTestCreateFixture(PDO $db): array {
     // Borrow verified public nominal IDs; they never enter the owned cleanup list.
     $mapping=require dirname(__DIR__,2).'/config/bsit_software_development_curriculum_2022_2023.php';
     $catalog=$db->query('SELECT id,code,title,units,year_level,semester FROM subjects ORDER BY id')->fetchAll();
+    for($attempt=0;;$attempt++){
+        $manifest['subject_format']='compact-print-v1';
+        $codes=array_map(static fn(int $i):string=>pefTestSubjectIdentity($manifest,$i)['code'],range(0,14));
+        if(!array_intersect($codes,array_column($catalog,'code')))break;
+        if($attempt>=10)throw new RuntimeException('Synthetic short-code namespace unavailable');
+        $token=bin2hex(random_bytes(5));$manifest['token']=$token;
+    }
     $nominal=[];
     foreach($mapping['terms'] as $term)foreach($term['subjects'] as $subject){
         $matches=array_values(array_filter($catalog,static fn(array $s):bool=>$s['code']===$subject['code']));
@@ -157,7 +209,7 @@ function pefTestCreateFixture(PDO $db): array {
     $db->beginTransaction();
     try {
         $subject=$db->prepare('INSERT INTO subjects(code,title,units,year_level,semester) VALUES(?,?,?,?,?)');
-        for($i=1;$i<=15;$i++) { $subject->execute(['PC'.$token.str_pad((string)$i,2,'0',STR_PAD_LEFT),'Synthetic planning subject '.$i,$i===2?1:3,(($i-1)%4)+1,($i%2)+1]);$manifest['subjects'][]=(int)$db->lastInsertId(); }
+        for($i=1;$i<=15;$i++) { $identity=pefTestSubjectIdentity($manifest,$i-1);$subject->execute([$identity['code'],$identity['title'],$i===2?1:3,(($i-1)%4)+1,($i%2)+1]);$manifest['subjects'][]=(int)$db->lastInsertId(); }
         $cases=['first'=>[1,'Irregular',3],'second'=>[2,'Irregular',3],'third'=>[3,'Irregular',13],'fourth'=>[4,'Irregular',3],
             'irregular'=>[2,'Irregular',3],'allinc'=>[1,'Irregular',3],'empty'=>[1,'Irregular',0],
             'overflow'=>[4,'Irregular',14],'mixed'=>[3,'Irregular',3],'faculty'=>[null,null,0],'inactive'=>[1,'Irregular',3],
@@ -204,14 +256,14 @@ function pefTestValidateManifest(PDO $db,array $m): void {
     if(($m['database']??'')!=='udm_radar_scratch'||!preg_match('/^[0-9a-f]{10}$/',$m['token']??''))throw new RuntimeException('Invalid fixture ownership manifest');
     foreach($m['accounts'] as $key=>$a) { $s=$db->prepare('SELECT user_id,first_name,last_name FROM users WHERE id=?');$s->execute([$a['id']]);$r=$s->fetch();
         if($r && ($r['user_id']!==$a['login']||$r['first_name']!=='Synthetic'||$r['last_name']!=='PEFCC_'.$m['token'].'_'.$key))throw new RuntimeException('Fixture account ownership mismatch'); }
-    foreach($m['subjects'] as $index=>$id){$s=$db->prepare('SELECT code FROM subjects WHERE id=?');$s->execute([$id]);$r=$s->fetchColumn();
-        if($r!==false&&$r!=='PC'.$m['token'].str_pad((string)($index+1),2,'0',STR_PAD_LEFT))throw new RuntimeException('Fixture subject ownership mismatch');}
+    foreach($m['subjects'] as $index=>$id){$s=$db->prepare('SELECT code,title FROM subjects WHERE id=?');$s->execute([$id]);$r=$s->fetch();$expected=pefTestSubjectIdentity($m,$index);
+        if($r!==false&&($r['code']!==$expected['code']||$r['title']!==$expected['title']))throw new RuntimeException('Fixture subject ownership mismatch');}
 }
 function pefTestCleanupFixture(PDO $db,array $m): void {
     pefTestValidateManifest($db,$m);$db->beginTransaction();
     try {
         foreach($m['accounts'] as $a) { $s=$db->prepare('DELETE FROM grades WHERE student_id=?');$s->execute([$a['id']]);$s=$db->prepare('DELETE FROM student_profiles WHERE user_id=?');$s->execute([$a['id']]);$s=$db->prepare('DELETE FROM users WHERE id=? AND user_id=?');$s->execute([$a['id'],$a['login']]); }
-        foreach($m['subjects'] as $index=>$id){$s=$db->prepare('DELETE FROM subjects WHERE id=? AND code=?');$s->execute([$id,'PC'.$m['token'].str_pad((string)($index+1),2,'0',STR_PAD_LEFT)]);}
+        foreach($m['subjects'] as $index=>$id){$expected=pefTestSubjectIdentity($m,$index);$s=$db->prepare('DELETE FROM subjects WHERE id=? AND code=? AND title=?');$s->execute([$id,$expected['code'],$expected['title']]);}
         $db->commit();
     } catch(Throwable $e) {if($db->inTransaction())$db->rollBack();throw $e;}
 }

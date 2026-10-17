@@ -9,6 +9,7 @@
 .pef-cc-page .pef-cc-help { font-size: .85rem; margin-top: 6px; }
 .pef-cc-page .pef-cc-boundary { border-left: 3px solid var(--accent-blue); padding-left: 14px; }
 .pef-cc-page .pef-cc-errors { border-left: 4px solid var(--risk-high); }
+.pef-cc-page .pef-cc-print-invalid { outline: 2px solid var(--risk-high); outline-offset: -2px; overflow-wrap: anywhere; }
 .pef-cc-page .pef-cc-errors ul, .pef-cc-page .pef-cc-details ul { padding-left: 22px; margin: 12px 0 16px; line-height: 1.6; }
 .pef-cc-page .pef-cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; margin: 18px 0; }
 .pef-cc-page label { display: block; font-size: .9rem; font-weight: 600; margin-bottom: 7px; }
