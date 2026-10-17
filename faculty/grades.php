@@ -305,10 +305,11 @@ html { overflow-y: scroll; }
                 <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                         <tr style="background: var(--table-header-bg);">
-                            <th scope="col" class="table-col--sticky" style="padding: 14px 24px; text-align: left; color: var(--text-dark); width: 150px;">Student No.</th>
-                            <th scope="col" style="padding: 14px; text-align: left; color: var(--text-dark); width: 280px;">Name</th>
-                            <th scope="col" style="padding: 14px; text-align: center; color: var(--text-dark); width: 100px;">Current</th>
-                            <th scope="col" style="padding: 14px; text-align: left; color: var(--text-dark); width: 140px;">New Grade</th>
+                            <th scope="col" class="table-col--sticky" style="padding: 14px 24px; text-align: left; color: var(--text-dark); width: 140px;">Student No.</th>
+                            <th scope="col" style="padding: 14px; text-align: left; color: var(--text-dark); width: 240px;">Name</th>
+                            <th scope="col" style="padding: 14px; text-align: center; color: var(--text-dark); width: 90px;">Prelim</th>
+                            <th scope="col" style="padding: 14px; text-align: center; color: var(--text-dark); width: 90px;">Midterm</th>
+                            <th scope="col" id="th-new-grade" style="padding: 14px; text-align: left; color: var(--text-dark); width: 150px;">New Grade (<span id="th-target-term">Prelim</span>)</th>
                             <th scope="col" style="padding: 14px 24px; text-align: left; color: var(--text-dark);">Individual Reason <span style="font-weight:normal; font-size:0.75rem; color:var(--text-gray);">(Overrides shared note)</span></th>
                         </tr>
                     </thead>
@@ -316,6 +317,10 @@ html { overflow-y: scroll; }
                 </table>
             </div>
             
+            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 12px 24px 0 24px;">
+                Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+            </p>
+
             <div style="padding: 20px 24px; background: var(--bg-color); border-top: 1px solid var(--border-color); text-align: right;">
                 <button type="submit" class="submit-btn" style="background:var(--accent-blue); color:white; border:none; min-height:44px; padding:12px 24px; border-radius:8px; font-weight:600; cursor:pointer; font-size: 0.95rem; font-family: inherit; transition: opacity 0.2s;">
                     Submit to Administration
@@ -477,12 +482,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('form-section').value = data.section;
         document.getElementById('form-term-type').value = data.term;
 
+        const termLabels = { prelim: 'Prelim', midterm: 'Midterm', prefinal: 'Pre-Final' };
+        const targetTermLabel = termLabels[data.term] || data.term;
+        const thTargetTerm = document.getElementById('th-target-term');
+        if (thTargetTerm) thTargetTerm.textContent = targetTermLabel;
+
         let rowsHtml = '';
         data.students.forEach(s => {
             let currentRaw = s[data.term];
             let isUpdate = (currentRaw !== null && currentRaw !== '' && currentRaw !== undefined);
-            let currentDisplay = '—';
-            if (isUpdate) { currentDisplay = ['INC','DRP','P','DO','DU','FA','UD'].includes(String(currentRaw).toUpperCase()) ? String(currentRaw).toUpperCase() : Math.round(parseFloat(currentRaw)) + '%'; }
+
+            let prelimDisplay = '—';
+            if (s.prelim !== null && s.prelim !== '' && s.prelim !== undefined) {
+                prelimDisplay = ['INC','DRP','P','DO','DU','FA','UD'].includes(String(s.prelim).toUpperCase()) ? String(s.prelim).toUpperCase() : Math.round(parseFloat(s.prelim)) + '%';
+            }
+            let midtermDisplay = '—';
+            if (s.midterm !== null && s.midterm !== '' && s.midterm !== undefined) {
+                midtermDisplay = ['INC','DRP','P','DO','DU','FA','UD'].includes(String(s.midterm).toUpperCase()) ? String(s.midterm).toUpperCase() : Math.round(parseFloat(s.midterm)) + '%';
+            }
             
             let formattedName = `${s.last_name}, ${s.first_name} ${s.middle_name || ''}`.trim();
             let reqLogic = isUpdate ? `oninput="let r = document.getElementById('reason_${s.student_id}'); let t = document.getElementById('submission_type').value; if(t !== 'bulk_correction') { r.required = (this.value.trim() !== '' && this.value.trim() !== '${currentRaw}'); }"` : '';
@@ -490,7 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
             rowsHtml += `<tr id="row_${s.student_id}" style="border-bottom: 1px solid var(--border-color);">
                 <td class="table-col--sticky" style="padding: 12px 24px; color: var(--text-gray); font-family: monospace;">${s.student_number}</td>
                 <td style="padding: 12px; font-weight: 600; color: var(--text-dark);">${formattedName}</td>
-                <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-gray);">${currentDisplay}</td>
+                <td style="padding: 12px; text-align: center; font-weight: 600; color: ${s.prelim !== null && s.prelim !== '' ? 'var(--text-dark)' : 'var(--text-gray)'};">${prelimDisplay}</td>
+                <td style="padding: 12px; text-align: center; font-weight: 600; color: ${s.midterm !== null && s.midterm !== '' ? 'var(--text-dark)' : 'var(--text-gray)'};">${midtermDisplay}</td>
                 <td style="padding: 12px;"><input type="text" id="input_${s.student_id}" name="grades[${s.student_id}]" placeholder="e.g. 85" style="width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); text-align: center; font-family: inherit;" ${reqLogic}></td>
                 <td style="padding: 12px 24px;"><input type="text" id="reason_${s.student_id}" name="reasons[${s.student_id}]" placeholder="Optional..." style="width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-dark); font-family: inherit;"></td>
             </tr>`;

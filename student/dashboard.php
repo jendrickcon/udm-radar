@@ -540,7 +540,8 @@ require_once '../includes/sidebar.php';
                     <th style="padding: 12px; text-align: left; color: var(--text-dark);">Code</th>
                     <th style="padding: 12px; text-align: left; color: var(--text-dark);">Subject Title</th>
                     <th style="padding: 12px; text-align: center; color: var(--text-dark);">Units</th>
-                    <th style="padding: 12px; text-align: center; color: var(--text-dark);">Current Prelim</th>
+                    <th style="padding: 12px; text-align: center; color: var(--text-dark);">Prelim</th>
+                    <th style="padding: 12px; text-align: center; color: var(--text-dark);">Midterm</th>
                     <th style="padding: 12px; text-align: center; color: var(--accent-blue);">
                         Projected Subject Grade
                         <span class="custom-tooltip" tabindex="0" aria-label="A calculation based on your current Preliminary score and prior academic performance. Separate from the overall AI-based prediction." style="margin-left: 4px;">
@@ -555,21 +556,33 @@ require_once '../includes/sidebar.php';
             <tbody>
                 <?php foreach ($current_subjects as $subj): 
                     $pRisk = $subj['prelim_point'] !== null ? computeRiskFromAvg($subj['prelim_point']) : null;
+                    $mPoint = normalizeTermGrade($subj['midterm_raw']);
+                    $mRisk = $mPoint !== null ? computeRiskFromAvg($mPoint) : null;
                     $fRisk = $subj['predicted_final'] !== null ? computeRiskFromAvg($subj['predicted_final']) : null;
                     
                     $prelimCol = match($pRisk) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
+                    $midtermCol = match($mRisk) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
                     $finalCol  = match($fRisk) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
                     
                     $rowRiskBg = match($subj['final_risk']) { 'HIGH' => 'var(--risk-high)', 'MODERATE' => 'var(--risk-mod)', 'LOW' => 'var(--risk-low)', default => 'var(--text-gray)' };
+                    $subjInquirePeriod = $subj['prefinal_raw'] !== null ? 'prefinal' : ($subj['midterm_raw'] !== null ? 'midterm' : 'prelim');
                 ?>
                 <tr style="border-bottom: 1px solid var(--border-color);">
                     <td class="card-cell-code" data-label="Code" style="padding: 12px; font-weight: 600; color: var(--accent-blue);"><?= htmlspecialchars($subj['code']) ?></td>
                     <td class="card-cell-title" data-label="Subject Title" style="padding: 12px; font-weight: 500; color: var(--text-dark);"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
                     <td data-label="Units" style="padding: 12px; text-align: center; color: var(--text-dark);"><?= htmlspecialchars($subj['units']) ?></td>
                     
-                    <td data-label="Current Prelim" style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
+                    <td data-label="Prelim" style="padding: 12px; text-align: center; font-weight: 600; color: <?= $prelimCol ?>;">
                         <?php if ($subj['prelim_raw'] !== null): ?>
                             <?= round((float)$subj['prelim_raw']) ?>%
+                        <?php else: ?>
+                            <span style="color: var(--text-gray);">—</span>
+                        <?php endif; ?>
+                    </td>
+
+                    <td data-label="Midterm" style="padding: 12px; text-align: center; font-weight: 600; color: <?= $midtermCol ?>;">
+                        <?php if ($subj['midterm_raw'] !== null): ?>
+                            <?= round((float)$subj['midterm_raw']) ?>%
                         <?php else: ?>
                             <span style="color: var(--text-gray);">—</span>
                         <?php endif; ?>
@@ -585,7 +598,7 @@ require_once '../includes/sidebar.php';
                     </td>
                     <td data-label="Action" style="padding: 12px; text-align: center;">
                         <?php if (!empty($subj['subject_id'])): ?>
-                            <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$subj['subject_id'] ?>&period=prelim" 
+                            <a href="feedback.php?action=new&category=grade_concern&subject_id=<?= (int)$subj['subject_id'] ?>&period=<?= $subjInquirePeriod ?>"
                                style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: rgba(30, 77, 183, 0.08); color: var(--accent-blue); border: 1px solid rgba(30, 77, 183, 0.25); border-radius: 6px; font-size: 0.78rem; font-weight: 600; text-decoration: none; transition: all 0.2s;"
                                title="Inquire about this grade in Feedback & Support">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -600,6 +613,9 @@ require_once '../includes/sidebar.php';
             </tbody>
         </table>
         </div>
+        <p style="font-size: 0.85rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0;">
+            Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+        </p>
     </div>
 
     <div id="calculator-section" class="card" style="display: none; border: 2px solid var(--accent-blue); background-color: var(--card-bg);">
