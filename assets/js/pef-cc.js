@@ -11,12 +11,19 @@
     const previewButton = form.querySelector('[type="submit"]');
     const previewStatus = document.getElementById('preview-progress');
     const section = document.getElementById('proposed-section');
+    const sectionOptions = section?.tagName === 'SELECT'
+        ? new Set(Array.from(section.options, option => option.value).filter(Boolean)) : null;
+    const fixedSection = section?.readOnly ? section.value : null;
     let dirty = false;
     let busy = false;
     let downloadController = null;
 
     const updateCount = () => {
-        if (section) {
+        if (sectionOptions) {
+            section.setCustomValidity(section.value && !sectionOptions.has(section.value) ? 'Choose a verified available section.' : '');
+        } else if (fixedSection !== null) {
+            section.setCustomValidity(section.value !== fixedSection ? 'Regular students must retain their recorded section for this semester.' : '');
+        } else if (section?.dataset.maxCharacters) {
             section.setCustomValidity(Array.from(section.value).length > Number(section.dataset.maxCharacters) ? 'Use at most 96 Unicode characters for the proposed section.' : '');
         }
         if (!subjects || !counter) return;

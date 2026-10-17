@@ -6,10 +6,10 @@ function pefCcConfig(array $overrides = []): array
 {
     $root = getenv('PEF_CC_PRIVATE_ROOT') ?: 'C:/ProgramData/UDM-RADAR/private';
     $config = [
-        'template_version' => 'v0.1',
-        'template_sha256' => '0e42f6ecbdd386d35e25a658dee0cda4edf48d14d1cdc0b2754a544746160d4c',
+        'template_version' => 'v0.2-r2',
+        'template_sha256' => 'c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02',
         'private_root' => $root,
-        'template_path' => getenv('PEF_CC_TEMPLATE_PATH') ?: $root . '/templates/pef-cc/v0.1/template.xlsx',
+        'template_path' => getenv('PEF_CC_TEMPLATE_PATH') ?: $root . '/templates/pef-cc/v0.2-r2/template.xlsx',
         'temp_path' => getenv('PEF_CC_TEMP_PATH') ?: $root . '/tmp/pef-cc',
         'web_roots' => array_values(array_filter([
             dirname(__DIR__),

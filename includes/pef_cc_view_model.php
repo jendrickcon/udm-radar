@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/constants.php';
+require_once __DIR__ . '/pef_cc_planning_policy.php';
 
 final class PefCcValidationException extends InvalidArgumentException
 {
@@ -317,8 +318,18 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
 {
     $planningInput = pefCcNormalizeInputs($input, $config);
     $currentTerm ??= getCurrentTerm();
-    $errors = [];
-    $fieldErrors = [];
+    $policy = pefCcPlanningPolicy($context, $planningInput, $currentTerm);
+    $errors = $policy['errors'];
+    $fieldErrors = $policy['field_errors'];
+    if ($policy['mode'] === 'regular') {
+        if ($planningInput['subject_ids'] !== $policy['nominal_ids']) {
+            $errors[] = 'Regular students must retain the complete nominal subject plan. Review the updated list and preview again.';
+            $fieldErrors['subject_ids'] = 'The nominal subject plan is read-only; insertion, deletion and replacement are not permitted.';
+        }
+        $planningInput['subject_ids'] = $policy['nominal_ids'];
+    } elseif ($policy['mode'] !== 'irregular') {
+        $planningInput['subject_ids'] = [];
+    }
     $sourceIdentity = $context['identity'] ?? [];
     $identity = [];
     foreach (['student_number', 'name', 'college', 'program'] as $key) {
@@ -339,6 +350,9 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
     $identity['id'] = pefCcPositiveId($sourceIdentity['id'] ?? null);
     $identity['role'] = $sourceIdentity['role'] ?? null;
     $identity['is_active'] = in_array($sourceIdentity['is_active'] ?? null, [1, '1'], true) ? 1 : 0;
+    foreach (['year_level', 'section', 'status', 'record_status'] as $key) {
+        $identity[$key] = $sourceIdentity[$key] ?? null;
+    }
     if ($identity['id'] === null || $identity['role'] !== 'student' || $identity['is_active'] !== 1) {
         $errors[] = 'An active authenticated Student identity is required.';
     }
@@ -397,7 +411,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
     $proposed = [];
     foreach ($planningInput['subject_ids'] as $id) {
         $matches = $catalogById[$id] ?? [];
-        if (count($matches) !== 1) {
+        if (count($matches) !== 1 || preg_match('/^(CY|DS)/i', (string) ($matches[0]['code'] ?? '')) === 1) {
             $errors[] = 'A proposed subject is unknown or ambiguous in the catalogue.';
             $fieldErrors['subject_ids'] = 'Choose unambiguous subjects from the current catalogue.';
             continue;
@@ -422,6 +436,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
     $gwa = $termGwaEligible ? computeWeightedGWA($gwaRows) : null;
     return new PefCcViewModel([
         'identity' => $identity,
+        'policy' => $policy,
         'evaluation' => ['school_year' => $planningInput['evaluation_year'], 'semester' => $planningInput['evaluation_semester'], 'label' => pefCcSemesterLabel($planningInput['evaluation_semester'])],
         'recorded' => $recordedRows,
         'gwa' => $gwa,

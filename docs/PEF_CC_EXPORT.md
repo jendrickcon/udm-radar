@@ -1,8 +1,8 @@
 # PEF & Curriculum Checklist Planning Export
 
-PEF-CC-WP1 adds **Enrolment Planning** to the authenticated Student portal. A Student can preview a completed term, manually choose up to twelve proposed subjects, enter export-only target details, and download a two-sheet Excel planning copy. It does not update any application record.
+PEF-CC-WP1 adds **Enrolment Planning** to the authenticated Student portal. Supported Software Development students can preview a completed term and download a two-sheet Excel planning copy. Regular students receive a read-only nominal subject plan from the approved 2022–2023 mapping and coherent current-term evidence. Irregular students retain manual proposed subjects and export-only target details. It does not update any application record.
 
-This is a Student-prepared planning copy for evaluator review. It is not an official PEF, approved Curriculum Checklist, enrolment decision, or Study Plan. Every output preserves `Prototype performance on synthetic academic records`. Final owner inspection of actual-size paper output and institutional authorization for the retained logos are release gates. Technical validation is not institutional approval.
+This is a Student-prepared planning copy for evaluator review. It is not an official PEF, approved Curriculum Checklist, enrolment decision, or Study Plan. Every output preserves `Prototype performance on synthetic academic records`. The owner confirmed Folio (8.5 × 13 inches) and authorized the retained supplied artwork. Final owner actual Print Preview and paper acceptance remain pending. The maximum-text print stress gate fails; this branch is a draft review candidate, not a release.
 
 ## Academic and data contract
 
@@ -10,7 +10,7 @@ The ownership key is the authenticated `users.id`. The server reloads identity, 
 
 A completed evaluation term must have a valid consecutive school-year pair, semester 1 or 2, and exclusively historical rows. It must precede the current configured academic term. All rows are inspected before filtering. Mixed current/history flags, current or future terms, orphan subjects, duplicate records/codes, unsupported grades, incompatible identity and unusable source data require record review and block export. The page does not repair records or select a best/latest attempt.
 
-All selected-term rows remain visible, including NULL, blank, INC and numeric zero. More than **13 recorded subjects** or **12 proposed subjects** blocks export; nothing is truncated. Zero proposed subjects is allowed. A Student with no completed term sees an explicit unavailable PEF state and can still view the independent reference checklist. First through Fourth Year and cross-year accounts use the same rules; year level, pacing, risk and predictions do not grant or deny eligibility.
+All selected-term rows remain visible, including NULL, blank, INC and numeric zero. More than **13 recorded subjects** or **12 proposed subjects** blocks export; nothing is truncated. Zero proposed subjects is allowed only in the preserved Irregular manual workflow. An unresolved Regular plan cannot export an empty fallback. A Student with no completed term sees an explicit unavailable PEF state and can still view the independent reference checklist. Risk and predictions do not determine pacing or planning eligibility.
 
 `computeWeightedGWA()` in `config/constants.php` remains the academic authority. Only the selected completed term enters the calculation. Its existing exclusion of numeric zero, textual outcomes and unusable units is preserved. Numeric 1.00–4.00 passes; zero fails; INC is unresolved. Subject outcome and GWA inclusion are separate. An unavailable GWA is shown as **Unavailable** and written to `PEF!C37` as an actual blank, never zero or an Excel formula. Completion/source conflicts suppress GWA pending review; overflow alone can retain the complete term's GWA for inspection.
 
@@ -18,7 +18,7 @@ Coverage uses one primary reason per recorded row so included plus excluded coun
 
 ## Independent CC reference
 
-There is no approved Student-to-curriculum mapping in the schema. Every checklist remains **Reference / Requires Review**, regardless of account year or apparent completion. The 2022–2023 grid is read from the approved template, not treated as an authoritative curriculum database.
+The owner-approved Software Development planning mapping is a local configuration, not a new schema relationship or a universal curriculum-applicability decision. Every checklist remains **Reference / Requires Review**, regardless of account year or apparent completion. Its 2022–2023 grid is read from the private template independently of nominal subject planning.
 
 Annotations use exact subject codes across the Student's available history, independently of the PEF evaluation term:
 
@@ -36,7 +36,22 @@ Multiple matches or conflicting attempts produce REVIEW without choosing a numer
 
 ## Preview, inputs and download
 
-Editable planning inputs are target school year (`YYYY-YYYY`, consecutive), target semester (1/2), optional single-line section (96 Unicode characters maximum), and zero to twelve distinct positive catalogue IDs. Server-loaded code/title/units preserve the submitted order. Subject choices do not imply an offering or eligibility. Section tabs, line breaks and XML-invalid controls are rejected; no silent truncation occurs.
+Irregular planning inputs are target school year (`YYYY-YYYY`, consecutive), target semester (1/2), optional single-line section (96 Unicode characters maximum), and zero to twelve distinct positive catalogue IDs. Server-loaded code/title/units preserve the submitted order. Regular targets, nominal IDs and section options are derived and validated on the server. Subject choices do not imply an offering or eligibility. Section tabs, line breaks and XML-invalid controls are rejected; no silent truncation occurs.
+
+## Approved Software Development planning policy
+
+`config/bsit_software_development_curriculum_2022_2023.php` contains only approved academic data: eight ordered terms, 58 unique subjects and 159 units, source-cell provenance, raw prerequisite text and elective-slot mappings. Its source is the department-supplied workbook; the confidential original roster is never deployed or committed. Catalogue display titles are retained where approved, with original titles recorded in the mapping. `ITE351/352/353/354` slots map to `SD351/352/353/354` in their approved terms; `ITE252` remains unresolved informational text. Blank prerequisites do not mean None. No prerequisite, equivalency, availability or study-plan approval is inferred.
+
+The exact supported course is `BSIT - Software Development`, with an active Student account and Active profile. Cyber Security and Data Science records remain historical and return `unsupported_legacy_track_requires_review`; there is no track conversion or active CY/DS selection. Unknown course/status/lifecycle evidence requires review.
+
+For Regular students, the stored year level is bound to exactly one coherent own current-term set corroborated by approved current-term metadata. Current rows must agree on school year, semester and `is_current=1`; subject code/title/units/year/semester must agree with the supported curriculum and catalogue. Partial legitimate current records and missing grades are accepted; absent, duplicate, malformed, conflicting or mismatched evidence returns `evaluator_review_required`. No calendar, student-number, section-only, faculty-load, grade-pattern or selected historical evaluation term inference is used.
+
+- Current Semester 1 → Semester 2, same school year and nominal year; retain the recorded section read-only.
+- Current Semester 2 → Semester 1, next school year and next nominal year; permit only actual target-term sections with the corresponding year prefix and current block ±1. Block zero, wrong years, malformed/nonexistent options and tampered free text are rejected. No Fifth Year is generated.
+- Target section evidence comes from coherent active SD profile/current-record contexts and is reduced to nonpersonal section/term/provenance data. Current-year observations are never relabeled as future availability. This schema has no verified future-section source, so next-year planning can require evaluator confirmation rather than inventing options.
+- Regular nominal IDs and order are read-only. Insertion, deletion, replacement, target override and manipulated hidden fields fail validation. An allowed section preference never changes pacing or enables manual subject editing.
+
+Recorded current section and proposed section are displayed separately. The workbook's single section field is explicitly the proposed planning preference. Neither profile nor recorded section is changed. The signed preview includes curriculum hashes, policy version, own current-term evidence and eligible section provenance; any relevant change requires a fresh preview.
 
 Identity is formatted with the existing name helper and uppercased once in the immutable model. Both HTML and Excel use those same display strings. Fixed College of Computing Studies identity must agree with the source college and supported BSIT program. Academic Standing, previous standing, evaluator, Dean, signatures, approval dates and professor fields are withheld and blank.
 
@@ -52,14 +67,16 @@ After a completed output passes size/package checks, the fixed download filename
 
 ## Template and fixed writer
 
-Approved sanitized candidate: `pef-cc-template-candidate-v0.1.xlsx` (not stored in Git).
+Private sanitized review candidate: `pef-cc-template-candidate-v0.2-r2.xlsx` (not stored in Git; owner final print acceptance pending).
 
 ```text
-Version: v0.1
-SHA-256: 0e42f6ecbdd386d35e25a658dee0cda4edf48d14d1cdc0b2754a544746160d4c
+Version: v0.2-r2
+SHA-256: c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02
 ```
 
-The runtime fails closed on wrong hash/version, wrong sheets, external relationships, unexpected formulas/logo, reference-grid or required print/merge/disclosure mismatch. Exactly PEF and CC are visible; StudentList, Study Plan, macros, embedded objects and external links are absent. Each generation loads a fresh verified template and preserves geometry, styling, logo bytes, data validation, conditional formatting and the nine approved bounded SUM formulas with calculated caches.
+The runtime fails closed on wrong hash/version, wrong sheets, external relationships, unexpected formulas/logo, reference-grid or required print/merge/disclosure mismatch. Exactly PEF and CC are visible; StudentList, Study Plan, macros, embedded objects and external links are absent. Each generation loads a fresh verified template and preserves its geometry, styling, logo bytes, data validation, conditional formatting and nine bounded SUM formulas with calculated caches.
+
+Relative to preserved v0.1 (`0e42f6ecbdd386d35e25a658dee0cda4edf48d14d1cdc0b2754a544746160d4c`), the candidate changes only `PEF!A51` wrap-text and row 51 height from 19.5 to 96 pt. Original font, merged region, columns and borders are retained; all other original ZIP part bytes are identical. The earlier 72 pt v0.2 trial fits the original phrase but overlaps labels for 96 wide Unicode characters, and remains recovery-only. Neither trial overwrites v0.1.
 
 Fixed destinations are PEF identity `A10,A12,C14`, evaluation `A19,C19`, 13 recorded rows `A/B/E/F/G23:35`, scalar GWA `C37`, target `A49,C49,A51`, 12 proposed rows `A/B/G54:65`, and coverage `A78`. Withheld standing/staff/signature/date cells remain blank. CC uses identity `B1`, reference grade/remark/status destinations derived only from the verified 58-course grid, and a fixed `A3` title: `2022-2023 Curriculum Checklist - Reference / Requires Review`. This static title supplies the owner's exact applicability wording; the deployed blank template remains byte-identical.
 
@@ -80,14 +97,14 @@ The dependency is pinned `phpoffice/phpspreadsheet:5.10.0`; existing dompdf pack
 Default private locations:
 
 ```text
-C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.1\template.xlsx
+C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r2\template.xlsx
 C:\ProgramData\UDM-RADAR\private\tmp\pef-cc\
 ```
 
 Create them outside every web root. Copy only the sanitized candidate from the verified migration ZIP, never the source roster workbook. Confirm its hash before enabling exports:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 'C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.1\template.xlsx'
+Get-FileHash -Algorithm SHA256 'C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r2\template.xlsx'
 ```
 
 `config/pef_cc.php` contains non-secret defaults. Trusted environment overrides: `PEF_CC_PRIVATE_ROOT`, `PEF_CC_TEMPLATE_PATH`, `PEF_CC_TEMP_PATH`. Contract hash/version/capacities are fixed. No request override or original-workbook fallback exists. Canonical paths and ancestors must remain inside the approved private root and outside detected web roots, including escaping junctions/symlinks.
@@ -113,6 +130,7 @@ Safe new unit checks:
 C:\xampp\php\php.exe tests/unit/pef_cc_view_model_test.php
 C:\xampp\php\php.exe tests/unit/pef_cc_template_test.php
 C:\xampp\php\php.exe tests/unit/pef_cc_export_contract_test.php
+C:\xampp\php\php.exe tests/unit/pef_cc_curriculum_test.php
 ```
 
 Database fixtures require explicit `DB_NAME=udm_radar_scratch` and prove `SELECT DATABASE()` before mutations. They add random owned synthetic users/subjects/grades, remove only their own rows and compare whole-table fingerprints to preserve existing records. They never rebuild/truncate or fall back to `udm_radar`. A compatible migrated scratch schema must already exist. Inspect test paths and prerequisites before use.
@@ -139,14 +157,16 @@ node node_modules/@playwright/test/cli.js test student-pef-cc-planning student-p
 
 Use installed pinned Playwright **1.63.0** and installed Edge, never an auto-downloaded runner. Install JavaScript dependencies from the existing lock on a new machine. Audit every legacy spec/fixture and base URL before a full-suite run. Stop the fixture harness with Ctrl+C, confirm fingerprint-preserving cleanup, and remove private session/state files after retaining non-secret results. Do not run separate mutating suites against the same fixture baseline concurrently.
 
-PR #48 adds `synthetic-cohort-portal-verification.spec.js`, whose before/after hooks unconditionally run cohort and section seed/cleanup tools on existing scratch records. It is outside WP1's owned-fixture lifecycle. Do not run an unqualified full suite against a shared scratch baseline under this package. The reviewed non-cohort selection can use `--grep-invert 'Synthetic Multi-Year Cohort Portal Verification'`; record those five cases as **Not Run**, separately from the six legacy credential skips. Execute cohort seeding tests only in a separately approved isolated cohort testbed. No cohort tool is changed by WP1.
+PRs #48–50 include cohort, Batch Predict and cross-portal Midterm browser suites with seed/cleanup or fixed-account mutations outside WP1's owned-fixture lifecycle. Do not run an unqualified full suite on a shared scratch baseline. The preservation-safe selection uses `--grep-invert 'Synthetic Multi-Year Cohort Portal Verification|Admin Batch Predict Flow and Interaction Verification|Cross-Portal Midterm Grade Visibility'`. Discover actual selected/excluded counts each run; report exclusions as **Not Run**, separately from legacy credential skips. These suites require a separately approved isolated cohort testbed. No cohort, Batch Predict or Midterm tool is changed by WP1.
 
-The migration handoff carries Git branch/base/HEAD, a verified incremental Git bundle, binary patch and all 25 source copies, dependency and test evidence, a SHA-256 manifest, and the sanitized private template. Git is the primary source-code transfer. The upload-ready ZIP is an additional copy and the template transfer mechanism. It excludes dependencies, browser binaries, source roster, generated Student exports, live dumps, credentials and session state.
+The migration handoff carries Git branch/base/HEAD, a verified incremental Git bundle, binary patch and all 29 source copies, dependency/test evidence, SHA-256 manifest, and sanitized private template. Git is the primary source-code transfer. The private ZIP is an additional copy and template transfer mechanism. It excludes dependencies, browser binaries, source roster, generated Student exports, live dumps, credentials and session state. A review-candidate ZIP must remain labeled release-blocked; create a new final ZIP only after final template approval, never overwrite the original 20261017-202113 recovery assets.
 
 ## Deferred policy and release work
 
-WP2/WP3 remain policy-blocked: no automatic subject suggestions, official irregular classification, curriculum-version inference, prerequisite eligibility, semester offerings, maximum load, graduation estimates or multi-term Study Plan. Professor/instructor fields, staff approval, signatures, official submission, persistent drafts, themes, cohort seeding and manuscript changes are excluded.
+WP2/WP3 remain deferred. The approved narrow SD nominal list is part of WP1; broader automatic study plans, official irregular classification, universal curriculum-version inference, prerequisite eligibility, semester offerings, maximum load, graduation estimates and multi-term planning are excluded. Professor/instructor fields, staff approval, signatures, official submission, persistent drafts, themes, cohort seeding and manuscript changes are excluded.
 
-Before release: review actual-size printed PEF/CC (including long valid data at capacity), authorize logo use, and verify production Apache ACLs/runtime/cleanup scheduling. If valid source text does not fit the approved geometry, require a versioned template review; do not truncate, shrink fonts further or silently change row/column geometry.
+Before release: resolve maximum-text print failures, obtain owner actual-size Excel Print Preview/paper acceptance, and verify production Apache ACLs/runtime/cleanup scheduling. Logo use is authorized. If valid source text does not fit, require a versioned template review; do not truncate, reduce accepted limits, weaken tests or shrink fonts further.
 
-**Known v0.1 print limitation (native Excel, 2026-10-17):** a valid 96-character proposed section clips in the fixed `PEF!A51:G51` field. Maximum-length source names/codes/titles also require actual-paper legibility review at full capacity. The workbook retains the complete literal values; the writer does not truncate or change geometry/font settings. Release is blocked on a versioned template-layout review and owner acceptance of these cases. Passing software tests or opening Excel normally does not close this gate.
+**Native Excel review, 2026-10-18:** v0.2-r2 fits normal, original 96-character, 96-wide-Latin and 96-wide-Unicode sections without label overlap, on one Folio page per sheet. Capacity remains 13/12. The opt-in `tests/integration/pef_cc_print_layout_test.ps1` reopens synthetic samples read-only, exports PDF, checks actual page dimensions, native grid/glyph bounds and a declared 8 pt variable-data review floor. PDF text presence alone is insufficient; raster review corroborates the geometry. This is not a substitute for owner Print Preview or institutional-printer acceptance.
+
+The complete print stress gate remains **Failed**: maximum-length codes can cross cell borders, long titles render around 3.96–5.4 pt, and several normal/capacity fields are 7.44 pt under the retained scaling. The 8 pt floor is an explicit review criterion, not an asserted institutional standard. These failures are preserved, not waived; LibreOffice is unavailable. No actual print job or Windows default-printer change occurred. The software can be reviewed as a draft; release remains blocked.

@@ -57,6 +57,25 @@ try{
  pefTestCheck(pefChunkedPost($base.'student/export_pef_cc.php',$cookie,'section='.str_repeat('x',17000))===413,'Chunked oversized body without Content-Length rejected before writer');
  foreach(['config/pef_cc.php','vendor/autoload.php','tests/fixtures/pef_cc_fixture.php','database/udm_radar.sql','../private/template.xlsx','%2e%2e/private/template.xlsx'] as $path){$r=pefHttp($base.$path,null,$cookie);pefTestCheck(in_array($r['status'],[400,404],true),'Private/source route unreachable: '.$path);}
  foreach(['allinc','overflow','mixed','empty'] as $case){$c='';pefLogin($state,$case,$c);$p=pefPreview($state,$c);$form=pefForm($p['body'],'pef-cc-download-form');if($case==='allinc')pefTestCheck(!empty($form['preview']),'All-INC term permits preview despite unavailable GWA');else pefTestCheck(empty($form['preview']),'Unexportable term never signs download: '.$case);}
+ foreach(['regular1','regular2','regular3','regular4'] as $case){
+  $a=$m['accounts'][$case];$c='';pefLogin($state,$case,$c);$p=pefPreview($state,$c,$a['inputs']);$form=pefForm($p['body'],'pef-cc-download-form');
+  if(!$a['expected_exportable']){pefTestCheck(empty($form['preview']),'Unavailable future nominal section/terminal year requires review: '.$case);continue;}
+  pefTestCheck($p['status']===200&&!empty($form['preview']),'Authenticated regular preview resolves read-only plan: '.$case);
+  $r=pefHttp($base.'student/export_pef_cc.php',$form,$c);
+  pefTestCheck($r['status']===200&&str_starts_with($r['body'],'PK'),'Authenticated regular XLSX download: '.$case);
+  $path=$private.'/regular-synthetic-'.bin2hex(random_bytes(8)).'.xlsx';
+  try{
+   file_put_contents($path,$r['body']);$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($path);$sheet=$book->getSheetByName('PEF');
+   pefTestCheck($sheet->getCell('A51')->getValue()===$a['section'],'Preview/XLSX suggested section parity: '.$case);
+   pefTestCheck((float)$sheet->getCell('C37')->getValue()===3.0,'Regular historical GWA unaffected by current rows: '.$case);
+   $codes=[];foreach($a['inputs']['subject_ids'] as $n=>$subjectId){$s=$db->prepare('SELECT code FROM subjects WHERE id=?');$s->execute([$subjectId]);$code=$s->fetchColumn();$codes[]=$code;
+    pefTestCheck($sheet->getCell('A'.(54+$n))->getValue()===$code,'Exact nominal order at XLSX row '.(54+$n).': '.$case);}
+   pefTestCheck(!array_filter($codes,static fn(string $code):bool=>preg_match('/^(CY|DS)/',$code)===1),'Regular XLSX has SD-only active elective codes: '.$case);
+   $book->disconnectWorksheets();
+  }finally{if(is_file($path))unlink($path);}
+  foreach([['subject_ids'=>[]],['section'=>'IT-29'],['target_semester'=>1]] as $attack){$r=pefHttp($base.'student/export_pef_cc.php',array_replace($form,$attack),$c);pefTestCheck($r['status']===409,'Regular tampering rejected by actual export endpoint: '.$case);}
+ }
+ foreach(['regular_missing','legacy_cy','legacy_ds'] as $case){$c='';pefLogin($state,$case,$c);$p=pefPreview($state,$c);pefTestCheck(empty(pefForm($p['body'],'pef-cc-download-form')['preview']),'Review-only context cannot acquire export token: '.$case);}
  pefTestCheck(pefTestFingerprint($db)===$before,'Login, preview, HTTP export and rejected attacks preserve every application row');
 }catch(Throwable $e){pefTestCheck(false,'Actual HTTP integration prerequisite/contract: '.$e->getMessage());}
 pefTestFinish();

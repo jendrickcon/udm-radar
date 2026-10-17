@@ -27,7 +27,7 @@ async function preview(page, ids = []) {
 }
 
 for (const account of ['first', 'second', 'third', 'fourth', 'irregular']) {
-  test(`${account} synthetic student can manually preview without curriculum/pacing inference`, async ({ page }) => {
+  test(`${account} synthetic Irregular student retains reviewed manual preview`, async ({ page }) => {
     await login(page, account); await preview(page, state.fixture.subjects.slice(0, 2));
     await expect(page.getByTestId('recorded-count')).toContainText(String(state.fixture.accounts[account].count));
     await expect(page.getByTestId('proposed-count')).toContainText('2');
@@ -38,6 +38,73 @@ for (const account of ['first', 'second', 'third', 'fourth', 'irregular']) {
     await expect(page.getByText('Prototype performance on synthetic academic records', { exact: false }).first()).toBeVisible();
   });
 }
+
+for (const account of ['regular1', 'regular2', 'regular3', 'regular4']) {
+  test(`${account}: authenticated nominal plan uses coherent current-term evidence`, async ({ page }) => {
+    await login(page, account);
+    const expected = state.fixture.accounts[account];
+    await expect(page.locator('#pef-cc-subjects')).toHaveCount(0);
+    await expect(page.locator('#target-year')).toHaveAttribute('readonly', '');
+    await expect(page.locator('#target-semester')).toHaveAttribute('readonly', '');
+    if (!expected.expected_exportable) {
+      await expect(page.getByTestId('preview-button')).toBeDisabled();
+      await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
+      return;
+    }
+    await expect(page.locator('#target-year')).toHaveValue(expected.inputs.target_year);
+    await expect(page.locator('#proposed-section')).toHaveValue(expected.section);
+    await expect(page.locator('#proposed-section')).toHaveAttribute('readonly', '');
+    await expect(page.getByTestId('nominal-subjects').locator('tbody tr')).toHaveCount(expected.inputs.subject_ids.length);
+    await expect(page.getByTestId('recorded-section')).toContainText(expected.section);
+    await page.getByTestId('preview-button').click();
+    await expect(page.getByTestId('pef-preview')).toBeVisible();
+    await expect(page.getByTestId('term-gwa')).toHaveText('3.00');
+    await expect(page.getByTestId('download-button')).toBeEnabled();
+    await expect(page.getByTestId('pef-preview')).toContainText('Nominal subjects');
+    await expect(page.getByTestId('pef-preview')).toContainText('Proposed subjects require review');
+  });
+}
+
+for (const account of ['regular_missing', 'legacy_cy', 'legacy_ds']) {
+  test(`${account}: unresolved or historical context has no automatic plan`, async ({ page }) => {
+    await login(page, account);
+    await expect(page.getByTestId('preview-button')).toBeDisabled();
+    await expect(page.getByTestId('nominal-unavailable')).toContainText(/review/i);
+    await expect(page.locator('#pef-cc-subjects')).toHaveCount(0);
+    await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
+    await expect(page.getByTestId('term-gwa')).toHaveText('3.00');
+  });
+}
+
+test('regular hidden-field target and subject overrides are rejected by real preview POST', async ({ page }) => {
+  await login(page, 'regular2');
+  test.skip(!state.fixture.accounts.regular2.expected_exportable, 'Actual future section availability requires review in this term.');
+  const fields = await page.locator('#pef-cc-planning-form').evaluate(form => Array.from(new FormData(form)));
+  for (const attack of ['delete_subjects', 'replace_section', 'replace_target']) {
+    const body = new URLSearchParams(fields);
+    if (attack === 'delete_subjects') body.delete('subject_ids[]');
+    if (attack === 'replace_section') body.set('section', 'IT-29');
+    if (attack === 'replace_target') body.set('target_semester', '1');
+    const response = await page.request.post(state.base_url + 'student/enrolment_planning.php', {
+      data: body.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    expect(response.status()).toBe(422);
+    expect(await response.text()).not.toContain('id="pef-cc-download-form"');
+  }
+});
+
+test('regular nominal controls remain usable on mobile in both themes', async ({ page }) => {
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.addInitScript(t => localStorage.setItem('theme', t), theme);
+    await login(page, 'regular3');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await expect(page.locator('#target-semester')).toHaveAccessibleName('Target semester');
+    await page.getByRole('link', { name: 'Back to Grades', exact: true }).focus();
+    await expect(page.getByRole('link', { name: 'Back to Grades', exact: true })).toBeFocused();
+  }
+});
 test('editing planning fields invalidates preview and restores update action', async ({ page }) => {
   await login(page); await preview(page);
   await page.locator('#pef-cc-planning-form [name="section"]').fill('UPDATED');

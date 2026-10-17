@@ -147,8 +147,8 @@ function pefCcInspectPackage(string $path): array
 function pefCcValidateTemplate(array $config): array
 {
     $paths = pefCcPrivatePaths($config);
-    $approvedHash = '0e42f6ecbdd386d35e25a658dee0cda4edf48d14d1cdc0b2754a544746160d4c';
-    if (($config['template_version'] ?? null) !== 'v0.1' || ($config['template_sha256'] ?? null) !== $approvedHash
+    $approvedHash = 'c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02';
+    if (($config['template_version'] ?? null) !== 'v0.2-r2' || ($config['template_sha256'] ?? null) !== $approvedHash
         || !hash_equals($approvedHash, hash_file('sha256', $paths['template_path']))) {
         throw new RuntimeException('The approved planning template is unavailable.');
     }
@@ -179,6 +179,9 @@ function pefCcValidateTemplate(array $config): array
             || (string) $cc->getCell('D51')->getValue() !== "ITE252\nITE353") {
             throw new RuntimeException('The planning template structure does not match.');
         }
+        if (!$pef->getStyle('A51')->getAlignment()->getWrapText() || $pef->getRowDimension(51)->getRowHeight() !== 96.0) {
+            throw new RuntimeException('The planning section print layout does not match.');
+        }
         foreach (['A10:G10', 'B23:D23', 'B35:D35', 'B54:F54', 'B65:F65', 'A73:G75', 'A79:G80'] as $merge) {
             if (!in_array($merge, $pef->getMergeCells(), true)) {
                 throw new RuntimeException('The planning template merge contract does not match.');
@@ -202,7 +205,7 @@ function pefCcValidateTemplate(array $config): array
         if (count($rows) !== 58 || count(array_unique(array_column($rows, 'code'))) !== 58) {
             throw new RuntimeException('The planning template reference grid does not match.');
         }
-        return ['version' => 'v0.1', 'sha256' => $approvedHash, 'rows' => $rows] + $package;
+        return ['version' => 'v0.2-r2', 'sha256' => $approvedHash, 'rows' => $rows] + $package;
     } finally {
         $book->disconnectWorksheets();
     }

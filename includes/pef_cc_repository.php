@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/constants.php';
+require_once __DIR__ . '/pef_cc_view_model.php';
 
 /**
  * Student-owned, SELECT-only source for planning exports.
@@ -16,7 +17,8 @@ function pefCcReadContext(PDO $db, int $studentId): array
 
     $identityQuery = $db->prepare(
         'SELECT u.id, u.user_id AS account_student_number, u.first_name, u.middle_name, u.last_name, u.role, u.is_active,
-                sp.id AS profile_id, sp.student_number, sp.college, sp.course AS program
+                sp.id AS profile_id, sp.student_number, sp.college, sp.course AS program,
+                sp.year_level, sp.section, sp.status, sp.record_status
            FROM users u
            LEFT JOIN student_profiles sp ON sp.user_id = u.id
           WHERE u.id = ?
@@ -54,8 +56,41 @@ function pefCcReadContext(PDO $db, int $studentId): array
     $records = $recordsQuery->fetchAll(PDO::FETCH_ASSOC);
 
     // This is the non-personal subject catalogue, not another Student's history.
-    $catalogQuery = $db->query('SELECT id, code, title, units FROM subjects ORDER BY code, id');
+    $catalogQuery = $db->query("SELECT id, code, title, units, year_level, semester FROM subjects WHERE code NOT REGEXP '^(CY|DS)' ORDER BY code, id");
     $catalog = $catalogQuery->fetchAll(PDO::FETCH_ASSOC);
 
-    return ['identity' => $identity, 'records' => $records, 'catalog' => $catalog];
+    // Nonpersonal active SD section evidence. A unique coherent current term
+    // corroborates the profile year; the workbook vocabulary alone cannot.
+    $sourceRows = $db->query(
+        "SELECT sp.user_id AS context_key, sp.section, sp.year_level, sp.course AS program,
+                sp.record_status, u.role, u.is_active,
+                g.id, g.subject_id, g.school_year, g.semester, g.is_current,
+                s.code, s.title, s.units, NULL AS grade
+           FROM student_profiles sp
+           JOIN users u ON u.id=sp.user_id
+           LEFT JOIN grades g ON g.student_id=u.id AND (g.is_current<>0 OR g.is_current IS NULL)
+           LEFT JOIN subjects s ON s.id=g.subject_id
+          WHERE u.role='student' AND u.is_active=1 AND sp.record_status='Active'
+            AND sp.course='BSIT - Software Development'
+            AND sp.section REGEXP '^IT-[1-4][1-9]$'
+            AND (SELECT COUNT(*) FROM student_profiles ap WHERE ap.user_id=u.id)=1
+          ORDER BY sp.user_id, g.id"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $sourceContexts = [];
+    foreach ($sourceRows as $row) {
+        $key = $row['context_key'];
+        $sourceContexts[$key]['identity'] = array_intersect_key($row, array_flip([
+            'section', 'year_level', 'program', 'record_status', 'role', 'is_active',
+        ]));
+        if ($row['id'] !== null) {
+            $sourceContexts[$key]['records'][] = array_intersect_key($row, array_flip([
+                'id', 'subject_id', 'school_year', 'semester', 'is_current', 'code', 'title', 'units', 'grade',
+            ]));
+        }
+    }
+    // Shared PHP validation handles NULLs, duplicates, orphan subjects and
+    // curriculum mismatches; SQL MIN/COUNT must not manufacture a term tuple.
+    $sections = pefCcVerifiedSectionEvidence($sourceContexts, $catalog, getCurrentTerm());
+
+    return ['identity' => $identity, 'records' => $records, 'catalog' => $catalog, 'sections' => $sections];
 }

@@ -23,6 +23,8 @@ try {
  }
  $zip->close();pefTestCheck($formulaCount===9,'Nine allowed formula cells preserved');pefTestCheck($mediaCount===1,'Approved logo image retained');
  $pef=$book->getSheetByName('PEF');$cc=$book->getSheetByName('CC');
+ pefTestCheck($config['template_version']==='v0.2-r2'&&$pef->getStyle('A51')->getAlignment()->getWrapText()
+  &&$pef->getRowDimension(51)->getRowHeight()===96.0,'Versioned section field wraps with 96pt row; v0.1 is not overwritten');
  foreach(['A10','A12','A19','C19','C37','C38','C42','D42','E42','F42','C45','F45','A49','C49','A51','B68','B70','D68','D70','G68','G70'] as $cell)
   pefTestCheck($pef->getCell($cell)->getValue()===null || $pef->getCell($cell)->getValue()==='','Candidate identity/results/plans/approval field blank '.$cell);
  pefTestCheck((string)$cc->getCell('D51')->getValue()==="ITE252\nITE353",'ITE252 unresolved text retained exactly');

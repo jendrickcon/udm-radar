@@ -11,18 +11,26 @@ try {
  $before=pefTestFingerprint($db);$config=pefCcConfig();
  $db->exec('SET TRANSACTION READ ONLY');$db->beginTransaction();
  try {
-  foreach(['first','second','third','fourth','irregular','allinc','overflow','mixed','empty'] as $case){
+  foreach(['first','second','third','fourth','irregular','allinc','overflow','mixed','empty','regular1','regular2','regular3','regular4','regular_missing','legacy_cy','legacy_ds'] as $case){
    $a=$fixture['accounts'][$case];$c=pefCcReadContext($db,$a['id']);
    pefTestCheck($c['identity']['id']===$a['id']&&$c['identity']['student_number']===$a['login'],'Ownership uses internal users.id: '.$case);
-   pefTestCheck(count($c['records'])===$a['count'],'Whole owned history count: '.$case);
+   pefTestCheck(count($c['records'])===$a['count']+count($a['current_grade_ids']),'Whole owned history count including current binding: '.$case);
    pefTestCheck(!array_intersect(['predicted_gwa','current_gwa','risk_level'],array_keys($c['identity'])),'No cached/prediction source: '.$case);
    pefTestCheck(count(array_unique(array_column($c['records'],'id')))===count($c['records']),'No duplicated query rows: '.$case);
-   $m=pefCcBuildViewModel($c,pefTestInputs(),pefTestReference(),$config,['school_year'=>'2026-2027','semester'=>1])->data;
+   $m=pefCcBuildViewModel($c,$a['inputs'],pefTestReference(),$config,$fixture['current_term'])->data;
    pefTestCheck($m['recorded_count']===$a['count'],'Model keeps complete selected term: '.$case);
-   if(in_array($case,['first','second','third','fourth','irregular','allinc'],true))pefTestCheck($m['exportable'],'No year-level or regular-pacing restriction: '.$case);
+   if(in_array($case,['first','second','third','fourth','irregular','allinc'],true))pefTestCheck($m['exportable'],'Reviewed Irregular manual workflow remains available: '.$case);
+   elseif(isset($a['expected_exportable'])){
+    pefTestCheck($m['exportable']===$a['expected_exportable'],'Coherent Regular context respects actual target availability: '.$case);
+    if($a['expected_exportable'])pefTestCheck($m['planning']['subject_ids']===$a['inputs']['subject_ids']&&$m['proposed']!==[],'Regular nominal subjects resolve from borrowed verified catalogue: '.$case);
+   }
    else pefTestCheck(!$m['exportable'],'Invalid/empty/over-capacity term blocked: '.$case);
    if($case==='allinc')pefTestCheck($m['gwa']===null,'All-INC actual stored rows produce unavailable GWA');
    if($case==='first')pefTestCheck($m['gwa']===3.0,'Stored cached 4.00 profile GWA ignored in favor of term 3.00');
+   if(str_starts_with($case,'legacy_'))pefTestCheck($m['policy']['status']==='unsupported_legacy_track_requires_review','Historical track never converted to SD: '.$case);
+   if($case==='regular_missing')pefTestCheck($m['policy']['status']==='evaluator_review_required'&&$m['proposed']===[],'No anchor means review rather than empty Regular export');
+   pefTestCheck(!array_filter($c['catalog'],static fn(array $s):bool=>preg_match('/^(CY|DS)/i',$s['code'])===1),'Selectable catalogue excludes legacy codes: '.$case);
+   foreach($c['sections'] as $section)pefTestCheck(array_keys($section)===['section','year_level','school_year','semester','source','evidence_sha256'],'Section evidence contains no student identity/grade fields');
    $other=$fixture['accounts'][$case==='first'?'second':'first']['grade_ids'];
    pefTestCheck(!array_intersect(array_column($c['records'],'id'),$other),'Another Student records never enter context: '.$case);
   }

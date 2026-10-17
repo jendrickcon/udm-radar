@@ -31,14 +31,70 @@ function pefTestContext(int $count = 3, array $grades = ['3.00','INC','0.00']): 
             'units'=>$catalog[$i-1]['units'],'grade'=>$grades[($i-1)%count($grades)]];
     }
     return ['identity'=>['id'=>900001,'student_number'=>'SYN-PEF-001','name'=>'EXAMPLE, SYNTHETIC',
-        'college'=>'CCS','program'=>'BSIT - Software Development','is_active'=>1,'role'=>'student'],
+        'college'=>'CCS','program'=>'BSIT - Software Development','is_active'=>1,'role'=>'student',
+        'status'=>'Irregular','record_status'=>'Active','year_level'=>3,'section'=>'SYN-A'],
         'records'=>$records,'catalog'=>$catalog];
+}
+/** Synthetic own current rows, with real public curriculum codes but no real identities. */
+function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
+    $c=pefTestContext();
+    $c['identity']=array_replace($c['identity'],['status'=>'Regular','year_level'=>$year,'section'=>'IT-'.$year.'2']);
+    $mapping=require dirname(__DIR__,2).'/config/bsit_software_development_curriculum_2022_2023.php';
+    $c['catalog']=[];$id=1000;
+    foreach($mapping['terms'] as $term)foreach($term['subjects'] as $s)$c['catalog'][]=[
+        'id'=>++$id,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'year_level'=>$s['year_level'],'semester'=>$s['semester']];
+    $current=array_values(array_filter($c['catalog'],static fn(array $s):bool=>$s['year_level']===$year&&$s['semester']===$currentSemester));
+    foreach(array_slice($current,0,3) as $i=>$s)$c['records'][]=[
+        'id'=>900100+$i,'subject_id'=>$s['id'],'school_year'=>'2026-2027','semester'=>$currentSemester,
+        'is_current'=>1,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>$i===1?'INC':null];
+    $targetYear=$currentSemester===2?$year+1:$year;
+    $targetSchoolYear=$currentSemester===2?'2027-2028':'2026-2027';
+    $targetSemester=$currentSemester===2?1:2;
+    $c['sections']=[];
+    foreach([1,2,3] as $block)$c['sections'][]=['section'=>'IT-'.$targetYear.$block,'year_level'=>$targetYear,'school_year'=>$targetSchoolYear,'semester'=>$targetSemester];
+    return $c;
+}
+function pefTestRegularInputs(array $c, int $currentSemester=1): array {
+    $targetYear=(int)$c['identity']['year_level']+($currentSemester===2?1:0);
+    $targetSemester=$currentSemester===2?1:2;
+    $subjects=array_values(array_filter($c['catalog'],static fn(array $s):bool=>$s['year_level']===$targetYear&&$s['semester']===$targetSemester));
+    return pefTestInputs(['target_year'=>$currentSemester===2?'2027-2028':'2026-2027','target_semester'=>$targetSemester,
+        'section'=>'IT-'.$targetYear.'2','subject_ids'=>array_column($subjects,'id')]);
 }
 function pefTestReference(): array {
     $rows=[];
     foreach(pefTestContext(6)['catalog'] as $i=>$s) $rows[]=$s+['prereq'=>$i===0?'ITE252':'',
         'grade_cell'=>'E'.($i+7),'remark_cell'=>'F'.($i+7),'status_cell'=>'G'.($i+7)];
     return ['version'=>'2022-2023','rows'=>$rows];
+}
+/** Explicit private synthetic print samples; no database connection or original roster access. */
+function pefTestPrintSamples(string $directory): array {
+    $real=realpath($directory);
+    if(!$real||preg_match('~[\\\\/]htdocs(?:[\\\\/]|$)~i',$real)||glob($real.'/*'))throw new RuntimeException('Fresh private print directory outside web roots required');
+    require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
+    $config=pefCcConfig();$reference=pefCcTemplateReference($config);$cases=[];
+    $cases['normal']=[pefTestContext(6),[1,2],'IT-32'];
+    $cases['blank']=[pefTestContext(3,[null]),[],''];
+    $cases['section96']=[pefTestContext(),[1],str_repeat('SYNTHETIC ',9).'ABCDEF'];
+    $cases['wide96']=[pefTestContext(),[1],str_repeat('W',96)];
+    $cases['unicode96']=[pefTestContext(),[1],str_repeat('界',96)];
+    $cases['capacity']=[pefTestContext(13),range(1,12),'IT-32'];
+    $long=pefTestContext(13,['3.25']);$long['identity']['name']=str_repeat('SYNTHETIC ',14).'EXAMPLE';
+    foreach(['records','catalog'] as $list)foreach($long[$list] as $i=>&$s){
+        $s['code']=str_pad('SYN'.str_pad((string)$i,2,'0',STR_PAD_LEFT),20,'W');
+        $s['title']=str_pad('Synthetic course in information systems architecture and enterprise technology integration practice',150,' synthetic');
+    }unset($s);
+    $cases['long-text']=[$long,range(1,12),str_repeat('SYNTHETIC ',9).'ABCDEF'];
+    $result=[];
+    foreach($cases as $name=>[$context,$ids,$section]){
+        $model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>$ids,'section'=>$section]),$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
+        $out=pefCcGenerateWorkbook($model,$config);$path=$real.'/'.$name.'.xlsx';
+        try{if(!copy($out['path'],$path))throw new RuntimeException('Print sample copy failed');}
+        finally{pefCcRemoveOutput($out['path'],$config);}
+        $result[$name]=['path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$section,'recorded_count'=>count($model->data['recorded']),'proposed_count'=>count($model->data['proposed'])];
+    }
+    file_put_contents($real.'/samples.json',json_encode($result,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
+    return $result;
 }
 function pefTestScratch(): PDO {
     if (getenv('DB_NAME') !== 'udm_radar_scratch') throw new RuntimeException('DATABASE SAFETY BLOCKED: explicit DB_NAME=udm_radar_scratch required');
@@ -83,6 +139,18 @@ function pefTestCreateFixture(PDO $db): array {
     $token=bin2hex(random_bytes(5));$password=bin2hex(random_bytes(18));
     $manifest=['token'=>$token,'password'=>$password,'accounts'=>[],'subjects'=>[],'evaluation_year'=>'2024-2025','evaluation_semester'=>2,
         'target_year'=>'2026-2027','target_semester'=>1,'database'=>'udm_radar_scratch'];
+    // Borrow verified public nominal IDs; they never enter the owned cleanup list.
+    $mapping=require dirname(__DIR__,2).'/config/bsit_software_development_curriculum_2022_2023.php';
+    $catalog=$db->query('SELECT id,code,title,units,year_level,semester FROM subjects ORDER BY id')->fetchAll();
+    $nominal=[];
+    foreach($mapping['terms'] as $term)foreach($term['subjects'] as $subject){
+        $matches=array_values(array_filter($catalog,static fn(array $s):bool=>$s['code']===$subject['code']));
+        if(count($matches)!==1||(int)$matches[0]['units']!==$subject['units']||(int)$matches[0]['year_level']!==$subject['year_level']
+            ||(int)$matches[0]['semester']!==$subject['semester']||$matches[0]['title']!==$subject['title'])throw new RuntimeException('Verified SD catalogue prerequisite unavailable; no catalogue repair');
+        $nominal[$subject['year_level'].'/'.$subject['semester']][]=(int)$matches[0]['id'];
+    }
+    $currentTerm=getCurrentTerm();
+    $manifest['current_term']=$currentTerm;$manifest['nominal_subject_ids']=$nominal;
     $lock='pefcc-fixture-'.$token;
     $s=$db->prepare('SELECT GET_LOCK(?, 0)');$s->execute([$lock]);
     if ((int)$s->fetchColumn()!==1) throw new RuntimeException('Fixture lock unavailable');
@@ -90,9 +158,11 @@ function pefTestCreateFixture(PDO $db): array {
     try {
         $subject=$db->prepare('INSERT INTO subjects(code,title,units,year_level,semester) VALUES(?,?,?,?,?)');
         for($i=1;$i<=15;$i++) { $subject->execute(['PC'.$token.str_pad((string)$i,2,'0',STR_PAD_LEFT),'Synthetic planning subject '.$i,$i===2?1:3,(($i-1)%4)+1,($i%2)+1]);$manifest['subjects'][]=(int)$db->lastInsertId(); }
-        $cases=['first'=>[1,'Regular',3],'second'=>[2,'Regular',3],'third'=>[3,'Regular',13],'fourth'=>[4,'Regular',3],
-            'irregular'=>[2,'Irregular',3],'allinc'=>[1,'Regular',3],'empty'=>[1,'Regular',0],
-            'overflow'=>[4,'Irregular',14],'mixed'=>[3,'Regular',3],'faculty'=>[null,null,0],'inactive'=>[1,'Regular',3]];
+        $cases=['first'=>[1,'Irregular',3],'second'=>[2,'Irregular',3],'third'=>[3,'Irregular',13],'fourth'=>[4,'Irregular',3],
+            'irregular'=>[2,'Irregular',3],'allinc'=>[1,'Irregular',3],'empty'=>[1,'Irregular',0],
+            'overflow'=>[4,'Irregular',14],'mixed'=>[3,'Irregular',3],'faculty'=>[null,null,0],'inactive'=>[1,'Irregular',3],
+            'regular1'=>[1,'Regular',3],'regular2'=>[2,'Regular',3],'regular3'=>[3,'Regular',3],'regular4'=>[4,'Regular',3],
+            'regular_missing'=>[2,'Regular',3],'legacy_cy'=>[3,'Regular',3],'legacy_ds'=>[3,'Irregular',3]];
         $user=$db->prepare('INSERT INTO users(id,user_id,password_hash,role,first_name,last_name,is_active) VALUES(?,?,?,?,?,?,?)');
         $profile=$db->prepare('INSERT INTO student_profiles(id,user_id,student_number,course,college,year_level,section,status,record_status,current_gwa) VALUES(?,?,?,?,?,?,?,?,?,?)');
         $grade=$db->prepare('INSERT INTO grades(student_id,subject_id,school_year,semester,final_grade,is_current) VALUES(?,?,?,?,?,?)');
@@ -100,12 +170,29 @@ function pefTestCreateFixture(PDO $db): array {
         foreach($cases as $key=>[$year,$status,$count]) {
             $id=pefTestNewId($db,'users');$login='PC'.$token.str_pad((string)++$accountIndex,2,'0',STR_PAD_LEFT);$role=$key==='faculty'?'faculty':'student';
             $user->execute([$id,$login,password_hash($password,PASSWORD_DEFAULT),$role,'Synthetic','PEFCC_'.$token.'_'.$key,$key==='inactive'?0:1]);
-            $manifest['accounts'][$key]=['id'=>$id,'login'=>$login,'year_level'=>$year,'status'=>$status,'count'=>$count,'role'=>$role,'grade_ids'=>[]];
-            if($role==='student') $profile->execute([pefTestNewId($db,'student_profiles'),$id,$login,'BSIT - Software Development','CCS',$year,'SYN-A',$status,'Active',4.00]);
+            $isRegular=in_array($key,['regular1','regular2','regular3','regular4'],true);
+            $section=$isRegular||$key==='regular_missing'?'IT-'.$year.'2':'SYN-A';
+            $course=$key==='legacy_cy'?'BSIT - Cyber Security':($key==='legacy_ds'?'BSIT - Data Science':'BSIT - Software Development');
+            $manifest['accounts'][$key]=['id'=>$id,'login'=>$login,'year_level'=>$year,'status'=>$status,'count'=>$count,'role'=>$role,'grade_ids'=>[],'current_grade_ids'=>[],
+                'section'=>$section,'course'=>$course,'inputs'=>pefTestInputs()];
+            if($role==='student') $profile->execute([pefTestNewId($db,'student_profiles'),$id,$login,$course,'CCS',$year,$section,$status,'Active',4.00]);
             for($i=0;$i<$count;$i++) {
                 $g=$key==='allinc'?'INC':(['3.00','INC','0.00',null,'1.00','4.00'][$i%6]);
                 $grade->execute([$id,$manifest['subjects'][$i],'2024-2025',2,$g,$key==='mixed'&&$i===1?1:0]);
                 $manifest['accounts'][$key]['grade_ids'][]=(int)$db->lastInsertId();
+            }
+            if($isRegular){
+                foreach(array_slice($nominal[$year.'/'.$currentTerm['semester']],0,3) as $subjectId){
+                    $grade->execute([$id,$subjectId,$currentTerm['school_year'],$currentTerm['semester'],null,1]);
+                    $manifest['accounts'][$key]['current_grade_ids'][]=(int)$db->lastInsertId();
+                }
+                $targetNominal=$year+($currentTerm['semester']===2?1:0);
+                $targetSemester=$currentTerm['semester']===1?2:1;
+                $targetYear=$currentTerm['semester']===1?$currentTerm['school_year']:
+                    (((int)substr($currentTerm['school_year'],0,4)+1).'-'.((int)substr($currentTerm['school_year'],5,4)+1));
+                $manifest['accounts'][$key]['inputs']=pefTestInputs(['target_year'=>$targetYear,'target_semester'=>$targetSemester,'section'=>$section,
+                    'subject_ids'=>$nominal[$targetNominal.'/'.$targetSemester]??[]]);
+                $manifest['accounts'][$key]['expected_exportable']=$currentTerm['semester']===1;
             }
         }
         $db->commit();return $manifest;
