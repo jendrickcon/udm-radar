@@ -454,15 +454,23 @@ require_once '../includes/sidebar.php';
 
     <?php
     $isAtRiskGauge = $hasCurrentGwa && ($display_risk === 'HIGH' || $display_risk === 'MODERATE' || $current_gwa < 2.50);
+    $currentPositionStatement = '';
     $accessibleGaugeSummary = '';
     if ($hasCurrentGwa) {
         $valFormatted = number_format($current_gwa, 2);
         if ($current_gwa < 3.25) {
-            $accessibleGaugeSummary = "Historical cumulative GWA: {$valFormatted} on a scale from 1.00 to 4.00. The configured academic-distinction range begins at 3.25. The current value is below the distinction threshold. Official eligibility requires full institutional review.";
+            $bandStatement = "Your historical cumulative GWA is below the first configured academic-distinction range.";
+        } elseif ($current_gwa < 3.50) {
+            $bandStatement = "Your historical cumulative GWA is within the configured Dean’s List range.";
+        } elseif ($current_gwa < 3.75) {
+            $bandStatement = "Your historical cumulative GWA is within the configured Magna Cum Laude range.";
         } else {
-            $accessibleGaugeSummary = "Historical cumulative GWA: {$valFormatted} on a scale from 1.00 to 4.00. The configured academic-distinction range begins at 3.25. The current value is within the configured academic-distinction range. Official eligibility requires full institutional review.";
+            $bandStatement = "Your historical cumulative GWA is within the configured Summa Cum Laude range.";
         }
+        $currentPositionStatement = $bandStatement . " This is guidance only. Official qualification requires complete institutional review.";
+        $accessibleGaugeSummary = "Historical cumulative GWA: {$valFormatted} on a scale from 1.00 to 4.00. The configured Dean’s List range begins at 3.25, Magna Cum Laude begins at 3.50, and Summa Cum Laude begins at 3.75. {$bandStatement} This is guidance only. Official qualification requires complete institutional review.";
     } else {
+        $currentPositionStatement = "No numeric final grades are currently recorded.";
         $accessibleGaugeSummary = "Historical cumulative GWA is not available because no numeric final grades have been recorded.";
     }
     ?>
@@ -474,7 +482,7 @@ require_once '../includes/sidebar.php';
                     <span><?= !$hasCurrentGwa ? 'Cumulative GWA' : 'Academic Distinction' ?></span>
                 </h3>
                 <p id="gwa-gauge-description" style="text-align: left; color: var(--text-gray); font-size: 0.8rem; margin: 0;">
-                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows your historical cumulative GWA and where the configured academic distinction range begins. Official eligibility remains subject to full institutional review.' ?>
+                    <?= !$hasCurrentGwa ? 'No numeric final grades are currently available.' : 'Shows your historical cumulative GWA in relation to the configured academic-distinction ranges. Official qualification remains subject to complete institutional criteria and authorized review.' ?>
                 </p>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -486,19 +494,18 @@ require_once '../includes/sidebar.php';
                     <span id="gwa-gauge-value" style="font-size: 2rem; font-weight: 800; color: var(--text-dark);"><?= $currentGwaDisplay ?></span>
                     <br><span style="font-size: 0.8rem; color: var(--text-gray); font-weight: 600;">Historical Cumulative GWA</span>
                 </div>
-                <div class="gauge-threshold-callout" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; font-size: 0.78rem; font-weight: 700; color: var(--text-dark);">
-                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--primary);" aria-hidden="true"></span>
-                    <span class="distinction-label-full">Academic distinction begins at 3.25</span>
-                    <span class="distinction-label-compact">Distinction starts: 3.25</span>
-                </div>
-                <div style="display: flex; justify-content: center; gap: 14px; margin-top: 8px; font-size: 0.75rem; font-weight: 600; flex-wrap: wrap;">
-                    <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-gray);">
-                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--surface-muted); border: 1px solid var(--border-color);" aria-hidden="true"></span>
-                        General academic range (1.00–3.24)
+                <div style="display: flex; justify-content: center; gap: 12px 18px; margin-top: 14px; font-size: 0.78rem; font-weight: 600; flex-wrap: wrap;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-dark);">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--primary-light, #2D9CDB); border: 1px solid rgba(0,0,0,0.1);" aria-hidden="true"></span>
+                        Dean’s List · starts at 3.25
                     </span>
                     <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-dark);">
-                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--primary);" aria-hidden="true"></span>
-                        Academic distinction range (3.25–4.00)
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--honor-magna, #1E4DB7);" aria-hidden="true"></span>
+                        Magna Cum Laude · starts at 3.50
+                    </span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-dark);">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background-color: var(--gold, #C9A227);" aria-hidden="true"></span>
+                        Summa Cum Laude · starts at 3.75
                     </span>
                 </div>
             </div>
@@ -827,10 +834,14 @@ function getThemeColors() {
     const root = getComputedStyle(document.documentElement);
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     return {
-        // Region 1: Muted slate-blue
-        base: isDark ? '#315670' : '#CBD5E1',
-        // Region 2: Restrained CCS-compatible highlight color
-        highlight: root.getPropertyValue('--primary').trim() || (isDark ? '#60A5FA' : '#1769AA'),
+        // General distinction range arc (visible and lighter slate-blue)
+        base: isDark ? '#334E68' : '#CBD5E1',
+        // Dean's List: Light blue
+        deansList: root.getPropertyValue('--primary-light').trim() || (isDark ? '#7DD3FC' : '#2D9CDB'),
+        // Magna Cum Laude: Deep royal blue
+        magna: root.getPropertyValue('--honor-magna').trim() || (isDark ? '#818CF8' : '#1E4DB7'),
+        // Summa Cum Laude: Restrained gold or orange-gold
+        summa: root.getPropertyValue('--gold').trim() || (isDark ? '#F4C95D' : '#C9A227'),
         text: root.getPropertyValue('--text-dark').trim() || (isDark ? '#F4FAFC' : '#102A43')
     };
 }
@@ -839,9 +850,9 @@ let themeColors = getThemeColors();
 const currentGwaForGauge = <?= json_encode($hasCurrentGwa ? round($current_gwa, 2) : null) ?>;
 const GAUGE_MIN = 1.00;
 const GAUGE_MAX = 4.00;
-const GAUGE_THRESHOLD = 3.25;
 const GAUGE_ROTATION = 270;
 const GAUGE_CIRCUMFERENCE = 180;
+const THRESHOLDS = [3.25, 3.50, 3.75];
 
 const needlePlugin = {
     id: 'gwaNeedle',
@@ -878,40 +889,41 @@ const needlePlugin = {
 };
 
 const thresholdPlugin = {
-    id: 'distinctionThresholdTick',
+    id: 'distinctionThresholdTicks',
     afterDraw(chart) {
         const meta = chart.getDatasetMeta(0);
         if (!meta.data || !meta.data[0]) return;
         const arc = meta.data[0];
         const { x: cx, y: cy, innerRadius, outerRadius } = arc.getProps(['x', 'y', 'innerRadius', 'outerRadius'], true);
-
-        // 3.25 on scale 1.00 - 4.00 is fraction (3.25 - 1.00) / (4.00 - 1.00) = 0.75
-        const fraction = (GAUGE_THRESHOLD - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN);
-        const chartJsAngleDeg = GAUGE_ROTATION + (GAUGE_CIRCUMFERENCE * fraction);
-        const canvasAngleDeg = chartJsAngleDeg - 90;
-        const angleRad = canvasAngleDeg * Math.PI / 180;
-
-        const innerX = cx + (innerRadius - 3) * Math.cos(angleRad);
-        const innerY = cy + (innerRadius - 3) * Math.sin(angleRad);
-        const outerX = cx + (outerRadius + 6) * Math.cos(angleRad);
-        const outerY = cy + (outerRadius + 6) * Math.sin(angleRad);
-
         const { ctx } = chart;
-        ctx.save();
         const strokeColor = getComputedStyle(document.documentElement).getPropertyValue('--text-dark').trim() || '#102A43';
-        ctx.beginPath();
-        ctx.moveTo(innerX, innerY);
-        ctx.lineTo(outerX, outerY);
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = strokeColor;
-        ctx.lineCap = 'round';
-        ctx.stroke();
 
-        ctx.beginPath();
-        ctx.arc(outerX, outerY, 3, 0, Math.PI * 2);
-        ctx.fillStyle = strokeColor;
-        ctx.fill();
-        ctx.restore();
+        THRESHOLDS.forEach(thresh => {
+            const fraction = (thresh - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN);
+            const chartJsAngleDeg = GAUGE_ROTATION + (GAUGE_CIRCUMFERENCE * fraction);
+            const canvasAngleDeg = chartJsAngleDeg - 90;
+            const angleRad = canvasAngleDeg * Math.PI / 180;
+
+            const innerX = cx + (innerRadius - 3) * Math.cos(angleRad);
+            const innerY = cy + (innerRadius - 3) * Math.sin(angleRad);
+            const outerX = cx + (outerRadius + 5) * Math.cos(angleRad);
+            const outerY = cy + (outerRadius + 5) * Math.sin(angleRad);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(innerX, innerY);
+            ctx.lineTo(outerX, outerY);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(outerX, outerY, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = strokeColor;
+            ctx.fill();
+            ctx.restore();
+        });
     }
 };
 
@@ -919,10 +931,10 @@ const ctxGauge = document.getElementById('honorGauge').getContext('2d');
 const honorGaugeChart = new Chart(ctxGauge, {
     type: 'doughnut',
     data: {
-        labels: ['General academic range', 'Academic distinction range'],
+        labels: ['Muted arc', 'Dean’s List', 'Magna Cum Laude', 'Summa Cum Laude'],
         datasets: [{
-            data: [2.25, 0.75], // 1.00-3.25 (75%) and 3.25-4.00 (25%)
-            backgroundColor: [themeColors.base, themeColors.highlight],
+            data: [2.25, 0.25, 0.25, 0.25], // 1.00-3.25 (75%), 3.25-3.50 (8.33%), 3.50-3.75 (8.33%), 3.75-4.00 (8.33%)
+            backgroundColor: [themeColors.base, themeColors.deansList, themeColors.magna, themeColors.summa],
             borderWidth: 0,
             circumference: GAUGE_CIRCUMFERENCE,
             rotation: GAUGE_ROTATION
@@ -946,7 +958,9 @@ const observer = new MutationObserver(() => {
     const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
     honorGaugeChart.options.animation = !isReducedMotion;
     honorGaugeChart.data.datasets[0].backgroundColor[0] = themeColors.base;
-    honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.highlight;
+    honorGaugeChart.data.datasets[0].backgroundColor[1] = themeColors.deansList;
+    honorGaugeChart.data.datasets[0].backgroundColor[2] = themeColors.magna;
+    honorGaugeChart.data.datasets[0].backgroundColor[3] = themeColors.summa;
     honorGaugeChart.update('none');
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });

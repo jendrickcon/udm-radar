@@ -247,12 +247,12 @@ assertCheck(
     "COPY-012: Gauge title is 'Academic Distinction' when GWA exists"
 );
 assertCheck(
-    str_contains($contents['dashboard'], "'Shows your historical cumulative GWA and where the configured academic distinction range begins. Official eligibility remains subject to full institutional review.'"),
+    str_contains($contents['dashboard'], "'Shows your historical cumulative GWA in relation to the configured academic-distinction ranges. Official qualification remains subject to complete institutional criteria and authorized review.'"),
     "COPY-012: Gauge description matches exact approved guidance text"
 );
 assertCheck(
-    str_contains($contents['dashboard'], 'General academic range') && str_contains($contents['dashboard'], 'Academic distinction range') && str_contains($contents['dashboard'], 'Academic distinction begins at 3.25'),
-    "COPY-012: Gauge legend renders approved distinction ranges and threshold"
+    str_contains($contents['dashboard'], 'Dean’s List · starts at 3.25') && str_contains($contents['dashboard'], 'Magna Cum Laude · starts at 3.50') && str_contains($contents['dashboard'], 'Summa Cum Laude · starts at 3.75'),
+    "COPY-012: Gauge legend renders approved three distinction bands"
 );
 
 // COPY-013: student/dashboard.php - Empty triage state
