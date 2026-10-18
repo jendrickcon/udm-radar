@@ -587,13 +587,45 @@ require_once '../includes/sidebar.php';
                 <?php endif; ?>
             </div>
             
-            <div class="card" style="position: relative; height: 380px;">
+            <div class="card" style="position: relative; height: auto; min-height: 380px;">
                 <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Academic Distinction Readiness</div>
                 <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Based on each student's latest available estimate or prediction. Does not represent official eligibility.</p>
                 <?php if (empty($sectionData)): ?>
                     <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
                 <?php else: ?>
-                    <div style="position: relative; height: 280px; width: 100%;"><canvas id="honorChart"></canvas></div>
+                    <div style="position: relative; height: 210px; width: 100%;"><canvas id="honorChart" role="img" aria-label="Academic Distinction Readiness Chart"></canvas></div>
+
+                    <!-- Accessible Wrapped HTML Legend -->
+                    <ul id="honorChartLegend" class="honor-chart-legend" role="list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 14px; padding: 0; list-style: none;">
+                        <?php foreach ($distinctions as $label => $count):
+                            $dotColor = match(true) {
+                                str_contains($label, 'Summa') => 'var(--gold, #E8B923)',
+                                str_contains($label, 'Magna') => 'var(--honor-magna, #265597)',
+                                str_contains($label, 'Cum Laude') => 'var(--primary-light, #2D9CDB)',
+                                str_contains($label, 'Insufficient') => 'var(--text-gray, #64748B)',
+                                default => 'var(--border-color, #94A3B8)',
+                            };
+                        ?>
+                            <li style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-dark);">
+                                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: <?= $dotColor ?>; border: 1px solid rgba(0,0,0,0.15);" aria-hidden="true"></span>
+                                <span style="font-weight: 600;"><?= htmlspecialchars($label) ?>:</span>
+                                <span style="color: var(--text-gray);"><?= number_format($count) ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+
+                    <!-- Accessible Screen-Reader Summary Table -->
+                    <div class="sr-only">
+                        <table id="honor-chart-summary">
+                            <caption>Academic Distinction Readiness Summary</caption>
+                            <thead><tr><th>Category</th><th>Count</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($distinctions as $label => $count): ?>
+                                    <tr><td><?= htmlspecialchars($label) ?></td><td><?= (int)$count ?></td></tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -943,19 +975,22 @@ const honorChart = new Chart(ctxHonor, {
     },
     options: {
         responsive: true, maintainAspectRatio: false, cutout: '65%',
-        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: theme.text, font: {size: 10} } } }
+        plugins: { legend: { display: false } }
     }
 });
 
 const observer = new MutationObserver(() => {
     theme = getChartTheme();
+    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
+
+    sectionChart.options.animation = !isReducedMotion;
     sectionChart.options.scales.x.ticks.color = theme.text;
     sectionChart.options.scales.x.grid.color = theme.border;
     sectionChart.options.scales.y.ticks.color = theme.text;
     sectionChart.options.plugins.legend.labels.color = theme.text;
-    sectionChart.update();
+    sectionChart.update('none');
 
-    honorChart.options.plugins.legend.labels.color = theme.text;
+    honorChart.options.animation = !isReducedMotion;
     honorChart.data.datasets[0].backgroundColor = honorLabels.map(label => {
         if(label.includes('Summa')) return theme.summa;
         if(label.includes('Magna')) return theme.magna;
@@ -963,9 +998,9 @@ const observer = new MutationObserver(() => {
         if(label.includes('Insufficient Data')) return theme.insufficient;
         return theme.none;
     });
-    honorChart.update();
+    honorChart.update('none');
 });
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
 </script>
 <?php endif; ?>
 
