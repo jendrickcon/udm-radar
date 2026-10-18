@@ -327,7 +327,19 @@ require_once '../includes/sidebar.php';
         <div class="card" style="position: relative; height: 320px; margin-bottom: 0;">
             <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">College-Wide Risk Distribution</div>
             <div style="position: relative; height: 240px; width: 100%;">
-                <canvas id="riskDonutChart"></canvas>
+                <canvas id="riskDonutChart" role="img" aria-label="College-wide risk distribution donut chart" aria-describedby="risk-donut-summary"></canvas>
+                <div id="risk-donut-summary" class="sr-only">
+                    <table>
+                        <caption>College-Wide Risk Distribution Summary</caption>
+                        <thead><tr><th scope="col">Risk Level</th><th scope="col">Student Count</th></tr></thead>
+                        <tbody>
+                            <tr><td>High Risk</td><td><?= (int)$highRisk ?></td></tr>
+                            <tr><td>Moderate Risk</td><td><?= (int)$modRisk ?></td></tr>
+                            <tr><td>Low Risk</td><td><?= (int)$lowRisk ?></td></tr>
+                            <tr><td>No Prediction</td><td><?= (int)$noPredict ?></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
@@ -656,25 +668,28 @@ const barChart = new Chart(ctxBar, {
     }
 });
 
-// --- Dynamic Chart Recolor Observer ---
+// --- Dynamic Chart Recolor & Accessibility Observer ---
 const observer = new MutationObserver(() => {
     themeColors = getChartThemeColors();
+    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
     
     // Update Donut
+    donutChart.options.animation = !isReducedMotion;
     donutChart.data.datasets[0].backgroundColor = [themeColors.high, themeColors.mod, themeColors.low, themeColors.na];
     donutChart.options.plugins.legend.labels.color = themeColors.text;
-    donutChart.update();
+    donutChart.update('none');
     
     // Update Bar Chart
+    barChart.options.animation = !isReducedMotion;
     barChart.data.datasets[0].backgroundColor = themeColors.teal;
     barChart.options.scales.x.ticks.color = themeColors.text;
     barChart.options.scales.x.grid.color = themeColors.border;
     barChart.options.scales.y.ticks.color = themeColors.text;
     barChart.options.scales.y.grid.color = themeColors.border;
     barChart.options.scales.y.title.color = themeColors.text;
-    barChart.update();
+    barChart.update('none');
 });
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
 
 
 // --- Search & Pagination Engine ---

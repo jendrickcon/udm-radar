@@ -597,7 +597,9 @@ const riskChart = new Chart(ctxRisk, {
 
 const observer = new MutationObserver(() => {
     theme = getChartTheme();
+    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
     
+    progChart.options.animation = !isReducedMotion;
     progChart.options.scales.x.ticks.color = theme.text;
     progChart.options.scales.x.grid.color = theme.border;
     progChart.options.scales.y.ticks.color = theme.text;
@@ -605,16 +607,17 @@ const observer = new MutationObserver(() => {
     progChart.options.scales.y.title.color = theme.text;
     progChart.data.datasets[0].borderColor = theme.blue;
     progChart.data.datasets[0].pointBackgroundColor = theme.blue;
-    progChart.update();
+    progChart.update('none');
 
+    riskChart.options.animation = !isReducedMotion;
     riskChart.options.scales.x.ticks.color = theme.text;
     riskChart.options.scales.y.ticks.color = theme.text;
     riskChart.options.scales.y.grid.color = theme.border;
     riskChart.options.scales.y.title.color = theme.text;
     riskChart.options.plugins.legend.labels.color = theme.text;
-    riskChart.update();
+    riskChart.update('none');
 });
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
 </script>
 <?php endif; ?>
 

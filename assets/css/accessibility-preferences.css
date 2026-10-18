@@ -1,0 +1,309 @@
+/**
+ * assets/css/accessibility-preferences.css
+ * UDM-RADAR Display & Accessibility Preferences Stylesheet (WP1)
+ *
+ * Implements:
+ * 1. Root typography scale tokens (small: 90%, default: 100%, large: 112.5%, extra-large: 125%)
+ * 2. Reduced motion suppression for transitions, keyframes, and animations
+ * 3. Increased contrast mode (high-contrast borders, focus rings, and text legibility)
+ * 4. Underline links support for content hyperlinks
+ * 5. Large-text layout hardening (mobile topbar, modal close padding, table scroll containment)
+ * 6. Accessible utility classes and display preferences control styling
+ */
+
+/* ── 1. Root Font-Size Scaling ─────────────────────────────────────────── */
+html[data-font-size="small"] {
+  font-size: 90%;
+}
+
+html[data-font-size="default"] {
+  font-size: 100%;
+}
+
+html[data-font-size="large"] {
+  font-size: 112.5%;
+}
+
+html[data-font-size="extra-large"] {
+  font-size: 125%;
+}
+
+/* ── 2. Reduced Motion ─────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spinner, .loading-spinner, .batch-spinner, [class*="spinner"] {
+    animation: none !important;
+    opacity: 0.8 !important;
+  }
+}
+
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-motion="reduce"] .spinner,
+html[data-motion="reduce"] .loading-spinner,
+html[data-motion="reduce"] .batch-spinner,
+html[data-motion="reduce"] [class*="spinner"] {
+  animation: none !important;
+  opacity: 0.8 !important;
+}
+
+/* ── 3. Underline Links ─────────────────────────────────────────────────── */
+html[data-underline-links="true"] a:not(.btn):not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.sidebar-link):not(.theme-toggle-btn):not(.logout-btn):not(.tab-btn):not(.badge):not(.nav-item):not(.action-btn):not(.modal-close):not(.kpi-card--action):not(.theme-toggle-fab) {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+/* ── 4. Expandable Settings Disclosure (Accordion) ───────────────────────── */
+.display-pref-card {
+  transition: border-color 0.15s ease;
+}
+
+.display-pref-disclosure-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.display-pref-disclosure-trigger:hover {
+  background-color: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.display-pref-disclosure-trigger:focus-visible {
+  outline: 3px solid var(--primary, #1769AA);
+  outline-offset: -3px;
+}
+
+.display-pref-trigger-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.display-pref-trigger-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.display-pref-trigger-desc {
+  font-size: 0.85rem;
+  color: var(--text-gray);
+  line-height: 1.4;
+}
+
+.display-pref-trigger-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-gray);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.display-pref-disclosure-trigger[aria-expanded="true"] .display-pref-trigger-arrow {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .display-pref-trigger-arrow {
+    transition: none !important;
+  }
+}
+
+html[data-motion="reduce"] .display-pref-trigger-arrow {
+  transition: none !important;
+}
+
+/* Ensure light mode page subtitles on viewport canvas clear WCAG AA 4.5:1 */
+html:not([data-theme="dark"]) .header p {
+  color: #475569; /* 6.27:1 on #F0F4F8 / #EAF7F8 */
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary, #1769AA);
+  outline-offset: 2px;
+}
+
+/* ── 5. Large-Text Layout Hardening ────────────────────────────────────── */
+.mobile-topbar {
+  min-height: 56px;
+  height: auto !important;
+  padding: 8px 16px;
+}
+
+.modal-box {
+  max-height: calc(100vh - 48px) !important;
+  overflow-y: auto !important;
+  position: relative;
+}
+
+.modal-box > h2:first-child,
+.modal-box > .modal-header {
+  padding-right: 48px;
+}
+
+.data-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+html[data-font-size="extra-large"] .subject-cell {
+  white-space: normal !important;
+  word-break: break-word;
+}
+
+html[data-font-size="extra-large"] td,
+html[data-font-size="extra-large"] th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* ── 6. Accessibility Utilities & Component Styling ────────────────────── */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.display-pref-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.display-pref-fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px 20px 20px 20px;
+  background: var(--card-bg);
+}
+
+.display-pref-legend {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  padding: 0 8px;
+}
+
+.display-pref-desc {
+  font-size: 0.825rem;
+  color: var(--text-gray);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.display-pref-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 12px;
+}
+
+.display-pref-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-light);
+  cursor: pointer;
+  min-height: 48px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.display-pref-option:hover {
+  border-color: var(--primary, #1769AA);
+}
+
+.display-pref-option:has(input:checked) {
+  border-color: var(--primary, #1769AA);
+  background: rgba(23, 105, 170, 0.08);
+}
+
+[data-theme="dark"] .display-pref-option:has(input:checked) {
+  border-color: var(--primary, #60A5FA);
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.display-pref-option input[type="radio"],
+.display-pref-option input[type="checkbox"] {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary, #1769AA);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.display-pref-option-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.display-pref-option-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.display-pref-option-sub {
+  font-size: 0.75rem;
+  color: var(--text-gray);
+  margin-top: 2px;
+}
+
+.display-pref-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.display-pref-info-note {
+  font-size: 0.8rem;
+  color: var(--text-gray);
+  font-style: italic;
+}
+
+.display-pref-status-banner {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--risk-low, #10B981);
+  border-left: 4px solid var(--risk-low, #10B981);
+  display: none;
+}

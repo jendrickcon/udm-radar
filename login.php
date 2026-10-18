@@ -55,12 +55,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login | UDM-RADAR</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Pre-render Accessibility & Theme Initializer (Anti-FOUC) -->
     <script>
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
+    (function() {
+        try {
+            var raw = localStorage.getItem('udmRadarDisplayPreferencesV1');
+            var p = raw ? JSON.parse(raw) : null;
+            var legacy = localStorage.getItem('theme');
+            var colorStyle = (p && ['ccs','classic'].indexOf(p.colorStyle) !== -1) ? p.colorStyle : 'ccs';
+            var theme = (p && ['system','light','dark'].indexOf(p.theme) !== -1) ? p.theme : (legacy === 'light' || legacy === 'dark' ? legacy : 'system');
+            var activeTheme = theme;
+            if (theme === 'system') {
+                activeTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            }
+            var root = document.documentElement;
+            root.setAttribute('data-color-style', colorStyle);
+            root.setAttribute('data-theme', activeTheme);
+            if (p) {
+                if (['small','default','large','extra-large'].indexOf(p.textSize) !== -1) {
+                    root.setAttribute('data-font-size', p.textSize);
+                } else {
+                    root.setAttribute('data-font-size', 'default');
+                }
+                if (['system','reduce','allow'].indexOf(p.motion) !== -1) {
+                    var activeMotion = p.motion === 'system' ? ((window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'reduce' : 'allow') : p.motion;
+                    root.setAttribute('data-motion', activeMotion);
+                } else {
+                    root.setAttribute('data-motion', (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'reduce' : 'allow');
+                }
+                root.setAttribute('data-underline-links', p.underlineLinks === true ? 'true' : 'false');
+            } else {
+                root.setAttribute('data-font-size', 'default');
+                root.setAttribute('data-motion', (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'reduce' : 'allow');
+                root.setAttribute('data-underline-links', 'false');
+            }
+            root.removeAttribute('data-contrast');
+        } catch (e) {
+            document.documentElement.setAttribute('data-color-style', 'ccs');
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.documentElement.setAttribute('data-font-size', 'default');
+            document.documentElement.setAttribute('data-motion', 'allow');
+            document.documentElement.setAttribute('data-underline-links', 'false');
+            document.documentElement.removeAttribute('data-contrast');
+        }
+    })();
     </script>
 
     <style>
+        /* Typography & Accessibility Preferences */
+        html[data-font-size="small"] { font-size: 90%; }
+        html[data-font-size="default"] { font-size: 100%; }
+        html[data-font-size="large"] { font-size: 112.5%; }
+        html[data-font-size="extra-large"] { font-size: 125%; }
+
+        html[data-motion="reduce"] .chart-bar,
+        html[data-motion="reduce"] .chart-line,
+        html[data-motion="reduce"] .chart-arrow {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+            stroke-dashoffset: 0 !important;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
         :root {
@@ -443,14 +499,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         (function() {
-            const root = document.documentElement;
             const btn = document.getElementById('theme-toggle');
-            let current = localStorage.getItem('theme') || 'light';
-
+            if (!btn) return;
             btn.addEventListener('click', () => {
-                current = current === 'light' ? 'dark' : 'light';
-                root.setAttribute('data-theme', current);
-                localStorage.setItem('theme', current);
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', nextTheme);
+                localStorage.setItem('theme', nextTheme);
+                try {
+                    var raw = localStorage.getItem('udmRadarDisplayPreferencesV1');
+                    var p = raw ? JSON.parse(raw) : {};
+                    p.version = 1;
+                    if (!p.colorStyle) p.colorStyle = 'ccs';
+                    p.theme = nextTheme;
+                    if (!p.textSize) p.textSize = 'default';
+                    if (!p.motion) p.motion = 'system';
+                    delete p.contrast;
+                    if (p.underlineLinks === undefined) p.underlineLinks = false;
+                    localStorage.setItem('udmRadarDisplayPreferencesV1', JSON.stringify(p));
+                    document.cookie = 'theme=' + nextTheme + ';path=/;max-age=31536000;SameSite=Lax';
+                } catch(e) {}
             });
         })();
     </script>
