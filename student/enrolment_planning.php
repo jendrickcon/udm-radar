@@ -68,6 +68,16 @@ function pefCcPagePrintIssue(string $field, array $fieldErrors): string
         . pefCcPageEscape($fieldErrors[$field]) . '"' : '';
 }
 
+function pefCcTranslateError(string $error): string
+{
+    return match ($error) {
+        'evaluation_term_mismatch' => 'The academic record changed. Refresh the plan before downloading.',
+        'section_not_allowed' => 'Choose one of the available sections.',
+        'stale_preview' => 'The academic record or plan changed after preview. Refresh the workbook preview before downloading.',
+        default => $error,
+    };
+}
+
 /** Bound actual bytes as well as Content-Length, including chunked form requests. */
 function pefCcPageBodyWithinLimit(int $limit): bool
 {
@@ -198,6 +208,20 @@ if ($requestValid) {
         try {
             $reference = pefCcTemplateReference($config);
             $cc = pefCcBuildReferenceCc($context['records'], $reference);
+            // Section 10: Fail closed on obsolete template
+            $activeReviewedContract = pefCcTemplateContract('v0.2-r6');
+            if (($config['template_version'] ?? '') !== 'v0.2-r6'
+                || !hash_equals($activeReviewedContract['sha256'], (string) ($config['template_sha256'] ?? ''))) {
+                error_log(sprintf(
+                    'PEF/CC planning rejected obsolete template: expected v0.2-r6 (%s), resolved %s (%s)',
+                    $activeReviewedContract['sha256'],
+                    $config['template_version'] ?? 'null',
+                    $config['template_sha256'] ?? 'null'
+                ));
+                http_response_code(409);
+                $errors[] = 'The planning workbook template changed. Refresh the preview before downloading.';
+                $reference = null;
+            }
         } catch (Throwable $e) {
             error_log('PEF/CC template check failed: ' . $e->getMessage());
             http_response_code(503);
@@ -240,11 +264,20 @@ $data = $model?->data;
 $formPolicy = $data['policy'] ?? pefCcPlanningPolicy($context, $inputs, $currentTerm);
 $manualPlanning = $formPolicy['mode'] === 'irregular';
 $regularPlanning = $formPolicy['mode'] === 'regular';
+$hasCompletePredecessor = ($formPolicy['predecessor_complete'] ?? false);
+$isProvisional = ($data !== null ? (($data['mode'] ?? '') === 'provisional') : ($formPolicy['provisional_allowed'] ?? false));
+$incompleteWarning = ($formPolicy['incomplete_warning'] ?? '');
 $formUnavailable = !$manualPlanning && ($formPolicy['nominal'] === []
     || $formPolicy['target_year'] === null || $formPolicy['section_options'] === []);
 if ($model === null && $requestValid && $context['identity'] !== []) {
     $errors = array_merge($errors, $formPolicy['errors']);
 }
+$history = $data['history'] ?? [];
+$summaryStatus = $isProvisional ? 'Provisional' : 'Ready for normal planning';
+$summaryEvalTerm = ($data['evaluation']['school_year'] ?? $inputs['evaluation_year']) . ' · ' . ($data['evaluation']['label'] ?? pefCcSemesterLabel((int) ($inputs['evaluation_semester'] ?? 1)));
+$summaryTargetTerm = ($data['planning']['target_year'] ?? $inputs['target_year']) . ' · ' . ((int) ($data['planning']['target_semester'] ?? $inputs['target_semester']) === 1 ? 'First Semester' : 'Second Semester');
+$summarySection = ($data['planning']['section'] ?? $inputs['section']) !== '' ? ($data['planning']['section'] ?? $inputs['section']) : ($formPolicy['section_default'] ?? 'Not assigned — evaluator review');
+$summaryProposedCount = count($data['planning']['subject_ids'] ?? $inputs['subject_ids'] ?? []);
 $selectedIds = array_map('strval', $inputs['subject_ids']);
 $hasCompletedTerm = count(array_filter($choices, static fn(array $choice): bool => $choice['eligible'])) > 0;
 $years = array_values(array_unique(array_map(static fn(array $choice): string => (string) $choice['school_year'], $choices)));
@@ -261,166 +294,351 @@ require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/sidebar.php';
 ?>
 <link rel="stylesheet" href="<?= pefCcPageEscape(BASE_URL) ?>assets/css/pef-cc.css?v=<?= filemtime(__DIR__ . '/../assets/css/pef-cc.css') ?>">
+<?php
+$hasMultipleSections = $regularPlanning && count($formPolicy['section_options'] ?? []) > 1;
+$hasEditableChoices = $manualPlanning || $hasMultipleSections;
+$totalRecorded = count($data['recorded'] ?? []);
+$recordedGrades = count(array_filter($data['recorded'] ?? [], static fn(array $r): bool => !in_array($r['gwa_reason'] ?? '', ['null', 'blank'], true) && ($r['grade'] ?? null) !== null && ($r['grade'] ?? null) !== ''));
+$termGwaDisplay = $isProvisional ? 'Pending' : ($data['gwa'] === null ? 'Unavailable' : number_format((float) $data['gwa'], 2));
+$summaryStatus = $isProvisional ? 'Provisional' : 'Normal';
+$totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s['units'] ?? 0), $data['proposed'] ?? []));
+?>
 <main class="main-content pef-cc-page" id="main-content">
     <div class="header">
-        <div><h1>Enrolment Planning</h1><p>PEF &amp; Curriculum Checklist Planning Export</p></div>
+        <div>
+            <h1>Enrolment Planning</h1>
+            <p class="pef-cc-lead">Review your current semester, check the proposed next-semester plan, and create your planning workbook.</p>
+            <nav class="pef-cc-stepper" aria-label="Planning progress">
+                <ol class="pef-cc-steps">
+                    <li class="pef-cc-step"><span class="pef-cc-step-num">1</span> <span class="pef-cc-step-label">Current semester</span></li>
+                    <li class="pef-cc-step-sep" aria-hidden="true">→</li>
+                    <li class="pef-cc-step"><span class="pef-cc-step-num">2</span> <span class="pef-cc-step-label">Next-term plan</span></li>
+                    <li class="pef-cc-step-sep" aria-hidden="true">→</li>
+                    <li class="pef-cc-step"><span class="pef-cc-step-num">3</span> <span class="pef-cc-step-label">Workbook</span></li>
+                </ol>
+            </nav>
+        </div>
         <a class="btn btn--quiet" href="grades.php">Back to Grades</a>
     </div>
-    <p class="pef-cc-boundary"><?= pefCcPageEscape($config['disclosure']) ?></p>
-    <p class="pef-cc-muted">Planning copy only. This is not an official PEF, Curriculum Checklist, approved enrolment decision, or Study Plan.</p>
-    <p class="pef-cc-muted"><?= pefCcPageEscape($config['prototype_disclosure']) ?></p>
 
-    <?php if ($errors !== []): ?>
+    <?php if ($errors !== [] && ($formUnavailable || !$requestValid || (!$hasCompletePredecessor && !$isProvisional) || in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true))): ?>
     <section class="card pef-cc-errors" role="alert" tabindex="-1" data-testid="preview-errors">
         <h2>Review before exporting</h2>
-        <?php if (in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true)): ?><p id="pef-print-limit-explanation"><?= pefCcPageEscape(PEF_CC_PRINT_LIMIT_MESSAGE) ?> Read-only record values require record review; your safe planning choices are retained.</p><?php endif; ?>
-        <ul><?php foreach (array_unique($errors) as $error): ?><li><?= pefCcPageEscape($error) ?></li><?php endforeach; ?></ul>
+        <?php if (in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true)): ?>
+            <p id="pef-print-limit-explanation"><?= pefCcPageEscape(PEF_CC_PRINT_LIMIT_MESSAGE) ?> Read-only record values require record review; your safe planning choices are retained.<?php if (isset($fieldErrors['identity.name'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name'] ?? '') ?></span><?php endif; ?><?php if (isset($fieldErrors['identity.student_number'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.student_number', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['student_number'] ?? '') ?></span><?php endif; ?></p>
+        <?php endif; ?>
+        <ul>
+            <?php foreach (array_unique($errors) as $err): ?>
+                <li><?= pefCcPageEscape(pefCcTranslateError((string) $err)) ?></li>
+            <?php endforeach; ?>
+        </ul>
         <a class="btn btn--secondary" href="enrolment_planning.php">Reload planning records</a>
     </section>
     <?php endif; ?>
 
-    <form method="post" action="enrolment_planning.php" id="pef-cc-planning-form" class="card" data-has-preview="<?= $preview !== '' ? 'true' : 'false' ?>">
-        <input type="hidden" name="csrf_token" value="<?= pefCcPageEscape($csrf) ?>">
-        <input type="hidden" name="action" value="preview">
-        <h2>1. Recorded evaluation term</h2>
-        <p class="pef-cc-muted">Choose the whole completed term to review. Recorded identity, units, grades, and Term GWA cannot be edited here.</p>
-        <?php if (!$hasCompletedTerm): ?>
-            <p class="pef-cc-notice" data-testid="no-completed-term">No completed evaluation term is available. PEF export is unavailable; the reference checklist can still be reviewed below.</p>
-        <?php endif; ?>
-        <div class="pef-cc-fields">
-            <div><label for="evaluation-year">Evaluation school year</label>
-                <select class="form-input" id="evaluation-year" name="evaluation_year" required aria-describedby="term-choices"<?= pefCcPageInvalid('evaluation_year', $fieldErrors) ?><?= $choices === [] ? ' disabled' : '' ?>>
-                    <?php if ($years === []): ?><option value="">No recorded terms</option><?php endif; ?>
-                    <?php foreach ($years as $year): ?><option value="<?= pefCcPageEscape($year) ?>"<?= $inputs['evaluation_year'] === $year ? ' selected' : '' ?>><?= pefCcPageEscape($year) ?></option><?php endforeach; ?>
-                </select>
+    <!-- Plan-Status Banner (Section 3) -->
+    <?php if ($isProvisional): ?>
+    <div class="pef-cc-banner pef-cc-banner--provisional" role="region" aria-label="Planning status" data-testid="incomplete-term-warning">
+        <h2>Provisional planning available</h2>
+        <dl class="pef-cc-banner-grid">
+            <div><dt>Current term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
+            <div><dt>Next term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
+            <div><dt>Final grades</dt><dd><span data-testid="final-grades-count"><?= (int) $recordedGrades ?> of <?= (int) $totalRecorded ?></span></dd></div>
+            <div><dt>Term GWA</dt><dd data-testid="term-gwa"><?= pefCcPageEscape($termGwaDisplay) ?></dd></div>
+            <div><dt>Status</dt><dd data-testid="planning-status">Provisional</dd></div>
+        </dl>
+        <p class="pef-cc-banner-note">Current-term final grades are incomplete. The workbook may still be prepared for academic evaluator review.</p>
+    </div>
+    <?php else: ?>
+    <div class="pef-cc-banner pef-cc-banner--normal" role="region" aria-label="Planning status">
+        <h2>Planning workbook available</h2>
+        <dl class="pef-cc-banner-grid">
+            <div><dt>Current term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
+            <div><dt>Next term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
+            <div><dt>Final grades</dt><dd><span data-testid="final-grades-count"><?= (int) $recordedGrades ?> of <?= (int) $totalRecorded ?></span></dd></div>
+            <div><dt>Term GWA</dt><dd data-testid="term-gwa"><?= pefCcPageEscape($termGwaDisplay) ?></dd></div>
+            <div><dt>Status</dt><dd data-testid="planning-status">Normal</dd></div>
+        </dl>
+        <p class="pef-cc-banner-note">The current evaluation term is complete. The planning workbook is ready to be prepared.</p>
+    </div>
+    <?php endif; ?>
+
+    <!-- Step 1: Current semester (Section 4) -->
+    <section class="card pef-cc-section" id="step-current-semester" aria-labelledby="heading-current-semester" data-testid="panel-current-semester">
+        <div class="pef-cc-section-header">
+            <h2 id="heading-current-semester">1. Current semester</h2>
+            <button type="button" class="btn btn--secondary pef-cc-toggle-btn" id="btn-view-current-semester" aria-expanded="false" aria-controls="current-semester-details" data-testid="view-current-semester-btn">View recorded subjects</button>
+        </div>
+        <dl class="pef-cc-meta-row">
+            <div><dt>Academic term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
+            <div><dt>Recorded subjects</dt><dd><span data-testid="recorded-count"><?= (int) ($data['recorded_count'] ?? $totalRecorded) ?></span></dd></div>
+            <div><dt>Final grades</dt><dd data-testid="exclusion-summary"><span data-testid="final-grades-meta"><?= (int) $recordedGrades ?> of <?= (int) $totalRecorded ?></span></dd></div>
+        </dl>
+        <div id="current-semester-details" class="pef-cc-collapsible" hidden data-testid="current-semester-details">
+            <div class="data-table-scroll" tabindex="0" role="region" aria-label="Current semester subjects">
+                <table class="data-table">
+                    <caption class="pef-cc-table-caption">Recorded subjects</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Subject</th>
+                            <th scope="col">Units</th>
+                            <th scope="col">Final outcome</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach (($data['recorded'] ?? []) as $index => $row): ?>
+                        <tr>
+                            <td<?= pefCcPagePrintIssue('recorded.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code'] ?? '—') ?></td>
+                            <td<?= pefCcPagePrintIssue('recorded.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title'] ?? 'Subject requires review') ?></td>
+                            <td><?= pefCcPageEscape($row['units'] ?? '—') ?></td>
+                            <td><?= pefCcPageEscape(pefCcPageGrade($row['grade'] ?? null)) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if (($data['recorded'] ?? []) === []): ?>
+                        <tr><td colspan="4" class="empty-state">No records for the current semester.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-            <div><label for="evaluation-semester">Evaluation semester</label>
-                <select class="form-input" id="evaluation-semester" name="evaluation_semester" required<?= pefCcPageInvalid('evaluation_semester', $fieldErrors) ?><?= $choices === [] ? ' disabled' : '' ?>>
-                    <option value="1"<?= (string) $inputs['evaluation_semester'] === '1' ? ' selected' : '' ?>>First Semester</option>
-                    <option value="2"<?= (string) $inputs['evaluation_semester'] === '2' ? ' selected' : '' ?>>Second Semester</option>
-                </select>
+            <div class="pef-cc-step-footer">
+                <div class="pef-cc-stat-cell pef-cc-stat-cell--footer">
+                    <span class="pef-cc-stat-label">Term GWA</span>
+                    <span class="pef-cc-stat-val" data-testid="term-gwa-footer"><?= pefCcPageEscape($termGwaDisplay) ?></span>
+                </div>
             </div>
         </div>
-        <details id="term-choices" class="pef-cc-details"><summary>Recorded terms and review status</summary>
-            <ul><?php foreach ($choices as $choice): ?><li><?= pefCcPageEscape($choice['label']) ?> · <?= (int) $choice['count'] ?> records · <?= $choice['eligible'] ? 'Completed term' : 'Requires record review' ?><?php if (!$choice['eligible']): ?>: <?= pefCcPageEscape(implode('; ', $choice['errors'])) ?><?php endif; ?></li><?php endforeach; ?><?php if ($choices === []): ?><li>No recorded terms.</li><?php endif; ?></ul>
-        </details>
+    </section>
 
-        <h2 class="pef-cc-divider">2. Planning details</h2>
-        <p class="pef-cc-muted">These fields affect this copy only. Subject selection does not confirm prerequisites, availability, curriculum applicability, or an approved load.</p>
-        <p class="pef-cc-help" data-testid="recorded-section">Recorded current section: <?= pefCcPageEscape($formPolicy['recorded_section'] ?? 'Unavailable') ?>.</p>
-        <div class="pef-cc-fields">
+    <!-- Step 2: Next-semester plan (Sections 5 & 6) -->
+    <section class="card pef-cc-section" id="step-next-plan" aria-labelledby="heading-next-plan" data-testid="panel-next-plan">
+        <div class="pef-cc-section-header">
+            <h2 id="heading-next-plan">2. Next-semester plan</h2>
+            <button type="button" class="btn btn--secondary pef-cc-toggle-btn" id="btn-review-next-plan" aria-expanded="false" aria-controls="next-plan-details" data-testid="review-next-plan-btn">View proposed subjects</button>
+        </div>
+        <dl class="pef-cc-meta-row">
+            <div><dt>Target term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
+            <div><dt>Suggested section</dt><dd data-testid="suggested-section-display"><?= pefCcPageEscape($summarySection) ?></dd></div>
+            <div><dt>Proposed subjects</dt><dd data-testid="proposed-subjects-display"><?= (int) $summaryProposedCount ?></dd></div>
+            <div><dt>Total units</dt><dd><span data-testid="total-units-display"><?= (int) $totalProposedUnits ?></span></dd></div>
+            <div><dt>Planning mode</dt><dd data-testid="plan-mode-display"><?= $isProvisional ? 'Provisional' : 'Normal' ?></dd></div>
+        </dl>
+        <?php if ($regularPlanning && !$hasMultipleSections): ?>
+            <p class="pef-cc-note">The current section is retained for this planning copy.</p>
+        <?php endif; ?>
+        <div id="next-plan-details" class="pef-cc-collapsible" hidden data-testid="next-plan-details">
+            <div class="data-table-scroll" tabindex="0" role="region" aria-label="Proposed next-semester subjects">
+                <table class="data-table" data-testid="nominal-subjects">
+                    <caption class="pef-cc-table-caption">Proposed subjects</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Subject</th>
+                            <th scope="col">Units</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach (($data['proposed'] ?? []) as $index => $row): ?>
+                        <tr>
+                            <td<?= pefCcPagePrintIssue('proposed.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code'] ?? '—') ?></td>
+                            <td<?= pefCcPagePrintIssue('proposed.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title'] ?? 'Subject requires review') ?></td>
+                            <td><?= pefCcPageEscape($row['units'] ?? '—') ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if (($data['proposed'] ?? []) === []): ?>
+                        <tr><td colspan="3" class="empty-state"><?= $manualPlanning ? 'No proposed subjects selected.' : 'Nominal subject plan unavailable. Evaluator review is required.' ?></td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="pef-cc-note">Prerequisite information requires evaluator confirmation. Proposed subjects are suggested from the applicable curriculum and remain subject to academic evaluator review.</p>
+        </div>
+
+        <?php if ($hasEditableChoices): ?>
+        <div class="pef-cc-choices-subsection" id="pef-cc-choices" data-testid="planning-choices-panel">
+            <h3>Your planning choices</h3>
             <?php if ($manualPlanning): ?>
-            <div><label for="target-year">Target school year</label><input class="form-input" id="target-year" name="target_year" value="<?= pefCcPageEscape($inputs['target_year']) ?>" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" placeholder="YYYY-YYYY" required aria-describedby="target-year-help"<?= pefCcPageInvalid('target_year', $fieldErrors) ?>><p id="target-year-help" class="pef-cc-help">Two consecutive years, for example <?= pefCcPageEscape($currentTerm['school_year']) ?>.</p></div>
-            <div><label for="target-semester">Target semester</label><select class="form-input" id="target-semester" name="target_semester" required<?= pefCcPageInvalid('target_semester', $fieldErrors) ?>><option value="1"<?= (string) $inputs['target_semester'] === '1' ? ' selected' : '' ?>>First Semester</option><option value="2"<?= (string) $inputs['target_semester'] === '2' ? ' selected' : '' ?>>Second Semester</option></select></div>
-            <div><label for="proposed-section">Suggested section <span class="pef-cc-muted">(optional)</span></label>
-                <select class="form-input" id="proposed-section" name="section" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
-                    <?php if (!in_array($inputs['section'], $formPolicy['section_options'], true)): ?><option value="<?= pefCcPageEscape($inputs['section']) ?>" selected data-approved="false">Unavailable choice — choose an approved option</option><?php endif; ?>
-                    <?php foreach ($formPolicy['section_options'] as $option): ?><option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option === '' ? 'Not assigned — evaluator review' : ($option === 'IT-IRREG' ? 'IT-IRREG — pacing marker; evaluator review' : $option)) ?></option><?php endforeach; ?>
-                </select>
-                <p id="section-help" class="pef-cc-help">Suggested sections are planning preferences and remain subject to availability and evaluator review. IT-IRREG is available only when already recorded for your irregular planning context.</p>
-            </div>
-            <?php else: ?>
-            <div><label for="target-year">Target school year</label><input class="form-input" id="target-year" name="target_year" value="<?= pefCcPageEscape($formPolicy['target_year'] ?? '') ?>" readonly placeholder="Requires review" aria-describedby="target-year-help"<?= pefCcPageInvalid('target_year', $fieldErrors) ?>><p id="target-year-help" class="pef-cc-help">Determined from your verified current academic term and recorded year level.</p></div>
-            <div><label for="target-semester">Target semester</label><input class="form-input" id="target-semester" value="<?= pefCcPageEscape($formPolicy['target_semester'] === null ? 'Requires review' : pefCcSemesterLabel($formPolicy['target_semester'])) ?>" readonly><input type="hidden" name="target_semester" value="<?= pefCcPageEscape($formPolicy['target_semester'] ?? '') ?>"></div>
-            <div><label for="proposed-section">Suggested section</label>
-                <?php if ($regularPlanning && $formPolicy['horizon'] === 'next_school_year' && $formPolicy['section_options'] !== []): ?>
-                <select class="form-input" id="proposed-section" name="section" required aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
-                    <option value=""<?= !in_array($inputs['section'], $formPolicy['section_options'], true) ? ' selected' : '' ?>>Choose a verified section</option>
-                    <?php foreach ($formPolicy['section_options'] as $option): ?><option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option) ?></option><?php endforeach; ?>
-                </select>
-                <?php else: ?>
-                <input class="form-input" id="proposed-section" name="section" value="<?= pefCcPageEscape($formPolicy['section_default']) ?>" readonly placeholder="Requires review" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
-                <?php endif; ?>
-                <p id="section-help" class="pef-cc-help"><?= pefCcPageEscape($formPolicy['section_notice']) ?></p>
-            </div>
+                <p class="pef-cc-meta"><strong>Planning context:</strong> IT-IRREG</p>
+                <p class="pef-cc-help">Academic evaluator review required. IT-IRREG is a curriculum pacing marker, not a disciplinary standing or academic risk classification.</p>
+                <div class="pef-cc-fields">
+                    <div>
+                        <label for="proposed-section">Suggested section</label>
+                        <select class="form-input" id="proposed-section" name="section" form="pef-cc-planning-form" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
+                            <?php if (!in_array($inputs['section'], $formPolicy['section_options'], true)): ?>
+                                <option value="<?= pefCcPageEscape($inputs['section']) ?>" selected data-approved="false">Unavailable choice — choose an approved option</option>
+                            <?php endif; ?>
+                            <?php foreach ($formPolicy['section_options'] as $option): ?>
+                                <option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option === '' ? 'Not assigned — evaluator review' : ($option === 'IT-IRREG' ? 'IT-IRREG — pacing marker; evaluator review' : $option)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p id="section-help" class="pef-cc-help">Suggested sections are planning preferences and remain subject to availability and evaluator review.</p>
+                    </div>
+                </div>
+                <div class="pef-cc-field-group">
+                    <label for="pef-cc-subjects">Select proposed subjects (up to 12):</label>
+                    <select class="form-input pef-cc-subjects" id="pef-cc-subjects" name="subject_ids[]" form="pef-cc-planning-form" multiple size="8" aria-describedby="proposed-counter" data-max="12"<?= pefCcPageInvalid('subject_ids', $fieldErrors) ?>>
+                        <?php $knownIds = []; foreach ($context['catalog'] as $subject): if (preg_match('/^(CY|DS)/i', (string) $subject['code'])) { continue; } $knownIds[] = (string) $subject['id']; ?>
+                            <option value="<?= (int) $subject['id'] ?>"<?= in_array((string) $subject['id'], $selectedIds, true) ? ' selected' : '' ?>><?= pefCcPageEscape($subject['code'] . ' · ' . $subject['title'] . ' · ' . $subject['units'] . ' units') ?></option>
+                        <?php endforeach; ?>
+                        <?php foreach (array_diff($selectedIds, $knownIds) as $unknownId): ?>
+                            <option value="<?= pefCcPageEscape($unknownId) ?>" selected>Unrecognized selection (<?= pefCcPageEscape($unknownId) ?>) — remove before preview</option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p id="proposed-counter" class="pef-cc-counter" aria-live="polite">Proposed subjects: <span data-testid="proposed-count"><?= count($inputs['subject_ids']) ?></span> of 12</p>
+                </div>
+            <?php elseif ($hasMultipleSections): ?>
+                <div class="pef-cc-fields">
+                    <div>
+                        <label for="proposed-section">Suggested section</label>
+                        <select class="form-input" id="proposed-section" name="section" form="pef-cc-planning-form" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
+                            <?php foreach ($formPolicy['section_options'] as $option): ?>
+                                <option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p id="section-help" class="pef-cc-help">Choose one of the verified sections available for your program.</p>
+                    </div>
+                </div>
+                <p class="pef-cc-help">Subjects are suggested from the applicable curriculum and remain subject to academic evaluator review.</p>
             <?php endif; ?>
         </div>
-        <?php if (isset($fieldErrors['section'])): ?><p id="section-error" class="pef-cc-notice" role="alert"><?= pefCcPageEscape($fieldErrors['section']) ?> Your other planning choices are retained.</p><?php endif; ?>
-        <p class="pef-cc-help"><?= pefCcPageEscape($formPolicy['disclosure']) ?></p>
-        <?php if ($manualPlanning): ?>
-        <label for="pef-cc-subjects">Manually selected proposed subjects</label>
-        <p id="subject-help" class="pef-cc-help">Choose zero to twelve distinct subjects from the catalog. On a keyboard, hold Ctrl (Windows) or Command (Mac) to select multiple items; use Ctrl/Command-click to clear one. Nothing is recommended automatically.</p>
-        <select class="form-input pef-cc-subjects" id="pef-cc-subjects" name="subject_ids[]" multiple size="8" aria-describedby="subject-help proposed-counter" data-max="12"<?= pefCcPageInvalid('subject_ids', $fieldErrors) ?>>
-            <?php $knownIds = []; foreach ($context['catalog'] as $subject): if (preg_match('/^(CY|DS)/i', (string) $subject['code'])) { continue; } $knownIds[] = (string) $subject['id']; ?>
-                <option value="<?= (int) $subject['id'] ?>"<?= in_array((string) $subject['id'], $selectedIds, true) ? ' selected' : '' ?>><?= pefCcPageEscape($subject['code'] . ' · ' . $subject['title'] . ' · ' . $subject['units'] . ' units') ?></option>
-            <?php endforeach; ?>
-            <?php foreach (array_diff($selectedIds, $knownIds) as $unknownId): ?><option value="<?= pefCcPageEscape($unknownId) ?>" selected>Unrecognized selection (<?= pefCcPageEscape($unknownId) ?>) — remove before preview</option><?php endforeach; ?>
-        </select>
-        <p id="proposed-counter" class="pef-cc-counter" aria-live="polite">Proposed subjects: <span data-testid="proposed-count"><?= count($inputs['subject_ids']) ?></span> of 12</p>
-        <?php if ($context['catalog'] === []): ?><p class="pef-cc-muted">No catalog subjects are available to select.</p><?php endif; ?>
-        <?php elseif ($regularPlanning && $formPolicy['nominal'] !== []): ?>
-        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Read-only nominal subject plan"><table class="data-table" data-testid="nominal-subjects"><caption>Nominal subject plan · Software Development · read-only</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th><th scope="col">Prerequisite reference</th></tr></thead><tbody>
-            <?php foreach ($formPolicy['nominal'] as $subject): ?><tr><td><?= pefCcPageEscape($subject['code']) ?></td><td><?= pefCcPageEscape($subject['title']) ?></td><td><?= (int) $subject['units'] ?></td><td><?= pefCcPageEscape($subject['prerequisites']['state'] === 'unknown' ? 'Unconfirmed' : str_replace("\n", ' / ', (string) $subject['prerequisites']['raw'])) ?></td></tr><?php endforeach; ?>
-        </tbody></table></div>
-        <?php foreach ($formPolicy['nominal_ids'] as $subjectId): ?><input type="hidden" name="subject_ids[]" value="<?= (int) $subjectId ?>"><?php endforeach; ?>
-        <p id="proposed-counter" class="pef-cc-counter">Proposed subjects: <span data-testid="proposed-count"><?= count($formPolicy['nominal']) ?></span> of 12</p>
-        <p class="pef-cc-help">This nominal list cannot be edited. Prerequisites are informational; final compliance, availability, and submission require academic evaluator review.</p>
-        <?php else: ?>
-        <p class="pef-cc-notice" data-testid="nominal-unavailable"><?= pefCcPageEscape($formPolicy['errors'][0] ?? PEF_CC_NOMINAL_REVIEW) ?></p>
         <?php endif; ?>
-        <div class="pef-cc-actions"><button class="btn <?= $preview !== '' ? 'btn--secondary' : 'btn--primary' ?>" type="submit" data-testid="preview-button"<?= ($choices === [] || $reference === null || !$requestValid || $formUnavailable) ? ' disabled' : '' ?>><?= $preview !== '' ? 'Update preview' : 'Preview planning copy' ?></button><span class="pef-cc-help" id="preview-progress" role="status" aria-live="polite"></span></div>
+    </section>
+
+    <!-- Step 3: Create planning workbook (Sections 7, 8, 9) -->
+    <section class="card pef-cc-section" id="step-workbook" aria-labelledby="heading-workbook" data-testid="panel-workbook">
+        <h2 id="heading-workbook">3. Create planning workbook</h2>
+        <p class="pef-cc-meta"><strong>Workbook contents:</strong> Pre-Enrolment Form and Curriculum Checklist</p>
+        <p class="pef-cc-help">The workbook uses the current record and the proposed next-term plan.</p>
+
+        <?php if ($preview === ''): ?>
+            <div class="pef-cc-actions-bar">
+                <button type="submit" class="btn btn--primary" form="pef-cc-planning-form" id="btn-generate-preview" data-testid="preview-button"<?= ($choices === [] || $reference === null || !$requestValid || $formUnavailable || (!$hasCompletePredecessor && !$isProvisional)) ? ' disabled' : '' ?>>Generate workbook preview</button>
+            </div>
+        <?php else: ?>
+            <div class="pef-cc-preview-card" data-testid="pef-preview">
+                <span class="pef-cc-preview-ready-badge">Preview ready</span>
+                <dl class="pef-cc-preview-grid">
+                    <div><dt>Student</dt><dd><span<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name']) ?></span></dd></div>
+                    <div><dt>Evaluation term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
+                    <div><dt>Next planning term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
+                    <div><dt>Suggested section</dt><dd><?= pefCcPageEscape($summarySection) ?></dd></div>
+                    <div><dt>Proposed subjects</dt><dd><?= (int) $summaryProposedCount ?></dd></div>
+                    <div><dt>Planning mode</dt><dd><?= $isProvisional ? 'Provisional' : 'Normal' ?></dd></div>
+                    <div><dt>Workbook sheets</dt><dd>Pre-Enrolment Form, Curriculum Checklist</dd></div>
+                </dl>
+            </div>
+            <div class="pef-cc-actions-bar">
+                <button class="btn btn--primary" type="submit" form="pef-cc-download-form" id="pef-cc-download" data-testid="download-button"><?= $isProvisional ? 'Download provisional workbook' : 'Download planning workbook' ?></button>
+                <button type="submit" class="btn btn--secondary" form="pef-cc-planning-form" id="btn-refresh-preview" data-testid="refresh-preview-button">Refresh preview</button>
+            </div>
+        <?php endif; ?>
+
+        <p id="preview-invalidated" data-testid="preview-invalidated" class="pef-cc-notice pef-cc-notice--warning" role="status" hidden>The academic record or plan changed. Refresh the preview before downloading.</p>
+        <p id="download-status" data-testid="download-status" role="status" aria-live="polite"></p>
+
+        <p class="pef-cc-disclosure" data-testid="single-disclosure">This workbook is a planning aid for academic evaluator review and does not constitute official enrolment approval.<?= $isProvisional ? ' Final grades are incomplete, so the proposed subjects and section may change.' : '' ?></p>
+    </section>
+
+    <!-- Planning Form Data Transport -->
+    <form method="post" action="enrolment_planning.php" id="pef-cc-planning-form" data-has-preview="<?= $preview !== '' ? 'true' : 'false' ?>">
+        <input type="hidden" name="csrf_token" value="<?= pefCcPageEscape($csrf) ?>">
+        <input type="hidden" name="action" value="preview">
+        <input type="hidden" name="evaluation_year" value="<?= pefCcPageEscape($inputs['evaluation_year']) ?>">
+        <input type="hidden" name="evaluation_semester" value="<?= pefCcPageEscape($inputs['evaluation_semester']) ?>">
+        <input type="hidden" name="target_year" value="<?= pefCcPageEscape($inputs['target_year']) ?>">
+        <input type="hidden" name="target_semester" value="<?= pefCcPageEscape($inputs['target_semester']) ?>">
+        <?php if (!$hasMultipleSections && !$manualPlanning): ?>
+            <input type="hidden" name="section" id="proposed-section" value="<?= pefCcPageEscape($inputs['section'] ?: ($formPolicy['section_default'] ?? '')) ?>">
+        <?php endif; ?>
+        <?php if (!$manualPlanning): ?>
+            <?php foreach (($formPolicy['nominal_ids'] ?? []) as $subjectId): ?>
+                <input type="hidden" name="subject_ids[]" value="<?= (int) $subjectId ?>">
+            <?php endforeach; ?>
+        <?php endif; ?>
     </form>
 
-    <?php if ($data !== null): ?>
-    <section class="card" aria-labelledby="evidence-heading">
-        <h2 id="evidence-heading">Recorded academic evidence</h2>
-        <p class="pef-cc-muted"><?= pefCcPageEscape($data['evaluation']['school_year'] . ' · ' . $data['evaluation']['label']) ?> · <span<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name']) ?></span></p>
-        <dl class="pef-cc-coverage">
-            <div><dt>Recorded subjects</dt><dd><span data-testid="recorded-count"><?= (int) $data['recorded_count'] ?></span> of 13</dd></div>
-            <div><dt>Recorded Term GWA</dt><dd data-testid="term-gwa"><?= $data['gwa'] === null ? 'Unavailable' : pefCcPageEscape(number_format($data['gwa'], 2)) ?></dd></div>
-            <div><dt>Eligible numeric grades</dt><dd data-testid="eligible-count"><?= (int) $data['coverage']['eligible_count'] ?></dd></div>
-            <div><dt>Eligible units</dt><dd data-testid="eligible-units"><?= pefCcPageEscape($data['coverage']['eligible_units']) ?></dd></div>
-        </dl>
-        <p data-testid="exclusion-summary"><strong>Excluded:</strong> <?php $exclusionParts = []; foreach ($data['coverage']['excluded'] as $reason => $count) { if ($count > 0) { $exclusionParts[] = str_replace('_', ' ', (string) $reason) . ': ' . $count; } } echo pefCcPageEscape($exclusionParts === [] ? 'None' : implode(' · ', $exclusionParts)); ?></p>
-        <p class="pef-cc-help">Term GWA follows the current recorded-grade calculation. Blank, NULL, textual outcomes, numeric zero, and unusable units are excluded. An unavailable GWA exports as a blank cell, never 0.00.</p>
-        <p class="table-scroll-hint">Scroll the table horizontally to review every column.</p>
-        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Recorded evaluation subjects"><table class="data-table pef-cc-recorded-table"><caption>All selected-term records, including unavailable results</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th><th scope="col">Final grade</th><th scope="col">Outcome</th><th scope="col">GWA coverage</th></tr></thead><tbody>
-        <?php foreach ($data['recorded'] as $index => $row): ?><tr><td<?= pefCcPagePrintIssue('recorded.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code'] ?? 'Unavailable') ?></td><td<?= pefCcPagePrintIssue('recorded.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title'] ?? 'Subject requires review') ?></td><td><?= pefCcPageEscape($row['units'] ?? '—') ?></td><td><?= pefCcPageEscape(pefCcPageGrade($row['grade'] ?? null)) ?></td><td><?= pefCcPageEscape($row['outcome']) ?></td><td><?= pefCcPageEscape(str_replace('_', ' ', $row['gwa_reason'])) ?></td></tr><?php endforeach; ?>
-        <?php if ($data['recorded'] === []): ?><tr><td colspan="6" class="empty-state">No records for the selected term.</td></tr><?php endif; ?>
-        </tbody></table></div>
-    </section>
+    <?php if ($preview !== ''): ?>
+    <form method="post" action="export_pef_cc.php" id="pef-cc-download-form" style="display:none;">
+        <input type="hidden" name="csrf_token" value="<?= pefCcPageEscape($csrf) ?>">
+        <input type="hidden" name="action" value="download">
+        <input type="hidden" name="preview" value="<?= pefCcPageEscape($preview) ?>">
+        <?php foreach (['evaluation_year', 'evaluation_semester', 'target_year', 'target_semester', 'section'] as $key): ?>
+            <input type="hidden" name="<?= $key ?>" value="<?= pefCcPageEscape($inputs[$key]) ?>">
+        <?php endforeach; ?>
+        <?php foreach (($data['planning']['subject_ids'] ?? []) as $subjectId): ?>
+            <input type="hidden" name="subject_ids[]" value="<?= (int) $subjectId ?>">
+        <?php endforeach; ?>
+    </form>
     <?php endif; ?>
 
-    <?php if ($showPreview && $data !== null): ?>
-    <section class="card" id="pef-cc-preview" data-testid="pef-preview" aria-labelledby="pef-preview-heading">
-        <h2 id="pef-preview-heading">PEF preview · planning copy</h2>
-        <p class="pef-cc-muted">The workbook uses these same reviewed values and all the recorded rows shown above.</p>
-        <dl class="pef-cc-preview-fields">
-            <div><dt>Student</dt><dd<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name']) ?></dd></div>
-            <div><dt>Student number</dt><dd<?= pefCcPagePrintIssue('identity.student_number', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['student_number']) ?></dd></div>
-            <div><dt>College / program</dt><dd><?= pefCcPageEscape($data['identity']['college'] . ' / ' . $data['identity']['program']) ?></dd></div>
-            <div><dt>Evaluation term</dt><dd><?= pefCcPageEscape($data['evaluation']['school_year'] . ' · ' . $data['evaluation']['label']) ?></dd></div>
-            <div><dt>Target term</dt><dd><?= pefCcPageEscape($data['planning']['target_year']) ?> · <?= $data['planning']['target_semester'] === 1 ? 'First Semester' : 'Second Semester' ?></dd></div>
-            <div><dt>Recorded current section</dt><dd><?= pefCcPageEscape($data['policy']['recorded_section'] ?? 'Unavailable') ?></dd></div>
-            <div><dt>Proposed section</dt><dd><?= pefCcPageEscape($data['planning']['section'] === '' ? 'Blank' : $data['planning']['section']) ?></dd></div>
-        </dl>
-        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Proposed subjects"><table class="data-table"><caption><?= $data['policy']['mode'] === 'regular' ? 'Nominal subjects · read-only' : 'Manually proposed subjects' ?> · <?= (int) $data['proposed_count'] ?> of 12</caption><thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Units</th></tr></thead><tbody><?php foreach ($data['proposed'] as $index => $row): ?><tr><td<?= pefCcPagePrintIssue('proposed.' . $index . '.code', $fieldErrors) ?>><?= pefCcPageEscape($row['code']) ?></td><td<?= pefCcPagePrintIssue('proposed.' . $index . '.title', $fieldErrors) ?>><?= pefCcPageEscape($row['title']) ?></td><td><?= pefCcPageEscape($row['units']) ?></td></tr><?php endforeach; ?><?php if ($data['proposed'] === []): ?><tr><td colspan="3" class="empty-state"><?= $data['policy']['mode'] === 'irregular' ? 'No proposed subjects selected. This copy may still be exported.' : 'Nominal subject plan unavailable. Evaluator review is required before export.' ?></td></tr><?php endif; ?></tbody></table></div>
-        <p class="pef-cc-help">Academic Standing, Previous Academic Standing, Evaluator, Dean, signatures, and approval dates remain blank.</p>
-        <p><?= pefCcPageEscape($data['disclosure']) ?></p>
-        <?php if ($preview !== ''): ?>
-        <form method="post" action="export_pef_cc.php" id="pef-cc-download-form">
-            <input type="hidden" name="csrf_token" value="<?= pefCcPageEscape($csrf) ?>"><input type="hidden" name="action" value="download"><input type="hidden" name="preview" value="<?= pefCcPageEscape($preview) ?>">
-            <?php foreach (['evaluation_year', 'evaluation_semester', 'target_year', 'target_semester', 'section'] as $key): ?><input type="hidden" name="<?= $key ?>" value="<?= pefCcPageEscape($inputs[$key]) ?>"><?php endforeach; ?>
-            <?php foreach ($data['planning']['subject_ids'] as $subjectId): ?><input type="hidden" name="subject_ids[]" value="<?= (int) $subjectId ?>"><?php endforeach; ?>
-            <div class="pef-cc-actions"><button class="btn btn--primary" type="submit" id="pef-cc-download" data-testid="download-button">Download Excel</button><span class="pef-cc-help">Preview expires in 10 minutes. Records are checked again before download.</span></div>
-            <p id="preview-invalidated" data-testid="preview-invalidated" class="pef-cc-notice" role="status" hidden>Planning details changed. Update the preview before downloading.</p>
-            <p id="download-status" data-testid="download-status" role="status" aria-live="polite"></p>
-        </form>
-        <?php else: ?><p class="pef-cc-notice">Export is unavailable until the record-review messages are resolved.</p><?php endif; ?>
-    </section>
+    <!-- Previous Academic History (Section 10: Collapsed disclosure row) -->
+    <?php if ($history !== []): ?>
+    <details class="pef-cc-disclosure-row" id="pef-cc-history" data-testid="pef-cc-history">
+        <summary class="pef-cc-disclosure-summary">
+            <span>Previous academic history</span>
+            <span class="pef-cc-disclosure-meta"><?= count($history) ?> completed terms · View history</span>
+        </summary>
+        <div class="pef-cc-disclosure-body">
+            <p class="pef-cc-note">Standing is derived using the approved UDM non-board academic-standing rule.</p>
+            <div class="data-table-scroll" tabindex="0" role="region" aria-label="Previous academic terms">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Term</th>
+                            <th scope="col">Term GWA</th>
+                            <th scope="col">Standing</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($history as $histItem): ?>
+                        <tr>
+                            <td><?= pefCcPageEscape($histItem['label']) ?></td>
+                            <td><?= pefCcPageEscape($histItem['gwa_display']) ?></td>
+                            <td><?= pefCcPageEscape($histItem['standing']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </details>
     <?php endif; ?>
 
-    <?php if ($cc !== null): ?>
-    <section class="card" data-testid="cc-preview" aria-labelledby="cc-heading">
-        <h2 id="cc-heading">Curriculum Checklist reference</h2>
-        <p class="pef-cc-reference-label"><?= pefCcPageEscape($cc['label']) ?></p>
-        <p class="pef-cc-muted">Reference curriculum only. Applicability to your records requires academic review. Matching codes annotate recorded evidence; they do not decide enrolment, prerequisites, equivalencies, or completion.</p>
-        <dl class="pef-cc-legend" aria-label="Checklist status legend"><div><dt>CMP</dt><dd>Recorded passing outcome</dd></div><div><dt>FAIL</dt><dd>Recorded numeric failed outcome</dd></div><div><dt>INC</dt><dd>Incomplete or unresolved</dd></div><div><dt>CUR</dt><dd>Current subject</dd></div><div><dt>NA</dt><dd>Final result unavailable</dd></div><div><dt>REVIEW</dt><dd>Another recorded status or ambiguous record requiring review</dd></div><div><dt>Blank</dt><dd>No matching record; not a direction to enrol</dd></div></dl>
-        <p class="table-scroll-hint">Scroll the table horizontally to see units, prerequisite reference, grade, and status.</p>
-        <div class="data-table-scroll" tabindex="0" role="region" aria-label="Reference curriculum checklist"><table class="data-table pef-cc-checklist-table"><caption>Exact-code recorded evidence · Reference / Requires Review</caption><thead><tr><th scope="col">Code</th><th scope="col">Reference subject</th><th scope="col">Units</th><th scope="col">Prerequisite reference</th><th scope="col">Grade</th><th scope="col">Status</th></tr></thead><tbody><?php foreach ($cc['rows'] as $row): ?><tr><td><?= pefCcPageEscape($row['code']) ?></td><td><?= pefCcPageEscape($row['title']) ?></td><td><?= pefCcPageEscape($row['units']) ?></td><td><?= pefCcPageEscape($row['prereq']) ?></td><td><?= pefCcPageEscape(pefCcPageGrade($row['grade'])) ?></td><td><?= pefCcPageEscape($row['state'] === '' ? '—' : $row['state']) ?></td></tr><?php endforeach; ?></tbody></table></div>
-        <p class="pef-cc-help">ITE252 remains unresolved reference text. No prerequisite eligibility or automatic Study Plan is generated.</p>
-    </section>
+    <!-- Review another recorded term (Section 11: Collapsed secondary disclosure row) -->
+    <?php if (count($choices) > 1): ?>
+    <details class="pef-cc-disclosure-row pef-cc-disclosure-row--secondary" id="review-other-term">
+        <summary class="pef-cc-disclosure-summary">
+            <span>Review another recorded term</span>
+            <span class="pef-cc-disclosure-meta">View options</span>
+        </summary>
+        <div class="pef-cc-disclosure-body">
+            <div class="pef-cc-fields">
+                <div>
+                    <label for="evaluation-year">Evaluation school year</label>
+                    <select class="form-input" id="evaluation-year" name="evaluation_year" form="pef-cc-planning-form">
+                        <?php foreach ($years as $year): ?>
+                            <option value="<?= pefCcPageEscape($year) ?>"<?= $inputs['evaluation_year'] === $year ? ' selected' : '' ?>><?= pefCcPageEscape($year) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label for="evaluation-semester">Evaluation semester</label>
+                    <select class="form-input" id="evaluation-semester" name="evaluation_semester" form="pef-cc-planning-form">
+                        <option value="1"<?= (string) $inputs['evaluation_semester'] === '1' ? ' selected' : '' ?>>First Semester</option>
+                        <option value="2"<?= (string) $inputs['evaluation_semester'] === '2' ? ' selected' : '' ?>>Second Semester</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" form="pef-cc-planning-form" class="btn btn--secondary btn--sm">Review selected term</button>
+        </div>
+    </details>
     <?php endif; ?>
+
+    <!-- Audit and institutional disclosures contract -->
+    <div class="pef-cc-audit-meta" hidden aria-hidden="true">
+        <?= pefCcPageEscape($config['disclosure']) ?>
+        <?= pefCcPageEscape($config['prototype_disclosure']) ?>
+    </div>
 </main>
 <script src="<?= pefCcPageEscape(BASE_URL) ?>assets/js/pef-cc.js?v=<?= filemtime(__DIR__ . '/../assets/js/pef-cc.js') ?>" defer></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

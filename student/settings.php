@@ -52,7 +52,7 @@ require_once '../includes/sidebar.php';
     <div class="header">
         <div>
             <h1>Settings</h1>
-            <p>Manage your account security.</p>
+            <p>Manage your account security and display preferences.</p>
         </div>
     </div>
 

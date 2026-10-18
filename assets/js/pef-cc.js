@@ -8,8 +8,8 @@
     const downloadForm = document.getElementById('pef-cc-download-form');
     const downloadButton = document.getElementById('pef-cc-download');
     const invalidated = document.getElementById('preview-invalidated');
-    const previewButton = form.querySelector('[type="submit"]');
-    const previewStatus = document.getElementById('preview-progress');
+    const previewSubmit = document.getElementById('btn-generate-preview');
+    const refreshSubmit = document.getElementById('btn-refresh-preview');
     const section = document.getElementById('proposed-section');
     const sectionOptions = section?.tagName === 'SELECT'
         ? new Set(Array.from(section.options).filter(option => option.dataset.approved !== 'false').map(option => option.value)) : null;
@@ -17,6 +17,24 @@
     let dirty = false;
     let busy = false;
     let downloadController = null;
+
+    // Accessible toggle disclosure handlers
+    document.querySelectorAll('.pef-cc-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('aria-controls');
+            const target = document.getElementById(targetId);
+            if (!target) return;
+            const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+            const nextState = !isExpanded;
+            btn.setAttribute('aria-expanded', String(nextState));
+            target.hidden = !nextState;
+            if (btn.id === 'btn-view-current-semester') {
+                btn.textContent = nextState ? 'Hide recorded subjects' : 'View recorded subjects';
+            } else if (btn.id === 'btn-review-next-plan') {
+                btn.textContent = nextState ? 'Hide proposed subjects' : 'View proposed subjects';
+            }
+        });
+    });
 
     const updateCount = () => {
         if (sectionOptions) {
@@ -29,22 +47,32 @@
         counter.textContent = String(count);
         subjects.setCustomValidity(count > Number(subjects.dataset.max) ? 'Choose at most twelve proposed subjects. No selections will be truncated.' : '');
     };
+
     const invalidate = () => {
         updateCount();
-        if (!downloadButton) return;
         dirty = true;
-        downloadButton.disabled = true;
-        if (previewButton) {
-            previewButton.classList.replace('btn--secondary', 'btn--primary');
+        if (downloadButton) {
+            downloadButton.disabled = true;
+            downloadButton.style.display = 'none';
         }
-        if (invalidated) invalidated.hidden = false;
+        if (invalidated) {
+            invalidated.hidden = false;
+        }
+        if (refreshSubmit) {
+            refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
+            refreshSubmit.focus();
+        }
+        if (previewSubmit) {
+            previewSubmit.textContent = 'Refresh preview';
+        }
     };
+
     form.addEventListener('input', invalidate);
     form.addEventListener('change', invalidate);
     form.addEventListener('submit', () => {
         form.setAttribute('aria-busy', 'true');
-        if (previewButton) previewButton.disabled = true;
-        if (previewStatus) previewStatus.textContent = 'Loading authoritative records and preparing the preview…';
+        if (previewSubmit) previewSubmit.disabled = true;
+        if (refreshSubmit) refreshSubmit.disabled = true;
     });
 
     if (downloadForm && downloadButton && window.fetch && window.URL && URL.createObjectURL) {
@@ -61,7 +89,6 @@
             try {
                 downloadController = typeof AbortController === 'function' ? new AbortController() : null;
                 if (downloadController) timeout = window.setTimeout(() => downloadController?.abort(), 45000);
-                // A permitted input named "action" can shadow HTMLFormElement.action.
                 const response = await fetch(downloadForm.getAttribute('action'), {
                     method: 'POST', credentials: 'same-origin',
                     body: new URLSearchParams(new FormData(downloadForm)),
@@ -79,6 +106,8 @@
                     if ([403, 409, 422].includes(response.status)) {
                         dirty = true;
                         if (invalidated) invalidated.hidden = false;
+                        if (downloadButton) downloadButton.style.display = 'none';
+                        if (refreshSubmit) refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
                     }
                     throw new Error(message);
                 }
@@ -107,15 +136,15 @@
             }
         });
     }
+
     window.addEventListener('pageshow', () => {
         busy = false;
         form.removeAttribute('aria-busy');
-        if (previewButton && previewButton.dataset.initialDisabled !== 'true') previewButton.disabled = false;
-        if (previewStatus) previewStatus.textContent = '';
+        if (previewSubmit) previewSubmit.disabled = false;
+        if (refreshSubmit) refreshSubmit.disabled = false;
         if (downloadForm) downloadForm.removeAttribute('aria-busy');
         if (downloadButton) downloadButton.disabled = dirty;
     });
     window.addEventListener('pagehide', () => downloadController?.abort());
-    if (previewButton) previewButton.dataset.initialDisabled = String(previewButton.disabled);
     updateCount();
 })();

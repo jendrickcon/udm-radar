@@ -1959,9 +1959,21 @@ textarea:focus-visible,
 
 /* ── MOB-022: Full-Width Settings Cards ────────────────────────────────────── */
 .settings-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
     width: 100%;
-    max-width: 640px;
     margin: 0;
+    align-items: start;
+}
+
+.settings-layout:has(> .card:only-child) {
+    max-width: 640px;
+}
+
+.settings-layout > .card {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
 }
 
 .settings-card {
@@ -1970,9 +1982,20 @@ textarea:focus-visible,
     box-sizing: border-box;
 }
 
+.display-preferences-expanded {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
+.admin-settings .display-pref-summary-card,
+.admin-settings .display-preferences-expanded {
+    margin-top: 24px;
+    width: 100%;
+}
+
 @media (max-width: 768px) {
     .settings-layout {
-        max-width: 100%;
+        grid-template-columns: 1fr;
     }
 }
 
