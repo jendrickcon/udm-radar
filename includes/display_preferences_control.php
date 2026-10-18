@@ -1,55 +1,94 @@
 <?php
 /**
  * includes/display_preferences_control.php
- * Reusable Display & Accessibility Settings Component (WP1)
+ * Reusable Display & Accessibility Settings Component
  *
  * Included by:
  * - student/settings.php
  * - faculty/settings.php
  * - admin/settings.php
  *
- * Implements a calm, accessible expandable disclosure card (accordion) containing:
- * 1. Color Style (CCS Colors [Default], Classic UDM-RADAR)
- * 2. Appearance (Use Device Setting, Light, Dark)
- * 3. Text Size (Small, Default, Large, Extra Large)
- * 4. Motion (Use Device Setting, Reduce Motion, Allow Motion)
- * 5. Underline Content Links (checkbox)
- * 6. Reset Display Settings
+ * Implements a calm, accessible 2-part structure:
+ * Part 1: Compact Summary / Launcher Card (Row 1, Right column)
+ * Part 2: Full-Width Expanded Preferences Panel (Row 2, Spanning full workspace)
  */
 ?>
-<div class="card settings-card display-pref-card" id="display-accessibility-card" style="margin-top: 24px; padding: 0; overflow: hidden;">
-    <!-- Compact Disclosure Trigger Button -->
-    <button type="button"
-            class="display-pref-disclosure-trigger"
-            id="displayPrefToggleBtn"
-            aria-expanded="false"
-            aria-controls="displayPreferencesPanel"
-            aria-label="Toggle Display & Accessibility settings">
-        <div class="display-pref-trigger-text">
-            <span class="display-pref-trigger-title">Display &amp; Accessibility</span>
-            <span class="display-pref-trigger-desc">Theme, text size, motion, and link display</span>
+<!-- Part 1: Display & Accessibility Summary Card (Launcher) -->
+<section class="card settings-card display-pref-summary-card" id="display-accessibility-card" aria-labelledby="displayPrefSummaryTitle">
+    <div class="display-pref-summary-header">
+        <div class="table-title" id="displayPrefSummaryTitle" style="margin-bottom: 4px;">Display &amp; Accessibility</div>
+        <p class="display-pref-summary-desc" style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 16px 0; line-height: 1.4;">
+            Theme, text size, motion, and link display
+        </p>
+    </div>
+
+    <!-- Compact current-state summary grid -->
+    <div class="display-pref-state-grid" aria-label="Current display settings summary">
+        <div class="display-pref-state-cell">
+            <span class="display-pref-state-label">Color Style</span>
+            <span class="display-pref-state-val" id="summary-color-val">CCS Colors</span>
         </div>
-        <div class="display-pref-trigger-arrow" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"></polyline>
+        <div class="display-pref-state-cell">
+            <span class="display-pref-state-label">Appearance</span>
+            <span class="display-pref-state-val" id="summary-theme-val">Device setting</span>
+        </div>
+        <div class="display-pref-state-cell">
+            <span class="display-pref-state-label">Text Size</span>
+            <span class="display-pref-state-val" id="summary-text-val">Default (100%)</span>
+        </div>
+        <div class="display-pref-state-cell">
+            <span class="display-pref-state-label">Motion</span>
+            <span class="display-pref-state-val" id="summary-motion-val">Device setting</span>
+        </div>
+    </div>
+
+    <div class="display-pref-summary-action" style="margin-top: 18px;">
+        <button type="button"
+                class="btn display-pref-launcher-btn"
+                id="displayPrefToggleBtn"
+                aria-expanded="false"
+                aria-controls="displayPreferencesPanel"
+                aria-label="Toggle Display & Accessibility preferences panel">
+            <span id="displayPrefToggleText">Open preferences</span>
+            <svg id="displayPrefToggleIcon" class="display-pref-toggle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
+        </button>
+    </div>
+</section>
+
+<!-- Part 2: Expanded Full-Width Display Preferences Panel -->
+<section class="card settings-card display-preferences-expanded"
+         id="displayPreferencesPanel"
+         hidden
+         style="display: none;"
+         aria-labelledby="displayPrefPanelHeading">
+
+    <div class="display-pref-panel-header">
+        <div class="table-title" id="displayPrefPanelHeading" style="margin-bottom: 4px; font-size: 1.15rem;">
+            Display &amp; Accessibility Preferences
         </div>
-    </button>
+        <p style="color: var(--text-gray); font-size: 0.875rem; margin: 0 0 20px 0; line-height: 1.5;">
+            Customize colors, appearance, text size, motion, and link visibility. Changes apply immediately and are saved in this browser.
+        </p>
+    </div>
 
-    <!-- Expanded Settings Panel -->
-    <div id="displayPreferencesPanel" class="display-pref-panel" hidden style="display: none; padding: 20px 24px 24px; border-top: 1px solid var(--border-color);">
-        <!-- Accessible status announcer for screen readers and live banner -->
-        <div id="display-pref-status" role="status" aria-live="polite" class="sr-only"></div>
-        <div id="display-pref-banner" class="display-pref-status-banner" role="alert" aria-live="polite"></div>
+    <!-- Accessible status announcer for screen readers and live banner -->
+    <div id="display-pref-status" role="status" aria-live="polite" class="sr-only"></div>
+    <div id="display-pref-banner" class="display-pref-status-banner" role="alert" aria-live="polite"></div>
 
-        <form id="displayPreferencesForm" onsubmit="return false;" style="margin-top: 4px;">
-            <div class="display-pref-container">
+    <form id="displayPreferencesForm" onsubmit="return false;" style="margin-top: 4px;">
+        <div class="display-pref-groups-grid">
 
-                <!-- 1. Color Style Fieldset -->
-                <fieldset class="display-pref-fieldset">
-                    <legend class="display-pref-legend">Color Style</legend>
-                    <div class="display-pref-desc">Choose between CCS Colors and Classic UDM-RADAR visual identity.</div>
-                    <div class="display-pref-options-grid">
+            <!-- 1. Appearance Group -->
+            <fieldset class="display-pref-group">
+                <legend class="display-pref-group-title">Appearance</legend>
+
+                <!-- Color Style -->
+                <div class="display-pref-section">
+                    <div class="display-pref-item-label">Color Style</div>
+                    <div class="display-pref-item-desc">Visual identity and accent colors</div>
+                    <div class="display-pref-options-stack">
                         <label class="display-pref-option">
                             <input type="radio" name="display_color_style" value="ccs">
                             <div class="display-pref-option-text">
@@ -65,13 +104,13 @@
                             </div>
                         </label>
                     </div>
-                </fieldset>
+                </div>
 
-                <!-- 2. Appearance Fieldset -->
-                <fieldset class="display-pref-fieldset">
-                    <legend class="display-pref-legend">Appearance</legend>
-                    <div class="display-pref-desc">Choose between light, dark, or automatic system appearance.</div>
-                    <div class="display-pref-options-grid">
+                <!-- Theme -->
+                <div class="display-pref-section" style="margin-top: 16px;">
+                    <div class="display-pref-item-label">Theme</div>
+                    <div class="display-pref-item-desc">Light, dark, or system canvas appearance</div>
+                    <div class="display-pref-options-stack">
                         <label class="display-pref-option">
                             <input type="radio" name="display_theme" value="system">
                             <div class="display-pref-option-text">
@@ -94,13 +133,18 @@
                             </div>
                         </label>
                     </div>
-                </fieldset>
+                </div>
+            </fieldset>
 
-                <!-- 3. Text Size Fieldset -->
-                <fieldset class="display-pref-fieldset">
-                    <legend class="display-pref-legend">Text Size</legend>
-                    <div class="display-pref-desc">Scales page typography and controls while preserving layout proportions.</div>
-                    <div class="display-pref-options-grid">
+            <!-- 2. Reading Group -->
+            <fieldset class="display-pref-group">
+                <legend class="display-pref-group-title">Reading</legend>
+
+                <!-- Text Size -->
+                <div class="display-pref-section">
+                    <div class="display-pref-item-label">Text Size</div>
+                    <div class="display-pref-item-desc">Scales typography while maintaining layout</div>
+                    <div class="display-pref-options-stack">
                         <label class="display-pref-option">
                             <input type="radio" name="display_text_size" value="small">
                             <div class="display-pref-option-text">
@@ -112,14 +156,14 @@
                             <input type="radio" name="display_text_size" value="default">
                             <div class="display-pref-option-text">
                                 <span class="display-pref-option-label">Default (100%)</span>
-                                <span class="display-pref-option-sub">Standard scale</span>
+                                <span class="display-pref-option-sub">Standard institutional scale</span>
                             </div>
                         </label>
                         <label class="display-pref-option">
                             <input type="radio" name="display_text_size" value="large">
                             <div class="display-pref-option-text">
                                 <span class="display-pref-option-label">Large (112.5%)</span>
-                                <span class="display-pref-option-sub">Enhanced readability</span>
+                                <span class="display-pref-option-sub">Enhanced reading comfort</span>
                             </div>
                         </label>
                         <label class="display-pref-option">
@@ -130,13 +174,33 @@
                             </div>
                         </label>
                     </div>
-                </fieldset>
+                </div>
 
-                <!-- 4. Motion Fieldset -->
-                <fieldset class="display-pref-fieldset">
-                    <legend class="display-pref-legend">Motion Preference</legend>
-                    <div class="display-pref-desc">Controls animations, transitions, chart movement, and spinning indicators.</div>
-                    <div class="display-pref-options-grid">
+                <!-- Link Visibility -->
+                <div class="display-pref-section" style="margin-top: 16px;">
+                    <div class="display-pref-item-label">Underline Content Links</div>
+                    <div class="display-pref-item-desc">Distinct visual indicator for hyperlinks</div>
+                    <div class="display-pref-options-stack">
+                        <label class="display-pref-option">
+                            <input type="checkbox" name="display_underline_links" value="1">
+                            <div class="display-pref-option-text">
+                                <span class="display-pref-option-label">Underline content links</span>
+                                <span class="display-pref-option-sub">Persistent underlines on content hyperlinks</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- 3. Motion Group -->
+            <fieldset class="display-pref-group">
+                <legend class="display-pref-group-title">Motion</legend>
+
+                <!-- Animation Preference -->
+                <div class="display-pref-section">
+                    <div class="display-pref-item-label">Animation Preference</div>
+                    <div class="display-pref-item-desc">Transitions, chart motion, and indicators</div>
+                    <div class="display-pref-options-stack">
                         <label class="display-pref-option">
                             <input type="radio" name="display_motion" value="system">
                             <div class="display-pref-option-text">
@@ -159,32 +223,30 @@
                             </div>
                         </label>
                     </div>
-                </fieldset>
-
-                <!-- 5. Link Visibility Fieldset -->
-                <fieldset class="display-pref-fieldset">
-                    <legend class="display-pref-legend">Link Visibility</legend>
-                    <div class="display-pref-desc">Ensures links are distinguishable without relying on color or hover states alone.</div>
-                    <div class="display-pref-options-grid">
-                        <label class="display-pref-option" style="grid-column: 1 / -1;">
-                            <input type="checkbox" name="display_underline_links" value="1">
-                            <div class="display-pref-option-text">
-                                <span class="display-pref-option-label">Underline content links</span>
-                                <span class="display-pref-option-sub">Always display persistent underlines on content hyperlinks</span>
-                            </div>
-                        </label>
-                    </div>
-                </fieldset>
-
-                <!-- 6. Reset & Info Banner -->
-                <div class="display-pref-actions">
-                    <button type="button" id="resetDisplayPreferencesBtn" class="btn btn-secondary" style="min-height: 44px; padding: 10px 20px; font-weight: 600; cursor: pointer; border-radius: 6px;">
-                        Reset display settings
-                    </button>
-                    <span class="display-pref-info-note">Preferences are saved in this browser.</span>
                 </div>
+            </fieldset>
 
+        </div>
+
+        <!-- 4. Reset Button & Footer (Sections 8, 9, 10) -->
+        <div class="display-pref-footer">
+            <div class="display-pref-footer-left">
+                <button type="button"
+                        id="resetDisplayPreferencesBtn"
+                        class="btn display-pref-reset-btn"
+                        aria-label="Reset display preferences to defaults">
+                    <svg class="display-pref-reset-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    <span>Reset to defaults</span>
+                </button>
+                <span id="display-pref-reset-msg" class="display-pref-reset-msg" role="status" aria-live="polite"></span>
             </div>
-        </form>
-    </div>
-</div>
+            <div class="display-pref-footer-right">
+                <span class="display-pref-auto-save">Saved automatically in this browser</span>
+            </div>
+        </div>
+
+    </form>
+</section>

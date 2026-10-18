@@ -5,6 +5,18 @@
 
 ---
 
+## PEF/CC planning export — owner-approved WP1
+
+**PEF-CC-WP1: Authenticated Student Preview and Excel Export** is in draft release review on `feat/student-pef-cc-planning-export`, integrated by reviewed normal merges through `origin/main` `22fc6adbfefec449f634bb4d72187b7fcd503288` (PR #50, 2026-10-18). Main now includes balanced Midterm data, accessible Batch Predict progress/post-cohort tests and cross-portal Midterm visibility. Those implementations are retained unchanged by PEF/CC. No integration conflicts occurred. The package is **not merged**. See [PEF_CC_EXPORT.md](PEF_CC_EXPORT.md) for its academic, security, policy and private-deployment contracts.
+
+The package adds Student-owned completed-term preview, canonical Recorded Term GWA, signed stale-preview protection and a private two-sheet Excel writer. The owner-approved continuation adds the department's Software Development 2022–2023 mapping, coherent current-term progression, read-only Regular nominal subjects, and constrained section preferences. Supported Irregular students retain manual planning. CY/DS remain historical review-only. Limits stay 13 recorded and 12 proposed subjects without truncation. Every Curriculum Checklist remains **Reference / Requires Review**. No prediction, automatic approval or database mutation is added.
+
+WP2/WP3 remain **Requires Policy Verification**. The narrow approved SD nominal list is within WP1; broader study plans, irregular classification, universal curriculum applicability, prerequisite/offering/load decisions and graduation estimates remain excluded. Themes, cohort seeding and manuscript work are separate. Folio 8.5 × 13 inches and retained supplied artwork are owner-confirmed. PR #51 stays **Draft**: software/mapping/security are owner-accepted; the current narrow continuation proposes printable bounds and an owner print package. All 58 operational SD subjects fit the 6-character code / 46-character title boundaries and stay within PEF borders; extreme values are rejected. The unchanged v0.2-r2 still renders PEF data at 7.44 pt and inspected CC reference text at 6.12 pt, below the project 8 pt floor. Print acceptance and release remain **Blocked** pending readable output and owner actual-size desktop Excel/physical Folio acceptance. No template version was overwritten. Production ACL/runtime/scheduler checks remain deployment tasks.
+
+Git is the primary migration path for this unmerged feature branch. The separately verified local recovery folder and upload-ready ZIP preserve source recovery evidence and the private sanitized template; neither vendor, generated exports nor the original roster workbook belong in Git or the handoff. Continue from the feature branch on the next laptop, not by reconstructing the package from memory.
+
+---
+
 ## 1. Project Boundaries
 
 UDM-RADAR (*Risk Analytics & Decision-support for Academic Records*) is an academic decision-support prototype developed for the Universidad de Manila (UDM).

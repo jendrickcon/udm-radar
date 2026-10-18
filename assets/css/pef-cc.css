@@ -1,0 +1,416 @@
+/* Page layout only. Full-width student portal workspace integration. */
+.pef-cc-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 28px 32px calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 1439px) {
+    .pef-cc-page {
+        padding: 24px 24px calc(84px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-width: 900px) {
+    .pef-cc-page {
+        padding: 20px 20px calc(84px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-width: 600px) {
+    .pef-cc-page {
+        padding: 16px 16px calc(112px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+.pef-cc-page .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    width: 100%;
+}
+.pef-cc-page .header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 6px;
+    overflow-wrap: anywhere;
+}
+.pef-cc-page .pef-cc-lead {
+    font-size: 1.05rem;
+    color: var(--text-gray);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+.pef-cc-page .pef-cc-back-link {
+    align-self: flex-start;
+    white-space: nowrap;
+}
+.pef-cc-page h2 { font-size: 1.25rem; margin-bottom: 12px; }
+.pef-cc-page p { line-height: 1.55; margin-bottom: 12px; }
+.pef-cc-page .card {
+    min-width: 0;
+    scroll-margin-top: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pef-cc-page .pef-cc-muted, .pef-cc-page .pef-cc-help { color: var(--text-gray); }
+.pef-cc-page .pef-cc-help { font-size: .85rem; margin-top: 6px; }
+.pef-cc-page .pef-cc-errors { border-left: 4px solid var(--risk-high); margin-bottom: 20px; }
+.pef-cc-page .pef-cc-print-invalid { outline: 2px solid var(--risk-high); outline-offset: -2px; overflow-wrap: anywhere; }
+.pef-cc-page .pef-cc-errors ul { padding-left: 22px; margin: 12px 0 16px; line-height: 1.6; }
+
+/* Workflow Step Indicator (Section 2) */
+.pef-cc-page .pef-cc-stepper { margin: 8px 0 20px; }
+.pef-cc-page .pef-cc-steps {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-wrap: wrap;
+}
+.pef-cc-page .pef-cc-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .9rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+.pef-cc-page .pef-cc-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    color: #ffffff;
+    font-size: .8rem;
+    font-weight: 700;
+}
+.pef-cc-page .pef-cc-step-sep {
+    color: var(--text-gray);
+    font-weight: 600;
+}
+
+/* Plan-Status Banner (Section 3) */
+.pef-cc-page .pef-cc-banner {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 20px 24px;
+    border-radius: 10px;
+    margin-bottom: 22px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-blue);
+}
+.pef-cc-page .pef-cc-banner h2 { font-size: 1.2rem; margin: 0 0 14px; color: var(--text-dark); }
+.pef-cc-page .pef-cc-banner-note { font-size: .9rem; color: var(--text-gray); margin: 0; line-height: 1.5; }
+
+/* Sections 1, 2, 3 Layout */
+.pef-cc-page .pef-cc-section {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+}
+.pef-cc-page .pef-cc-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    width: 100%;
+}
+.pef-cc-page .pef-cc-section-header h2 { margin: 0; font-size: 1.25rem; color: var(--text-dark); }
+
+/* Stat cell containers */
+.pef-cc-page .pef-cc-banner-grid,
+.pef-cc-page .pef-cc-meta-row,
+.pef-cc-page .pef-cc-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0 0 16px;
+}
+
+/* Individual Stat Cell surface */
+.pef-cc-page .pef-cc-banner-grid > div,
+.pef-cc-page .pef-cc-meta-row > div,
+.pef-cc-page .pef-cc-preview-grid > div,
+.pef-cc-page .pef-cc-step-footer .pef-cc-stat-cell {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-height: 48px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: left;
+}
+
+[data-theme="dark"] .pef-cc-page .pef-cc-banner-grid > div,
+[data-theme="dark"] .pef-cc-page .pef-cc-meta-row > div,
+[data-theme="dark"] .pef-cc-page .pef-cc-preview-grid > div,
+[data-theme="dark"] .pef-cc-page .pef-cc-step-footer .pef-cc-stat-cell {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--border-color);
+}
+
+/* Labels (dt & stat-label) */
+.pef-cc-page .pef-cc-banner-grid dt,
+.pef-cc-page .pef-cc-meta-row dt,
+.pef-cc-page .pef-cc-preview-grid dt,
+.pef-cc-page .pef-cc-step-footer .pef-cc-stat-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-gray);
+    line-height: 1.3;
+    margin: 0;
+}
+
+/* Values (dd & stat-val) */
+.pef-cc-page .pef-cc-banner-grid dd,
+.pef-cc-page .pef-cc-meta-row dd,
+.pef-cc-page .pef-cc-preview-grid dd,
+.pef-cc-page .pef-cc-step-footer .pef-cc-stat-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 4px 0 0;
+    line-height: 1.35;
+}
+
+/* Compact Step Footer */
+.pef-cc-page .pef-cc-step-footer {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-start;
+}
+.pef-cc-page .pef-cc-step-footer .pef-cc-stat-cell--footer {
+    display: inline-flex;
+    min-width: 150px;
+}
+.pef-cc-page .pef-cc-note {
+    font-size: 0.88rem;
+    color: var(--text-gray);
+    margin: 4px 0 14px;
+    line-height: 1.45;
+}
+.pef-cc-page .pef-cc-choices-subsection { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color); }
+.pef-cc-page .pef-cc-choices-subsection h3 { font-size: 1.1rem; margin: 0 0 12px; }
+
+/* Preview Card in Step 3 */
+.pef-cc-page .pef-cc-preview-card {
+    padding: 20px 24px;
+    border-radius: 8px;
+    background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+    border: 1px solid var(--border-color);
+    margin: 16px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pef-cc-page .pef-cc-preview-ready-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 700;
+    background: rgba(46, 125, 50, 0.15);
+    color: #2e7d32;
+    margin-bottom: 14px;
+}
+[data-theme="dark"] .pef-cc-page .pef-cc-preview-ready-badge {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+}
+.pef-cc-page .pef-cc-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 18px 0 12px;
+}
+
+/* Disclosure, Notices, and Inputs */
+.pef-cc-page .pef-cc-disclosure {
+    font-size: .85rem;
+    color: var(--text-gray);
+    line-height: 1.5;
+    margin: 14px 0 0;
+    padding-left: 10px;
+    border-left: 3px solid var(--accent-blue);
+}
+.pef-cc-page .pef-cc-notice { padding: 12px 14px; border-left: 3px solid var(--accent-blue); margin: 12px 0; }
+.pef-cc-page .pef-cc-notice--warning { border-left-color: var(--risk-high, #e53935); background: var(--bg-hover, rgba(0,0,0,0.02)); }
+.pef-cc-page .pef-cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; margin: 14px 0; }
+.pef-cc-page label { display: block; font-size: .9rem; font-weight: 600; margin-bottom: 7px; }
+.pef-cc-page .form-input { min-height: 44px; box-sizing: border-box; }
+.pef-cc-page .pef-cc-subjects { min-height: 220px; width: 100%; }
+.pef-cc-page .pef-cc-counter { margin-top: 10px; font-weight: 600; }
+.pef-cc-page .btn { min-height: 44px; white-space: normal; }
+
+/* Previous Academic History & Review Another Term (Sections 10, 11) */
+.pef-cc-page .pef-cc-disclosure-row {
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg, #ffffff);
+    padding: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pef-cc-page .pef-cc-disclosure-summary {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    min-height: 44px;
+    font-weight: 600;
+    font-size: .95rem;
+    user-select: none;
+    box-sizing: border-box;
+    width: 100%;
+}
+.pef-cc-page .pef-cc-disclosure-meta {
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--text-gray);
+}
+.pef-cc-page .pef-cc-disclosure-body {
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--border-color);
+}
+.pef-cc-page .pef-cc-disclosure-row--secondary {
+    opacity: .92;
+}
+
+/* Tables and scrolling */
+.pef-cc-page .data-table-scroll {
+    margin-top: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pef-cc-page .data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.pef-cc-page .pef-cc-table-caption {
+    caption-side: top;
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-dark);
+    padding: 0 16px;
+    margin: 18px 0 10px;
+}
+.pef-cc-page td { overflow-wrap: anywhere; vertical-align: middle; }
+.pef-cc-page td:first-child { white-space: nowrap; overflow-wrap: normal; }
+.pef-cc-page [hidden] { display: none !important; }
+
+/* Column distribution contracts */
+.pef-cc-page #current-semester-details .data-table th:nth-child(1),
+.pef-cc-page #current-semester-details .data-table td:nth-child(1) {
+    width: 14%;
+    text-align: left;
+}
+.pef-cc-page #current-semester-details .data-table th:nth-child(2),
+.pef-cc-page #current-semester-details .data-table td:nth-child(2) {
+    width: 61%;
+    text-align: left;
+}
+.pef-cc-page #current-semester-details .data-table th:nth-child(3),
+.pef-cc-page #current-semester-details .data-table td:nth-child(3) {
+    width: 10%;
+    text-align: center;
+}
+.pef-cc-page #current-semester-details .data-table th:nth-child(4),
+.pef-cc-page #current-semester-details .data-table td:nth-child(4) {
+    width: 15%;
+    text-align: left;
+}
+
+.pef-cc-page #next-plan-details .data-table th:nth-child(1),
+.pef-cc-page #next-plan-details .data-table td:nth-child(1) {
+    width: 15%;
+    text-align: left;
+}
+.pef-cc-page #next-plan-details .data-table th:nth-child(2),
+.pef-cc-page #next-plan-details .data-table td:nth-child(2) {
+    width: 73%;
+    text-align: left;
+}
+.pef-cc-page #next-plan-details .data-table th:nth-child(3),
+.pef-cc-page #next-plan-details .data-table td:nth-child(3) {
+    width: 12%;
+    text-align: center;
+}
+
+.pef-cc-page #pef-cc-history .data-table th:nth-child(1),
+.pef-cc-page #pef-cc-history .data-table td:nth-child(1) {
+    width: 40%;
+    text-align: left;
+}
+.pef-cc-page #pef-cc-history .data-table th:nth-child(2),
+.pef-cc-page #pef-cc-history .data-table td:nth-child(2) {
+    width: 30%;
+    text-align: left;
+}
+.pef-cc-page #pef-cc-history .data-table th:nth-child(3),
+.pef-cc-page #pef-cc-history .data-table td:nth-child(3) {
+    width: 30%;
+    text-align: left;
+}
+
+/* Focus Visible */
+.pef-cc-page button:focus-visible,
+.pef-cc-page a:focus-visible,
+.pef-cc-page select:focus-visible,
+.pef-cc-page input:focus-visible,
+.pef-cc-page summary:focus-visible,
+.pef-cc-page .data-table-scroll:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .pef-cc-page .pef-cc-collapsible { animation: none !important; }
+}
+
+/* Responsive Tablet and Mobile */
+@media (max-width: 768px) {
+    .pef-cc-page .card { padding: 16px; scroll-margin-top: 72px; }
+    .pef-cc-page .header h1 { font-size: 1.65rem; }
+    .pef-cc-page .pef-cc-banner-grid,
+    .pef-cc-page .pef-cc-meta-row,
+    .pef-cc-page .pef-cc-preview-grid {
+        grid-template-columns: 1fr;
+    }
+    .pef-cc-page .pef-cc-actions-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pef-cc-page .pef-cc-actions-bar .btn {
+        width: 100%;
+    }
+}

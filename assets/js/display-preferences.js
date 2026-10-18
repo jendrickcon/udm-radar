@@ -319,19 +319,55 @@
   }
 
   /**
+   * Updates current-state summary card indicators
+   */
+  function updateSummaryCard(prefs) {
+    if (typeof document === 'undefined') return;
+    const colorEl = document.getElementById('summary-color-val');
+    const themeEl = document.getElementById('summary-theme-val');
+    const textEl = document.getElementById('summary-text-val');
+    const motionEl = document.getElementById('summary-motion-val');
+
+    if (colorEl) {
+      colorEl.textContent = prefs.colorStyle === 'classic' ? 'Classic UDM-RADAR' : 'CCS Colors';
+    }
+    if (themeEl) {
+      if (prefs.theme === 'light') themeEl.textContent = 'Light';
+      else if (prefs.theme === 'dark') themeEl.textContent = 'Dark';
+      else themeEl.textContent = 'Device setting';
+    }
+    if (textEl) {
+      if (prefs.textSize === 'small') textEl.textContent = 'Small (90%)';
+      else if (prefs.textSize === 'large') textEl.textContent = 'Large (112.5%)';
+      else if (prefs.textSize === 'extra-large') textEl.textContent = 'Extra Large (125%)';
+      else textEl.textContent = 'Default (100%)';
+    }
+    if (motionEl) {
+      if (prefs.motion === 'reduce') motionEl.textContent = 'Reduce motion';
+      else if (prefs.motion === 'allow') motionEl.textContent = 'Allow motion';
+      else motionEl.textContent = 'Device setting';
+    }
+  }
+
+  /**
    * Binds display preferences form controls and disclosure accordion if present
    */
   function bindFormControls() {
     if (typeof document === 'undefined') return;
 
-    // 1. Disclosure Accordion Trigger
+    // 1. Disclosure Accordion Trigger & Launcher Button
     const triggerBtn = document.getElementById('displayPrefToggleBtn');
     const panel = document.getElementById('displayPreferencesPanel');
+    const toggleText = document.getElementById('displayPrefToggleText');
+
     if (triggerBtn && panel) {
       triggerBtn.addEventListener('click', () => {
         const isExpanded = triggerBtn.getAttribute('aria-expanded') === 'true';
         const nextExpanded = !isExpanded;
         triggerBtn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+        if (toggleText) {
+          toggleText.textContent = nextExpanded ? 'Close preferences' : 'Open preferences';
+        }
         if (nextExpanded) {
           panel.removeAttribute('hidden');
           panel.style.display = 'block';
@@ -340,13 +376,27 @@
           panel.style.display = 'none';
         }
       });
+
+      // Keyboard: Escape closes panel and returns focus to launcher
+      panel.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          triggerBtn.setAttribute('aria-expanded', 'false');
+          if (toggleText) toggleText.textContent = 'Open preferences';
+          panel.setAttribute('hidden', '');
+          panel.style.display = 'none';
+          triggerBtn.focus();
+        }
+      });
     }
 
     // 2. Settings Form Controls
     const form = document.getElementById('displayPreferencesForm');
-    if (!form) return;
-
     const current = getPreferences();
+
+    // Initialize summary card with active preferences
+    updateSummaryCard(current);
+
+    if (!form) return;
 
     // Set radio buttons
     const setRadio = (name, val) => {
@@ -379,11 +429,14 @@
       };
 
       savePreferences(newPrefs);
+      updateSummaryCard(newPrefs);
       announceStatus('Display preferences saved.');
     });
 
-    // Reset button
+    // Reset button (Section 8, 9, 10)
     const resetBtn = document.getElementById('resetDisplayPreferencesBtn');
+    const resetMsg = document.getElementById('display-pref-reset-msg');
+
     if (resetBtn) {
       resetBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -396,7 +449,18 @@
         setRadio('display_motion', DEFAULT_PREFERENCES.motion);
         if (underlineEl) underlineEl.checked = DEFAULT_PREFERENCES.underlineLinks;
 
-        announceStatus('Display settings have been reset to the CCS default.');
+        // Refresh summary card badges
+        updateSummaryCard(DEFAULT_PREFERENCES);
+
+        // Confirmation status (Section 10)
+        announceStatus('Display preferences reset to defaults.');
+        if (resetMsg) {
+          resetMsg.textContent = 'Display preferences reset to defaults.';
+          resetMsg.classList.add('is-visible');
+          setTimeout(() => {
+            resetMsg.classList.remove('is-visible');
+          }, 3500);
+        }
       });
     }
   }
