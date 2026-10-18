@@ -19,19 +19,20 @@ function pefTestFinish(): never {
 }
 /** Review opt-in is CLI-only and never changes the application's configured default. */
 function pefTestConfig(array $overrides = []): array {
-    return getenv('PEF_CC_REVIEW_CANDIDATE') === 'v0.2-r3'
-        ? pefCcReviewCandidateConfig($overrides) : pefCcConfig($overrides);
+    $cand = getenv('PEF_CC_REVIEW_CANDIDATE');
+    return ($cand === 'v0.2-r3' || $cand === 'v0.2-r4' || $cand === 'v0.2-r5' || $cand === 'v0.2-r6')
+        ? pefCcReviewCandidateConfig($overrides, $cand) : pefCcConfig($overrides);
 }
 function pefTestInputs(array $replace = []): array {
-    return array_replace(['evaluation_year'=>'2024-2025','evaluation_semester'=>2,
+    return array_replace(['evaluation_year'=>'2025-2026','evaluation_semester'=>2,
         'target_year'=>'2026-2027','target_semester'=>1,'section'=>'IT-32','subject_ids'=>[]], $replace);
 }
-function pefTestContext(int $count = 3, array $grades = ['3.00','INC','0.00']): array {
+function pefTestContext(int $count = 3, array $grades = ['3.00','2.50','2.75'], string $schoolYear = '2025-2026', int $semester = 2): array {
     $catalog = $records = [];
     for ($i=1;$i<=max(15,$count);$i++) {
         $catalog[]=['id'=>$i,'code'=>'SYN'.str_pad((string)$i,3,'0',STR_PAD_LEFT),
             'title'=>'Synthetic subject '.$i,'units'=>$i===2 ? 1 : 3];
-        if ($i<=$count) $records[]=['id'=>$i,'subject_id'=>$i,'school_year'=>'2024-2025','semester'=>2,
+        if ($i<=$count) $records[]=['id'=>$i,'subject_id'=>$i,'school_year'=>$schoolYear,'semester'=>$semester,
             'is_current'=>0,'code'=>$catalog[$i-1]['code'],'title'=>$catalog[$i-1]['title'],
             'units'=>$catalog[$i-1]['units'],'grade'=>$grades[($i-1)%count($grades)]];
     }
@@ -42,8 +43,8 @@ function pefTestContext(int $count = 3, array $grades = ['3.00','INC','0.00']): 
         'sections'=>array_map(static fn(string $section):array=>['section'=>$section,'year_level'=>3,'school_year'=>'2026-2027','semester'=>1,'source'=>'active_sd_current_records','evidence_sha256'=>hash('sha256',$section)],['IT-31','IT-32','IT-33'])];
 }
 /** Synthetic own current rows, with real public curriculum codes but no real identities. */
-function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
-    $c=pefTestContext();
+function pefTestRegularContext(int $year=2, int $currentSemester=1, bool $completePredecessor=true): array {
+    $c=pefTestContext(3, ['3.00', '3.00', '3.00'], '2025-2026', 2);
     $c['identity']=array_replace($c['identity'],['status'=>'Regular','year_level'=>$year,'section'=>'IT-'.$year.'2']);
     $mapping=require dirname(__DIR__,2).'/config/bsit_software_development_curriculum_2022_2023.php';
     $c['catalog']=[];$id=1000;
@@ -52,7 +53,7 @@ function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
     $current=array_values(array_filter($c['catalog'],static fn(array $s):bool=>$s['year_level']===$year&&$s['semester']===$currentSemester));
     foreach(array_slice($current,0,3) as $i=>$s)$c['records'][]=[
         'id'=>900100+$i,'subject_id'=>$s['id'],'school_year'=>'2026-2027','semester'=>$currentSemester,
-        'is_current'=>1,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>$i===1?'INC':null];
+        'is_current'=>1,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>$completePredecessor ? '3.00' : ($i===1?'INC':null)];
     $targetYear=$currentSemester===2?$year+1:$year;
     $targetSchoolYear=$currentSemester===2?'2027-2028':'2026-2027';
     $targetSemester=$currentSemester===2?1:2;
@@ -63,9 +64,62 @@ function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
 function pefTestRegularInputs(array $c, int $currentSemester=1): array {
     $targetYear=(int)$c['identity']['year_level']+($currentSemester===2?1:0);
     $targetSemester=$currentSemester===2?1:2;
+    $targetSchoolYear=$currentSemester===2?'2027-2028':'2026-2027';
+    $evalSchoolYear='2026-2027';
+    $evalSemester=$currentSemester;
     $subjects=array_values(array_filter($c['catalog'],static fn(array $s):bool=>$s['year_level']===$targetYear&&$s['semester']===$targetSemester));
-    return pefTestInputs(['target_year'=>$currentSemester===2?'2027-2028':'2026-2027','target_semester'=>$targetSemester,
+    return pefTestInputs(['evaluation_year'=>$evalSchoolYear,'evaluation_semester'=>$evalSemester,
+        'target_year'=>$targetSchoolYear,'target_semester'=>$targetSemester,
         'section'=>'IT-'.$targetYear.'2','subject_ids'=>array_column($subjects,'id')]);
+}
+/** Multi-term regular student context spanning Year 1 to Year 3 with verified GS and WS terms. */
+function pefTestMultiTermRegularContext(bool $currentComplete = false): array {
+    $c = pefTestRegularContext(3, 1, $currentComplete);
+    $y1s1 = array_values(array_filter($c['catalog'], static fn(array $s): bool => $s['year_level'] === 1 && $s['semester'] === 1));
+    $y1s2 = array_values(array_filter($c['catalog'], static fn(array $s): bool => $s['year_level'] === 1 && $s['semester'] === 2));
+    $y2s1 = array_values(array_filter($c['catalog'], static fn(array $s): bool => $s['year_level'] === 2 && $s['semester'] === 1));
+
+    foreach (array_slice($y1s1, 0, 3) as $i => $s) {
+        $c['records'][] = [
+            'id' => 900200 + $i, 'subject_id' => $s['id'], 'school_year' => '2024-2025', 'semester' => 1,
+            'is_current' => 0, 'code' => $s['code'], 'title' => $s['title'], 'units' => $s['units'], 'grade' => $i === 1 ? '2.75' : '3.00',
+        ];
+    }
+    foreach (array_slice($y1s2, 0, 3) as $i => $s) {
+        $c['records'][] = [
+            'id' => 900300 + $i, 'subject_id' => $s['id'], 'school_year' => '2024-2025', 'semester' => 2,
+            'is_current' => 0, 'code' => $s['code'], 'title' => $s['title'], 'units' => $s['units'], 'grade' => $i === 1 ? '1.25' : '1.50',
+        ];
+    }
+    foreach (array_slice($y2s1, 0, 3) as $i => $s) {
+        $c['records'][] = [
+            'id' => 900400 + $i, 'subject_id' => $s['id'], 'school_year' => '2025-2026', 'semester' => 1,
+            'is_current' => 0, 'code' => $s['code'], 'title' => $s['title'], 'units' => $s['units'], 'grade' => '3.00',
+        ];
+    }
+    return $c;
+}
+/** Irregular student context with mixed curriculum year-levels in a completed term. */
+function pefTestAmbiguousIrregularContext(): array {
+    $c = pefTestRegularContext(3, 1, false);
+    $c['identity']['status'] = 'Irregular';
+    $c['identity']['section'] = 'IT-IRREG';
+    $c['records'] = [];
+    $y1 = array_values(array_filter($c['catalog'], static fn(array $s): bool => $s['year_level'] === 1));
+    $y2 = array_values(array_filter($c['catalog'], static fn(array $s): bool => $s['year_level'] === 2));
+    $c['records'][] = [
+        'id' => 900501, 'subject_id' => $y1[0]['id'], 'school_year' => '2025-2026', 'semester' => 2,
+        'is_current' => 0, 'code' => $y1[0]['code'], 'title' => $y1[0]['title'], 'units' => $y1[0]['units'], 'grade' => '3.00',
+    ];
+    $c['records'][] = [
+        'id' => 900502, 'subject_id' => $y2[0]['id'], 'school_year' => '2025-2026', 'semester' => 2,
+        'is_current' => 0, 'code' => $y2[0]['code'], 'title' => $y2[0]['title'], 'units' => $y2[0]['units'], 'grade' => '2.50',
+    ];
+    $c['records'][] = [
+        'id' => 900503, 'subject_id' => $y2[1]['id'], 'school_year' => '2026-2027', 'semester' => 1,
+        'is_current' => 1, 'code' => $y2[1]['code'], 'title' => $y2[1]['title'], 'units' => $y2[1]['units'], 'grade' => null,
+    ];
+    return $c;
 }
 function pefTestReference(): array {
     $rows=[];
@@ -81,7 +135,7 @@ function pefTestOperationalContext(array $subjects, ?string $name = null): array
         $s=['id'=>1001+$i,'code'=>$subject['code'],'title'=>$subject['title'],'units'=>$subject['units'],
             'year_level'=>$subject['year_level'],'semester'=>$subject['semester']];
         $c['catalog'][]=$s;
-        $c['records'][]=['id'=>2001+$i,'subject_id'=>$s['id'],'school_year'=>'2024-2025','semester'=>2,
+        $c['records'][]=['id'=>2001+$i,'subject_id'=>$s['id'],'school_year'=>'2025-2026','semester'=>2,
             'is_current'=>0,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>'3.25'];
     }
     return $c;

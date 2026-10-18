@@ -6,11 +6,13 @@ This is a Student-prepared planning copy for evaluator review. It is not an offi
 
 ## Academic and data contract
 
-### Owner-accepted compact-section template v0.2-r3 and print exception (2026-10-18)
+### Owner-accepted template v0.2-r6 and clean CC ending contract (2026-10-19)
 
-The owner selected **Option 1**: preserve original departmental one-page Portrait Folio geometry and document a narrow print-floor exception for inherited static/reference content. The private **v0.2-r3** template restores PEF row 51 from 96 pt to **19.5 pt**, turns A51 wrapping off, and centers the section text. Its SHA-256 is `c26f8e5d8caf65ab8d061bd87484970b899670a27551d1c1662e98de6ad6df63`. Only the PEF row-height/style package parts differ from sanitized r2. Cell values, formulas, other package parts, CC geometry and metadata remain unchanged. The original CCS references and r2 hashes remain unchanged. This is a **Sanitized private template candidate aligned to the original CCS form geometry.** No confidential workbook is in Git.
+The owner approved **v0.2-r6**: combining departmental one-page Portrait Folio geometry, official CC Remarks (`P`, `F`, blank), official CC Status (`Taken`, `Need to Enroll`, blank), and the restored Dean signatory ending while eliminating internal application diagnostic paragraphs. The private **v0.2-r6** template has SHA-256 `5941b7b36c5bbee585f32162397de2cd18e0279171cdd6470578e389b18e43ec`. Cell values, formulas, PEF 1-page geometry (`A1:G71`), CC 1-page geometry (`A1:O70`), and signatories (`MS. CHRISTINA P. ATAL` as Program Chairperson; `MR. FRANCIS ARLANDO L. ATIENZA` as Dean) are verified. This is a **sanitized private template candidate aligned to the original CCS form geometry.** No confidential workbook is in Git.
 
-**Application configuration is activated to v0.2-r3.** The default template version in `config/pef_cc.php` is `v0.2-r3`. Dynamic environment override via `PEF_CC_TEMPLATE_VERSION` remains supported for controlled testing.
+**Application configuration is activated to v0.2-r6.** The default template version in `config/pef_cc.php` is `v0.2-r6`. Dynamic environment override via `PEF_CC_TEMPLATE_VERSION` remains supported for controlled testing and rollback to `v0.2-r5`. Canonical private deployment path:
+`C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r6\template.xlsx`
+Fail-closed runtime checksum enforcement prevents execution if the file is absent or modified.
 
 **Narrow Print-Floor Exception:**
 The global 8 pt project floor remains standard for operational student records. The owner approved a narrow exception for inherited departmental elements:

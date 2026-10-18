@@ -26,11 +26,11 @@ try {
  $contract=pefCcTemplateContract($config['template_version']);
  pefTestCheck($pef->getStyle('A51')->getAlignment()->getWrapText()===$contract['section_wrap']
   &&$pef->getRowDimension(51)->getRowHeight()===$contract['section_height'],'Immutable version-specific section geometry: '.$config['template_version']);
- pefTestCheck(pefCcConfig()['template_version']==='v0.2-r3','Application default is activated v0.2-r3');
+ pefTestCheck(pefCcConfig()['template_version']==='v0.2-r6','Application default is activated v0.2-r6');
  pefTestCheck($pef->getRowDimension(52)->getRowHeight()===12.0&&$pef->getStyle('A51')->getFont()->getSize()===18.0
   &&$pef->getStyle('A51')->getAlignment()->getHorizontal()==='center'&&$pef->getStyle('A51')->getAlignment()->getVertical()==='center'
   &&!$pef->getStyle('A51')->getAlignment()->getShrinkToFit(),'Section label row, centered 18pt text and no shrink-to-fit preserved');
- foreach(range(54,65) as $row)pefTestCheck($pef->getRowDimension($row)->getRowHeight()===12.0,'Proposed slot retained at original 12pt height: '.$row);
+ foreach(range(54,65) as $row)pefTestCheck($pef->getRowDimension(row: $row)->getRowHeight()===12.0,'Proposed slot retained at original 12pt height: '.$row);
  if($config['template_version']==='v0.2-r3'){
   pefTestCheck($pef->getRowDimension(51)->getRowHeight()===19.5&&!$pef->getStyle('A51')->getAlignment()->getWrapText(),'r3 restores original compact row and disables wrapping');
   $base=$config['private_root'].'/templates/pef-cc/v0.2-r2/template.xlsx';
@@ -40,12 +40,39 @@ try {
   sort($changed);pefTestCheck($old->numFiles===$new->numFiles&&$changed===['xl/styles.xml','xl/worksheets/sheet1.xml'],'Only PEF row/style package parts differ; CC and metadata are byte-identical');
   $old->close();$new->close();
  }
- foreach(['A10','A12','A19','C19','C37','C38','C42','D42','E42','F42','C45','F45','A49','C49','A51','B68','B70','D68','D70','G68','G70'] as $cell)
+ $blankCells=['A10','A12','A19','C19','C37','C38','C42','D42','E42','F42','C45','F45','A49','C49','A51','D68','D70','G68','G70'];
+ if(!in_array($config['template_version'],['v0.2-r5','v0.2-r6'],true)){
+  $blankCells=array_merge($blankCells,['B68','B70']);
+ }
+ foreach($blankCells as $cell)
   pefTestCheck($pef->getCell($cell)->getValue()===null || $pef->getCell($cell)->getValue()==='','Candidate identity/results/plans/approval field blank '.$cell);
+ if(in_array($config['template_version'],['v0.2-r5','v0.2-r6'],true)){
+  pefTestCheck($pef->getCell('B68')->getValue()==='MS. CHRISTINA P. ATAL','Configured Program Chairperson name present in B68');
+  pefTestCheck($pef->getCell('B70')->getValue()==='MR. FRANCIS ARLANDO L. ATIENZA','Configured Dean name present in B70');
+  pefTestCheck($pef->getCell('D69')->getValue()==='Signature','Signature label present in D69');
+  pefTestCheck($pef->getCell('D71')->getValue()==='Signature','Signature label present in D71');
+  pefTestCheck($pef->getCell('G69')->getValue()==='Date','Date label present in G69');
+  pefTestCheck($pef->getCell('G71')->getValue()==='Date','Date label present in G71');
+ }
  pefTestCheck((string)$cc->getCell('D51')->getValue()==="ITE252\nITE353",'ITE252 unresolved text retained exactly');
  foreach(['PEF','CC'] as $name){$s=$book->getSheetByName($name);pefTestCheck($s->getPageSetup()->getPrintArea()!=='','Bounded print area '.$name);pefTestCheck($s->getPageSetup()->getOrientation()==='portrait','Portrait print setting '.$name);}
- pefTestCheck(str_contains((string)$pef->getCell('A74')->getValue(),'Student-prepared') || str_contains(json_encode($pef->toArray()),'Student-prepared'),'PEF planning-copy disclosure visible');
- pefTestCheck(str_contains((string)$cc->getCell('A3')->getValue(),'REFERENCE ONLY')&&str_contains((string)$cc->getCell('A67')->getValue(),'approved student-to-curriculum mapping'),'Approved candidate retains CC reference/mapping disclosure');
+ if(in_array($config['template_version'],['v0.2-r5','v0.2-r6'],true)){
+  pefTestCheck($pef->getCell('A73')->getValue()===null || $pef->getCell('A73')->getValue()==='','v0.2-r5/r6 template A73 blank');
+  pefTestCheck($pef->getCell('A74')->getValue()===null || $pef->getCell('A74')->getValue()==='','v0.2-r5/r6 template A74 blank');
+ } else {
+  pefTestCheck(str_contains((string)$pef->getCell('A74')->getValue(),'Student-prepared') || str_contains(json_encode($pef->toArray()),'Student-prepared'),'PEF planning-copy disclosure visible');
+ }
+ if($config['template_version']==='v0.2-r6'){
+  pefTestCheck(str_contains((string)$cc->getCell('A3')->getValue(),'REFERENCE ONLY')&&$cc->getCell('A67')->getValue()===null,'v0.2-r6 retains CC reference title and cleans obsolete commentary');
+  pefTestCheck((string)$cc->getCell('B66')->getValue()==='Prepared by','Prepared by label present in B66');
+  pefTestCheck((string)$cc->getCell('J66')->getValue()==='Noted by','Noted by label present in J66');
+  pefTestCheck($cc->getCell('B69')->getValue()===null,'Evaluator signature space blank in B69');
+  pefTestCheck((string)$cc->getCell('J69')->getValue()==='MR. FRANCIS ARLANDO L. ATIENZA','Configured Dean name present in J69');
+  pefTestCheck((string)$cc->getCell('B70')->getValue()==='Evaluator','Evaluator title label present in B70');
+  pefTestCheck((string)$cc->getCell('J70')->getValue()==='Dean','Dean title label present in J70');
+ } else {
+  pefTestCheck(str_contains((string)$cc->getCell('A3')->getValue(),'REFERENCE ONLY')&&str_contains((string)$cc->getCell('A67')->getValue(),'approved student-to-curriculum mapping'),'Approved candidate retains CC reference/mapping disclosure');
+ }
  pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['template_path'=>$config['template_path'].'.missing'])),'Missing template rejected without source fallback');
  pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['private_root'=>dirname(__DIR__,2),'template_path'=>$config['template_path']])),'Invalid private-root location rejected');
  pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['temp_path'=>dirname(__DIR__,2).'/test-results'])),'Web-accessible temporary path rejected');

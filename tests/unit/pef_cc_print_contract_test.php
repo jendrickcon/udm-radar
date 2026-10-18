@@ -10,18 +10,55 @@ require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
 /** Actual page template with synthetic scalar context; no auth/bootstrap/database. */
 function pefPrintRender(string $case): string {
     $config=pefTestConfig();$currentTerm=['school_year'=>'2026-2027','semester'=>1];
-    $context=pefTestContext();$inputs=pefTestInputs(['section'=>'IT-32','subject_ids'=>[1,2]]);
-    if($case==='record'){$context['records'][0]['code']=str_repeat('W',20);$context['records'][0]['title']=str_repeat('T',150);}
-    if($case==='proposed')$context['catalog'][1]['title']=str_repeat('T',150);
-    if($case==='identity'){$context['identity']['name']=str_repeat('N',61);$context['identity']['student_number']=str_repeat('S',21);}
-    if(!in_array($case,['normal','record','proposed','identity'],true))throw new InvalidArgumentException('Unknown synthetic render case');
-    $reference=pefTestReference();$model=pefCcBuildViewModel($context,$inputs,$reference,$config,$currentTerm);
-    $data=$model->data;$cc=$data['cc'];$formPolicy=$data['policy'];
-    $manualPlanning=true;$regularPlanning=false;$formUnavailable=false;
-    $errors=$data['errors'];$fieldErrors=$data['field_errors'];$selectedIds=array_map('strval',$inputs['subject_ids']);
-    $choices=pefCcTermChoices($context['records'],$currentTerm);$years=array_unique(array_column($choices,'school_year'));
-    $hasCompletedTerm=true;$csrf='synthetic-render-csrf';$requestValid=true;$showPreview=true;
-    $preview=$data['exportable']?pefCcSignSnapshot($model,random_bytes(32),$data['identity']['id'],'synthetic-render',$config):'';
+    if (in_array($case, ['incomplete', 'provisional', 'provisional-preview'], true)) {
+        $context = pefTestRegularContext(3, 1, false);
+        $inputs = pefTestRegularInputs($context, 1);
+        $reference = pefTestReference();
+        $model = pefCcBuildViewModel($context, $inputs, $reference, $config, $currentTerm);
+        $data = $model->data;
+        $cc = $data['cc'];
+        $formPolicy = $data['policy'];
+        $manualPlanning = false;
+        $regularPlanning = true;
+        $formUnavailable = false;
+        $errors = $data['errors'];
+        $fieldErrors = $data['field_errors'];
+        $selectedIds = array_map('strval', $inputs['subject_ids']);
+        $choices = pefCcTermChoices($context['records'], $currentTerm);
+        $years = array_unique(array_column($choices, 'school_year'));
+        $hasCompletedTerm = true;
+        $hasCompletePredecessor = false;
+        $isProvisional = true;
+        $incompleteWarning = $formPolicy['provisional_warning'] ?? '';
+        $csrf = 'synthetic-render-csrf';
+        $requestValid = true;
+        $showPreview = ($case === 'provisional-preview');
+        $preview = ($showPreview && $data['exportable'])
+            ? pefCcSignSnapshot($model, random_bytes(32), $data['identity']['id'], 'synthetic-render', $config)
+            : '';
+    } else {
+        $context=pefTestContext();$inputs=pefTestInputs(['section'=>'IT-32','subject_ids'=>[1,2]]);
+        if($case==='record'){$context['records'][0]['code']=str_repeat('W',20);$context['records'][0]['title']=str_repeat('T',150);}
+        if($case==='proposed')$context['catalog'][1]['title']=str_repeat('T',150);
+        if($case==='identity'){$context['identity']['name']=str_repeat('N',61);$context['identity']['student_number']=str_repeat('S',21);}
+        if(!in_array($case,['normal','record','proposed','identity'],true))throw new InvalidArgumentException('Unknown synthetic render case');
+        $reference=pefTestReference();$model=pefCcBuildViewModel($context,$inputs,$reference,$config,$currentTerm);
+        $data=$model->data;$cc=$data['cc'];$formPolicy=$data['policy'];
+        $manualPlanning=true;$regularPlanning=false;$formUnavailable=false;
+        $errors=$data['errors'];$fieldErrors=$data['field_errors'];$selectedIds=array_map('strval',$inputs['subject_ids']);
+        $choices=pefCcTermChoices($context['records'],$currentTerm);$years=array_unique(array_column($choices,'school_year'));
+        $hasCompletedTerm=true;$hasCompletePredecessor=true;
+        $isProvisional=false;
+        $incompleteWarning='';
+        $csrf='synthetic-render-csrf';$requestValid=true;$showPreview=true;
+        $preview=($data['exportable']&&$hasCompletePredecessor)?pefCcSignSnapshot($model,random_bytes(32),$data['identity']['id'],'synthetic-render',$config):'';
+    }
+    $history = $data['history'] ?? [];
+    $summaryStatus = $isProvisional ? 'Provisional, final grades incomplete' : 'Complete';
+    $summaryEvalTerm = ($data['evaluation']['school_year'] ?? $inputs['evaluation_year']) . ' · ' . ($data['evaluation']['label'] ?? pefCcSemesterLabel((int) ($inputs['evaluation_semester'] ?? 1)));
+    $summaryTargetTerm = ($data['planning']['target_year'] ?? $inputs['target_year']) . ' · ' . ((int) ($data['planning']['target_semester'] ?? $inputs['target_semester']) === 1 ? 'First Semester' : 'Second Semester');
+    $summarySection = ($data['planning']['section'] ?? $inputs['section']) !== '' ? ($data['planning']['section'] ?? $inputs['section']) : ($formPolicy['section_default'] ?? 'Not assigned — evaluator review');
+    $summaryProposedCount = count($data['planning']['subject_ids'] ?? $inputs['subject_ids'] ?? []);
     if(!defined('BASE_URL'))define('BASE_URL','/udm-radar/');
     $source=file_get_contents(dirname(__DIR__,2).'/student/enrolment_planning.php');
     $start=strpos($source,'function pefCcPageEscape(');$end=strpos($source,'/** Bound actual bytes');

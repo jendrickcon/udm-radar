@@ -215,9 +215,11 @@ function pefCcGradeEvidence(array $row): array
     return ['outcome' => $outcome, 'gwa_reason' => $reason];
 }
 
-function pefCcSemesterLabel(int $semester): string
-{
-    return $semester === 1 ? 'First Semester' : 'Second Semester';
+if (!function_exists('pefCcSemesterLabel')) {
+    function pefCcSemesterLabel(int $semester): string
+    {
+        return $semester === 1 ? 'First Semester' : 'Second Semester';
+    }
 }
 
 /** Whole groups are reviewed before any row can be treated as completed. */
@@ -236,50 +238,61 @@ function pefCcTermChoices(array $records, array $currentTerm): array
     foreach ($groups as $group) {
         $year = $group['year'];
         $semester = pefCcSemester($group['semester']);
-        $errors = [];
+        $integrityErrors = [];
+        $temporalErrors = [];
         if (!pefCcValidYear($year) || $semester === null) {
-            $errors[] = 'The evaluation term is invalid.';
+            $integrityErrors[] = 'The evaluation term is invalid.';
         }
         if (!pefCcValidYear($currentTerm['school_year'] ?? null) || pefCcSemester($currentTerm['semester'] ?? null) === null) {
-            $errors[] = 'The current academic term cannot be verified.';
+            $temporalErrors[] = 'The current academic term cannot be verified.';
         } elseif (pefCcValidYear($year) && $semester !== null
             && [(int) substr($year, 0, 4), $semester] >= [(int) substr($currentTerm['school_year'], 0, 4), (int) $currentTerm['semester']]) {
-            $errors[] = 'The evaluation term is current or future.';
+            $temporalErrors[] = 'The evaluation term is current or future.';
         }
         $ids = [];
         $codes = [];
         foreach ($group['rows'] as $row) {
             if (!in_array($row['is_current'] ?? null, [0, '0'], true)) {
-                $errors[] = 'Every row in a completed evaluation term must be historical.';
+                $temporalErrors[] = 'Every row in a completed evaluation term must be historical.';
             }
             $subjectId = pefCcPositiveId($row['subject_id'] ?? null);
             $code = $row['code'] ?? null;
             if ($subjectId !== null) {
                 if (isset($ids[$subjectId])) {
-                    $errors[] = 'Duplicate subject records require review.';
+                    $integrityErrors[] = 'Duplicate subject records require review.';
                 }
                 $ids[$subjectId] = true;
             }
             if (is_string($code) && $code !== '') {
                 if (isset($codes[$code])) {
-                    $errors[] = 'Duplicate or ambiguous subject codes require review.';
+                    $integrityErrors[] = 'Duplicate or ambiguous subject codes require review.';
                 }
                 $codes[$code] = true;
             }
-            $errors = array_merge($errors, pefCcRecordErrors($row));
+            $integrityErrors = array_merge($integrityErrors, pefCcRecordErrors($row));
         }
-        // Capacity affects the form, not whether sound historical evidence has
-        // a reviewable term GWA. Source/completion conflicts invalidate it.
-        $gwaEligible = $errors === [];
         if (count($group['rows']) > 13) {
-            $errors[] = 'This term exceeds the 13 recorded-subject capacity. No records can be omitted.';
+            $integrityErrors[] = 'This term exceeds the 13 recorded-subject capacity. No records can be omitted.';
         }
-        $errors = array_values(array_unique($errors));
+        $errors = array_values(array_unique(array_merge($integrityErrors, $temporalErrors)));
+        $gwaEligible = $errors === [];
+        $completionErrors = [];
+        if ($year !== null && $semester !== null && pefCcValidYear($year)) {
+            $completion = pefCcTermCompletion($records, (string) $year, (int) $semester);
+            if (!$completion['is_complete'] && !in_array($completion['message'], $errors, true)) {
+                $completionErrors[] = $completion['message'];
+            }
+        }
+        $allErrors = array_values(array_unique(array_merge($errors, $completionErrors)));
         $choices[] = [
             'school_year' => $year,
             'semester' => $semester ?? $group['semester'],
             'label' => (is_scalar($year) ? (string) $year : 'Invalid school year') . ' · ' . ($semester === null ? 'Unsupported semester' : pefCcSemesterLabel($semester)),
-            'count' => count($group['rows']), 'eligible' => $errors === [], 'gwa_eligible' => $gwaEligible, 'errors' => $errors,
+            'count' => count($group['rows']),
+            'eligible' => $allErrors === [],
+            'gwa_eligible' => $gwaEligible,
+            'integrity_errors' => array_values(array_unique($integrityErrors)),
+            'errors' => $allErrors,
         ];
     }
     usort($choices, static fn(array $a, array $b): int => [(string) $b['school_year'], (string) $b['semester']] <=> [(string) $a['school_year'], (string) $a['semester']]);
@@ -307,42 +320,305 @@ function pefCcBuildReferenceCc(array $records, array $reference): array
             }
             $evidence[] = $source;
         }
-        $grade = null;
-        $state = '';
-        if (count($matches) > 1) {
-            $state = 'REVIEW';
-        } elseif (count($matches) === 1) {
+
+        $gradeDisplay = null;
+        $remarks = null;
+        $status = 'Need to Enroll';
+        $internalState = '';
+        $sourceRecord = null;
+        $isCurrent = false;
+        $isComplete = false;
+
+        if (count($matches) === 0) {
+            // Future unattempted curriculum subject
+            $internalState = '';
+            $status = 'Need to Enroll';
+        } elseif (count($matches) > 1) {
+            // Multiple attempts: requires evaluator review
+            $internalState = 'REVIEW';
+            $status = 'Need to Enroll';
+        } else {
             $match = $matches[0];
+            $sourceRecord = $match;
             $raw = $match['grade'] ?? null;
             $canonical = canonicalizeFinalGrade($raw);
+            $isCurrent = in_array($match['is_current'] ?? null, [1, '1'], true);
+
             if (pefCcRecordErrors($match) !== [] || !in_array($match['is_current'] ?? null, [0, '0', 1, '1'], true)
                 || !pefCcValidYear($match['school_year'] ?? null) || pefCcSemester($match['semester'] ?? null) === null) {
-                $state = 'REVIEW';
-            } elseif (in_array($match['is_current'], [1, '1'], true)) {
-                $state = 'CUR';
+                $internalState = 'REVIEW';
+                $status = 'Need to Enroll';
+            } elseif ($isCurrent) {
+                // Currently enrolled subject in incomplete term
+                $internalState = 'CUR';
+                $status = 'Need to Enroll';
+                // Display verified final outcome if one exists; otherwise blank
+                if ($canonical !== null && !in_array($canonical, ['INC', 'DO', 'DU', 'DRP', 'FA', 'UD'], true)) {
+                    $gradeDisplay = is_numeric($canonical) ? (float) $canonical : $canonical;
+                }
             } else {
-                $state = match (true) {
-                    $raw === null, is_string($raw) && trim($raw) === '' => 'NA',
-                    is_bool($raw), $canonical === null => 'REVIEW',
-                    isIncompleteFinalGrade($raw) => 'INC',
-                    $canonical === LEGACY_FINAL_GRADE_STORED => 'FAIL',
-                    isPassingFinalGrade($raw) => 'CMP',
-                    default => 'REVIEW',
-                };
-            }
-            // A current/unknown source never acquires a manufactured final mark.
-            if (!in_array($state, ['REVIEW', 'CUR', 'NA'], true)) {
-                $grade = $canonical !== null && is_numeric($canonical) ? (float) $canonical : $canonical;
+                // Historical subject
+                if ($raw === null || (is_string($raw) && trim($raw) === '')) {
+                    $internalState = 'NA';
+                    $status = 'Need to Enroll';
+                } elseif (is_bool($raw) || $canonical === null) {
+                    $internalState = 'REVIEW';
+                    $status = 'Need to Enroll';
+                } elseif (isIncompleteFinalGrade($raw)) {
+                    $internalState = 'INC';
+                    $gradeDisplay = 'INC';
+                    $status = 'Need to Enroll';
+                } elseif ($canonical === LEGACY_FINAL_GRADE_STORED) {
+                    // Failing finalized numeric grade (0.00)
+                    $internalState = 'FAIL';
+                    $gradeDisplay = 0.0;
+                    $remarks = 'F';
+                    $status = 'Need to Enroll';
+                    $isComplete = true;
+                } elseif (isPassingFinalGrade($raw)) {
+                    // Passing finalized outcome (1.00 - 4.00 or 'P')
+                    $internalState = 'CMP';
+                    $gradeDisplay = is_numeric($canonical) ? (float) $canonical : $canonical;
+                    $remarks = 'P';
+                    $status = 'Taken';
+                    $isComplete = true;
+                } elseif (in_array($canonical, ['DO', 'DU', 'DRP', 'FA', 'UD'], true)) {
+                    $internalState = 'DROPPED';
+                    $gradeDisplay = $canonical;
+                    $status = 'Need to Enroll';
+                } else {
+                    $internalState = 'REVIEW';
+                    $status = 'Need to Enroll';
+                }
             }
         }
-        $row['grade'] = $grade;
-        $row['state'] = $state;
-        // Retain all attempts for the signed digest, even when the visible
-        // annotation is CUR/REVIEW and deliberately chooses no final grade.
+
+        $row['grade_display'] = $gradeDisplay;
+        $row['grade'] = $gradeDisplay;
+        $row['remarks'] = $remarks;
+        $row['status'] = $status;
+        $row['internal_state'] = $internalState;
+        $row['state'] = $internalState;
+        $row['source_record'] = $sourceRecord;
+        $row['is_current'] = $isCurrent;
+        $row['is_complete'] = $isComplete;
         $row['evidence'] = $evidence;
         $rows[] = $row;
     }
     return ['label' => 'Reference / Requires Review', 'version' => (string) ($reference['version'] ?? 'v0.1'), 'rows' => $rows];
+}
+
+/**
+ * Derives academic standing for a term based on Student Manual 2025 (Part II.D & II.H).
+ * Non-board courses (BSIT) require GWA >= 1.75 for Good Standing (GS); otherwise Warning Status (WS).
+ * If the term is incomplete or GWA is not calculable, standing is pending evaluator review.
+ */
+function pefCcDeriveTermStanding(?float $gwa, bool $isComplete): array
+{
+    if (!$isComplete || $gwa === null) {
+        return [
+            'code' => null,
+            'label' => 'Pending evaluator review',
+            'source' => 'pending_evaluator_review',
+            'is_derived' => false,
+        ];
+    }
+    // Student Manual 2025: Scale 4.00 (highest) to 1.00 (passing), 0.00 (fail).
+    // GWA >= 1.75 meets the required GPA for non-board courses (80-81% equivalent).
+    if ($gwa >= 1.75) {
+        return [
+            'code' => 'GS',
+            'label' => 'Good Standing (GS)',
+            'source' => 'derived_student_manual_2025_non_board',
+            'is_derived' => true,
+        ];
+    }
+    return [
+        'code' => 'WS',
+        'label' => 'Warning Status (WS)',
+        'source' => 'derived_student_manual_2025_non_board',
+        'is_derived' => true,
+    ];
+}
+
+/**
+ * Maps historical terms to the PEF Previous Academic Standing matrix (Rows 42-45, Cols C-F).
+ *
+ * Algorithm:
+ * - Columns: Sem 1 -> sem1 (Col C), Sem 2 -> sem2 (Col D), Sem 3 -> sem3 (Col E), Summer -> summer (Col F).
+ * - Rows (Year 1 = Row 42, Year 2 = Row 43, Year 3 = Row 44, Year 4 = Row 45):
+ *   - For Regular students: deterministic chronological progression from cohort entry year.
+ *     Cohort entry start year = current school year start - (current year level - 1).
+ *     Term year level = term school year start - cohort entry start year + 1.
+ *     If term year level is 1..4, it is mapped.
+ *   - For Irregular students:
+ *     Inspect curriculum year levels of recorded subjects for that term via catalogue.
+ *     If all subjects in the term belong to the exact same curriculum year level, and no conflicting term
+ *     occupies that year-semester slot, map to that year level.
+ *     Otherwise, mark as ambiguous ('year_placement_unresolved'):
+ *     - Matrix cell remains strictly blank (null).
+ *     - Browser history displays term and GWA, labeled 'Year placement requires evaluator review'.
+ * - Incomplete current semester, future terms, and unrepresented summer terms remain strictly blank (null).
+ * - Numeric GWA is NEVER written to a matrix cell; only 'GS' or 'WS' when verified.
+ */
+function pefCcBuildHistoricalStandingMatrix(array $records, array $identity, array $catalog, array $currentTerm): array
+{
+    $matrix = [
+        1 => ['year_level' => 1, 'year_label' => 'First Year', 'sem1' => null, 'sem2' => null, 'sem3' => null, 'summer' => null],
+        2 => ['year_level' => 2, 'year_label' => 'Second Year', 'sem1' => null, 'sem2' => null, 'sem3' => null, 'summer' => null],
+        3 => ['year_level' => 3, 'year_label' => 'Third Year', 'sem1' => null, 'sem2' => null, 'sem3' => null, 'summer' => null],
+        4 => ['year_level' => 4, 'year_label' => 'Fourth Year', 'sem1' => null, 'sem2' => null, 'sem3' => null, 'summer' => null],
+    ];
+
+    // Group all records by term
+    $terms = [];
+    foreach ($records as $row) {
+        $year = $row['school_year'] ?? null;
+        $semester = pefCcSemester($row['semester'] ?? null);
+        if ($year === null || $semester === null || !pefCcValidYear($year)) {
+            continue;
+        }
+        $key = $year . ':' . $semester;
+        $terms[$key]['school_year'] = $year;
+        $terms[$key]['semester'] = $semester;
+        $terms[$key]['rows'][] = $row;
+    }
+
+    $currentSy = $currentTerm['school_year'] ?? '';
+    $currentSem = pefCcSemester($currentTerm['semester'] ?? null) ?? 1;
+    $currentSyStart = (int) substr($currentSy, 0, 4);
+
+    $isRegular = ($identity['status'] ?? '') === 'Regular';
+    $currentYearLevel = (int) ($identity['year_level'] ?? 1);
+    if ($currentYearLevel < 1 || $currentYearLevel > 4) {
+        $currentYearLevel = 1;
+    }
+    $cohortStartYear = $currentSyStart - ($currentYearLevel - 1);
+
+    // Build subject catalogue map: code -> year_level
+    $catalogYearMap = [];
+    foreach ($catalog as $s) {
+        if (isset($s['code'], $s['year_level'])) {
+            $catalogYearMap[$s['code']] = (int) $s['year_level'];
+        }
+    }
+
+    $history = [];
+
+    foreach ($terms as $term) {
+        $year = $term['school_year'];
+        $sem = $term['semester'];
+        $termRows = $term['rows'];
+        $termStartYear = (int) substr($year, 0, 4);
+
+        $isCurrentOrFuture = ([$termStartYear, $sem] >= [$currentSyStart, $currentSem]);
+
+        // Completion check
+        $completion = pefCcTermCompletion($records, $year, $sem);
+        $isComplete = $completion['is_complete'];
+
+        // Compute GWA
+        $gwaRows = [];
+        $eligibleCount = 0;
+        $eligibleUnits = 0;
+        foreach ($termRows as $tr) {
+            $ev = pefCcGradeEvidence($tr);
+            if ($ev['gwa_reason'] === 'included') {
+                $gwaRows[] = ['grade' => $tr['grade'], 'units' => $tr['units']];
+                $eligibleCount++;
+                $eligibleUnits += (int) $tr['units'];
+            }
+        }
+        $termGwa = ($isComplete && $gwaRows !== []) ? computeWeightedGWA($gwaRows) : null;
+
+        // Derive standing
+        $standing = pefCcDeriveTermStanding($termGwa, $isComplete && !$isCurrentOrFuture);
+
+        // Determine year level mapping
+        $yearLevel = null;
+        $placementStatus = 'unresolved';
+        $placementLabel = 'Year placement requires evaluator review';
+
+        if ($isRegular) {
+            $derivedYl = $termStartYear - $cohortStartYear + 1;
+            if ($derivedYl >= 1 && $derivedYl <= 4) {
+                $yearLevel = $derivedYl;
+                $placementStatus = 'mapped';
+                $placementLabel = $matrix[$derivedYl]['year_label'];
+            }
+        } else {
+            // Irregular: inspect subject curriculum year levels
+            $subjectYears = [];
+            foreach ($termRows as $tr) {
+                $code = $tr['code'] ?? '';
+                if (isset($catalogYearMap[$code])) {
+                    $subjectYears[$catalogYearMap[$code]] = true;
+                }
+            }
+            if (count($subjectYears) === 1) {
+                $uniqueYl = array_key_first($subjectYears);
+                if ($uniqueYl >= 1 && $uniqueYl <= 4) {
+                    $yearLevel = $uniqueYl;
+                    $placementStatus = 'mapped';
+                    $placementLabel = $matrix[$uniqueYl]['year_label'];
+                }
+            }
+        }
+
+        // Determine column
+        $colKey = match ($sem) {
+            1 => 'sem1',
+            2 => 'sem2',
+            3 => 'sem3',
+            default => 'summer',
+        };
+
+        // Populate matrix ONLY if:
+        // 1. Not current or future
+        // 2. Completed term
+        // 3. Reliably mapped year level
+        // 4. Standing code is 'GS' or 'WS'
+        if (!$isCurrentOrFuture && $isComplete && $yearLevel !== null && in_array($standing['code'], ['GS', 'WS'], true)) {
+            $matrix[$yearLevel][$colKey] = $standing['code'];
+        }
+
+        $displayStanding = match (true) {
+            $isCurrentOrFuture || !$isComplete => 'Pending evaluator review',
+            $placementStatus === 'unresolved' => 'Year placement requires evaluator review',
+            default => $standing['label'],
+        };
+
+        $historyItem = [
+            'school_year' => $year,
+            'semester' => $sem,
+            'label' => $year . ' · ' . pefCcSemesterLabel($sem),
+            'count' => count($termRows),
+            'eligible_count' => $eligibleCount,
+            'eligible_units' => $eligibleUnits,
+            'is_complete' => $isComplete,
+            'is_current' => $isCurrentOrFuture,
+            'gwa' => $termGwa,
+            'gwa_display' => $termGwa !== null ? number_format($termGwa, 2) : 'Pending evaluator review',
+            'standing' => $displayStanding,
+            'standing_code' => $isCurrentOrFuture ? null : $standing['code'],
+            'standing_source' => $isCurrentOrFuture ? 'pending_evaluator_review' : $standing['source'],
+            'policy_version' => 'Student Manual 2025',
+            'is_derived' => $standing['is_derived'],
+            'year_level' => $yearLevel,
+            'year_label' => $yearLevel !== null ? $matrix[$yearLevel]['year_label'] : null,
+            'placement_status' => $placementStatus,
+            'placement_label' => $placementLabel,
+        ];
+        $history[] = $historyItem;
+    }
+
+    // Sort history descending by school year and semester
+    usort($history, static fn(array $a, array $b): int => [(string) $b['school_year'], (int) $b['semester']] <=> [(string) $a['school_year'], (int) $a['semester']]);
+
+    return [
+        'matrix' => array_values($matrix),
+        'history' => $history,
+    ];
 }
 
 function pefCcBuildViewModel(array $context, array $input, array $reference, array $config, ?array $currentTerm = null): PefCcViewModel
@@ -399,12 +675,74 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $errors[] = 'No recorded subjects exist for this completed evaluation term.';
         $fieldErrors['evaluation_year'] = 'Select a recorded completed evaluation term.';
     }
-    $termGwaEligible = false;
-    foreach (pefCcTermChoices($records, $currentTerm) as $choice) {
+    // Find matching choice in pefCcTermChoices
+    $evalChoice = null;
+    $choices = pefCcTermChoices($records, $currentTerm);
+    foreach ($choices as $choice) {
         if ($choice['school_year'] === $planningInput['evaluation_year'] && $choice['semester'] === $planningInput['evaluation_semester']) {
-            $errors = array_merge($errors, $choice['errors']);
-            $termGwaEligible = $choice['gwa_eligible'];
+            $evalChoice = $choice;
+            break;
         }
+    }
+    // Enforce immediate predecessor parity and completion
+    $targetYear = $policy['target_year'] ?? $planningInput['target_year'];
+    $targetSemester = $policy['target_semester'] ?? $planningInput['target_semester'];
+    $requiredPred = is_string($targetYear) && is_int($targetSemester)
+        ? pefCcPredecessorTerm($targetYear, $targetSemester)
+        : null;
+
+    $isPredMatch = ($requiredPred !== null
+        && $planningInput['evaluation_year'] === $requiredPred['school_year']
+        && $planningInput['evaluation_semester'] === $requiredPred['semester']);
+
+    $isPredCurrent = ($requiredPred !== null
+        && pefCcValidYear($currentTerm['school_year'] ?? null) && pefCcSemester($currentTerm['semester'] ?? null) !== null
+        && $requiredPred['school_year'] === $currentTerm['school_year']
+        && $requiredPred['semester'] === pefCcSemester($currentTerm['semester']));
+
+    $predComp = ($requiredPred !== null)
+        ? pefCcTermCompletion($records, $requiredPred['school_year'], $requiredPred['semester'])
+        : ['is_complete' => false, 'reason' => 'missing_records', 'message' => 'The target academic term is invalid.'];
+
+    if ($requiredPred !== null && !$isPredMatch) {
+        $errors[] = 'The evaluation term must be the immediate predecessor ('
+            . $requiredPred['school_year'] . ' ' . pefCcSemesterLabel($requiredPred['semester'])
+            . ') of the target planning term.';
+        $fieldErrors['evaluation_year'] = 'Select the immediate predecessor term.';
+    }
+
+    if ($isPredMatch && $predComp['reason'] === 'missing_records') {
+        $errors[] = 'No recorded subjects exist for the immediate predecessor term ('
+            . $requiredPred['school_year'] . ' ' . pefCcSemesterLabel($requiredPred['semester']) . ').';
+        $fieldErrors['evaluation_year'] = 'No recorded subjects exist for this term.';
+    }
+
+    $isProvisionalCandidate = ($isPredMatch && $isPredCurrent && !$predComp['is_complete']
+        && in_array($predComp['reason'], ['incomplete_grades', 'unresolved_outcomes'], true));
+
+    $isNormalCandidate = ($isPredMatch && $predComp['is_complete']);
+
+    $termGwaEligible = false;
+    if ($evalChoice !== null) {
+        if ($isProvisionalCandidate) {
+            $errors = array_merge($errors, $evalChoice['integrity_errors']);
+            $termGwaEligible = false;
+        } elseif ($isNormalCandidate && $isPredCurrent) {
+            $errors = array_merge($errors, $evalChoice['integrity_errors']);
+            $termGwaEligible = ($evalChoice['integrity_errors'] === []);
+        } else {
+            $errors = array_merge($errors, $evalChoice['errors']);
+            $termGwaEligible = $evalChoice['gwa_eligible'];
+        }
+    }
+
+    if (!$isProvisionalCandidate && $requiredPred !== null && !$predComp['is_complete']) {
+        $msg = 'The immediate predecessor record (' . $requiredPred['school_year'] . ' ' . pefCcSemesterLabel($requiredPred['semester'])
+            . ') is incomplete. Complete grades or academic evaluator review are required before generating the next-semester planning workbook.';
+        if (!in_array($msg, $errors, true)) {
+            $errors[] = $msg;
+        }
+        $fieldErrors['target_year'] = $msg;
     }
     $coverage = ['recorded_count' => count($recorded), 'eligible_count' => 0, 'eligible_units' => 0, 'excluded' => []];
     $gwaRows = [];
@@ -472,14 +810,39 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $fieldErrors = array_replace($fieldErrors, $printErrors);
     }
     $errors = array_values(array_unique($errors));
-    $gwa = $termGwaEligible ? computeWeightedGWA($gwaRows) : null;
+    $isPredComplete = ($requiredPred !== null && ($predComp['is_complete'] ?? false));
+    $mode = match (true) {
+        $errors !== [] => 'invalid',
+        $isProvisionalCandidate => 'provisional',
+        $isPredComplete => 'normal',
+        default => 'invalid',
+    };
+    $exportable = ($errors === []) && in_array($mode, ['normal', 'provisional'], true);
+    $gwa = ($isProvisionalCandidate || !$termGwaEligible) ? null : computeWeightedGWA($gwaRows);
+    $gwaState = match (true) {
+        $isProvisionalCandidate => 'pending',
+        !$termGwaEligible => 'requires_review',
+        $gwa === null => 'unavailable',
+        default => 'available',
+    };
+    $historicalMatrixData = pefCcBuildHistoricalStandingMatrix($records, $identity, $context['catalog'] ?? [], $currentTerm);
+    $history = $historicalMatrixData['history'];
+    $historicalStanding = $historicalMatrixData['matrix'];
+    $evalStanding = ($mode === 'normal' && $gwa !== null) ? pefCcDeriveTermStanding($gwa, true) : ['label' => 'Pending evaluator review', 'code' => null];
+
     return new PefCcViewModel([
+        'mode' => $mode,
         'identity' => $identity,
         'policy' => $policy,
         'evaluation' => ['school_year' => $planningInput['evaluation_year'], 'semester' => $planningInput['evaluation_semester'], 'label' => pefCcSemesterLabel($planningInput['evaluation_semester'])],
         'recorded' => $recordedRows,
         'gwa' => $gwa,
-        'gwa_state' => !$termGwaEligible ? 'requires_review' : ($gwa === null ? 'unavailable' : 'available'),
+        'gwa_state' => $gwaState,
+        'academic_standing' => $evalStanding['label'],
+        'academic_standing_code' => $evalStanding['code'],
+        'predecessor_term' => $requiredPred,
+        'historical_standing' => $historicalStanding,
+        'history' => $history,
         'coverage' => $coverage,
         'planning' => ['target_year' => $planningInput['target_year'], 'target_semester' => $planningInput['target_semester'], 'section' => $planningInput['section'], 'subject_ids' => $planningInput['subject_ids']],
         'proposed' => $proposed,
@@ -489,6 +852,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         'disclosure' => $config['disclosure'], 'prototype_disclosure' => $config['prototype_disclosure'],
         'template_version' => $config['template_version'], 'template_hash' => $config['template_sha256'],
         'print_contract' => $config['printable'],
-        'exportable' => $errors === [], 'errors' => $errors, 'field_errors' => $fieldErrors,
+        'exportable' => $exportable,
+        'errors' => $errors, 'field_errors' => $fieldErrors,
     ]);
 }

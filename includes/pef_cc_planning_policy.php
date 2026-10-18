@@ -1,11 +1,111 @@
 <?php
 declare(strict_types=1);
 
-const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.3';
+const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.4';
 const PEF_CC_SECTION_MESSAGE = 'The suggested section is not available for this planning context. Choose one of the approved section options before previewing or downloading.';
 const PEF_CC_NOMINAL_REVIEW = 'The nominal subject plan could not be resolved from the available curriculum record. Academic evaluator review is required.';
 const PEF_CC_LEGACY_REVIEW = 'This historical curriculum track requires academic evaluator review and is not included in the current Software Development planning workflow.';
 const PEF_CC_TERM_REVIEW = 'The student’s current academic term could not be resolved consistently. Academic evaluator review is required before generating a nominal subject plan.';
+
+if (!function_exists('pefCcSemesterLabel')) {
+    function pefCcSemesterLabel(int $semester): string
+    {
+        return $semester === 1 ? 'First Semester' : 'Second Semester';
+    }
+}
+
+/** Immediate predecessor term of any target term. */
+function pefCcPredecessorTerm(string $targetYear, int $targetSemester): ?array
+{
+    if (!pefCcValidYear($targetYear) || !in_array($targetSemester, [1, 2], true)) {
+        return null;
+    }
+    if ($targetSemester === 2) {
+        return ['school_year' => $targetYear, 'semester' => 1];
+    }
+    $start = (int) substr($targetYear, 0, 4);
+    $end = (int) substr($targetYear, 5, 4);
+    return ['school_year' => ($start - 1) . '-' . ($end - 1), 'semester' => 2];
+}
+
+/** Immediate successor term of any term. */
+function pefCcNextTerm(string $schoolYear, int $semester): ?array
+{
+    if (!pefCcValidYear($schoolYear) || !in_array($semester, [1, 2], true)) {
+        return null;
+    }
+    if ($semester === 1) {
+        return ['school_year' => $schoolYear, 'semester' => 2];
+    }
+    $start = (int) substr($schoolYear, 0, 4);
+    $end = (int) substr($schoolYear, 5, 4);
+    return ['school_year' => ($start + 1) . '-' . ($end + 1), 'semester' => 1];
+}
+
+/**
+ * Term completion and record finality evaluation.
+ * Separates:
+ * A. Record finality: canonical final grade recorded (non-null, non-blank).
+ * B. Passing status: 1.00..4.00 and P pass; 0.00, FA, UD fail; INC is unresolved.
+ * C. Term GWA eligibility: numeric grades calculate weighted GWA; 0.00 and textual outcomes excluded.
+ * D. GS/WS standing: unverified institutional calculation; displayed as pending evaluator review.
+ * E. Next-term planning eligibility: immediate predecessor must be fully complete.
+ */
+function pefCcTermCompletion(array $records, string $schoolYear, int $semester): array
+{
+    $termRows = [];
+    foreach ($records as $row) {
+        if (($row['school_year'] ?? null) === $schoolYear && pefCcSemester($row['semester'] ?? null) === $semester) {
+            $termRows[] = $row;
+        }
+    }
+    if ($termRows === []) {
+        return [
+            'is_complete' => false,
+            'reason' => 'missing_records',
+            'message' => 'No recorded subjects exist for this term.',
+            'rows' => [],
+        ];
+    }
+    $incomplete = [];
+    $unresolved = [];
+    foreach ($termRows as $row) {
+        $grade = $row['grade'] ?? null;
+        if ($grade === null) {
+            $incomplete[] = 'null';
+        } elseif (is_string($grade) && trim($grade) === '') {
+            $incomplete[] = 'blank';
+        } elseif (isIncompleteFinalGrade($grade)) {
+            $unresolved[] = 'inc';
+        } elseif (canonicalizeFinalGrade($grade) === null) {
+            $unresolved[] = 'unrecognized';
+        } elseif (!pefCcUsableUnits($row['units'] ?? null)) {
+            $unresolved[] = 'invalid_units';
+        }
+    }
+    if ($incomplete !== []) {
+        return [
+            'is_complete' => false,
+            'reason' => 'incomplete_grades',
+            'message' => 'The term contains incomplete or unrecorded final grades.',
+            'rows' => $termRows,
+        ];
+    }
+    if ($unresolved !== []) {
+        return [
+            'is_complete' => false,
+            'reason' => 'unresolved_outcomes',
+            'message' => 'The term contains unresolved Incomplete (INC) grades or unconfirmed outcomes.',
+            'rows' => $termRows,
+        ];
+    }
+    return [
+        'is_complete' => true,
+        'reason' => 'completed',
+        'message' => 'Term records are complete.',
+        'rows' => $termRows,
+    ];
+}
 
 /** Trusted local configuration only. Never accept an upload or request path. */
 function pefCcCurriculum(): array
@@ -87,6 +187,10 @@ function pefCcSectionIsApproved(array $policy, mixed $section, ?array $planning 
 function pefCcInitialPlanningInputs(array $context, array $input, array $currentTerm): array
 {
     $policy = pefCcPlanningPolicy($context, $input, $currentTerm);
+    if ($policy['predecessor_term'] !== null) {
+        $input['evaluation_year'] = (string) $policy['predecessor_term']['school_year'];
+        $input['evaluation_semester'] = (string) $policy['predecessor_term']['semester'];
+    }
     if ($policy['mode'] === 'regular') {
         // Keep syntactically valid input when binding is unavailable so the
         // model can still show historical grades/GWA. Policy blocks export;
@@ -215,7 +319,9 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
         'recorded_year_level' => $identity['year_level'] ?? null,
         'recorded_status' => $identity['status'] ?? null,
         'recorded_lifecycle' => $identity['record_status'] ?? null,
-        'profile_term' => null, 'horizon' => null, 'target_year_level' => null, 'target_year' => null, 'target_semester' => null,
+        'profile_term' => null, 'predecessor_term' => null, 'predecessor_complete' => false, 'predecessor_status' => null,
+        'provisional_allowed' => false, 'provisional_warning' => '', 'incomplete_warning' => '',
+        'horizon' => null, 'target_year_level' => null, 'target_year' => null, 'target_semester' => null,
         'section_options' => [], 'section_evidence' => [], 'section_default' => '', 'nominal' => [], 'nominal_ids' => [],
         'section_notice' => 'Available section assignments require evaluator confirmation.',
         'disclosure' => 'Suggested sections are planning preferences and remain subject to availability and evaluator review.',
@@ -243,6 +349,30 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
         $policy['status'] = 'manual_review_required';
         $policy['target_year'] = $input['target_year'] ?? null;
         $policy['target_semester'] = pefCcSemester($input['target_semester'] ?? null);
+        $pred = pefCcValidYear($policy['target_year']) && $policy['target_semester'] !== null
+            ? pefCcPredecessorTerm($policy['target_year'], $policy['target_semester'])
+            : null;
+        $policy['predecessor_term'] = $pred;
+        if ($pred !== null) {
+            $predCompletion = pefCcTermCompletion($context['records'] ?? [], $pred['school_year'], $pred['semester']);
+            $policy['predecessor_complete'] = $predCompletion['is_complete'];
+            $policy['predecessor_status'] = $predCompletion;
+            if (!$predCompletion['is_complete']) {
+                if ($predCompletion['reason'] === 'missing_records') {
+                    $policy['status'] = 'incomplete_term_blocked';
+                    $policy['incomplete_warning'] = 'No recorded subjects exist for the immediate predecessor term (' . $pred['school_year'] . ' ' . pefCcSemesterLabel($pred['semester']) . ').';
+                    $fail($policy['incomplete_warning'], 'target_year');
+                } else {
+                    $policy['status'] = 'incomplete_term_provisional';
+                    $policy['provisional_allowed'] = true;
+                    $targetLabel = 'SY ' . str_replace('-', '–', (string) $policy['target_year']) . ' ' . pefCcSemesterLabel((int) $policy['target_semester']);
+                    $predLabel = 'SY ' . str_replace('-', '–', (string) $pred['school_year']) . ' ' . pefCcSemesterLabel((int) $pred['semester']);
+                    $policy['provisional_warning'] = 'You may preview and download a provisional planning workbook for ' . $targetLabel
+                        . '. The current ' . $predLabel . ' record is incomplete, so grades, GWA, proposed subjects, and section may change after final results are recorded and academic evaluator review is completed.';
+                    $policy['incomplete_warning'] = $policy['provisional_warning'];
+                }
+            }
+        }
         $policy['section_options'] = ['']; // Existing optional, unassigned planning preference.
         $recordedSection = $identity['section'] ?? null;
         if ($recordedSection === 'IT-IRREG') {
@@ -303,6 +433,32 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     $policy['target_year'] = $targetYear;
     $policy['target_semester'] = $targetSemester;
     $policy['target_year_level'] = $targetNominal;
+
+    $pred = pefCcPredecessorTerm($targetYear, $targetSemester);
+    $policy['predecessor_term'] = $pred;
+    $predCompletion = pefCcTermCompletion($context['records'] ?? [], $pred['school_year'], $pred['semester']);
+    $policy['predecessor_complete'] = $predCompletion['is_complete'];
+    $policy['predecessor_status'] = $predCompletion;
+    if (!$predCompletion['is_complete']) {
+        if ($predCompletion['reason'] === 'missing_records') {
+            $policy['status'] = 'incomplete_term_blocked';
+            $policy['incomplete_warning'] = 'No recorded subjects exist for the immediate predecessor term (' . $pred['school_year'] . ' ' . pefCcSemesterLabel($pred['semester']) . ').';
+            $fail($policy['incomplete_warning'], 'target_year');
+            $policy['section_notice'] = 'Enrolment planning is not yet available because the predecessor semester record is missing.';
+        } else {
+            $policy['status'] = 'incomplete_term_provisional';
+            $policy['provisional_allowed'] = true;
+            $targetLabel = 'SY ' . str_replace('-', '–', (string) $targetYear) . ' ' . pefCcSemesterLabel((int) $targetSemester);
+            $predLabel = 'SY ' . str_replace('-', '–', (string) $anchor['school_year']) . ' ' . pefCcSemesterLabel((int) $anchor['semester']);
+            $policy['provisional_warning'] = 'You may preview and download a provisional planning workbook for ' . $targetLabel
+                . '. The current ' . $predLabel . ' record is incomplete, so grades, GWA, proposed subjects, and section may change after final results are recorded and academic evaluator review is completed.';
+            $policy['incomplete_warning'] = $policy['provisional_warning'];
+            $policy['section_notice'] = ($policy['horizon'] === 'same_school_year')
+                ? 'Your current section is retained for the next semester within the same school year. Proposed section remains subject to academic evaluator review.'
+                : 'Section suggestions remain subject to availability and academic evaluator review.';
+        }
+    }
+
     if ($targetYear !== ($input['target_year'] ?? null)) {
         $fail('The target school year is determined by your verified current academic term. Refresh the nominal plan.', 'target_year');
     }
@@ -379,6 +535,8 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
             $fail('The selected section is outside the available planning range. Choose the current block, one block below, or one block above for the next school year.', 'section');
         }
     }
-    $policy['status'] = $policy['errors'] === [] ? 'resolved' : 'evaluator_review_required';
+    if (!in_array($policy['status'], ['incomplete_term_blocked', 'incomplete_term_provisional'], true)) {
+        $policy['status'] = $policy['errors'] === [] ? 'resolved' : 'evaluator_review_required';
+    }
     return $policy;
 }

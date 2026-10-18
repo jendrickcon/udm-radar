@@ -78,6 +78,19 @@ function pefCcDownloadError(int $status, string $message, array $details = []): 
     exit;
 }
 
+// Section 10: Fail closed on obsolete template
+$activeReviewedContract = pefCcTemplateContract('v0.2-r6');
+if (($config['template_version'] ?? '') !== 'v0.2-r6'
+    || !hash_equals($activeReviewedContract['sha256'], (string) ($config['template_sha256'] ?? ''))) {
+    error_log(sprintf(
+        'PEF/CC export rejected obsolete template: expected v0.2-r6 (%s), resolved %s (%s)',
+        $activeReviewedContract['sha256'],
+        $config['template_version'] ?? 'null',
+        $config['template_sha256'] ?? 'null'
+    ));
+    pefCcDownloadError(409, 'The planning workbook template changed. Refresh the preview before downloading.');
+}
+
 /** Never depend on a possibly absent Content-Length for the request budget. */
 function pefCcDownloadBodyWithinLimit(int $limit): bool
 {
@@ -167,7 +180,7 @@ try {
         pefCcDownloadError(409, 'Your planning records or choices changed. Refresh the preview before downloading.');
     }
     if (!$model->data['exportable'] || !pefCcVerifySnapshot($_POST['preview'], $model, $signingKey, (int) $user['id'], $sessionBinding, $config)) {
-        pefCcDownloadError(409, 'Your preview changed, expired, or could not be verified. Refresh it before downloading.');
+        pefCcDownloadError(409, 'Your academic records or planning details changed after preview. Refresh the preview before downloading.');
     }
     $output = pefCcGenerateWorkbook($model, $config);
     if (!is_file($output['path']) || !is_readable($output['path']) || filesize($output['path']) !== $output['bytes']

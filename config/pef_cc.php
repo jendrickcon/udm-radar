@@ -5,7 +5,7 @@ declare(strict_types=1);
 function pefCcConfig(array $overrides = []): array
 {
     $root = getenv('PEF_CC_PRIVATE_ROOT') ?: 'C:/ProgramData/UDM-RADAR/private';
-    $version = getenv('PEF_CC_TEMPLATE_VERSION') ?: 'v0.2-r3';
+    $version = getenv('PEF_CC_TEMPLATE_VERSION') ?: 'v0.2-r6';
     $contract = pefCcTemplateContract($version);
     $config = [
         'template_version' => $version,
@@ -35,10 +35,16 @@ function pefCcConfig(array $overrides = []): array
         'cleanup_age_seconds' => 600,
         'disclosure' => 'Student-prepared enrolment planning copy based on records available in UDM-RADAR. Proposed subjects require review by the designated academic evaluator before submission.',
         'prototype_disclosure' => 'Prototype performance on synthetic academic records',
+        'signatories' => [
+            'program_head_name' => getenv('PEF_CC_PROGRAM_HEAD_NAME') ?: 'MS. CHRISTINA P. ATAL',
+            'program_head_title' => getenv('PEF_CC_PROGRAM_HEAD_TITLE') ?: 'Program Chairperson',
+            'dean_name' => getenv('PEF_CC_DEAN_NAME') ?: 'MR. FRANCIS ARLANDO L. ATIENZA',
+            'dean_title' => getenv('PEF_CC_DEAN_TITLE') ?: 'Dean',
+        ],
     ];
     // Only trusted deployment/test callers can supply overrides. Request data
     // never enters this function; academic capacities/hash/disclosures are fixed.
-    $allowed = ['private_root', 'template_path', 'temp_path', 'web_roots', 'generation_timeout', 'max_output_bytes', 'cleanup_age_seconds'];
+    $allowed = ['private_root', 'template_path', 'temp_path', 'web_roots', 'generation_timeout', 'max_output_bytes', 'cleanup_age_seconds', 'signatories', 'template_version', 'template_sha256'];
     if (array_diff(array_keys($overrides), $allowed)) {
         throw new InvalidArgumentException('Unsupported PEF/CC configuration key.');
     }
@@ -53,25 +59,28 @@ function pefCcConfig(array $overrides = []): array
     return $config;
 }
 
-/** Immutable, version-specific integrity facts. r3 is an unactivated review candidate. */
+/** Immutable, version-specific integrity facts. */
 function pefCcTemplateContract(string $version): array
 {
     return match ($version) {
-        'v0.2-r2' => ['sha256' => 'c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02', 'section_height' => 96.0, 'section_wrap' => true],
-        'v0.2-r3' => ['sha256' => 'c26f8e5d8caf65ab8d061bd87484970b899670a27551d1c1662e98de6ad6df63', 'section_height' => 19.5, 'section_wrap' => false],
+        'v0.2-r2' => ['sha256' => 'c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02', 'section_height' => 96.0, 'section_wrap' => true, 'print_area' => 'A1:G80'],
+        'v0.2-r3' => ['sha256' => 'c26f8e5d8caf65ab8d061bd87484970b899670a27551d1c1662e98de6ad6df63', 'section_height' => 19.5, 'section_wrap' => false, 'print_area' => 'A1:G80'],
+        'v0.2-r4' => ['sha256' => 'f14e66d99d570e8547bdb0059b765c1efaafdf0adeea8c9389cb33ff66d740a0', 'section_height' => 19.5, 'section_wrap' => false, 'print_area' => 'A1:G71'],
+        'v0.2-r5' => ['sha256' => '23d3bcaeda7df9f8969721b695f5141244a8c78da380052501fa9542bedb370b', 'section_height' => 19.5, 'section_wrap' => false, 'print_area' => 'A1:G71'],
+        'v0.2-r6' => ['sha256' => '5941b7b36c5bbee585f32162397de2cd18e0279171cdd6470578e389b18e43ec', 'section_height' => 19.5, 'section_wrap' => false, 'print_area' => 'A1:G71', 'cc_print_area' => 'A1:O70'],
         default => throw new RuntimeException('The approved planning template is unavailable.'),
     };
 }
 
-/** Explicit CLI-only owner review. HTTP configuration continues to use r2. */
-function pefCcReviewCandidateConfig(array $overrides = []): array
+/** Explicit CLI-only owner review helper. */
+function pefCcReviewCandidateConfig(array $overrides = [], string $version = 'v0.2-r6'): array
 {
     if (PHP_SAPI !== 'cli') {
         throw new RuntimeException('The private template candidate is not activated.');
     }
     $config = pefCcConfig($overrides);
-    $config['template_version'] = 'v0.2-r3';
-    $config['template_sha256'] = pefCcTemplateContract('v0.2-r3')['sha256'];
-    $config['template_path'] = $overrides['template_path'] ?? $config['private_root'] . '/templates/pef-cc/v0.2-r3/template.xlsx';
+    $config['template_version'] = $version;
+    $config['template_sha256'] = pefCcTemplateContract($version)['sha256'];
+    $config['template_path'] = $overrides['template_path'] ?? $config['private_root'] . '/templates/pef-cc/' . $version . '/template.xlsx';
     return $config;
 }

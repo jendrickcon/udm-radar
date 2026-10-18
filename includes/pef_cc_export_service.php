@@ -169,16 +169,55 @@ function pefCcValidateTemplate(array $config): array
                 throw new RuntimeException('The planning template print contract does not match.');
             }
         }
-        if ($pef->getPageSetup()->getPrintArea() !== 'A1:G80' || $cc->getPageSetup()->getPrintArea() !== 'A1:O73'
-            || count($pef->getMergeCells()) !== 65 || count($cc->getMergeCells()) !== 22
+        $expectedPrintArea = $contract['print_area'] ?? 'A1:G80';
+        $expectedPefMerges = in_array($config['template_version'], ['v0.2-r5', 'v0.2-r6'], true) ? 61 : 65;
+        $expectedCcPrintArea = $contract['cc_print_area'] ?? (($config['template_version'] === 'v0.2-r6') ? 'A1:O70' : 'A1:O73');
+        $expectedCcMerges = ($config['template_version'] === 'v0.2-r6') ? 18 : 22;
+        if ($pef->getPageSetup()->getPrintArea() !== $expectedPrintArea || $cc->getPageSetup()->getPrintArea() !== $expectedCcPrintArea
+            || count($pef->getMergeCells()) !== $expectedPefMerges || count($cc->getMergeCells()) !== $expectedCcMerges
             || count($pef->getDataValidationCollection()) !== 1 || count($cc->getDataValidationCollection()) !== 4
-            || (string) $pef->getCell('A73')->getValue() !== $config['disclosure']
-            || (string) $cc->getCell('A71')->getValue() !== $config['disclosure']
-            || (string) $pef->getCell('A79')->getValue() !== $config['prototype_disclosure']
-            || (string) $cc->getCell('A73')->getValue() !== $config['prototype_disclosure']
             || (string) $cc->getCell('A3')->getValue() !== '2022-2023 Curriculum Checklist - REFERENCE ONLY'
             || (string) $cc->getCell('D51')->getValue() !== "ITE252\nITE353") {
             throw new RuntimeException('The planning template structure does not match.');
+        }
+        if ($config['template_version'] === 'v0.2-r6') {
+            if ($cc->getCell('A67')->getValue() !== null || $cc->getCell('A69')->getValue() !== null
+                || $cc->getCell('A71')->getValue() !== null || $cc->getCell('A73')->getValue() !== null
+                || (string) $cc->getCell('B66')->getValue() !== 'Prepared by'
+                || (string) $cc->getCell('J66')->getValue() !== 'Noted by'
+                || $cc->getCell('B69')->getValue() !== null
+                || (string) $cc->getCell('B70')->getValue() !== 'Evaluator'
+                || (string) $cc->getCell('J70')->getValue() !== 'Dean'
+                || (string) $cc->getCell('J69')->getValue() !== ($config['signatories']['dean_name'] ?? 'MR. FRANCIS ARLANDO L. ATIENZA')) {
+                throw new RuntimeException('The planning template structure does not match.');
+            }
+        } else {
+            if ((string) $cc->getCell('A71')->getValue() !== $config['disclosure']
+                || (string) $cc->getCell('A73')->getValue() !== $config['prototype_disclosure']) {
+                throw new RuntimeException('The planning template structure does not match.');
+            }
+        }
+        if (in_array($config['template_version'], ['v0.2-r4', 'v0.2-r5', 'v0.2-r6'], true)) {
+            if ($pef->getCell('A73')->getValue() !== null || $pef->getCell('A79')->getValue() !== null
+                || (string) $pef->getCell('B42')->getValue() !== 'First Year'
+                || (string) $pef->getCell('B45')->getValue() !== 'Fourth Year'
+                || (string) $pef->getCell('B68')->getValue() !== 'MS. CHRISTINA P. ATAL'
+                || (string) $pef->getCell('B70')->getValue() !== 'MR. FRANCIS ARLANDO L. ATIENZA'
+                || (string) $pef->getCell('D69')->getValue() !== 'Signature'
+                || (string) $pef->getCell('G69')->getValue() !== 'Date'
+                || (string) $pef->getCell('D71')->getValue() !== 'Signature'
+                || (string) $pef->getCell('G71')->getValue() !== 'Date'
+                || $pef->getCell('D68')->getValue() !== null
+                || $pef->getCell('G68')->getValue() !== null
+                || $pef->getCell('D70')->getValue() !== null
+                || $pef->getCell('G70')->getValue() !== null) {
+                throw new RuntimeException('The planning template structure does not match.');
+            }
+        } else {
+            if ((string) $pef->getCell('A73')->getValue() !== $config['disclosure']
+                || (string) $pef->getCell('A79')->getValue() !== $config['prototype_disclosure']) {
+                throw new RuntimeException('The planning template structure does not match.');
+            }
         }
         $alignment = $pef->getStyle('A51')->getAlignment();
         if ($alignment->getWrapText() !== $contract['section_wrap']
@@ -194,7 +233,10 @@ function pefCcValidateTemplate(array $config): array
                 throw new RuntimeException('The planning subject row capacity does not match.');
             }
         }
-        foreach (['A10:G10', 'B23:D23', 'B35:D35', 'B54:F54', 'B65:F65', 'A73:G75', 'A79:G80'] as $merge) {
+        $requiredMerges = in_array($config['template_version'], ['v0.2-r5', 'v0.2-r6'], true)
+            ? ['A10:G10', 'B23:D23', 'B35:D35', 'B54:F54', 'B65:F65']
+            : ['A10:G10', 'B23:D23', 'B35:D35', 'B54:F54', 'B65:F65', 'A73:G75', 'A79:G80'];
+        foreach ($requiredMerges as $merge) {
             if (!in_array($merge, $pef->getMergeCells(), true)) {
                 throw new RuntimeException('The planning template merge contract does not match.');
             }
@@ -257,7 +299,8 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         || ($data['proposed_count'] ?? -1) !== count($data['proposed'] ?? [])
         || ($data['template_hash'] ?? null) !== $config['template_sha256']
         || ($data['template_version'] ?? null) !== $config['template_version']
-        || ($data['print_contract'] ?? null) !== $config['printable']) {
+        || ($data['print_contract'] ?? null) !== $config['printable']
+        || !in_array($data['mode'] ?? null, ['normal', 'provisional'], true)) {
         throw new RuntimeException('Refresh a valid planning preview before downloading.');
     }
     if (($data['policy']['version'] ?? null) !== PEF_CC_PLANNING_POLICY_VERSION
@@ -325,8 +368,9 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
             } elseif ($grade !== null && is_numeric($grade)) {
                 $grade = (float) $grade;
             }
+            $outcome = $row === null ? null : ($row['outcome'] === 'unavailable' ? null : ucfirst($row['outcome']));
             foreach (['A' => $row['code'] ?? null, 'B' => $row['title'] ?? null, 'E' => isset($row['units']) ? (float) $row['units'] : null,
-                'F' => $grade, 'G' => $row === null ? null : ucfirst($row['outcome'])] as $column => $value) {
+                'F' => $grade, 'G' => $outcome] as $column => $value) {
                 pefCcWriteCell($pef, $column . (23 + $slot), $value);
             }
         }
@@ -336,21 +380,111 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
                 pefCcWriteCell($pef, $column . (54 + $slot), $value);
             }
         }
-        // Withheld institutional fields stay genuinely blank, even if a future
-        // accidental template population is introduced (hash still must match).
-        foreach (['C38', 'B68', 'B70', 'G68', 'G70'] as $address) { pefCcWriteCell($pef, $address, null); }
+        // Evaluation-term official academic standing in C38:
+        // In provisional mode or when withheld, C38 remains strictly blank.
+        pefCcWriteCell($pef, 'C38', null);
+
+        // Previous Academic Standing matrix (Rows 42-45, Columns C-F)
+        // Clear cells C42:F45 first to guarantee unpopulated cells remain blank
         for ($r = 42; $r <= 45; $r++) {
-            foreach (['C', 'D', 'E', 'F'] as $c) { pefCcWriteCell($pef, $c . $r, null); }
+            foreach (['C', 'D', 'E', 'F'] as $c) {
+                pefCcWriteCell($pef, $c . $r, null);
+            }
         }
-        foreach (range(68, 71) as $r) {
+        // Year labels First through Fourth Year in B42:B45
+        pefCcWriteCell($pef, 'B42', 'First Year');
+        pefCcWriteCell($pef, 'B43', 'Second Year');
+        pefCcWriteCell($pef, 'B44', 'Third Year');
+        pefCcWriteCell($pef, 'B45', 'Fourth Year');
+
+        // Populate verified historical standing from model data
+        $matrixRowMap = [1 => 42, 2 => 43, 3 => 44, 4 => 45];
+        $matrixColMap = ['sem1' => 'C', 'sem2' => 'D', 'sem3' => 'E', 'summer' => 'F'];
+
+        foreach ($data['historical_standing'] ?? [] as $row) {
+            $yl = (int) ($row['year_level'] ?? 0);
+            if (!isset($matrixRowMap[$yl])) {
+                continue;
+            }
+            $targetRow = $matrixRowMap[$yl];
+            foreach ($matrixColMap as $key => $colLetter) {
+                $val = $row[$key] ?? null;
+                // Only write verified institutional codes 'GS' or 'WS'
+                // Numeric GWA, pending statuses, and missing terms NEVER write to matrix cells
+                if ($val === 'GS' || $val === 'WS') {
+                    $cellAddress = $colLetter . $targetRow;
+                    pefCcWriteCell($pef, $cellAddress, $val);
+                    $pef->getStyle($cellAddress)->getFont()->setName('Arial Narrow')->setSize(9);
+                    $pef->getStyle($cellAddress)->getAlignment()
+                        ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                        ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+                }
+            }
+        }
+
+        // Configured signatories in B68 and B70, with titles in B69 and B71
+        $signatories = $config['signatories'] ?? [];
+        $progHead = $signatories['program_head_name'] ?? 'MS. CHRISTINA P. ATAL';
+        $progHeadTitle = $signatories['program_head_title'] ?? 'Program Chairperson';
+        $dean = $signatories['dean_name'] ?? 'MR. FRANCIS ARLANDO L. ATIENZA';
+        $deanTitle = $signatories['dean_title'] ?? 'Dean';
+
+        pefCcWriteCell($pef, 'B68', $progHead);
+        pefCcWriteCell($pef, 'B69', $progHeadTitle);
+        pefCcWriteCell($pef, 'B70', $dean);
+        pefCcWriteCell($pef, 'B71', $deanTitle);
+
+        // Blank signature and date spaces remain strictly unpopulated:
+        // Signature spaces D68:F68 and D70:F70, date spaces G68 and G70
+        foreach ([68, 70] as $r) {
             foreach (['D', 'E', 'F'] as $c) { pefCcWriteCell($pef, $c . $r, null); }
+            pefCcWriteCell($pef, 'G' . $r, null);
         }
-        $coverage = $data['coverage'];
-        $excluded = [];
-        $reasonLabels = ['numeric_zero' => 'zero', 'textual_status' => 'status', 'invalid_units' => 'units', 'unsupported_value' => 'unsupported', 'inc' => 'INC'];
-        foreach ($coverage['excluded'] as $reason => $count) { $excluded[] = ($reasonLabels[$reason] ?? $reason) . ': ' . $count; }
-        pefCcWriteCell($pef, 'A78', 'Eligible grades: ' . $coverage['eligible_count'] . '/' . $coverage['recorded_count'] . '; units: ' . $coverage['eligible_units']
-            . '; excluded: ' . ($excluded === [] ? 'none' : implode(', ', $excluded)) . '.');
+        // Signature and date labels in rows 69 and 71
+        pefCcWriteCell($pef, 'D69', 'Signature');
+        pefCcWriteCell($pef, 'G69', 'Date');
+        pefCcWriteCell($pef, 'D71', 'Signature');
+        pefCcWriteCell($pef, 'G71', 'Date');
+
+        // Unconditionally clear below-form rows 73-85 and unmerge any legacy merges in rows 72-85
+        $merges = $pef->getMergeCells();
+        foreach ($merges as $mergeRange) {
+            if (preg_match('/[A-G](7[2-9]|8[0-5])/', $mergeRange)) {
+                $pef->unmergeCells($mergeRange);
+            }
+        }
+        for ($r = 73; $r <= 85; $r++) {
+            foreach (range('A', 'G') as $c) {
+                pefCcWriteCell($pef, $c . $r, null);
+            }
+        }
+
+        // Apply on-sheet red notice and dynamic print area by mode
+        if (($data['mode'] ?? '') === 'provisional') {
+            $pef->mergeCells('A73:G73');
+            pefCcWriteCell($pef, 'A73', 'PROVISIONAL PLANNING COPY');
+            $pef->getStyle('A73')->getFont()->setName('Arial Narrow')->setSize(10)->setBold(true)->getColor()->setARGB('FFFF0000');
+            $pef->getStyle('A73')->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+            $pef->mergeCells('A74:G75');
+            pefCcWriteCell($pef, 'A74', "Current-semester grades are incomplete. The proposed subjects and section require academic evaluator review and may change after final grades are recorded.");
+            $pef->getStyle('A74')->getFont()->setName('Arial Narrow')->setSize(9)->setItalic(true)->getColor()->setARGB('FFFF0000');
+            $pef->getStyle('A74')->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+                ->setWrapText(true);
+
+            $pef->getPageSetup()->setPrintArea('A1:G75');
+        } else {
+            $pef->getPageSetup()->setPrintArea('A1:G71');
+        }
+
+        // Odd footer remains strictly empty in both Normal and Provisional modes
+        $pef->getHeaderFooter()->setOddFooter('');
+        $pef->getHeaderFooter()->setEvenFooter('');
+        $pef->getHeaderFooter()->setFirstFooter('');
         pefCcWriteCell($cc, 'B1', $data['identity']['name']);
         // The blank v0.1 template says REFERENCE ONLY. The generated copy states
         // the owner's exact applicability label in this fixed title destination.
@@ -358,16 +492,78 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         if (count($data['cc']['rows']) !== count($reference['rows']) || $data['cc']['label'] !== 'Reference / Requires Review') {
             throw new RuntimeException('The checklist reference does not match the preview.');
         }
+        // Clear target Grade, Remarks, and Status cells across all curriculum row bands
+        foreach ([[7, 15], [21, 29], [35, 42], [48, 53]] as [$first, $last]) {
+            foreach (range($first, $last) as $row) {
+                pefCcWriteCell($cc, 'E' . $row, null);
+                pefCcWriteCell($cc, 'F' . $row, null);
+                pefCcWriteCell($cc, 'G' . $row, null);
+                pefCcWriteCell($cc, 'M' . $row, null);
+                pefCcWriteCell($cc, 'N' . $row, null);
+                pefCcWriteCell($cc, 'O' . $row, null);
+            }
+        }
         foreach ($reference['rows'] as $index => $ref) {
             $annotation = $data['cc']['rows'][$index];
-            if (($annotation['code'] ?? null) !== $ref['code'] || !in_array($annotation['state'] ?? null, ['', 'CMP', 'FAIL', 'INC', 'CUR', 'NA', 'REVIEW'], true)) {
+            if (($annotation['code'] ?? null) !== $ref['code'] || !in_array($annotation['state'] ?? null, ['', 'CMP', 'FAIL', 'INC', 'CUR', 'NA', 'REVIEW', 'DROPPED'], true)) {
                 throw new RuntimeException('The checklist reference does not match the preview.');
             }
             // Only the trusted template supplies these destinations.
-            pefCcWriteCell($cc, $ref['grade_cell'], $annotation['grade']);
-            pefCcWriteCell($cc, $ref['remark_cell'], null);
-            pefCcWriteCell($cc, $ref['status_cell'], $annotation['state'] === '' ? null : $annotation['state']);
+            $gradeVal = $annotation['grade_display'] ?? $annotation['grade'] ?? null;
+            pefCcWriteCell($cc, $ref['grade_cell'], $gradeVal);
+            pefCcWriteCell($cc, $ref['remark_cell'], $annotation['remarks'] ?? null);
+            pefCcWriteCell($cc, $ref['status_cell'], $annotation['status'] ?? null);
         }
+        // Section 9 Defensive Cleanup: Unmerge obsolete commentary merges intersecting rows 67-73 when present
+        $obsoleteCcMerges = ['A67:O68', 'A69:O70', 'A71:O72', 'A73:O73'];
+        foreach ($obsoleteCcMerges as $m) {
+            if (in_array($m, $cc->getMergeCells(), true)) {
+                $cc->unmergeCells($m);
+            }
+        }
+        // Defensively clear rows 67-75 outside of rebuilt signatory cells
+        for ($r = 67; $r <= 75; $r++) {
+            for ($col = 'A'; $col !== 'P'; $col++) {
+                $cell = $cc->getCell($col . $r);
+                $cell->setValue(null);
+                $cell->getStyle()->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE);
+                $cell->getStyle()->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE);
+                $cell->getStyle()->getBorders()->getLeft()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE);
+                $cell->getStyle()->getBorders()->getRight()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE);
+            }
+        }
+        // Rebuild approved signatory cells
+        pefCcWriteCell($cc, 'B66', 'Prepared by');
+        $cc->getStyle('B66')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(false);
+        pefCcWriteCell($cc, 'J66', 'Noted by');
+        $cc->getStyle('J66')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(false);
+
+        pefCcWriteCell($cc, 'B69', null);
+        $cc->getStyle('B69')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(false);
+        $cc->getStyle('B69')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+        pefCcWriteCell($cc, 'J69', $dean);
+        $cc->getStyle('J69')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(true);
+        $cc->getStyle('J69')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+        pefCcWriteCell($cc, 'K69', null);
+        $cc->getStyle('K69')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+        pefCcWriteCell($cc, 'B70', 'Evaluator');
+        $cc->getStyle('B70')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(false);
+
+        pefCcWriteCell($cc, 'J70', $deanTitle);
+        $cc->getStyle('J70')->getFont()->setName('Arial Narrow')->setSize(15)->setBold(false);
+
+        // Row heights
+        $cc->getRowDimension(66)->setRowHeight(17.25);
+        $cc->getRowDimension(67)->setRowHeight(13.5);
+        $cc->getRowDimension(68)->setRowHeight(13.5);
+        $cc->getRowDimension(69)->setRowHeight(18.75);
+        $cc->getRowDimension(70)->setRowHeight(18.75);
+
+        // CC Print Area set to A1:O70
+        $cc->getPageSetup()->setPrintArea('A1:O70');
         $checkDeadline();
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book);
         $writer->setPreCalculateFormulas(true);

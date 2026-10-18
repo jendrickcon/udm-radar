@@ -5,8 +5,10 @@ require_once dirname(__DIR__,2).'/config/pef_cc.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
 $config=pefTestConfig();$now=['school_year'=>'2026-2027','semester'=>1];
 $build=fn(array $c,array $i=[])=>pefCcBuildViewModel($c,pefTestInputs($i),pefTestReference(),$config,$now)->data;
-$base=pefTestContext();$m=$build($base);
-pefTestCheck($m['exportable']===true,'Valid completed-term model exports without curriculum mapping');
+$base=pefTestContext(3,['3.00','INC','0.00']);$m=$build($base);
+$complete=pefTestContext(3,['3.00','3.00','3.00']);$cm=$build($complete);
+pefTestCheck($cm['exportable']===true,'Valid completed-term model exports without curriculum mapping');
+pefTestCheck(!$m['exportable'],'Unresolved INC in evaluation term blocks export');
 pefTestCheck($m['gwa']===3.0,'Term GWA excludes INC and recorded numeric zero');
 pefTestCheck($m['recorded_count']===3 && count($m['recorded'])===3,'All records retained');
 pefTestCheck($m['coverage']['eligible_count']===1 && $m['coverage']['eligible_units']===3,'Numeric grade and unit coverage agrees');
@@ -24,26 +26,26 @@ $c=pefTestContext(13,['1.00']);$c['records'][12]['grade']='4.00';$d=$build($c);
 pefTestCheck($d['exportable'] && count($d['recorded'])===13 && $d['gwa']===computeWeightedGWA($c['records']),'All thirteen records contribute through canonical helper');
 $d=$build(pefTestContext(14));pefTestCheck(!$d['exportable']&&count($d['recorded'])===14,'Fourteen evaluation rows rejected without truncation');
 $d=$build(pefTestContext(0));pefTestCheck(!$d['exportable'],'No selected-term records blocks PEF');
-$d=$build($base,['subject_ids'=>range(1,12)]);pefTestCheck($d['exportable']&&$d['proposed_count']===12,'Twelve proposed rows permitted');
-try{$d=$build($base,['subject_ids'=>range(1,13)]);pefTestCheck(!$d['exportable']&&$d['proposed_count']===13,'Thirteen proposed rows blocked, never truncated');}
+$d=$build($complete,['subject_ids'=>range(1,12)]);pefTestCheck($d['exportable']&&$d['proposed_count']===12,'Twelve proposed rows permitted');
+try{$d=$build($complete,['subject_ids'=>range(1,13)]);pefTestCheck(!$d['exportable']&&$d['proposed_count']===13,'Thirteen proposed rows blocked, never truncated');}
 catch(PefCcValidationException $e){pefTestCheck(true,'Thirteen proposed rows visibly rejected');}
 foreach([['subject_ids'=>[1,1]],['subject_ids'=>[999999]],['subject_ids'=>['1 OR 1=1']],['subject_ids'=>[0]],['subject_ids'=>[-1]],['subject_ids'=>[[1]]],['subject_ids'=>'1'],
  ['target_year'=>'2025-2027'],['target_year'=>'2025/2026'],['target_semester'=>3],['evaluation_semester'=>0],
  ['section'=>"A\tB"],['section'=>"A\rB"],['section'=>"A\nB"],['section'=>"A\r\nB"],['section'=>"A\x01B"],['section'=>str_repeat('界',97)],['section'=>['nested']],['target_year'=>['2025-2026']],
  ['student_id'=>1],['gwa'=>4],['cell'=>'A1'],['sheet'=>'PEF'],['template_path'=>'../file'],['filename'=>'../../evil.xlsx']] as $invalid) {
- try{$v=$build($base,$invalid);pefTestCheck(!$v['exportable'],'Rejected input '.json_encode(array_keys($invalid)));}
+ try{$v=$build($complete,$invalid);pefTestCheck(!$v['exportable'],'Rejected input '.json_encode(array_keys($invalid)));}
  catch(PefCcValidationException $e){pefTestCheck(count($e->errors)>0,'Field error for '.json_encode(array_keys($invalid)));}
 }
 foreach(['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("x")','../file.xlsx','[x]<>|:*?','Unicode 界 ñ'] as $section) {
- $d=$build($base,['section'=>$section]);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section'])&&$d['planning']['section']===$section,'Unapproved section rejected without transformation: '.$section);
+ $d=$build($complete,['section'=>$section]);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section'])&&$d['planning']['section']===$section,'Unapproved section rejected without transformation: '.$section);
 }
-foreach(['IT-32','IT-IRREG',''] as $section){$d=$build($base,['section'=>$section]);pefTestCheck($d['exportable']&&$d['planning']['section']===$section,'Exact approved irregular section or optional blank retained: '.json_encode($section));}
+foreach(['IT-32','IT-IRREG',''] as $section){$d=$build($complete,['section'=>$section]);pefTestCheck($d['exportable']&&$d['planning']['section']===$section,'Exact approved irregular section or optional blank retained: '.json_encode($section));}
 foreach(['IT-29','IT-34','IT32','it-32',' IT-32','IT-32 ','IT-30','IT-310','IT−32',str_repeat('W',96)] as $section){
- $before=$base;$d=$build($base,['section'=>$section,'subject_ids'=>[1,2]]);
+ $before=$complete;$d=$build($complete,['section'=>$section,'subject_ids'=>[1,2]]);
  pefTestCheck(!$d['exportable']&&$d['field_errors']['section']===PEF_CC_SECTION_MESSAGE,'Absent/malformed option rejected: '.json_encode($section));
- pefTestCheck($base===$before&&$d['planning']['subject_ids']===[1,2]&&$d['gwa']===3.0,'Rejection retains safe subjects/GWA without source mutation');
+ pefTestCheck($complete===$before&&$d['planning']['subject_ids']===[1,2]&&$d['gwa']===3.0,'Rejection retains safe subjects/GWA without source mutation');
 }
-$d=$build($base,['target_year'=>'2027-2028','section'=>'IT-32']);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section']),'Irregular normal code cannot borrow wrong-target-year evidence');
+$d=$build($complete,['target_year'=>'2027-2028','section'=>'IT-32']);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section']),'Irregular normal code cannot borrow wrong-target-year evidence');
 $d=$build($base,['target_semester'=>2,'section'=>'IT-32']);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section']),'Irregular normal code cannot borrow wrong-target-semester evidence');
 $c=$base;$c['identity']['section']='IT-31';$d=$build($c,['section'=>'IT-IRREG']);pefTestCheck(!$d['exportable'],'Pacing marker is not invented for an irregular profile without that marker');
 $c=$base;$c['identity']['section']='IT-31';$c['sections']=[];$d=$build($c,['section'=>'IT-31']);pefTestCheck(!$d['exportable']&&!in_array('IT-31',$d['policy']['section_options'],true),'Historical-only irregular profile cannot invent current-term normal section availability');
@@ -68,8 +70,8 @@ $c=pefTestContext();$c['records'][]=$c['records'][0];$c['records'][3]['school_ye
 pefTestCheck($d['cc']['rows'][0]['state']==='REVIEW'&&$d['cc']['rows'][0]['grade']===null,'Multiple attempts not resolved as best/latest');
 $c=pefTestContext();$c['records'][1]['school_year']='2026-2027';$c['records'][1]['semester']=1;$c['records'][1]['is_current']=1;$d=$build($c);
 pefTestCheck($d['cc']['rows'][1]['state']==='CUR','Current exact-code evidence maps CUR separately from historical PEF');
-foreach([1,2,3,4] as $year){$c=$base;$c['identity']['year_level']=$year;$d=$build($c);pefTestCheck($d['exportable']&&$d['cc']['label']==='Reference / Requires Review','Year '.$year.' does not infer curriculum or gate PEF');}
-$c=$base;$c['identity']['status']='Irregular';$d=$build($c);pefTestCheck($d['exportable'],'Stored irregular status does not gate manual planning');
+foreach([1,2,3,4] as $year){$c=$complete;$c['identity']['year_level']=$year;$d=$build($c);pefTestCheck($d['exportable']&&$d['cc']['label']==='Reference / Requires Review','Year '.$year.' does not infer curriculum or gate PEF');}
+$c=$complete;$c['identity']['status']='Irregular';$d=$build($c);pefTestCheck($d['exportable'],'Stored irregular status does not gate manual planning');
 foreach([['college'=>'Other College'],['college'=>''],['program'=>'Unknown program'],['program'=>'']] as $change){$c=$base;$c['identity']=array_replace($c['identity'],$change);$d=$build($c);pefTestCheck(!$d['exportable'],'Missing/incompatible fixed-template identity blocks export: '.json_encode($change));}
 $c=$base;$c['identity']['name']='Example, Synthetic ñ';$d=$build($c);pefTestCheck($d['identity']['name']==='EXAMPLE, SYNTHETIC Ñ','Uppercase identity convention is normalized once in model');
 foreach([['1.00',3],['1.25',1],['1.50',3],['3.75',4],['4.00',1],['0.00',3],['INC',3],[null,3],['',3],['P',3],['DRP',3]] as [$grade,$units]){

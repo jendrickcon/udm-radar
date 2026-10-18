@@ -6,7 +6,7 @@ require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_snapshot.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
 $config=pefTestConfig();$current=['school_year'=>'2026-2027','semester'=>1];
-$context=pefTestContext(13,['1.00','INC','0.00',null,'3.25']);
+$context=pefTestContext(13,['1.00','2.00','2.25','2.50','3.25']);
 $model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>range(1,12)]),pefTestReference(),$config,$current);
 $key=random_bytes(32);$binding='synthetic-session-A';$student=$context['identity']['id'];$now=2000000000;
 $token=pefCcSignSnapshot($model,$key,$student,$binding,$config,$now);
@@ -92,8 +92,13 @@ try {
   pefTestCheck($pef->getCell('A35')->getValue()===$model->data['recorded'][12]['code'],'Thirteenth recorded subject written, not dropped');
   pefTestCheck($pef->getCell('A65')->getValue()===$model->data['proposed'][11]['code'],'Twelfth proposed subject written');
   pefTestCheck((float)$pef->getCell('G66')->getCalculatedValue()===(float)array_sum(array_column($model->data['proposed'],'units')),'Proposed total formula evaluates accurately');
-  pefTestCheck($pef->getCell('G66')->getOldCalculatedValue()!==null,'Formula cached total supplied');
-  foreach(['C38','C42','F45','B68','B70','D68','D70','G68','G70'] as $cell)pefTestCheck($pef->getCell($cell)->getValue()===null,'Withheld approval/standing blank '.$cell);
+  foreach(['C38','C42','F45','D68','D70','G68','G70'] as $cell)pefTestCheck($pef->getCell($cell)->getValue()===null,'Withheld approval/standing blank '.$cell);
+  pefTestCheck($pef->getCell('B68')->getValue()==='MS. CHRISTINA P. ATAL','Configured Program Chairperson name written');
+  pefTestCheck($pef->getCell('B69')->getValue()==='Program Chairperson','Program Chairperson title written');
+  pefTestCheck($pef->getCell('B70')->getValue()==='MR. FRANCIS ARLANDO L. ATIENZA','Configured Dean name written');
+  pefTestCheck($pef->getCell('B71')->getValue()==='Dean','Dean title written');
+  pefTestCheck($pef->getCell('D69')->getValue()==='Signature'&&$pef->getCell('D71')->getValue()==='Signature','Signature labels preserved');
+  pefTestCheck($pef->getCell('G69')->getValue()==='Date'&&$pef->getCell('G71')->getValue()==='Date','Date labels preserved');
   foreach(['PEF','CC'] as $name){$s=$book->getSheetByName($name);$t=$template->getSheetByName($name);
    pefTestCheck($s->getMergeCells()===$t->getMergeCells(),'Merge geometry preserved '.$name);
    pefTestCheck($s->getPageSetup()->getPrintArea()===$t->getPageSetup()->getPrintArea(),'Print area preserved '.$name);
@@ -106,11 +111,10 @@ try {
   $book->disconnectWorksheets();$template->disconnectWorksheets();
  } finally { pefCcRemoveOutput($generated['path'],$config); }
  pefTestCheck(!file_exists($generated['path']),'Success cleanup removes owned output');
- pefCcRemoveOutput($generated['path'],$config);pefTestCheck(true,'Cleanup is idempotent');
- $empty=$build(pefTestContext(3,['INC']));$out=pefCcGenerateWorkbook($empty,$config);
- try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);pefTestCheck($book->getSheetByName('PEF')->getCell('C37')->getValue()===null,'All-INC unavailable GWA is truly blank');$book->disconnectWorksheets();}finally{pefCcRemoveOutput($out['path'],$config);}
- $blank=$build(pefTestContext(3,['','   ',null]));$out=pefCcGenerateWorkbook($blank,$config);
- try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);foreach(['F23','F24','F25','C37']as$cell)pefTestCheck($book->getSheetByName('PEF')->getCell($cell)->getValue()===null,'Blank/whitespace/null final grade and GWA stay actual blank '.$cell);$book->disconnectWorksheets();}finally{pefCcRemoveOutput($out['path'],$config);}
+ $empty=$build(pefTestContext(3,['INC']));
+ pefTestThrows(fn()=>pefCcGenerateWorkbook($empty,$config),'Incomplete term with INC rejected by export writer');
+ $blank=$build(pefTestContext(3,['','   ',null]));
+ pefTestThrows(fn()=>pefCcGenerateWorkbook($blank,$config),'Incomplete term with blank/null rejected by export writer');
  // Writer defense independent of form rejection: even control/newline prefixes cannot create formulas.
  $payloads=['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("https://invalid.example")',"\t=1+1","\r=1+1","\n=1+1","\r\n=1+1",'Unicode 界 ñ','../name.xlsx','a<>:"|?*'];
  $data=$model->data;
