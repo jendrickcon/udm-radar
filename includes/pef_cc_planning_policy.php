@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.2';
+const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.3';
+const PEF_CC_SECTION_MESSAGE = 'The suggested section is not available for this planning context. Choose one of the approved section options before previewing or downloading.';
 const PEF_CC_NOMINAL_REVIEW = 'The nominal subject plan could not be resolved from the available curriculum record. Academic evaluator review is required.';
 const PEF_CC_LEGACY_REVIEW = 'This historical curriculum track requires academic evaluator review and is not included in the current Software Development planning workflow.';
 const PEF_CC_TERM_REVIEW = 'The student’s current academic term could not be resolved consistently. Academic evaluator review is required before generating a nominal subject plan.';
@@ -21,6 +22,65 @@ function pefCcSupportedSection(mixed $value): ?array
         return null;
     }
     return ['year_level' => (int) $m[1], 'block' => (int) $m[2]];
+}
+
+/** Membership is generated from server records; spelling is never repaired. */
+function pefCcSectionEvidenceMatches(array $row, string $year, int $semester): bool
+{
+    $parsed = pefCcSupportedSection($row['section'] ?? null);
+    return $parsed !== null && in_array($row['year_level'] ?? null, [$parsed['year_level'], (string) $parsed['year_level']], true)
+        && ($row['school_year'] ?? null) === $year && pefCcSemester($row['semester'] ?? null) === $semester
+        && ($row['source'] ?? null) === 'active_sd_current_records'
+        && is_string($row['evidence_sha256'] ?? null) && preg_match('/\A[a-f0-9]{64}\z/D', $row['evidence_sha256']) === 1;
+}
+
+function pefCcSectionIsApproved(array $policy, mixed $section, ?array $planning = null): bool
+{
+    if (!is_string($section) || !in_array($section, $policy['section_options'] ?? [], true)) {
+        return false;
+    }
+    $targetYear = $policy['target_year'] ?? null;
+    $targetSemester = pefCcSemester($policy['target_semester'] ?? null);
+    if (!pefCcValidYear($targetYear) || $targetSemester === null
+        || ($planning !== null && (($planning['target_year'] ?? null) !== $targetYear
+            || pefCcSemester($planning['target_semester'] ?? null) !== $targetSemester))) {
+        return false;
+    }
+    $hasEvidence = static function () use ($policy, $section, $targetYear, $targetSemester): bool {
+        foreach ($policy['section_evidence'] ?? [] as $row) {
+            if (($row['section'] ?? null) === $section && pefCcSectionEvidenceMatches($row, $targetYear, $targetSemester)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (($policy['mode'] ?? null) === 'irregular' && ($policy['recorded_status'] ?? null) === 'Irregular') {
+        return $section === '' || ($section === 'IT-IRREG' && ($policy['recorded_section'] ?? null) === 'IT-IRREG')
+            || (pefCcSupportedSection($section) !== null && $hasEvidence());
+    }
+    $recorded = pefCcSupportedSection($policy['recorded_section'] ?? null);
+    $selected = pefCcSupportedSection($section);
+    $anchor = $policy['profile_term'] ?? [];
+    $semester = pefCcSemester($anchor['semester'] ?? null);
+    $year = filter_var($policy['recorded_year_level'] ?? null, FILTER_VALIDATE_INT);
+    if (($policy['mode'] ?? null) !== 'regular' || ($policy['recorded_status'] ?? null) !== 'Regular'
+        || $recorded === null || $selected === null || is_bool($policy['recorded_year_level'] ?? null)
+        || !in_array($year, [1, 2, 3, 4], true) || $recorded['year_level'] !== $year
+        || ($anchor['year_level'] ?? null) !== $year || empty($anchor['records'])
+        || ($anchor['source'] ?? null) !== 'coherent_recorded_current_term'
+        || !pefCcValidYear($anchor['school_year'] ?? null) || $semester === null) {
+        return false;
+    }
+    $expectedYear = $semester === 1 ? $anchor['school_year']
+        : ((int) substr($anchor['school_year'], 0, 4) + 1) . '-' . ((int) substr($anchor['school_year'], 5, 4) + 1);
+    $nominalYear = $year + ($semester === 2 ? 1 : 0);
+    if ($targetYear !== $expectedYear || $targetSemester !== ($semester === 1 ? 2 : 1)
+        || ($policy['target_year_level'] ?? null) !== $nominalYear || $selected['year_level'] !== $nominalYear) {
+        return false;
+    }
+    return $semester === 1
+        ? ($policy['horizon'] ?? null) === 'same_school_year' && $section === $policy['recorded_section']
+        : ($policy['horizon'] ?? null) === 'next_school_year' && abs($selected['block'] - $recorded['block']) <= 1 && $hasEvidence();
 }
 
 /** Defaults for the initial GET only; submitted POST values must be validated unchanged. */
@@ -181,8 +241,31 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     if (($identity['status'] ?? null) === 'Irregular') {
         $policy['mode'] = 'irregular';
         $policy['status'] = 'manual_review_required';
-        $policy['section_default'] = is_string($identity['section'] ?? null) ? $identity['section'] : '';
+        $policy['target_year'] = $input['target_year'] ?? null;
+        $policy['target_semester'] = pefCcSemester($input['target_semester'] ?? null);
+        $policy['section_options'] = ['']; // Existing optional, unassigned planning preference.
+        $recordedSection = $identity['section'] ?? null;
+        if ($recordedSection === 'IT-IRREG') {
+            // A pacing marker is permitted only for an already recorded Irregular context.
+            $policy['section_options'][] = $recordedSection;
+        }
+        foreach ($context['sections'] ?? [] as $available) {
+            $parsed = pefCcSupportedSection($available['section'] ?? null);
+            if ($parsed !== null && pefCcValidYear($policy['target_year']) && $policy['target_semester'] !== null
+                && pefCcSectionEvidenceMatches($available, $policy['target_year'], $policy['target_semester'])) {
+                $policy['section_options'][] = $available['section'];
+                $policy['section_evidence'][] = array_intersect_key($available, array_flip([
+                    'section', 'year_level', 'school_year', 'semester', 'source', 'evidence_sha256',
+                ]));
+            }
+        }
+        $policy['section_options'] = array_values(array_unique($policy['section_options']));
+        sort($policy['section_options'], SORT_STRING);
+        $policy['section_default'] = in_array($recordedSection, $policy['section_options'], true) ? $recordedSection : '';
         $policy['section_notice'] = 'Section and subject suggestions require review because the proposed plan may differ from the nominal curriculum sequence.';
+        if (!pefCcSectionIsApproved($policy, $input['section'] ?? null)) {
+            $fail(PEF_CC_SECTION_MESSAGE, 'section');
+        }
         return $policy;
     }
     if (($identity['status'] ?? null) !== 'Regular') {
@@ -268,6 +351,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
         foreach ($context['sections'] ?? [] as $available) {
             $parsed = pefCcSupportedSection($available['section'] ?? null);
             if ($parsed !== null && $parsed['year_level'] === $targetNominal
+                && pefCcSectionEvidenceMatches($available, $targetYear, $targetSemester)
                 && (int) ($available['year_level'] ?? 0) === $targetNominal
                 && ($available['school_year'] ?? null) === $targetYear
                 && pefCcSemester($available['semester'] ?? null) === $targetSemester

@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/fixtures/pef_cc_fixture.php';
 require_once dirname(__DIR__,2).'/config/pef_cc.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
-$config=pefCcConfig();
+$config=pefTestConfig();
 try {
  $reference=pefCcValidateTemplate($config);
  pefTestCheck(hash_file('sha256',$config['template_path'])===$config['template_sha256'],'Deployed candidate has approved immutable hash');
@@ -23,17 +23,32 @@ try {
  }
  $zip->close();pefTestCheck($formulaCount===9,'Nine allowed formula cells preserved');pefTestCheck($mediaCount===1,'Approved logo image retained');
  $pef=$book->getSheetByName('PEF');$cc=$book->getSheetByName('CC');
- pefTestCheck($config['template_version']==='v0.2-r2'&&$pef->getStyle('A51')->getAlignment()->getWrapText()
-  &&$pef->getRowDimension(51)->getRowHeight()===96.0,'Versioned section field wraps with 96pt row; v0.1 is not overwritten');
+ $contract=pefCcTemplateContract($config['template_version']);
+ pefTestCheck($pef->getStyle('A51')->getAlignment()->getWrapText()===$contract['section_wrap']
+  &&$pef->getRowDimension(51)->getRowHeight()===$contract['section_height'],'Immutable version-specific section geometry: '.$config['template_version']);
+ pefTestCheck(pefCcConfig()['template_version']==='v0.2-r3','Application default is activated v0.2-r3');
+ pefTestCheck($pef->getRowDimension(52)->getRowHeight()===12.0&&$pef->getStyle('A51')->getFont()->getSize()===18.0
+  &&$pef->getStyle('A51')->getAlignment()->getHorizontal()==='center'&&$pef->getStyle('A51')->getAlignment()->getVertical()==='center'
+  &&!$pef->getStyle('A51')->getAlignment()->getShrinkToFit(),'Section label row, centered 18pt text and no shrink-to-fit preserved');
+ foreach(range(54,65) as $row)pefTestCheck($pef->getRowDimension($row)->getRowHeight()===12.0,'Proposed slot retained at original 12pt height: '.$row);
+ if($config['template_version']==='v0.2-r3'){
+  pefTestCheck($pef->getRowDimension(51)->getRowHeight()===19.5&&!$pef->getStyle('A51')->getAlignment()->getWrapText(),'r3 restores original compact row and disables wrapping');
+  $base=$config['private_root'].'/templates/pef-cc/v0.2-r2/template.xlsx';
+  pefTestCheck(hash_file('sha256',$base)===pefCcTemplateContract('v0.2-r2')['sha256'],'Original r2 version remains byte-for-byte unchanged');
+  $old=new ZipArchive();$new=new ZipArchive();$old->open($base);$new->open($config['template_path']);$changed=[];
+  for($i=0;$i<$old->numFiles;$i++){$part=$old->getNameIndex($i);if($old->getFromIndex($i)!==$new->getFromName($part))$changed[]=$part;}
+  sort($changed);pefTestCheck($old->numFiles===$new->numFiles&&$changed===['xl/styles.xml','xl/worksheets/sheet1.xml'],'Only PEF row/style package parts differ; CC and metadata are byte-identical');
+  $old->close();$new->close();
+ }
  foreach(['A10','A12','A19','C19','C37','C38','C42','D42','E42','F42','C45','F45','A49','C49','A51','B68','B70','D68','D70','G68','G70'] as $cell)
   pefTestCheck($pef->getCell($cell)->getValue()===null || $pef->getCell($cell)->getValue()==='','Candidate identity/results/plans/approval field blank '.$cell);
  pefTestCheck((string)$cc->getCell('D51')->getValue()==="ITE252\nITE353",'ITE252 unresolved text retained exactly');
  foreach(['PEF','CC'] as $name){$s=$book->getSheetByName($name);pefTestCheck($s->getPageSetup()->getPrintArea()!=='','Bounded print area '.$name);pefTestCheck($s->getPageSetup()->getOrientation()==='portrait','Portrait print setting '.$name);}
  pefTestCheck(str_contains((string)$pef->getCell('A74')->getValue(),'Student-prepared') || str_contains(json_encode($pef->toArray()),'Student-prepared'),'PEF planning-copy disclosure visible');
  pefTestCheck(str_contains((string)$cc->getCell('A3')->getValue(),'REFERENCE ONLY')&&str_contains((string)$cc->getCell('A67')->getValue(),'approved student-to-curriculum mapping'),'Approved candidate retains CC reference/mapping disclosure');
- pefTestThrows(fn()=>pefCcValidateTemplate(pefCcConfig(['template_path'=>$config['template_path'].'.missing'])),'Missing template rejected without source fallback');
- pefTestThrows(fn()=>pefCcValidateTemplate(pefCcConfig(['private_root'=>dirname(__DIR__,2),'template_path'=>$config['template_path']])),'Invalid private-root location rejected');
- pefTestThrows(fn()=>pefCcValidateTemplate(pefCcConfig(['temp_path'=>dirname(__DIR__,2).'/test-results'])),'Web-accessible temporary path rejected');
+ pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['template_path'=>$config['template_path'].'.missing'])),'Missing template rejected without source fallback');
+ pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['private_root'=>dirname(__DIR__,2),'template_path'=>$config['template_path']])),'Invalid private-root location rejected');
+ pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['temp_path'=>dirname(__DIR__,2).'/test-results'])),'Web-accessible temporary path rejected');
  // Exercise tampered bytes and package structure with an isolated blank copy.
  // The deployed approved template is never edited or used as a fallback.
  $tampered=$config['temp_path'].'/template-audit-'.bin2hex(random_bytes(16)).'.xlsx';
@@ -41,7 +56,7 @@ try {
   copy($config['template_path'],$tampered);
   $z=new ZipArchive();$z->open($tampered);$xml=$z->getFromName('xl/worksheets/sheet1.xml');
   $xml=str_replace('SUM(G54:G65)','SUM(G54:G64)',$xml);$z->addFromString('xl/worksheets/sheet1.xml',$xml);$z->close();
-  pefTestThrows(fn()=>pefCcValidateTemplate(pefCcConfig(['template_path'=>$tampered])),'Changed template bytes rejected by approved hash');
+  pefTestThrows(fn()=>pefCcValidateTemplate(pefTestConfig(['template_path'=>$tampered])),'Changed template bytes rejected by approved hash');
   pefTestThrows(fn()=>pefCcInspectPackage($tampered),'Unapproved formula destination/range rejected by package contract');
   copy($config['template_path'],$tampered);
   $z=new ZipArchive();$z->open($tampered);$name='xl/_rels/workbook.xml.rels';$xml=$z->getFromName($name);

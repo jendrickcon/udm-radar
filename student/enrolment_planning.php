@@ -312,23 +312,30 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <?php if ($manualPlanning): ?>
             <div><label for="target-year">Target school year</label><input class="form-input" id="target-year" name="target_year" value="<?= pefCcPageEscape($inputs['target_year']) ?>" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" placeholder="YYYY-YYYY" required aria-describedby="target-year-help"<?= pefCcPageInvalid('target_year', $fieldErrors) ?>><p id="target-year-help" class="pef-cc-help">Two consecutive years, for example <?= pefCcPageEscape($currentTerm['school_year']) ?>.</p></div>
             <div><label for="target-semester">Target semester</label><select class="form-input" id="target-semester" name="target_semester" required<?= pefCcPageInvalid('target_semester', $fieldErrors) ?>><option value="1"<?= (string) $inputs['target_semester'] === '1' ? ' selected' : '' ?>>First Semester</option><option value="2"<?= (string) $inputs['target_semester'] === '2' ? ' selected' : '' ?>>Second Semester</option></select></div>
-            <div><label for="proposed-section">Proposed section <span class="pef-cc-muted">(optional)</span></label><input class="form-input" id="proposed-section" name="section" value="<?= pefCcPageEscape($inputs['section']) ?>" data-max-characters="96" aria-describedby="section-help"<?= pefCcPageInvalid('section', $fieldErrors) ?>><p id="section-help" class="pef-cc-help">Single line, up to 96 Unicode characters. Professor and approval fields remain blank.</p></div>
+            <div><label for="proposed-section">Suggested section <span class="pef-cc-muted">(optional)</span></label>
+                <select class="form-input" id="proposed-section" name="section" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
+                    <?php if (!in_array($inputs['section'], $formPolicy['section_options'], true)): ?><option value="<?= pefCcPageEscape($inputs['section']) ?>" selected data-approved="false">Unavailable choice — choose an approved option</option><?php endif; ?>
+                    <?php foreach ($formPolicy['section_options'] as $option): ?><option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option === '' ? 'Not assigned — evaluator review' : ($option === 'IT-IRREG' ? 'IT-IRREG — pacing marker; evaluator review' : $option)) ?></option><?php endforeach; ?>
+                </select>
+                <p id="section-help" class="pef-cc-help">Suggested sections are planning preferences and remain subject to availability and evaluator review. IT-IRREG is available only when already recorded for your irregular planning context.</p>
+            </div>
             <?php else: ?>
             <div><label for="target-year">Target school year</label><input class="form-input" id="target-year" name="target_year" value="<?= pefCcPageEscape($formPolicy['target_year'] ?? '') ?>" readonly placeholder="Requires review" aria-describedby="target-year-help"<?= pefCcPageInvalid('target_year', $fieldErrors) ?>><p id="target-year-help" class="pef-cc-help">Determined from your verified current academic term and recorded year level.</p></div>
             <div><label for="target-semester">Target semester</label><input class="form-input" id="target-semester" value="<?= pefCcPageEscape($formPolicy['target_semester'] === null ? 'Requires review' : pefCcSemesterLabel($formPolicy['target_semester'])) ?>" readonly><input type="hidden" name="target_semester" value="<?= pefCcPageEscape($formPolicy['target_semester'] ?? '') ?>"></div>
             <div><label for="proposed-section">Suggested section</label>
                 <?php if ($regularPlanning && $formPolicy['horizon'] === 'next_school_year' && $formPolicy['section_options'] !== []): ?>
-                <select class="form-input" id="proposed-section" name="section" required aria-describedby="section-help"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
+                <select class="form-input" id="proposed-section" name="section" required aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
                     <option value=""<?= !in_array($inputs['section'], $formPolicy['section_options'], true) ? ' selected' : '' ?>>Choose a verified section</option>
                     <?php foreach ($formPolicy['section_options'] as $option): ?><option value="<?= pefCcPageEscape($option) ?>"<?= $inputs['section'] === $option ? ' selected' : '' ?>><?= pefCcPageEscape($option) ?></option><?php endforeach; ?>
                 </select>
                 <?php else: ?>
-                <input class="form-input" id="proposed-section" name="section" value="<?= pefCcPageEscape($formPolicy['section_default']) ?>" readonly placeholder="Requires review" aria-describedby="section-help"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
+                <input class="form-input" id="proposed-section" name="section" value="<?= pefCcPageEscape($formPolicy['section_default']) ?>" readonly placeholder="Requires review" aria-describedby="section-help<?= isset($fieldErrors['section']) ? ' section-error' : '' ?>"<?= pefCcPageInvalid('section', $fieldErrors) ?>>
                 <?php endif; ?>
                 <p id="section-help" class="pef-cc-help"><?= pefCcPageEscape($formPolicy['section_notice']) ?></p>
             </div>
             <?php endif; ?>
         </div>
+        <?php if (isset($fieldErrors['section'])): ?><p id="section-error" class="pef-cc-notice" role="alert"><?= pefCcPageEscape($fieldErrors['section']) ?> Your other planning choices are retained.</p><?php endif; ?>
         <p class="pef-cc-help"><?= pefCcPageEscape($formPolicy['disclosure']) ?></p>
         <?php if ($manualPlanning): ?>
         <label for="pef-cc-subjects">Manually selected proposed subjects</label>

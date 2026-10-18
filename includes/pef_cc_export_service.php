@@ -147,8 +147,9 @@ function pefCcInspectPackage(string $path): array
 function pefCcValidateTemplate(array $config): array
 {
     $paths = pefCcPrivatePaths($config);
-    $approvedHash = 'c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02';
-    if (($config['template_version'] ?? null) !== 'v0.2-r2' || ($config['template_sha256'] ?? null) !== $approvedHash
+    $contract = pefCcTemplateContract((string) ($config['template_version'] ?? ''));
+    $approvedHash = $contract['sha256'];
+    if (($config['template_sha256'] ?? null) !== $approvedHash
         || !hash_equals($approvedHash, hash_file('sha256', $paths['template_path']))) {
         throw new RuntimeException('The approved planning template is unavailable.');
     }
@@ -179,8 +180,19 @@ function pefCcValidateTemplate(array $config): array
             || (string) $cc->getCell('D51')->getValue() !== "ITE252\nITE353") {
             throw new RuntimeException('The planning template structure does not match.');
         }
-        if (!$pef->getStyle('A51')->getAlignment()->getWrapText() || $pef->getRowDimension(51)->getRowHeight() !== 96.0) {
+        $alignment = $pef->getStyle('A51')->getAlignment();
+        if ($alignment->getWrapText() !== $contract['section_wrap']
+            || $pef->getRowDimension(51)->getRowHeight() !== $contract['section_height']
+            || $alignment->getHorizontal() !== 'center' || $alignment->getVertical() !== 'center'
+            || $alignment->getShrinkToFit() || $pef->getStyle('A51')->getFont()->getSize() !== 18.0
+            || $pef->getRowDimension(52)->getRowHeight() !== 12.0
+            || !isset($pef->getMergeCells()['A51:G51'], $pef->getMergeCells()['A52:G52'])) {
             throw new RuntimeException('The planning section print layout does not match.');
+        }
+        foreach (range(54, 65) as $row) {
+            if ($pef->getRowDimension($row)->getRowHeight() !== 12.0) {
+                throw new RuntimeException('The planning subject row capacity does not match.');
+            }
         }
         foreach (['A10:G10', 'B23:D23', 'B35:D35', 'B54:F54', 'B65:F65', 'A73:G75', 'A79:G80'] as $merge) {
             if (!in_array($merge, $pef->getMergeCells(), true)) {
@@ -205,7 +217,7 @@ function pefCcValidateTemplate(array $config): array
         if (count($rows) !== 58 || count(array_unique(array_column($rows, 'code'))) !== 58) {
             throw new RuntimeException('The planning template reference grid does not match.');
         }
-        return ['version' => 'v0.2-r2', 'sha256' => $approvedHash, 'rows' => $rows] + $package;
+        return ['version' => $config['template_version'], 'sha256' => $approvedHash, 'rows' => $rows] + $package;
     } finally {
         $book->disconnectWorksheets();
     }
@@ -247,6 +259,17 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         || ($data['template_version'] ?? null) !== $config['template_version']
         || ($data['print_contract'] ?? null) !== $config['printable']) {
         throw new RuntimeException('Refresh a valid planning preview before downloading.');
+    }
+    if (($data['policy']['version'] ?? null) !== PEF_CC_PLANNING_POLICY_VERSION
+        || ($data['identity']['role'] ?? null) !== 'student' || ($data['identity']['is_active'] ?? null) !== 1
+        || pefCcPositiveId($data['identity']['id'] ?? null) === null
+        || ($data['identity']['record_status'] ?? null) !== 'Active'
+        || ($data['policy']['recorded_status'] ?? null) !== ($data['identity']['status'] ?? null)
+        || ($data['policy']['recorded_section'] ?? null) !== ($data['identity']['section'] ?? null)
+        || ($data['policy']['recorded_year_level'] ?? null) !== ($data['identity']['year_level'] ?? null)
+        || ($data['policy']['recorded_lifecycle'] ?? null) !== ($data['identity']['record_status'] ?? null)
+        || !pefCcSectionIsApproved($data['policy'] ?? [], $data['planning']['section'] ?? null, $data['planning'] ?? [])) {
+        throw new PefCcValidationException([PEF_CC_SECTION_MESSAGE], ['section' => PEF_CC_SECTION_MESSAGE]);
     }
     $printErrors = pefCcPrintableErrors($data['identity'], $data['recorded'], $data['proposed'], $data['planning']['section'], $config);
     if ($printErrors !== []) {

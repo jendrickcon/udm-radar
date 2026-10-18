@@ -9,7 +9,7 @@ require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
 
 /** Actual page template with synthetic scalar context; no auth/bootstrap/database. */
 function pefPrintRender(string $case): string {
-    $config=pefCcConfig();$currentTerm=['school_year'=>'2026-2027','semester'=>1];
+    $config=pefTestConfig();$currentTerm=['school_year'=>'2026-2027','semester'=>1];
     $context=pefTestContext();$inputs=pefTestInputs(['section'=>'IT-32','subject_ids'=>[1,2]]);
     if($case==='record'){$context['records'][0]['code']=str_repeat('W',20);$context['records'][0]['title']=str_repeat('T',150);}
     if($case==='proposed')$context['catalog'][1]['title']=str_repeat('T',150);
@@ -32,7 +32,7 @@ function pefPrintRender(string $case): string {
 }
 if(($argv[1]??'')==='--render'){echo pefPrintRender($argv[2]??'normal');exit;}
 
-$config=pefCcConfig();$term=['school_year'=>'2026-2027','semester'=>1];
+$config=pefTestConfig();$term=['school_year'=>'2026-2027','semester'=>1];
 $build=static fn(array $c,array $replace=[]):PefCcViewModel=>pefCcBuildViewModel($c,pefTestInputs(array_replace(['section'=>'IT-32','subject_ids'=>[1,2]],$replace)),pefTestReference(),$config,$term);
 $base=pefTestContext();$original=$build($base);
 $mapping=pefCcCurriculum()['mapping'];$subjects=array_merge(...array_column($mapping['terms'],'subjects'));
@@ -64,9 +64,11 @@ foreach(['code','title'] as $field){
 }
 foreach([str_repeat('SYNTHETIC ',9).'ABCDEF',str_repeat('W',96),str_repeat('界',96)] as $section){
     $m=$build($base,['section'=>$section])->data;
-    pefTestCheck($m['exportable']&&$m['planning']['section']===$section,'Valid 96-character section is retained exactly');
+    pefTestCheck(!$m['exportable']&&$m['field_errors']['section']===PEF_CC_SECTION_MESSAGE&&$m['planning']['section']===$section,'Arbitrary 96-character section is rejected without truncation');
 }
-pefTestThrows(fn()=>$build($base,['section'=>str_repeat('界',97)]),'97-character section remains visibly rejected');
+$rejected=$build($base,['section'=>str_repeat('界',97)])->data;
+pefTestCheck(!$rejected['exportable']&&isset($rejected['field_errors']['section']),'97-character section remains visibly rejected');
+foreach(['IT-32','IT-IRREG'] as $section){$m=$build($base,['section'=>$section])->data;pefTestCheck($m['exportable']&&$m['planning']['section']===$section,'Approved operational code or pacing marker fits without wrapping: '.$section);}
 $c=$base;$c['identity']['name']=str_repeat('ß',31);$m=$build($c)->data;
 pefTestCheck(!$m['exportable']&&mb_strlen($m['identity']['name'])===62,'Identity limit is checked after display uppercase expansion');
 pefTestThrows(fn()=>pefCcConfig(['printable'=>['name'=>999]]),'Printable contract cannot be overridden from request/deployment overrides');
@@ -98,6 +100,6 @@ foreach(['record','proposed','identity'] as $case){
     pefTestCheck($x->query('//*[@aria-invalid="true" and @aria-describedby="pef-print-limit-explanation"]')->length>0,'Actual generated page highlights '.$case.' fields accessibly');
     pefTestCheck($x->query('//*[@id="pef-cc-download-form"]')->length===0,'Rejected '.$case.' page offers no download');
     pefTestCheck($x->query('//*[@data-testid="cc-preview"]//*[@aria-invalid]')->length===0,'Proposed/identity print errors never mark reference CC fields: '.$case);
-    pefTestCheck($x->query('//*[@id="proposed-section" and @value="IT-32"]')->length===1&&$x->query('//*[@id="pef-cc-subjects"]/option[@selected]')->length===2,'Rejected '.$case.' page retains safe section and subject choices');
+    pefTestCheck($x->query('//*[@id="proposed-section"]/option[@value="IT-32" and @selected]')->length===1&&$x->query('//*[@id="pef-cc-subjects"]/option[@selected]')->length===2,'Rejected '.$case.' page retains safe section and subject choices');
 }
 pefTestFinish();

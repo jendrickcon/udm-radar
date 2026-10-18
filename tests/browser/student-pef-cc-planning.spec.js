@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const stateFile = process.env.PEF_CC_STATE_FILE;
 const state = stateFile ? JSON.parse(readFileSync(stateFile, 'utf8')) : null;
@@ -20,7 +21,7 @@ async function preview(page, ids = []) {
   await page.locator('[name="evaluation_semester"]').selectOption(String(state.fixture.evaluation_semester));
   await page.locator('[name="target_year"]').fill(state.fixture.target_year);
   await page.locator('[name="target_semester"]').selectOption(String(state.fixture.target_semester));
-  await page.locator('[name="section"]').fill('SYN-A');
+  await page.locator('#pef-cc-planning-form [name="section"]').selectOption('IT-IRREG');
   await page.locator('#pef-cc-subjects').selectOption(ids.map(String));
   await Promise.all([page.waitForLoadState('domcontentloaded'), page.getByRole('button', { name: 'Preview planning copy', exact: true }).click()]);
   await expect(page.getByTestId('pef-preview')).toBeVisible();
@@ -80,11 +81,12 @@ test('regular hidden-field target and subject overrides are rejected by real pre
   await login(page, 'regular2');
   test.skip(!state.fixture.accounts.regular2.expected_exportable, 'Actual future section availability requires review in this term.');
   const fields = await page.locator('#pef-cc-planning-form').evaluate(form => Array.from(new FormData(form)));
-  for (const attack of ['delete_subjects', 'replace_section', 'replace_target']) {
+  for (const attack of ['delete_subjects', 'replace_section', 'replace_target', 'irregular_marker']) {
     const body = new URLSearchParams(fields);
     if (attack === 'delete_subjects') body.delete('subject_ids[]');
     if (attack === 'replace_section') body.set('section', 'IT-29');
     if (attack === 'replace_target') body.set('target_semester', '1');
+    if (attack === 'irregular_marker') body.set('section', 'IT-IRREG');
     const response = await page.request.post(state.base_url + 'student/enrolment_planning.php', {
       data: body.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
@@ -107,7 +109,7 @@ test('regular nominal controls remain usable on mobile in both themes', async ({
 });
 test('editing planning fields invalidates preview and restores update action', async ({ page }) => {
   await login(page); await preview(page);
-  await page.locator('#pef-cc-planning-form [name="section"]').fill('UPDATED');
+  await page.locator('#pef-cc-planning-form [name="section"]').selectOption('');
   await expect(page.getByTestId('preview-invalidated')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Download Excel', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Update preview', exact: true })).toBeEnabled();
@@ -135,13 +137,43 @@ test('empty academic history keeps reference CC visible and PEF action unavailab
  await expect(page.getByRole('button',{name:'Preview planning copy',exact:true})).toBeDisabled();
  await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
 });
-test('markup-looking section is rendered as literal planning text',async({page})=>{
+test('markup-looking section is rejected with safe choices retained',async({page})=>{
  await login(page);const text='<img src=x onerror=window.pefInjection=true>';
  await page.locator('[name="evaluation_year"]').selectOption(state.fixture.evaluation_year);await page.locator('[name="evaluation_semester"]').selectOption('2');
- await page.locator('[name="target_year"]').fill(state.fixture.target_year);await page.locator('[name="section"]').fill(text);
+ await page.locator('[name="target_year"]').fill(state.fixture.target_year);await page.locator('[name="section"]').selectOption('IT-IRREG');
+ await page.locator('#pef-cc-subjects').selectOption(state.fixture.subjects.slice(0,2).map(String));
+ await page.route('**/student/enrolment_planning.php',async route=>{
+  if(route.request().method()!=='POST')return route.continue();
+  const body=new URLSearchParams(route.request().postData());body.set('section',text);await route.continue({postData:body.toString()});
+ });
  await page.getByRole('button',{name:'Preview planning copy',exact:true}).click();
- await expect(page.getByTestId('pef-preview')).toContainText(text);await expect(page.getByTestId('pef-preview').locator('img[src="x"]')).toHaveCount(0);
+ await expect(page.locator('#section-error')).toContainText('not available for this planning context');
+ await expect(page.locator('#proposed-section')).toHaveAttribute('aria-invalid','true');
+ await expect(page.locator('#pef-cc-subjects option:checked')).toHaveCount(2);
+ await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
+ await expect(page.locator('img[src="x"]')).toHaveCount(0);
  expect(await page.evaluate(()=>window.pefInjection)).toBeUndefined();
+});
+test('arbitrary 96-character section gets a field error without a preview or export',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await login(page);
+ await page.locator('[name="evaluation_year"]').selectOption(state.fixture.evaluation_year);
+ await page.locator('[name="evaluation_semester"]').selectOption('2');
+ await page.locator('#pef-cc-subjects').selectOption(state.fixture.subjects.slice(0,2).map(String));
+ const temp=process.env.PEF_CC_TEMP_PATH;const before=temp?readdirSync(temp).sort():null;
+ await page.route('**/student/enrolment_planning.php',async route=>{
+  if(route.request().method()!=='POST')return route.continue();
+  const body=new URLSearchParams(route.request().postData());body.set('section','W'.repeat(96));await route.continue({postData:body.toString()});
+ });
+ const pending=page.waitForResponse(r=>r.url().endsWith('/student/enrolment_planning.php')&&r.request().method()==='POST');
+ await page.getByRole('button',{name:'Preview planning copy',exact:true}).click();expect((await pending).status()).toBe(422);
+ await expect(page.locator('#section-error')).toContainText('not available for this planning context');
+ await expect(page.locator('#proposed-section')).toHaveAttribute('aria-describedby',/section-error/);
+ await expect(page.locator('#pef-cc-subjects option:checked')).toHaveCount(2);
+ await expect(page.locator('#target-year')).toHaveValue(state.fixture.target_year);
+ await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ if(temp)expect(readdirSync(temp).sort()).toEqual(before);
+ if(process.env.PEF_CC_REVIEW_EVIDENCE_DIR){await page.locator('#section-error').scrollIntoViewIfNeeded();await page.screenshot({path:resolve(process.env.PEF_CC_REVIEW_EVIDENCE_DIR,'excessive-section-mobile.png')});}
 });
 test('thirteen proposed choices stay selected with visible native capacity validation',async({page})=>{
  await login(page);await page.locator('#pef-cc-subjects').selectOption(state.fixture.subjects.slice(0,13).map(String));

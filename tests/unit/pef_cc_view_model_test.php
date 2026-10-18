@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/fixtures/pef_cc_fixture.php';
 require_once dirname(__DIR__,2).'/config/pef_cc.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
-$config=pefCcConfig();$now=['school_year'=>'2026-2027','semester'=>1];
+$config=pefTestConfig();$now=['school_year'=>'2026-2027','semester'=>1];
 $build=fn(array $c,array $i=[])=>pefCcBuildViewModel($c,pefTestInputs($i),pefTestReference(),$config,$now)->data;
 $base=pefTestContext();$m=$build($base);
 pefTestCheck($m['exportable']===true,'Valid completed-term model exports without curriculum mapping');
@@ -35,8 +35,22 @@ foreach([['subject_ids'=>[1,1]],['subject_ids'=>[999999]],['subject_ids'=>['1 OR
  catch(PefCcValidationException $e){pefTestCheck(count($e->errors)>0,'Field error for '.json_encode(array_keys($invalid)));}
 }
 foreach(['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("x")','../file.xlsx','[x]<>|:*?','Unicode 界 ñ'] as $section) {
- $d=$build($base,['section'=>$section]);pefTestCheck($d['exportable']&&$d['planning']['section']===$section,'Literal single-line planning text preserved: '.$section);
+ $d=$build($base,['section'=>$section]);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section'])&&$d['planning']['section']===$section,'Unapproved section rejected without transformation: '.$section);
 }
+foreach(['IT-32','IT-IRREG',''] as $section){$d=$build($base,['section'=>$section]);pefTestCheck($d['exportable']&&$d['planning']['section']===$section,'Exact approved irregular section or optional blank retained: '.json_encode($section));}
+foreach(['IT-29','IT-34','IT32','it-32',' IT-32','IT-32 ','IT-30','IT-310','IT−32',str_repeat('W',96)] as $section){
+ $before=$base;$d=$build($base,['section'=>$section,'subject_ids'=>[1,2]]);
+ pefTestCheck(!$d['exportable']&&$d['field_errors']['section']===PEF_CC_SECTION_MESSAGE,'Absent/malformed option rejected: '.json_encode($section));
+ pefTestCheck($base===$before&&$d['planning']['subject_ids']===[1,2]&&$d['gwa']===3.0,'Rejection retains safe subjects/GWA without source mutation');
+}
+$d=$build($base,['target_year'=>'2027-2028','section'=>'IT-32']);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section']),'Irregular normal code cannot borrow wrong-target-year evidence');
+$d=$build($base,['target_semester'=>2,'section'=>'IT-32']);pefTestCheck(!$d['exportable']&&isset($d['field_errors']['section']),'Irregular normal code cannot borrow wrong-target-semester evidence');
+$c=$base;$c['identity']['section']='IT-31';$d=$build($c,['section'=>'IT-IRREG']);pefTestCheck(!$d['exportable'],'Pacing marker is not invented for an irregular profile without that marker');
+$c=$base;$c['identity']['section']='IT-31';$c['sections']=[];$d=$build($c,['section'=>'IT-31']);pefTestCheck(!$d['exportable']&&!in_array('IT-31',$d['policy']['section_options'],true),'Historical-only irregular profile cannot invent current-term normal section availability');
+$c=pefTestRegularContext(3);$i=pefTestRegularInputs($c);$i['section']='IT-IRREG';$d=pefCcBuildViewModel($c,$i,pefTestReference(),$config,$now)->data;
+pefTestCheck(!$d['exportable']&&!in_array('IT-IRREG',$d['policy']['section_options'],true),'IT-IRREG is never an approved regular target');
+$defective=$config;$defective['printable']['section']=5;$d=pefCcBuildViewModel($base,pefTestInputs(['section'=>'IT-IRREG']),pefTestReference(),$defective,$now)->data;
+pefTestCheck(!$d['exportable']&&$d['field_errors']['section']===PEF_CC_SECTION_PRINT_MESSAGE,'Approved marker exceeding a defective print bound requires evaluator review without blaming student');
 foreach(['mixed','current','future','duplicate','orphan','unsupported','units'] as $case){
  $c=pefTestContext();
  if($case==='mixed')$c['records'][1]['is_current']=1;

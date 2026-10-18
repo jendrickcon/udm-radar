@@ -6,7 +6,31 @@ This is a Student-prepared planning copy for evaluator review. It is not an offi
 
 ## Academic and data contract
 
-### Printable-input review contract (2026-10-18)
+### Owner-accepted compact-section template v0.2-r3 and print exception (2026-10-18)
+
+The owner selected **Option 1**: preserve original departmental one-page Portrait Folio geometry and document a narrow print-floor exception for inherited static/reference content. The private **v0.2-r3** template restores PEF row 51 from 96 pt to **19.5 pt**, turns A51 wrapping off, and centers the section text. Its SHA-256 is `c26f8e5d8caf65ab8d061bd87484970b899670a27551d1c1662e98de6ad6df63`. Only the PEF row-height/style package parts differ from sanitized r2. Cell values, formulas, other package parts, CC geometry and metadata remain unchanged. The original CCS references and r2 hashes remain unchanged. This is a **Sanitized private template candidate aligned to the original CCS form geometry.** No confidential workbook is in Git.
+
+**Application configuration is activated to v0.2-r3.** The default template version in `config/pef_cc.php` is `v0.2-r3`. Dynamic environment override via `PEF_CC_TEMPLATE_VERSION` remains supported for controlled testing.
+
+**Narrow Print-Floor Exception:**
+The global 8 pt project floor remains standard for operational student records. The owner approved a narrow exception for inherited departmental elements:
+- **PEF Static Header & Signature Exception:** 19 static header and signature cells print at approximately **6.60 pt** ($8.00\text{ pt source} \times 0.825\text{ print scale}$). This exception strictly excludes operational student data. All verified student numbers, names, degree programs, evaluation course codes, titles, units, recorded grades, remarks, proposed schedule courses, and section values remain at or above the verified minimum of **8.28 pt**.
+- **CC Inherited Departmental Reference-Table Exception:** Active subject codes and titles print at approximately **6.12 pt** ($11.00\text{ pt source} \times 0.556$). Prerequisites, unit counts, and status codes print at approximately **5.64 pt** ($10.00\text{ pt source} \times 0.564$). This exception is accepted because it is 100% inherited from the departmental 15-column Portrait Folio layout (`CCS-CC_PEF-3rd YR.xlsx`) under Excel's Fit-to-1-Page engine. These sizes are recognized as departmental form constraints, not general body-text standards.
+- **Zero-Tolerance Boundary:** No exception applies to text clipping, border crossing, missing values, or variable student-data loss. Physical Folio print status remains **Not performed / not independently verified**.
+
+Section validation is exact membership in the server-generated option set, followed by context and printable safety. Values are never reformatted, trimmed or truncated. Current normal codes retain their recorded `IT-43` spelling. Regular same-year planning retains only the recorded section; next-year planning requires authoritative target-term evidence and the corresponding block or one adjacent block. Irregular normal choices require matching verified section evidence for the target year/semester. An optional blank is preserved. Exact **IT-IRREG** is permitted only for an already recorded Irregular pacing-marker context; it is never a Regular target or ordinary adjacent block. Irregular subjects remain manually planned and require evaluator review.
+
+The section print safety bound is **8 Unicode characters**, covering current approved normal codes and IT-IRREG. It is not a free-text allowance or universal five-character rule. Membership rejects arbitrary 96-character text, formula/markup payloads, malformed/nonexistent codes, wrong-term choices and manipulated fields before a signed preview or export. An approved option exceeding a defective print bound receives evaluator-review wording. Safe planning inputs are retained; application records are not changed. The writer independently checks policy/identity, target tuple, normal-code evidence and Regular progression/adjacency, even on a forged exportable model. Policy and printable-contract versions are included in stale-preview data.
+
+The review matrix includes normal and longest approved Regular sections, authorized IT-IRREG, twelve proposed rows, the longest active SD title, blank/unavailable data, and all 58 catalogue subjects. Arbitrary 96-character sections and IT-IRREG in a Regular context are rejection cases. Template row 52 stays 12 pt, subject header stays at row 53, all twelve 12 pt subject rows remain at 54–65, total units stays at 66, and lower approval regions stay at 68–71. Margins, Folio portrait, print areas, fit-to-page settings and CC layout are unchanged.
+
+Native Excel exported the eleven accepted cases to **22 single-page Folio PDFs**. The corrected compact-layout checker completed **1,399 checks: 1,355 passed and 44 failed**, all failures at the unchanged 8 pt font floor. PEF variable-data containment/font checks pass, but some displayed PEF labels/footer text is **6.60 pt**. CC has displayed text at **5.64 pt**, including inspected active reference data at **6.12 pt**. No owner exception to the floor exists. **Print acceptance remains blocked.** Do not resolve it by changing unapproved geometry, scaling, fonts or assertions. Automated native Excel PDF evidence is distinct from owner desktop Print Preview acceptance.
+
+The guarded authenticated planning harness stopped before fixture DML because scratch `final_grade` is `decimal(4,2)`, while that fixture requires the existing textual-outcome migration. No migration or schema repair is authorized here. Preserve this environmental limitation; generated-static browser evidence and read-only Apache checks with existing synthetic accounts do not replace the guarded suite.
+
+Current private owner materials and fresh test totals are recorded in the local r3 owner-review report outside Git and htdocs. Previous print failures below remain historical evidence, not new results. Canonical roadmap/history continue to describe an unmerged, print-blocked WP1; WP2/WP3 remain deferred.
+
+### Historical printable-input review contract, superseded for section membership (2026-10-18)
 
 PR #51 remains **Draft**. The owner accepted the software, SD mapping, ownership/security and standard export paths. This continuation adds bounded text validation and an owner print-review package; it does not approve a release or revise the private template.
 
@@ -111,11 +135,11 @@ After a completed output passes size/package checks, the fixed download filename
 
 ## Template and fixed writer
 
-Private sanitized review candidate: `pef-cc-template-candidate-v0.2-r2.xlsx` (not stored in Git; owner final print acceptance pending).
+Private sanitized template: `pef-cc-template-candidate-v0.2-r3.xlsx` (not stored in Git; owner print acceptance recorded under Option 1).
 
 ```text
-Version: v0.2-r2
-SHA-256: c1895897710d29672960a7414155627409dd847260236c1774f1f444d9bfed02
+Version: v0.2-r3
+SHA-256: c26f8e5d8caf65ab8d061bd87484970b899670a27551d1c1662e98de6ad6df63
 ```
 
 The runtime fails closed on wrong hash/version, wrong sheets, external relationships, unexpected formulas/logo, reference-grid or required print/merge/disclosure mismatch. Exactly PEF and CC are visible; StudentList, Study Plan, macros, embedded objects and external links are absent. Each generation loads a fresh verified template and preserves its geometry, styling, logo bytes, data validation, conditional formatting and nine bounded SUM formulas with calculated caches.
@@ -141,14 +165,14 @@ The dependency is pinned `phpoffice/phpspreadsheet:5.10.0`; existing dompdf pack
 Default private locations:
 
 ```text
-C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r2\template.xlsx
+C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r3\template.xlsx
 C:\ProgramData\UDM-RADAR\private\tmp\pef-cc\
 ```
 
 Create them outside every web root. Copy only the sanitized candidate from the verified migration ZIP, never the source roster workbook. Confirm its hash before enabling exports:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 'C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r2\template.xlsx'
+Get-FileHash -Algorithm SHA256 'C:\ProgramData\UDM-RADAR\private\templates\pef-cc\v0.2-r3\template.xlsx'
 ```
 
 `config/pef_cc.php` contains non-secret defaults. Trusted environment overrides: `PEF_CC_PRIVATE_ROOT`, `PEF_CC_TEMPLATE_PATH`, `PEF_CC_TEMP_PATH`. Contract hash/version/capacities are fixed. No request override or original-workbook fallback exists. Canonical paths and ancestors must remain inside the approved private root and outside detected web roots, including escaping junctions/symlinks.

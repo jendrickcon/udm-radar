@@ -8,7 +8,7 @@ require_once dirname(__DIR__, 2) . '/includes/pef_cc_snapshot.php';
 // Database-free, synthetic contexts. No workbook, account or dependency writes.
 $loaded = pefCcCurriculum();
 $mapping = $loaded['mapping'];
-$config = pefCcConfig();
+$config = pefTestConfig();
 $current = static fn(int $semester): array => ['school_year' => '2026-2027', 'semester' => $semester];
 $build = static fn(array $c, array $i, int $sem = 1): PefCcViewModel =>
     pefCcBuildViewModel($c, $i, pefTestReference(), $config, $current($sem));
@@ -259,8 +259,10 @@ pefTestCheck($missingHtml->query('//*[@id="pef-cc-download-form"]')->length === 
 $manualHtml = $render($irregular, pefTestInputs(['subject_ids' => [1, 2], 'section' => '<img src=x onerror=bad>']));
 pefTestCheck($manualHtml->query('//*[@id="target-year" and not(@readonly)]')->length === 1
     && $manualHtml->query('//*[@id="pef-cc-subjects"]')->length === 1, 'Irregular target and manual subject controls remain editable');
-pefTestCheck($manualHtml->query('//*[@id="proposed-section" and @data-max-characters="96" and not(@readonly)]')->length === 1
-    && $manualHtml->query('//img[@src="x"]')->length === 0, 'Irregular literal section retains 96-character contract and HTML escaping');
+pefTestCheck($manualHtml->query('//select[@id="proposed-section" and @aria-invalid="true"]')->length === 1
+    && $manualHtml->query('//*[@id="section-error"]')->length === 1
+    && $manualHtml->query('//*[@id="pef-cc-download-form"]')->length === 0
+    && $manualHtml->query('//img[@src="x"]')->length === 0, 'Irregular unapproved markup is escaped and rejected with a field error and no signed download');
 $legacy = $base; $legacy['identity']['program'] = 'BSIT - Data Science'; $legacyHtml = $render($legacy, pefTestInputs());
 pefTestCheck($legacyHtml->query('//*[@id="pef-cc-subjects"]')->length === 0
     && $legacyHtml->query('//*[@data-testid="preview-button" and @disabled]')->length === 1

@@ -5,7 +5,7 @@ require_once dirname(__DIR__,2).'/config/pef_cc.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_snapshot.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
-$config=pefCcConfig();$current=['school_year'=>'2026-2027','semester'=>1];
+$config=pefTestConfig();$current=['school_year'=>'2026-2027','semester'=>1];
 $context=pefTestContext(13,['1.00','INC','0.00',null,'3.25']);
 $model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>range(1,12)]),pefTestReference(),$config,$current);
 $key=random_bytes(32);$binding='synthetic-session-A';$student=$context['identity']['id'];$now=2000000000;
@@ -31,6 +31,40 @@ foreach(['identity','grade','units','section','proposed','reference'] as $case){
 pefTestCheck(!str_contains($token,$binding)&&!str_contains($token,bin2hex($key)),'Snapshot exposes neither signing key nor raw session binding');
 pefTestCheck(pefCcCanonicalJson(['b'=>1,'a'=>2])===pefCcCanonicalJson(['a'=>2,'b'=>1]),'Canonical snapshot stable across object key order');
 pefTestCheck(pefCcCanonicalJson([1,2])!==pefCcCanonicalJson([2,1]),'Canonical snapshot preserves academic row order');
+$files=glob($config['temp_path'].'/pefcc-*')?:[];
+foreach(['target_year','target_semester','forged_option','removed_evidence','wrong_evidence_term'] as $case){
+ $data=$model->data;
+ if($case==='target_year')$data['planning']['target_year']='2027-2028';
+ if($case==='target_semester')$data['planning']['target_semester']=2;
+ if($case==='forged_option'){$data['planning']['section']='IT-39';$data['policy']['section_options'][]='IT-39';}
+ if($case==='removed_evidence')$data['policy']['section_evidence']=[];
+ if($case==='wrong_evidence_term')foreach($data['policy']['section_evidence'] as &$e)$e['school_year']='2027-2028';unset($e);
+ pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($data),$config),'Independent writer rejects forged context: '.$case);
+}
+$regular=pefTestRegularContext(2,2);$regularModel=pefCcBuildViewModel($regular,pefTestRegularInputs($regular,2),pefTestReference(),$config,['school_year'=>'2026-2027','semester'=>2]);
+foreach(['distant_block','wrong_nominal_year','wrong_target','removed_provenance'] as $case){
+ $data=$regularModel->data;
+ if($case==='distant_block'){$data['planning']['section']='IT-39';$data['policy']['section_options'][]='IT-39';$data['policy']['section_evidence'][]=['section'=>'IT-39','year_level'=>3,'school_year'=>'2027-2028','semester'=>1,'source'=>'active_sd_current_records','evidence_sha256'=>str_repeat('a',64)];}
+ if($case==='wrong_nominal_year'){$data['planning']['section']='IT-42';$data['policy']['section_options'][]='IT-42';}
+ if($case==='wrong_target')$data['planning']['target_year']='2028-2029';
+ if($case==='removed_provenance')$data['policy']['section_evidence']=[];
+ pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($data),$config),'Regular writer independently rejects target/adjacency forgery: '.$case);
+}
+pefTestCheck((glob($config['temp_path'].'/pefcc-*')?:[])===$files,'Forged options, target and provenance create no export file');
+$sameYear=pefTestRegularContext(2,1);$sameYearModel=pefCcBuildViewModel($sameYear,pefTestRegularInputs($sameYear),pefTestReference(),$config,$current);
+$data=$sameYearModel->data;$data['planning']['section']='IT-23';$data['policy']['section_options'][]='IT-23';
+pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($data),$config),'Same-year writer retains only the original section despite forged option membership');
+foreach(['identity_year','anchor_year','lifecycle','inactive','role','empty_anchor'] as $case){
+ $data=$sameYearModel->data;
+ if($case==='identity_year')$data['identity']['year_level']=3;
+ if($case==='anchor_year')$data['policy']['profile_term']['year_level']=3;
+ if($case==='lifecycle')$data['identity']['record_status']='Archived';
+ if($case==='inactive')$data['identity']['is_active']=0;
+ if($case==='role')$data['identity']['role']='faculty';
+ if($case==='empty_anchor')$data['policy']['profile_term']['records']=[];
+ pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($data),$config),'Writer rejects inconsistent active Student identity/anchor: '.$case);
+}
+pefTestCheck((glob($config['temp_path'].'/pefcc-*')?:[])===$files,'Identity/anchor rejection creates no output');
 foreach(['current','duplicate'] as $case){
  $c=pefTestContext();$extra=$c['records'][0];$extra['id']=99;$extra['school_year']='2023-2024';
  if($case==='current'){$extra['code']=$c['catalog'][3]['code'];$extra['subject_id']=$c['catalog'][3]['id'];$extra['is_current']=1;$extra['school_year']='2026-2027';$extra['semester']=1;}
@@ -93,16 +127,20 @@ try {
  }
  $primitive->disconnectWorksheets();
  $data['planning']['section']='=HYPERLINK("https://invalid.example")';
+ $files=glob($config['temp_path'].'/pefcc-*')?:[];
+ pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($data),$config),'Formula-like section rejected independently by writer membership check');
+ pefTestCheck((glob($config['temp_path'].'/pefcc-*')?:[])===$files,'Rejected formula-like section creates no file');
+ $data['planning']['section']=$model->data['planning']['section'];
  $out=pefCcGenerateWorkbook(new PefCcViewModel($data),$config);
  try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);$s=$book->getSheetByName('PEF');
   foreach($payloads as $i=>$payload){$cell=$s->getCell('B'.($i+23));$expected=preg_match('/[\t\r\n]/',$payload)?'LINEFEED REJECTED':$payload;pefTestCheck($cell->getDataType()==='s'&&$cell->getValue()===$expected,'Within-contract untrusted source text remains literal at row '.($i+23));}
-  pefTestCheck($s->getCell('A51')->getDataType()==='s','Formula-looking section stored as explicit text');
+  pefTestCheck($s->getCell('A51')->getDataType()==='s'&&$s->getCell('A51')->getValue()===$data['planning']['section'],'Approved section stored exactly as explicit text');
   $z=new ZipArchive();$z->open($out['path']);$formulas=0;for($i=0;$i<$z->numFiles;$i++){ $n=$z->getNameIndex($i);$x=$z->getFromIndex($i);if(str_ends_with($n,'.rels'))pefTestCheck(!str_contains($x,'TargetMode="External"'),'No injected external relationship '.$n);if(str_starts_with($n,'xl/worksheets/sheet')&&str_ends_with($n,'.xml')){$formulas+=preg_match_all('/<f(?:\s[^>]*)?>/',$x);}}
   $z->close();pefTestCheck($formulas===9,'Injection introduces zero additional formulas');$book->disconnectWorksheets();
  }finally{pefCcRemoveOutput($out['path'],$config);}
  $beforeFiles=glob($config['temp_path'].'/pefcc-*')?:[];
  pefTestThrows(fn()=>pefCcGenerateWorkbook($build(pefTestContext(14)),$config),'Overflow rejected before output');
- pefTestThrows(fn()=>pefCcGenerateWorkbook($model,pefCcConfig(['max_output_bytes'=>1])),'Forced output-size failure rejected');
+ pefTestThrows(fn()=>pefCcGenerateWorkbook($model,pefTestConfig(['max_output_bytes'=>1])),'Forced output-size failure rejected');
  $invalid=$model->data;$invalid['recorded'][0]['title']="Bad\x01XML";
  pefTestThrows(fn()=>pefCcGenerateWorkbook(new PefCcViewModel($invalid),$config),'XML-invalid source text rejected even at writer boundary');
  pefTestCheck((glob($config['temp_path'].'/pefcc-*')?:[])===$beforeFiles,'Failure path leaves no temporary file');

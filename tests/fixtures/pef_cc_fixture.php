@@ -17,9 +17,14 @@ function pefTestFinish(): never {
     echo "SUMMARY: $checks assertions; $failures failures.\n";
     exit($failures ? 1 : 0);
 }
+/** Review opt-in is CLI-only and never changes the application's configured default. */
+function pefTestConfig(array $overrides = []): array {
+    return getenv('PEF_CC_REVIEW_CANDIDATE') === 'v0.2-r3'
+        ? pefCcReviewCandidateConfig($overrides) : pefCcConfig($overrides);
+}
 function pefTestInputs(array $replace = []): array {
     return array_replace(['evaluation_year'=>'2024-2025','evaluation_semester'=>2,
-        'target_year'=>'2026-2027','target_semester'=>1,'section'=>'SYN-A','subject_ids'=>[]], $replace);
+        'target_year'=>'2026-2027','target_semester'=>1,'section'=>'IT-32','subject_ids'=>[]], $replace);
 }
 function pefTestContext(int $count = 3, array $grades = ['3.00','INC','0.00']): array {
     $catalog = $records = [];
@@ -32,8 +37,9 @@ function pefTestContext(int $count = 3, array $grades = ['3.00','INC','0.00']): 
     }
     return ['identity'=>['id'=>900001,'student_number'=>'SYN-PEF-001','name'=>'EXAMPLE, SYNTHETIC',
         'college'=>'CCS','program'=>'BSIT - Software Development','is_active'=>1,'role'=>'student',
-        'status'=>'Irregular','record_status'=>'Active','year_level'=>3,'section'=>'SYN-A'],
-        'records'=>$records,'catalog'=>$catalog];
+        'status'=>'Irregular','record_status'=>'Active','year_level'=>3,'section'=>'IT-IRREG'],
+        'records'=>$records,'catalog'=>$catalog,
+        'sections'=>array_map(static fn(string $section):array=>['section'=>$section,'year_level'=>3,'school_year'=>'2026-2027','semester'=>1,'source'=>'active_sd_current_records','evidence_sha256'=>hash('sha256',$section)],['IT-31','IT-32','IT-33'])];
 }
 /** Synthetic own current rows, with real public curriculum codes but no real identities. */
 function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
@@ -51,7 +57,7 @@ function pefTestRegularContext(int $year=2, int $currentSemester=1): array {
     $targetSchoolYear=$currentSemester===2?'2027-2028':'2026-2027';
     $targetSemester=$currentSemester===2?1:2;
     $c['sections']=[];
-    foreach([1,2,3] as $block)$c['sections'][]=['section'=>'IT-'.$targetYear.$block,'year_level'=>$targetYear,'school_year'=>$targetSchoolYear,'semester'=>$targetSemester];
+    foreach([1,2,3] as $block)$c['sections'][]=['section'=>'IT-'.$targetYear.$block,'year_level'=>$targetYear,'school_year'=>$targetSchoolYear,'semester'=>$targetSemester,'source'=>'active_sd_current_records','evidence_sha256'=>hash('sha256',$targetSchoolYear.'/'.$targetSemester.'/IT-'.$targetYear.$block)];
     return $c;
 }
 function pefTestRegularInputs(array $c, int $currentSemester=1): array {
@@ -96,47 +102,62 @@ function pefTestPrintSamples(string $directory): array {
     $real=realpath($directory);
     if(!$real||preg_match('~[\\\\/]htdocs(?:[\\\\/]|$)~i',$real)||glob($real.'/*'))throw new RuntimeException('Fresh private print directory outside web roots required');
     require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
-    $config=pefCcConfig();$reference=pefCcTemplateReference($config);$cases=[];
+    $config=pefTestConfig();$reference=pefCcTemplateReference($config);$cases=[];
     $mapping=pefCcCurriculum();$all=array_merge(...array_column($mapping['mapping']['terms'],'subjects'));
     $normal=pefTestOperationalContext(array_slice($all,0,6),'EXAMPLE, SYNTHETIC');
-    $cases['normal']=[$normal,[1001,1002],'IT-32'];
+    $regularCase=static function(int $year,string $section)use($all):array{
+        $c=pefTestRegularContext($year);$c['identity']['section']=$section;$c['identity']['name']='EXAMPLE, SYNTHETIC';
+        $c['records']=array_values(array_filter($c['records'],static fn(array $r):bool=>$r['is_current']===1));
+        foreach(array_slice($c['catalog'],0,6) as $i=>$s)$c['records'][]=['id'=>7000+$i,'subject_id'=>$s['id'],'school_year'=>'2024-2025','semester'=>2,
+            'is_current'=>0,'code'=>$s['code'],'title'=>$s['title'],'units'=>$s['units'],'grade'=>'3.25'];
+        $input=pefTestRegularInputs($c);$input['section']=$section;return [$c,$input];
+    };
+    $cases['normal']=$regularCase(3,'IT-32');
+    $cases['longest-section']=$regularCase(4,'IT-43');
+    $cases['irregular-marker']=[$normal,pefTestInputs(['subject_ids'=>[1001,1002],'section'=>'IT-IRREG'])];
     $blank=pefTestOperationalContext(array_slice($all,0,3),'EXAMPLE, SYNTHETIC');
     foreach($blank['records'] as &$r)$r['grade']=null;unset($r);
-    $cases['blank']=[$blank,[],''];
-    foreach(['section96'=>str_repeat('SYNTHETIC ',9).'ABCDEF','wide96'=>str_repeat('W',96),'unicode96'=>str_repeat('界',96)] as $key=>$section)$cases[$key]=[$normal,[1001],$section];
+    $cases['blank']=[$blank,pefTestInputs(['subject_ids'=>[],'section'=>''])];
     $longest=$all;usort($longest,static fn(array $a,array $b):int=>mb_strlen($b['title'])<=>mb_strlen($a['title']));
     $capacity=pefTestOperationalContext(array_slice($longest,0,13));$capacity['identity']['student_number']='SYN-ACCEPTANCE-00001';
-    $cases['capacity']=[$capacity,range(1001,1012),'IT-32'];
+    $cases['capacity']=[$capacity,pefTestInputs(['subject_ids'=>range(1001,1012),'section'=>'IT-32'])];
+    $titleCase=pefTestOperationalContext([$longest[0]],'EXAMPLE, SYNTHETIC');
+    $cases['longest-title']=[$titleCase,pefTestInputs(['subject_ids'=>[1001],'section'=>'IT-32'])];
     foreach(array_chunk($all,12) as $index=>$subjects){
-        $c=pefTestOperationalContext($subjects);$cases['catalogue-'.($index+1)]=[$c,array_column($c['catalog'],'id'),'IT-32'];
+        $c=pefTestOperationalContext($subjects);$cases['catalogue-'.($index+1)]=[$c,pefTestInputs(['subject_ids'=>array_column($c['catalog'],'id'),'section'=>'IT-32'])];
     }
-    $result=['matrix'=>'sd-operational-wp1.1','curriculum_sha256'=>$mapping['sha256'],'cases'=>[],
+    $result=['matrix'=>'sd-section-membership-wp1.3','template_version'=>$config['template_version'],'template_sha256'=>$config['template_sha256'],'curriculum_sha256'=>$mapping['sha256'],'cases'=>[],
         'metrics'=>['active_subjects'=>count($all),'code_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['code']),$all)),
             'title_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['title']),$all)),
             'normal_name'=>$capacity['identity']['name'],'normal_name_characters'=>mb_strlen($capacity['identity']['name']),
             'student_number_characters'=>mb_strlen($capacity['identity']['student_number']),'verified_section'=>'IT-32','verified_section_characters'=>5,
             'recorded_rows'=>13,'proposed_rows'=>12], 'defensive_rejections'=>[]];
-    foreach($cases as $name=>[$context,$ids,$section]){
-        $model=pefCcBuildViewModel($context,pefTestInputs(['subject_ids'=>$ids,'section'=>$section]),$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
+    foreach($cases as $name=>[$context,$inputs]){
+        $model=pefCcBuildViewModel($context,$inputs,$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
         $out=pefCcGenerateWorkbook($model,$config);$path=$real.'/'.$name.'.xlsx';
         try{if(!copy($out['path'],$path))throw new RuntimeException('Print sample copy failed');}
         finally{pefCcRemoveOutput($out['path'],$config);}
-        $result['cases'][$name]=['role'=>'operational','path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$section,
+        $result['cases'][$name]=['role'=>'operational','path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$inputs['section'],'planning_mode'=>$model->data['policy']['mode'],
             'recorded_count'=>count($model->data['recorded']),'proposed_count'=>count($model->data['proposed']),
             'recorded_codes'=>array_column($model->data['recorded'],'code'),'proposed_codes'=>array_column($model->data['proposed'],'code')];
     }
-    foreach(['name147','code20','title150','name61','number21','code7','title47'] as $case){
+    foreach(['name147','code20','title150','name61','number21','code7','title47','section96','wide96','unicode96','regular-marker'] as $case){
         $c=$normal;
+        $inputs=pefTestInputs(['subject_ids'=>[1001],'section'=>'IT-32']);$sectionCase=in_array($case,['section96','wide96','unicode96','regular-marker'],true);
+        if(in_array($case,['section96','wide96','unicode96'],true))$inputs['section']=$case==='unicode96'?str_repeat('界',96):($case==='wide96'?str_repeat('W',96):str_repeat('SYNTHETIC ',9).'ABCDEF');
+        if($case==='regular-marker'){[$c,$inputs]=$cases['normal'];$inputs['section']='IT-IRREG';}
         if(str_starts_with($case,'name'))$c['identity']['name']=str_repeat('W',(int)substr($case,4));
         if($case==='number21')$c['identity']['student_number']=str_repeat('S',21);
         if(str_starts_with($case,'code')){$c['records'][0]['code']=str_repeat('W',(int)substr($case,4));$c['catalog'][0]['code']=$c['records'][0]['code'];}
         if(str_starts_with($case,'title')){$c['records'][0]['title']=str_repeat('W',(int)substr($case,5));$c['catalog'][0]['title']=$c['records'][0]['title'];}
-        $m=pefCcBuildViewModel($c,pefTestInputs(['subject_ids'=>[1001],'section'=>'IT-32']),$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
-        if($m->data['exportable']||!in_array(PEF_CC_PRINT_LIMIT_MESSAGE,$m->data['errors'],true))throw new RuntimeException('Defensive print case was not visibly rejected: '.$case);
+        $before=hash('sha256',serialize($c));$m=pefCcBuildViewModel($c,$inputs,$reference,$config,['school_year'=>'2026-2027','semester'=>1]);
+        if($m->data['exportable']||($sectionCase?!isset($m->data['field_errors']['section']):!in_array(PEF_CC_PRINT_LIMIT_MESSAGE,$m->data['errors'],true)))throw new RuntimeException('Defensive print case was not visibly rejected: '.$case);
         $files=glob($config['temp_path'].'/pefcc-*')?:[];$rejected=false;
         try{pefCcGenerateWorkbook($m,$config);}catch(RuntimeException){$rejected=true;}
         if(!$rejected||(glob($config['temp_path'].'/pefcc-*')?:[])!==$files)throw new RuntimeException('Defensive print case produced an output');
-        $result['defensive_rejections'][$case]=['preview_rejected'=>true,'export_rejected'=>true,'output_created'=>false];
+        $result['defensive_rejections'][$case]=['preview_rejected'=>true,'export_rejected'=>true,'output_created'=>false,
+            'field_errors'=>$m->data['field_errors'],'safe_subject_inputs_retained'=>$m->data['planning']['subject_ids']===$inputs['subject_ids'],
+            'source_context_unchanged'=>hash('sha256',serialize($c))===$before,'database_connection_used'=>false];
     }
     file_put_contents($real.'/samples.json',json_encode($result,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
     return $result;
@@ -223,10 +244,10 @@ function pefTestCreateFixture(PDO $db): array {
             $id=pefTestNewId($db,'users');$login='PC'.$token.str_pad((string)++$accountIndex,2,'0',STR_PAD_LEFT);$role=$key==='faculty'?'faculty':'student';
             $user->execute([$id,$login,password_hash($password,PASSWORD_DEFAULT),$role,'Synthetic','PEFCC_'.$token.'_'.$key,$key==='inactive'?0:1]);
             $isRegular=in_array($key,['regular1','regular2','regular3','regular4'],true);
-            $section=$isRegular||$key==='regular_missing'?'IT-'.$year.'2':'SYN-A';
+            $section=$isRegular||$key==='regular_missing'?'IT-'.$year.'2':'IT-IRREG';
             $course=$key==='legacy_cy'?'BSIT - Cyber Security':($key==='legacy_ds'?'BSIT - Data Science':'BSIT - Software Development');
             $manifest['accounts'][$key]=['id'=>$id,'login'=>$login,'year_level'=>$year,'status'=>$status,'count'=>$count,'role'=>$role,'grade_ids'=>[],'current_grade_ids'=>[],
-                'section'=>$section,'course'=>$course,'inputs'=>pefTestInputs()];
+                'section'=>$section,'course'=>$course,'inputs'=>pefTestInputs(['section'=>$section])];
             if($role==='student') $profile->execute([pefTestNewId($db,'student_profiles'),$id,$login,$course,'CCS',$year,$section,$status,'Active',4.00]);
             for($i=0;$i<$count;$i++) {
                 $g=$key==='allinc'?'INC':(['3.00','INC','0.00',null,'1.00','4.00'][$i%6]);

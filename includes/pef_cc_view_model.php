@@ -73,6 +73,7 @@ function pefCcSafeText(mixed $value, bool $required = false, int $max = 32767): 
 }
 
 const PEF_CC_PRINT_LIMIT_MESSAGE = 'The planning form contains text that exceeds the printable form limit. Review the highlighted value before downloading.';
+const PEF_CC_SECTION_PRINT_MESSAGE = 'The selected section cannot be printed safely in the current form. Academic evaluator review is required.';
 
 /** Reject unprintable source text without repairing or truncating academic evidence. */
 function pefCcPrintableErrors(array $identity, array $recorded, array $proposed, mixed $section, array $config): array
@@ -96,6 +97,9 @@ function pefCcPrintableErrors(array $identity, array $recorded, array $proposed,
         }
     }
     $check($section, 'section', 'Proposed section', $limits['section'], false);
+    if (isset($fields['section'])) {
+        $fields['section'] = PEF_CC_SECTION_PRINT_MESSAGE;
+    }
     return $fields;
 }
 
@@ -128,8 +132,8 @@ function pefCcNormalizeInputs(array $input, array $config): array
         }
     }
     $section = $input['section'] ?? '';
-    if (!pefCcSafeText($section, false, (int) $config['section_max']) || preg_match('/[\t\r\n\x{85}\x{2028}\x{2029}]/u', $section) !== 0) {
-        $fields['section'] = 'Proposed section must be one line of at most ' . (int) $config['section_max'] . ' characters without control characters.';
+    if (!pefCcSafeText($section) || preg_match('/[\t\r\n\x{85}\x{2028}\x{2029}]/u', $section) !== 0) {
+        $fields['section'] = PEF_CC_SECTION_MESSAGE;
     } else {
         $normalized['section'] = $section;
     }
@@ -459,7 +463,9 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $errors[] = 'Proposed subjects exceed the 12-row capacity. Remove subjects before previewing.';
         $fieldErrors['subject_ids'] = 'Choose no more than twelve proposed subjects.';
     }
-    $printErrors = pefCcPrintableErrors($identity, $recordedRows, $proposed, $planningInput['section'], $config);
+    // Unavailable input is explained by membership, not by blaming a student for a bad configured option.
+    $printErrors = pefCcPrintableErrors($identity, $recordedRows, $proposed,
+        pefCcSectionIsApproved($policy, $planningInput['section']) ? $planningInput['section'] : '', $config);
     if ($printErrors !== []) {
         $errors[] = PEF_CC_PRINT_LIMIT_MESSAGE;
         $errors = array_merge($errors, array_values($printErrors));
