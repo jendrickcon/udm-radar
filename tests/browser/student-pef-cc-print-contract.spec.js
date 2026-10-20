@@ -27,7 +27,10 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) for (con
     await page.goto('http://pef-print.invalid/udm-radar/student/enrolment_planning.php');
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('#proposed-section')).toHaveValue('IT-32');
-    expect(await page.locator('#pef-cc-subjects').evaluate(e => e.selectedOptions.length)).toBe(2);
+    if(kind==='normal') {
+      await expect(page.locator('#pef-cc-subjects')).toHaveCount(0);
+      await expect(page.locator('#pef-cc-planning-form input[name="subject_ids[]"]')).toHaveCount(8);
+    } else expect(await page.locator('#pef-cc-subjects').evaluate(e=>e.selectedOptions.length)).toBe(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await expect(page.getByTestId('cc-preview').locator('[aria-invalid]')).toHaveCount(0);
     if (kind === 'normal') {
@@ -36,10 +39,11 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) for (con
     } else {
       await expect(page.locator('#pef-print-limit-explanation')).toContainText('exceeds the printable form limit');
       await expect(page.getByTestId('download-button')).toHaveCount(0);
-      const marked = page.locator('.pef-cc-print-invalid').first();
+      const marked = page.locator('[aria-invalid="true"][aria-describedby="pef-print-limit-explanation"]').first();
       await expect(marked).toHaveAttribute('aria-invalid', 'true');
       await expect(marked).toHaveAttribute('aria-describedby', 'pef-print-limit-explanation');
-      expect(await marked.evaluate(e => getComputedStyle(e).outlineWidth)).toBe('2px');
+      if(kind==='identity')await expect(marked).toHaveClass(/sr-only/); // Identity is announced with its visible error explanation.
+      else expect(await marked.evaluate(e=>getComputedStyle(e).outlineWidth)).toBe('2px');
       await page.getByRole('link', { name: 'Reload planning records', exact: true }).focus();
       await expect(page.getByRole('link', { name: 'Reload planning records', exact: true })).toBeFocused();
     }

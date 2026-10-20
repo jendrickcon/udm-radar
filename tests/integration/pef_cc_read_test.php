@@ -22,13 +22,14 @@ try {
    if(in_array($case,['first','second','third','fourth','irregular','allinc'],true))pefTestCheck($m['exportable'],'Reviewed Irregular manual workflow remains available: '.$case);
    elseif(isset($a['expected_exportable'])){
     pefTestCheck($m['exportable']===$a['expected_exportable'],'Coherent Regular context respects actual target availability: '.$case);
-    if($a['expected_exportable'])pefTestCheck($m['planning']['subject_ids']===$a['inputs']['subject_ids']&&$m['proposed']!==[],'Regular nominal subjects resolve from borrowed verified catalogue: '.$case);
+    if($a['expected_exportable'])pefTestCheck($m['planning']['subject_ids']===$a['inputs']['subject_ids']&&($m['proposed']!==[]||$m['mode']==='review'),'Regular nominal subjects resolve from borrowed verified catalogue: '.$case);
    }
    else pefTestCheck(!$m['exportable'],'Invalid/empty/over-capacity term blocked: '.$case);
+   if(isset($a['expected_mode']))pefTestCheck($m['mode']===$a['expected_mode'],'Exact approved planning mode: '.$case);
    if($case==='allinc')pefTestCheck($m['gwa']===null,'All-INC actual stored rows produce unavailable GWA');
    if($case==='first')pefTestCheck($m['gwa']===3.0,'Stored cached 4.00 profile GWA ignored in favor of term 3.00');
    if(str_starts_with($case,'legacy_'))pefTestCheck($m['policy']['status']==='unsupported_legacy_track_requires_review','Historical track never converted to SD: '.$case);
-   if($case==='regular_missing')pefTestCheck($m['policy']['status']==='evaluator_review_required'&&$m['proposed']===[],'No anchor means review rather than empty Regular export');
+   if($case==='regular_missing')pefTestCheck($m['exportable']&&$m['mode']==='review'&&$m['policy']['status']==='evaluator_review_required'&&$m['planning']['section']===''&&$m['proposed']===[],'No anchor means review rather than empty Regular export');
    pefTestCheck(!array_filter($c['catalog'],static fn(array $s):bool=>preg_match('/^(CY|DS)/i',$s['code'])===1),'Selectable catalogue excludes legacy codes: '.$case);
    foreach($c['sections'] as $section)pefTestCheck(array_keys($section)===['section','year_level','school_year','semester','source','evidence_sha256'],'Section evidence contains no student identity/grade fields');
    $other=$fixture['accounts'][$case==='first'?'second':'first']['grade_ids'];

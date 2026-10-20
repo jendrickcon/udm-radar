@@ -270,6 +270,59 @@ function pefCcTemplateReference(array $config): array
     return pefCcValidateTemplate($config);
 }
 
+/**
+ * The planning page only needs the immutable CC subject vocabulary to render
+ * read-only history. Full workbook validation remains required for preview and
+ * export, but must not run during an ordinary page GET.
+ */
+function pefCcPlanningTemplateReference(array $catalog, array $config): array
+{
+    $contract = pefCcTemplateContract((string) ($config['template_version'] ?? ''));
+    $approvedHash = $contract['sha256'];
+    if (($config['template_sha256'] ?? null) !== $approvedHash) {
+        throw new RuntimeException('The approved planning template is unavailable.');
+    }
+
+    $referenceCodes = [
+        'AHM101', 'GED101', 'GED102', 'GED103', 'GED104', 'GED105', 'GED106', 'GED107', 'GED108',
+        'ITE111', 'ITE112', 'ITE113', 'ITE114', 'ITE115', 'ITE216', 'ITE221', 'ITE222', 'ITE223',
+        'ITE231', 'ITE232', 'ITE233', 'ITE234', 'ITE321', 'ITE322', 'ITE323', 'ITE324', 'ITE325',
+        'ITE326', 'ITE327', 'ITE328', 'ITE331', 'ITE332', 'ITE341', 'ITE421', 'ITE422', 'ITE423',
+        'ITE431', 'ITE441', 'MST101', 'NST101', 'NST102', 'PE101', 'PE102', 'PE103', 'PE104',
+        'RZL101', 'SD351', 'SD352', 'SD353', 'SD354', 'SSP101', 'UID101', 'UID102', 'UID103',
+        'UID104', 'UID105', 'UID106', 'UID107',
+    ];
+    $catalogByCode = [];
+    foreach ($catalog as $subject) {
+        if (is_string($subject['code'] ?? null)) {
+            $catalogByCode[$subject['code']][] = $subject;
+        }
+    }
+    $rows = [];
+    foreach ($referenceCodes as $code) {
+        $matches = $catalogByCode[$code] ?? [];
+        if (count($matches) !== 1) {
+            throw new RuntimeException('The planning subject catalogue does not match.');
+        }
+        $subject = $matches[0];
+        $title = $subject['title'] ?? null;
+        if (!is_string($title) || trim($title) === '') {
+            throw new RuntimeException('The planning subject catalogue is invalid.');
+        }
+        $rows[] = [
+            'code' => $code,
+            'title' => $title,
+            'units' => $subject['units'] ?? null,
+            'prereq' => '',
+        ];
+    }
+    if (count($rows) !== 58 || count(array_unique(array_column($rows, 'code'))) !== 58) {
+        throw new RuntimeException('The planning subject catalogue does not match.');
+    }
+
+    return ['version' => $config['template_version'], 'sha256' => $approvedHash, 'rows' => $rows];
+}
+
 /** A literal writer: no string, including database text, becomes a formula. */
 function pefCcWriteCell(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, string $address, mixed $value): void
 {

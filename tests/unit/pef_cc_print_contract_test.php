@@ -7,66 +7,49 @@ require_once dirname(__DIR__,2).'/includes/pef_cc_view_model.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_snapshot.php';
 require_once dirname(__DIR__,2).'/includes/pef_cc_export_service.php';
 
-/** Actual page template with synthetic scalar context; no auth/bootstrap/database. */
-function pefPrintRender(string $case): string {
-    $config=pefTestConfig();$currentTerm=['school_year'=>'2026-2027','semester'=>1];
-    if (in_array($case, ['incomplete', 'provisional', 'provisional-preview'], true)) {
-        $context = pefTestRegularContext(3, 1, false);
-        $inputs = pefTestRegularInputs($context, 1);
-        $reference = pefTestReference();
-        $model = pefCcBuildViewModel($context, $inputs, $reference, $config, $currentTerm);
-        $data = $model->data;
-        $cc = $data['cc'];
-        $formPolicy = $data['policy'];
-        $manualPlanning = false;
-        $regularPlanning = true;
-        $formUnavailable = false;
-        $errors = $data['errors'];
-        $fieldErrors = $data['field_errors'];
-        $selectedIds = array_map('strval', $inputs['subject_ids']);
-        $choices = pefCcTermChoices($context['records'], $currentTerm);
-        $years = array_unique(array_column($choices, 'school_year'));
-        $hasCompletedTerm = true;
-        $hasCompletePredecessor = false;
-        $isProvisional = true;
-        $incompleteWarning = $formPolicy['provisional_warning'] ?? '';
-        $csrf = 'synthetic-render-csrf';
-        $requestValid = true;
-        $showPreview = ($case === 'provisional-preview');
-        $preview = ($showPreview && $data['exportable'])
-            ? pefCcSignSnapshot($model, random_bytes(32), $data['identity']['id'], 'synthetic-render', $config)
-            : '';
-    } else {
-        $context=pefTestContext();$inputs=pefTestInputs(['section'=>'IT-32','subject_ids'=>[1,2]]);
-        if($case==='record'){$context['records'][0]['code']=str_repeat('W',20);$context['records'][0]['title']=str_repeat('T',150);}
-        if($case==='proposed')$context['catalog'][1]['title']=str_repeat('T',150);
-        if($case==='identity'){$context['identity']['name']=str_repeat('N',61);$context['identity']['student_number']=str_repeat('S',21);}
-        if(!in_array($case,['normal','record','proposed','identity'],true))throw new InvalidArgumentException('Unknown synthetic render case');
-        $reference=pefTestReference();$model=pefCcBuildViewModel($context,$inputs,$reference,$config,$currentTerm);
-        $data=$model->data;$cc=$data['cc'];$formPolicy=$data['policy'];
-        $manualPlanning=true;$regularPlanning=false;$formUnavailable=false;
-        $errors=$data['errors'];$fieldErrors=$data['field_errors'];$selectedIds=array_map('strval',$inputs['subject_ids']);
-        $choices=pefCcTermChoices($context['records'],$currentTerm);$years=array_unique(array_column($choices,'school_year'));
-        $hasCompletedTerm=true;$hasCompletePredecessor=true;
-        $isProvisional=false;
-        $incompleteWarning='';
-        $csrf='synthetic-render-csrf';$requestValid=true;$showPreview=true;
-        $preview=($data['exportable']&&$hasCompletePredecessor)?pefCcSignSnapshot($model,random_bytes(32),$data['identity']['id'],'synthetic-render',$config):'';
-    }
-    $history = $data['history'] ?? [];
-    $summaryStatus = $isProvisional ? 'Provisional, final grades incomplete' : 'Complete';
-    $summaryEvalTerm = ($data['evaluation']['school_year'] ?? $inputs['evaluation_year']) . ' · ' . ($data['evaluation']['label'] ?? pefCcSemesterLabel((int) ($inputs['evaluation_semester'] ?? 1)));
-    $summaryTargetTerm = ($data['planning']['target_year'] ?? $inputs['target_year']) . ' · ' . ((int) ($data['planning']['target_semester'] ?? $inputs['target_semester']) === 1 ? 'First Semester' : 'Second Semester');
-    $summarySection = ($data['planning']['section'] ?? $inputs['section']) !== '' ? ($data['planning']['section'] ?? $inputs['section']) : ($formPolicy['section_default'] ?? 'Not assigned — evaluator review');
-    $summaryProposedCount = count($data['planning']['subject_ids'] ?? $inputs['subject_ids'] ?? []);
+/** Actual page template and its presentation preparation; no auth/database bootstrap. */
+function pefPrintRenderContext(array $context, array $inputs, array $currentTerm, bool $showPreview = true): string {
+    $config=pefTestConfig();$reference=pefTestReference();
+    $model=pefCcBuildViewModel($context,$inputs,$reference,$config,$currentTerm);
+    $inputs=array_replace($inputs,[
+        'evaluation_year'=>$model->data['evaluation']['school_year'],
+        'evaluation_semester'=>(string)$model->data['evaluation']['semester'],
+        'target_year'=>$model->data['planning']['target_year'],
+        'target_semester'=>(string)$model->data['planning']['target_semester'],
+        'section'=>$model->data['planning']['section'],
+        'subject_ids'=>$model->data['planning']['subject_ids'],
+    ]);
+    $choices=pefCcTermChoices($context['records'],$currentTerm);
+    $errors=$model->data['errors'];$fieldErrors=$model->data['field_errors'];
+    $csrf='synthetic-render-csrf';$requestValid=true;
+    $preview=$showPreview && $model->data['exportable']
+        ?pefCcSignSnapshot($model,random_bytes(32),$model->data['identity']['id'],'synthetic-render',$config):'';
     if(!defined('BASE_URL'))define('BASE_URL','/udm-radar/');
     $source=file_get_contents(dirname(__DIR__,2).'/student/enrolment_planning.php');
     $start=strpos($source,'function pefCcPageEscape(');$end=strpos($source,'/** Bound actual bytes');
     if(!function_exists('pefCcPageEscape'))eval(substr($source,$start,$end-$start));
+    $start=strpos($source,'$data = $model?->data;');$end=strpos($source,"\$pageTitle = 'Enrolment Planning';",$start);
+    eval(substr($source,$start,$end-$start));
     $start=strpos($source,'<link rel="stylesheet"');$end=strpos($source,'<?php require_once __DIR__',$start);
     $template=substr($source,$start,$end-$start);$template=str_replace('__DIR__',var_export(dirname(__DIR__,2).'/student',true),$template);
     ob_start();try{$pageTitle='Enrolment Planning';require dirname(__DIR__,2).'/includes/header.php';eval('?>'.$template);echo '</body></html>';return ob_get_clean();}catch(Throwable $e){ob_end_clean();throw $e;}
 }
+function pefPrintRender(string $case): string {
+    $stateCases=['normal'=>'A','normal-initial'=>'A','provisional'=>'B','incomplete'=>'B','provisional-preview'=>'B',
+        'review'=>'C','review-preview'=>'C','review-pending'=>'C-pending','blocked'=>'D'];
+    if(isset($stateCases[$case])) {
+        [$context,$inputs,$current]=pefTestPlanningState($stateCases[$case]);
+        return pefPrintRenderContext($context,$inputs,$current,!in_array($case,['normal-initial','provisional','incomplete','review','blocked'],true));
+    }
+    $context=pefTestContext();$inputs=pefTestInputs(['section'=>'IT-32','subject_ids'=>[1,2]]);
+    if($case==='record'){$context['records'][0]['code']=str_repeat('W',20);$context['records'][0]['title']=str_repeat('T',150);}
+    elseif($case==='proposed')$context['catalog'][1]['title']=str_repeat('T',150);
+    elseif($case==='manual-preview'){}
+    elseif($case==='identity'){$context['identity']['name']=str_repeat('N',61);$context['identity']['student_number']=str_repeat('S',21);}
+    else throw new InvalidArgumentException('Unknown synthetic render case');
+    return pefPrintRenderContext($context,$inputs,['school_year'=>'2026-2027','semester'=>1]);
+}
+if(defined('PEF_CC_RENDER_HELPERS_ONLY'))return;
 if(($argv[1]??'')==='--render'){echo pefPrintRender($argv[2]??'normal');exit;}
 
 $config=pefTestConfig();$term=['school_year'=>'2026-2027','semester'=>1];
@@ -138,5 +121,28 @@ foreach(['record','proposed','identity'] as $case){
     pefTestCheck($x->query('//*[@id="pef-cc-download-form"]')->length===0,'Rejected '.$case.' page offers no download');
     pefTestCheck($x->query('//*[@data-testid="cc-preview"]//*[@aria-invalid]')->length===0,'Proposed/identity print errors never mark reference CC fields: '.$case);
     pefTestCheck($x->query('//*[@id="proposed-section"]/option[@value="IT-32" and @selected]')->length===1&&$x->query('//*[@id="pef-cc-subjects"]/option[@selected]')->length===2,'Rejected '.$case.' page retains safe section and subject choices');
+}
+foreach(['A'=>'normal','B'=>'provisional','C'=>'review','C-pending'=>'review','D'=>'invalid'] as $state=>$expectedMode){
+    [$ctx,$inputs,$current]=pefTestPlanningState($state);
+    $m=pefCcBuildViewModel($ctx,$inputs,pefCcTemplateReference($config),$config,$current);
+    pefTestCheck($m->data['mode']===$expectedMode,'Independent state fixture '.$state.' has exact policy mode');
+    if($state==='D'){
+        pefTestCheck(!$m->data['exportable'],'D has no export permission');
+        pefTestThrows(fn()=>pefCcGenerateWorkbook($m,$config),'D direct export rejects unsafe section');continue;
+    }
+    $pending=in_array($state,['B','C-pending'],true);
+    pefTestCheck($m->data['exportable'] && ($m->data['gwa_state']==='pending')===$pending,'Safe state '.$state.' exports with correct GWA availability');
+    if(str_starts_with($state,'C'))pefTestCheck($m->data['planning']['section']==='' && $m->data['proposed']===[], 'C never invents unresolved section or subjects: '.$state);
+    $token=pefCcSignSnapshot($m,random_bytes(32),$ctx['identity']['id'],'synthetic-state-'.$state,$config);
+    pefTestCheck($token!=='','State '.$state.' signs an owned preview');
+    $out=pefCcGenerateWorkbook($m,$config);
+    try{
+        $book=\PhpOffice\PhpSpreadsheet\IOFactory::load($out['path']);$sheet=$book->getSheetByName('PEF');
+        pefTestCheck($sheet->getCell('C37')->getValue()===($pending?null:$m->data['gwa']),'State '.$state.' snapshot and private PEF GWA agree');
+        pefTestCheck($sheet->getCell('C38')->getValue()===null,'Current unverified standing remains blank: '.$state);
+        pefTestCheck(($sheet->getCell('A73')->getValue()==='PROVISIONAL PLANNING COPY')===($state!=='A'),'Exact provisional notice presence: '.$state);
+        if($state!=='A')pefTestCheck($sheet->getStyle('A73')->getFont()->getColor()->getARGB()==='FFFF0000','State '.$state.' notice remains red');
+        $book->disconnectWorksheets();
+    }finally{pefCcRemoveOutput($out['path'],$config);}
 }
 pefTestFinish();

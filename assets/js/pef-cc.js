@@ -81,8 +81,12 @@
         }
     };
 
-    form.addEventListener('input', invalidate);
-    form.addEventListener('change', invalidate);
+    // form.elements includes controls associated through the form attribute,
+    // even when the guided layout places them outside the transport form.
+    Array.from(form.elements).forEach(control => {
+        control.addEventListener('input', invalidate);
+        control.addEventListener('change', invalidate);
+    });
     form.addEventListener('submit', () => {
         form.setAttribute('aria-busy', 'true');
         if (previewSubmit) previewSubmit.disabled = true;

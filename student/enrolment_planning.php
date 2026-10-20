@@ -206,7 +206,9 @@ if ($requestValid) {
             $inputs = pefCcInitialPlanningInputs($context, $inputs, $currentTerm);
         }
         try {
-            $reference = pefCcTemplateReference($config);
+            $reference = $method === 'GET'
+                ? pefCcPlanningTemplateReference($context['catalog'], $config)
+                : pefCcTemplateReference($config);
             $cc = pefCcBuildReferenceCc($context['records'], $reference);
             // Section 10: Fail closed on obsolete template
             $activeReviewedContract = pefCcTemplateContract('v0.2-r6');

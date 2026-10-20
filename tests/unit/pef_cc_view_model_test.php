@@ -8,8 +8,8 @@ $build=fn(array $c,array $i=[])=>pefCcBuildViewModel($c,pefTestInputs($i),pefTes
 $base=pefTestContext(3,['3.00','INC','0.00']);$m=$build($base);
 $complete=pefTestContext(3,['3.00','3.00','3.00']);$cm=$build($complete);
 pefTestCheck($cm['exportable']===true,'Valid completed-term model exports without curriculum mapping');
-pefTestCheck(!$m['exportable'],'Unresolved INC in evaluation term blocks export');
-pefTestCheck($m['gwa']===3.0,'Term GWA excludes INC and recorded numeric zero');
+pefTestCheck($m['exportable'] && $m['mode']==='review' && !$m['evaluation_complete'],'Incomplete Irregular term permits safe review PDF');
+pefTestCheck($m['gwa']===null && $m['gwa_state']==='pending','Incomplete selected term has no partial GWA; existing contributor/zero rules remain separate');
 pefTestCheck($m['recorded_count']===3 && count($m['recorded'])===3,'All records retained');
 pefTestCheck($m['coverage']['eligible_count']===1 && $m['coverage']['eligible_units']===3,'Numeric grade and unit coverage agrees');
 pefTestCheck(array_sum($m['coverage']['excluded'])+$m['coverage']['eligible_count']===3,'One exclusion reason per record reconciles denominator');

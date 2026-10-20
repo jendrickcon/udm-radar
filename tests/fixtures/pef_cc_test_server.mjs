@@ -1,6 +1,7 @@
 /** Loopback-only real PHP application server. No injected login/session or public fixture route. */
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { get as httpGet } from 'node:http';
 import { mkdir, writeFile, access, realpath, unlink } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
@@ -83,7 +84,18 @@ const errorLog = join(privateDir, 'php-server.log');
 child.stderr.on('data', async data => { const { appendFile } = await import('node:fs/promises'); await appendFile(errorLog, data); });
 child.once('exit', code => { if (!stopping) stop(code || 1); });
 for (let attempt = 0; attempt < 100; attempt++) {
-  try { const response = await fetch(state.base_url + 'login.php'); if (response.status === 200) { console.log(JSON.stringify({ ready: true, base_url: state.base_url, state_file: statePath, database: 'udm_radar_scratch' })); break; } }
+  try {
+    // Drain the response before reusing/closing the readiness connection. Node's
+    // fetch parser can abort on this PHP loopback server's connection close.
+    const status = await new Promise((accept, reject) => {
+      const request = httpGet(state.base_url + 'login.php', response => {
+        response.resume(); response.once('end', () => accept(response.statusCode));
+        response.once('error', reject);
+      });
+      request.once('error', reject);
+    });
+    if (status === 200) { console.log(JSON.stringify({ ready: true, base_url: state.base_url, state_file: statePath, database: 'udm_radar_scratch' })); break; }
+  }
   catch { /* Wait only for this known local child to bind. */ }
   if (attempt === 99) await stop(1);
   await new Promise(r => setTimeout(r, 100));

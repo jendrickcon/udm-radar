@@ -127,7 +127,7 @@ foreach (['no_current', 'two_years', 'two_semesters', 'duplicate_row', 'duplicat
     if ($case === 'calendar_mismatch') $approved['semester'] = 2;
     $m = pefCcBuildViewModel($c, $input, pefTestReference(), $config, $approved)->data;
     pefTestCheck(!$m['exportable'] && $m['policy']['status'] === 'evaluator_review_required'
-        && in_array(PEF_CC_TERM_REVIEW, $m['errors'], true) && $m['proposed'] === [], 'Ambiguous binding requires review, no empty export: ' . $case);
+        && in_array(PEF_CC_TERM_REVIEW, array_merge($m['errors'], $m['review_concerns']), true) && $m['mode'] === 'invalid' && $m['proposed'] === [], 'Ambiguous binding requires review, no empty export: ' . $case);
 }
 foreach ([null, 0, 5, 'two', true, '2bad'] as $year) {
     $c = $base; $c['identity']['year_level'] = $year;
@@ -174,7 +174,7 @@ $model = $build($base, $input); $key = random_bytes(32); $now = 2000000000; $stu
 $token = pefCcSignSnapshot($model, $key, $student, 'synthetic-binding', $config, $now);
 foreach (['current_grade', 'current_id', 'current_term', 'profile_year', 'profile_section', 'profile_status'] as $case) {
     $c = $base;
-    if ($case === 'current_grade') $c['records'][3]['grade'] = '3.00';
+    if ($case === 'current_grade') $c['records'][3]['grade'] = '2.50';
     if ($case === 'current_id') $c['records'][3]['id'] += 100;
     if ($case === 'current_term') $c['records'][3]['semester'] = 2;
     if ($case === 'profile_year') $c['identity']['year_level'] = 3;
@@ -198,41 +198,22 @@ foreach (['curriculum', 'policy_version'] as $case) {
 }
 // Generated static HTML from the real page template, not authenticated HTTP.
 // Bootstrap/header/footer are excluded; all context and tokens are synthetic.
-$pageSource = file_get_contents(dirname(__DIR__, 2) . '/student/enrolment_planning.php');
-$helpersStart = strpos($pageSource, 'function pefCcPageEscape(');
-$helpersEnd = strpos($pageSource, '/** Bound actual bytes');
-eval(substr($pageSource, $helpersStart, $helpersEnd - $helpersStart));
-$templateStart = strpos($pageSource, '<link rel="stylesheet"');
-$templateEnd = strpos($pageSource, '<?php require_once __DIR__', $templateStart);
-$template = substr($pageSource, $templateStart, $templateEnd - $templateStart);
-$template = str_replace('__DIR__', var_export(dirname(__DIR__, 2) . '/student', true), $template);
-if (!defined('BASE_URL')) define('BASE_URL', '/udm-radar/');
-$render = static function (array $context, array $inputs, int $sem = 1) use ($build, $config, $template, $current): DOMXPath {
-    $currentTerm = $current($sem);
-    $inputs = pefCcInitialPlanningInputs($context, $inputs, $currentTerm);
-    $model = $build($context, $inputs, $sem);
-    $data = $model->data; $formPolicy = $data['policy'];
-    $manualPlanning = $formPolicy['mode'] === 'irregular'; $regularPlanning = $formPolicy['mode'] === 'regular';
-    $formUnavailable = !$manualPlanning && ($formPolicy['nominal'] === [] || $formPolicy['target_year'] === null || $formPolicy['section_options'] === []);
-    $errors = $data['errors']; $fieldErrors = $data['field_errors']; $selectedIds = array_map('strval', $inputs['subject_ids']);
-    $choices = pefCcTermChoices($context['records'], $currentTerm);
-    $hasCompletedTerm = count(array_filter($choices, static fn(array $c): bool => $c['eligible'])) > 0;
-    $years = array_values(array_unique(array_column($choices, 'school_year')));
-    $csrf = 'synthetic-render-token'; $reference = pefTestReference(); $cc = $data['cc']; $requestValid = true; $showPreview = true;
-    $preview = $data['exportable'] ? pefCcSignSnapshot($model, random_bytes(32), $data['identity']['id'], 'synthetic-render-session', $config) : '';
-    ob_start();
-    try { eval('?>' . $template); $html = ob_get_clean(); }
-    catch (Throwable $e) { ob_end_clean(); throw $e; }
-    $dom = new DOMDocument(); $previous = libxml_use_internal_errors(true); $dom->loadHTML($html); libxml_clear_errors(); libxml_use_internal_errors($previous);
+define('PEF_CC_RENDER_HELPERS_ONLY', true);
+require_once __DIR__.'/pef_cc_print_contract_test.php';
+$render = static function (array $context, array $inputs, int $sem = 1, bool $showPreview = true) use ($current): DOMXPath {
+    $currentTerm=$current($sem);
+    $inputs=pefCcInitialPlanningInputs($context,$inputs,$currentTerm);
+    $html=pefPrintRenderContext($context,$inputs,$currentTerm,$showPreview);
+    $dom=new DOMDocument();$previous=libxml_use_internal_errors(true);$dom->loadHTML($html);libxml_clear_errors();libxml_use_internal_errors($previous);
     return new DOMXPath($dom);
 };
 $getDefaults = pefCcInitialPlanningInputs($base, pefTestInputs(), $current(1));
 pefTestCheck($build($base, $getDefaults)->data['exportable'], 'Initial GET loads authoritative target, fixed section and complete nominal IDs');
 $regularHtml = $render($base, pefTestInputs());
-pefTestCheck($regularHtml->query('//*[@id="target-year" and @readonly and @value="2026-2027"]')->length === 1, 'Regular school year shown read-only');
-pefTestCheck($regularHtml->query('//*[@id="target-semester" and @readonly]')->length === 1
+pefTestCheck($regularHtml->query('//*[@id="pef-cc-planning-form"]//input[@name="target_year" and @type="hidden" and @value="2026-2027"]')->length === 1, 'Regular school year shown read-only');
+pefTestCheck($regularHtml->query('//*[@id="pef-cc-planning-form"]//input[@name="target_semester" and @type="hidden"]')->length === 1
     && $regularHtml->query('//*[@id="pef-cc-planning-form"]//input[@name="target_semester" and @value="2"]')->length === 1, 'Resolved semester display and posted value agree');
-pefTestCheck($regularHtml->query('//*[@id="proposed-section" and @readonly and @value="IT-22"]')->length === 1, 'Same-year section is prefilled and read-only');
+pefTestCheck($regularHtml->query('//*[@id="proposed-section" and @type="hidden" and @value="IT-22"]')->length === 1, 'Same-year section is prefilled and read-only');
 pefTestCheck($regularHtml->query('//*[@id="pef-cc-subjects"]')->length === 0
     && $regularHtml->query('//*[@data-testid="nominal-subjects"]/tbody/tr')->length === 9, 'Regular nominal list has no editable subject selector');
 pefTestCheck($regularHtml->query('//*[@id="pef-cc-planning-form"]//input[@name="subject_ids[]"]')->length === 9
@@ -245,22 +226,37 @@ $nextHtml = $render($next, pefTestInputs(), 2); $values = [];
 foreach ($nextHtml->query('//*[@id="proposed-section"]/option[@value!=""]') as $node) $values[] = $node->getAttribute('value');
 pefTestCheck($values === ['IT-31', 'IT-32', 'IT-33'], 'Next-year UI displays only verified allowed sections');
 pefTestCheck($nextHtml->query('//*[@id="proposed-section"]/option[@selected and @value="IT-32"]')->length === 1, 'Next-year default retains corresponding block');
-pefTestCheck(str_contains($nextHtml->document->textContent, 'Recorded current section: IT-22')
+pefTestCheck($next['identity']['section'] === 'IT-22'
     && str_contains($nextHtml->document->textContent, 'IT-32'), 'Current recorded section remains distinct from suggested next-year section');
 $missing = $base; $missing['records'] = array_slice($missing['records'], 0, 3);
 $missingDefaults = pefCcInitialPlanningInputs($missing, pefTestInputs(), $current(1));
 $missingModel = $build($missing, $missingDefaults)->data;
-pefTestCheck(!$missingModel['exportable'] && $missingModel['gwa'] === 3.0 && $missingModel['recorded_count'] === 3, 'Unresolved current context preserves historical GWA and evidence');
-$missingHtml = $render($missing, pefTestInputs());
-pefTestCheck($missingHtml->query('//*[@data-testid="nominal-unavailable"]')->length === 1
-    && $missingHtml->query('//*[@data-testid="preview-button" and @disabled]')->length === 1, 'Unresolved Regular UI visibly requires review and disables preview');
-pefTestCheck($missingHtml->query('//*[@id="pef-cc-download-form"]')->length === 0
-    && !str_contains($missingHtml->document->textContent, 'This copy may still be exported'), 'No empty Regular export promise or signed download');
-$manualHtml = $render($irregular, pefTestInputs(['subject_ids' => [1, 2], 'section' => '<img src=x onerror=bad>']));
-pefTestCheck($manualHtml->query('//*[@id="target-year" and not(@readonly)]')->length === 1
+pefTestCheck($missingModel['exportable'] && $missingModel['mode'] === 'review'
+    && $missingModel['policy']['status'] === 'evaluator_review_required' && $missingModel['gwa'] === 3.0
+    && $missingModel['recorded_count'] === 3, 'Safe State C preserves verified historical GWA and all recorded rows');
+pefTestCheck($missingModel['planning']['section'] === '' && $missingModel['proposed'] === []
+    && $missingModel['planning']['subject_ids'] === [], 'Safe State C leaves unresolved section and subjects blank without invention');
+$missingHtml = $render($missing, pefTestInputs(), 1, false);
+pefTestCheck($missingHtml->query('//*[@data-testid="preview-button" and not(@disabled)]')->length === 1,
+    'Safe State C preview is enabled');
+pefTestCheck(str_contains($missingHtml->document->textContent, 'Planning PDF available for evaluator review'),
+    'Safe State C presents explicit review status');
+$unsafe=$base;$unsafeInputs=$input;$unsafeInputs['section']='UNVERIFIED';
+$unsafeModel=$build($unsafe,$unsafeInputs);
+pefTestCheck(!$unsafeModel->data['exportable'] && $unsafeModel->data['mode'] === 'invalid', 'Unauthorized section remains unsafe State D');
+$unsafeSource=pefPrintRenderContext($unsafe,$unsafeInputs,$current(1),false);
+$unsafeDom=new DOMDocument();libxml_use_internal_errors(true);$unsafeDom->loadHTML($unsafeSource);libxml_clear_errors();$unsafeHtml=new DOMXPath($unsafeDom);
+pefTestCheck($unsafeHtml->query('//*[@data-testid="preview-button" and @disabled]')->length === 1
+    && $unsafeHtml->query('//*[@id="pef-cc-download-form"]')->length === 0, 'Unsafe State D disables preview and offers no download');
+pefTestThrows(fn()=>pefCcSignSnapshot($unsafeModel,random_bytes(32),$unsafe['identity']['id'],'synthetic-unsafe',$config),
+    'Unsafe State D cannot acquire a signed export token');
+pefTestThrows(fn()=>pefCcGenerateWorkbook($unsafeModel,$config), 'Unsafe State D direct writer export rejected');
+$manualSource=pefPrintRenderContext($irregular,pefTestInputs(['subject_ids'=>[1,2],'section'=>'<img src=x onerror=bad>']),$current(1),false);
+$manualDom=new DOMDocument();libxml_use_internal_errors(true);$manualDom->loadHTML($manualSource);libxml_clear_errors();$manualHtml=new DOMXPath($manualDom);
+pefTestCheck($manualHtml->query('//*[@id="pef-cc-planning-form"]//input[@name="target_year"]')->length === 1
     && $manualHtml->query('//*[@id="pef-cc-subjects"]')->length === 1, 'Irregular target and manual subject controls remain editable');
 pefTestCheck($manualHtml->query('//select[@id="proposed-section" and @aria-invalid="true"]')->length === 1
-    && $manualHtml->query('//*[@id="section-error"]')->length === 1
+    && str_contains($manualHtml->document->textContent, PEF_CC_SECTION_MESSAGE)
     && $manualHtml->query('//*[@id="pef-cc-download-form"]')->length === 0
     && $manualHtml->query('//img[@src="x"]')->length === 0, 'Irregular unapproved markup is escaped and rejected with a field error and no signed download');
 $legacy = $base; $legacy['identity']['program'] = 'BSIT - Data Science'; $legacyHtml = $render($legacy, pefTestInputs());

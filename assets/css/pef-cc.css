@@ -194,6 +194,7 @@
     border-radius: 8px;
     padding: 12px 14px;
     min-height: 48px;
+    min-width: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -231,6 +232,7 @@
     color: var(--text-dark);
     margin: 4px 0 0;
     line-height: 1.35;
+    overflow-wrap: anywhere;
 }
 
 /* Compact Step Footer */
