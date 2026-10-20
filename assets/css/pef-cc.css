@@ -113,8 +113,43 @@
     border: 1px solid var(--border-color);
     border-left: 4px solid var(--accent-blue);
 }
+.pef-cc-page .pef-cc-banner--normal { border-left-color: var(--accent-green, #10b981); }
+.pef-cc-page .pef-cc-banner--provisional { border-left-color: var(--accent-gold, #f59e0b); }
+.pef-cc-page .pef-cc-banner--review { border-left-color: var(--accent-gold, #f59e0b); }
+.pef-cc-page .pef-cc-banner--blocked { border-left-color: var(--accent-red, #ef4444); }
 .pef-cc-page .pef-cc-banner h2 { font-size: 1.2rem; margin: 0 0 14px; color: var(--text-dark); }
 .pef-cc-page .pef-cc-banner-note { font-size: .9rem; color: var(--text-gray); margin: 0; line-height: 1.5; }
+.pef-cc-page .pef-cc-banner-alert {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+[data-theme="dark"] .pef-cc-page .pef-cc-banner-alert {
+    background: rgba(255, 255, 255, 0.03);
+}
+.pef-cc-page .pef-cc-banner-alert-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text-dark);
+}
+.pef-cc-page .pef-cc-banner-alert-desc {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    margin: 0 0 8px;
+    line-height: 1.4;
+}
+.pef-cc-page .pef-cc-banner-alert-actions {
+    margin-top: 12px;
+}
+.pef-cc-page .pef-cc-error-list {
+    margin: 8px 0 12px;
+    padding-left: 20px;
+    color: var(--text-dark);
+    font-size: 0.9rem;
+}
 
 /* Sections 1, 2, 3 Layout */
 .pef-cc-page .pef-cc-section {
@@ -392,9 +427,104 @@
     outline-offset: 2px;
 }
 
-/* Reduced Motion */
+/* PDF Loading State (Sections 4 & 5) */
+.pef-cc-page .pef-cc-loading-panel {
+    margin-top: 16px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--accent-blue);
+    border-left: 4px solid var(--accent-blue);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pef-cc-page .pef-cc-loading-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.pef-cc-page .pef-cc-loading-spinner {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(37, 99, 235, 0.2);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: pefCcSpin 0.9s linear infinite;
+    margin-top: 2px;
+}
+
+.pef-cc-btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: pefCcSpin 0.9s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+@keyframes pefCcSpin {
+    to { transform: rotate(360deg); }
+}
+
+.pef-cc-page .pef-cc-loading-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.pef-cc-page .pef-cc-loading-title {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+}
+
+.pef-cc-page .pef-cc-loading-desc {
+    font-size: 0.9rem;
+    color: var(--text-gray);
+    margin: 0 0 4px;
+    line-height: 1.45;
+}
+
+.pef-cc-page .pef-cc-loading-note {
+    font-size: 0.85rem;
+    color: var(--text-gray);
+    margin: 0;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* Reduced Motion Overrides */
 @media (prefers-reduced-motion: reduce) {
     .pef-cc-page .pef-cc-collapsible { animation: none !important; }
+    .pef-cc-page .pef-cc-loading-spinner,
+    .pef-cc-btn-spinner {
+        animation: none !important;
+        border-style: solid !important;
+        border-color: var(--accent-blue) !important;
+    }
+    .pef-cc-btn-spinner {
+        border-color: #ffffff !important;
+    }
+}
+
+html[data-motion="reduce"] .pef-cc-page .pef-cc-loading-spinner,
+html[data-reduced-motion="reduce"] .pef-cc-page .pef-cc-loading-spinner,
+html[data-motion="reduce"] .pef-cc-btn-spinner,
+html[data-reduced-motion="reduce"] .pef-cc-btn-spinner {
+    animation: none !important;
+    border-style: solid !important;
+    border-color: var(--accent-blue) !important;
+}
+html[data-motion="reduce"] .pef-cc-btn-spinner,
+html[data-reduced-motion="reduce"] .pef-cc-btn-spinner {
+    border-color: #ffffff !important;
 }
 
 /* Responsive Tablet and Mobile */
@@ -412,5 +542,12 @@
     }
     .pef-cc-page .pef-cc-actions-bar .btn {
         width: 100%;
+    }
+    .pef-cc-page .pef-cc-loading-panel {
+        padding: 14px 16px;
+    }
+    .pef-cc-page .pef-cc-loading-content {
+        flex-direction: row;
+        gap: 12px;
     }
 }

@@ -10,10 +10,15 @@
     const invalidated = document.getElementById('preview-invalidated');
     const previewSubmit = document.getElementById('btn-generate-preview');
     const refreshSubmit = document.getElementById('btn-refresh-preview');
+    const loadingPanel = document.getElementById('pef-cc-loading-panel');
+    const downloadFeedback = document.getElementById('pef-cc-download-feedback');
+    const announcer = document.getElementById('pef-cc-live-announcer');
+    const workbookStep = document.getElementById('step-workbook');
     const section = document.getElementById('proposed-section');
     const sectionOptions = section?.tagName === 'SELECT'
         ? new Set(Array.from(section.options).filter(option => option.dataset.approved !== 'false').map(option => option.value)) : null;
     const fixedSection = section?.readOnly ? section.value : null;
+    const initialPreviewDisabled = previewSubmit ? previewSubmit.hasAttribute('disabled') : false;
     let dirty = false;
     let busy = false;
     let downloadController = null;
@@ -53,9 +58,18 @@
         dirty = true;
         if (downloadButton) {
             downloadButton.disabled = true;
+            downloadButton.setAttribute('aria-disabled', 'true');
             downloadButton.style.display = 'none';
         }
+        if (loadingPanel) {
+            loadingPanel.hidden = true;
+        }
+        if (downloadFeedback) {
+            downloadFeedback.hidden = true;
+            downloadFeedback.textContent = '';
+        }
         if (invalidated) {
+            invalidated.textContent = 'The academic record or plan changed. Refresh the preview before downloading.';
             invalidated.hidden = false;
         }
         if (refreshSubmit) {
@@ -76,63 +90,170 @@
     });
 
     if (downloadForm && downloadButton && window.fetch && window.URL && URL.createObjectURL) {
-        const status = document.getElementById('download-status');
+        const originalButtonHtml = downloadButton.innerHTML;
+
+        downloadButton.addEventListener('click', event => {
+            if (busy || dirty) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        });
+
         downloadForm.addEventListener('submit', async event => {
             event.preventDefault();
             if (busy || dirty) return;
             busy = true;
+
+            // Preserve button width to prevent layout shift
+            const rect = downloadButton.getBoundingClientRect();
+            if (rect.width > 0) {
+                downloadButton.style.minWidth = `${Math.ceil(rect.width)}px`;
+            }
+
             downloadButton.disabled = true;
-            downloadForm.setAttribute('aria-busy', 'true');
-            if (status) status.textContent = 'Checking your preview and preparing the Excel copy…';
+            downloadButton.setAttribute('aria-disabled', 'true');
+            downloadButton.innerHTML = '<span class="pef-cc-btn-spinner" aria-hidden="true"></span><span class="pef-cc-btn-text">Preparing PDF…</span>';
+
+            if (refreshSubmit) {
+                refreshSubmit.disabled = true;
+            }
+            if (workbookStep) {
+                workbookStep.setAttribute('aria-busy', 'true');
+            }
+            if (loadingPanel) {
+                loadingPanel.hidden = false;
+            }
+            if (downloadFeedback) {
+                downloadFeedback.hidden = true;
+                downloadFeedback.textContent = '';
+            }
+
             let objectUrl;
             let timeout;
             try {
                 downloadController = typeof AbortController === 'function' ? new AbortController() : null;
-                if (downloadController) timeout = window.setTimeout(() => downloadController?.abort(), 45000);
+                if (downloadController) timeout = window.setTimeout(() => downloadController?.abort(), 60000);
+
                 const response = await fetch(downloadForm.getAttribute('action'), {
-                    method: 'POST', credentials: 'same-origin',
+                    method: 'POST',
+                    credentials: 'same-origin',
                     body: new URLSearchParams(new FormData(downloadForm)),
-                    headers: { Accept: 'application/json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+                    headers: {
+                        Accept: 'application/pdf, application/json'
+                    },
                     cache: 'no-store',
                     ...(downloadController ? { signal: downloadController.signal } : {})
                 });
-                const type = response.headers.get('content-type') || '';
-                if (!response.ok || !type.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-                    let message = response.redirected ? 'Your session may have expired. Reload the page and sign in again.' : 'The planning copy could not be downloaded. Try again or refresh the preview.';
-                    if (type.includes('application/json')) {
-                        const error = await response.json();
-                        if (typeof error.error === 'string') message = error.error;
+
+                const type = (response.headers.get('content-type') || '').toLowerCase();
+
+                if (response.status === 409) {
+                    dirty = true;
+                    const msg = 'The academic record or plan changed. Refresh the preview before downloading.';
+                    if (invalidated) {
+                        invalidated.textContent = msg;
+                        invalidated.hidden = false;
                     }
-                    if ([403, 409, 422].includes(response.status)) {
-                        dirty = true;
-                        if (invalidated) invalidated.hidden = false;
-                        if (downloadButton) downloadButton.style.display = 'none';
-                        if (refreshSubmit) refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
+                    if (downloadFeedback) {
+                        downloadFeedback.textContent = msg;
+                        downloadFeedback.hidden = false;
                     }
-                    throw new Error(message);
+                    if (announcer) {
+                        announcer.textContent = msg;
+                    }
+                    if (downloadButton) {
+                        downloadButton.disabled = true;
+                        downloadButton.setAttribute('aria-disabled', 'true');
+                    }
+                    if (refreshSubmit) {
+                        refreshSubmit.disabled = false;
+                        refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
+                        refreshSubmit.focus();
+                    }
+                    return;
                 }
+
+                if (!response.ok || !type.includes('application/pdf')) {
+                    const msg = 'The planning PDF could not be created. Refresh the preview and try again.';
+                    if (downloadFeedback) {
+                        downloadFeedback.textContent = msg;
+                        downloadFeedback.hidden = false;
+                    }
+                    if (announcer) {
+                        announcer.textContent = msg;
+                    }
+                    if (refreshSubmit) {
+                        refreshSubmit.disabled = false;
+                        refreshSubmit.focus();
+                    }
+                    return;
+                }
+
                 const blob = await response.blob();
-                if (!blob.size || blob.size > 5242880) throw new Error('The download was incomplete. Refresh the preview and try again.');
+                if (!blob.size || blob.size > 5242880) {
+                    const msg = 'The planning PDF could not be created. Refresh the preview and try again.';
+                    if (downloadFeedback) {
+                        downloadFeedback.textContent = msg;
+                        downloadFeedback.hidden = false;
+                    }
+                    if (announcer) {
+                        announcer.textContent = msg;
+                    }
+                    return;
+                }
+
                 objectUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = objectUrl;
-                link.download = 'UDM-RADAR-PEF-CC.xlsx';
-                document.body.append(link);
+                link.download = 'UDM-RADAR-PEF-CC.pdf';
+                document.body.appendChild(link);
                 link.click();
                 link.remove();
-                if (status) status.textContent = 'Your planning copy is ready. Proposed subjects still require academic review.';
+
+                if (announcer) {
+                    announcer.textContent = 'Your planning PDF download has started.';
+                }
             } catch (error) {
-                if (status) status.textContent = error instanceof Error && error.name === 'AbortError'
-                    ? 'The download request was interrupted or timed out. Please try again.'
-                    : error instanceof TypeError ? 'The network request failed. Please try again.'
-                    : error instanceof Error ? error.message : 'The network request failed. Please try again.';
+                const isAbort = error instanceof Error && error.name === 'AbortError';
+                const message = isAbort || error instanceof TypeError
+                    ? 'The PDF download was interrupted. Check the connection and try again.'
+                    : (error instanceof Error && error.message ? error.message : 'The PDF download was interrupted. Check the connection and try again.');
+                if (downloadFeedback) {
+                    downloadFeedback.textContent = message;
+                    downloadFeedback.hidden = false;
+                }
+                if (announcer) {
+                    announcer.textContent = message;
+                }
+                if (downloadButton && !dirty) {
+                    downloadButton.focus();
+                }
             } finally {
                 if (timeout) window.clearTimeout(timeout);
                 downloadController = null;
-                if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                if (objectUrl) {
+                    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+                }
                 busy = false;
-                downloadForm.removeAttribute('aria-busy');
-                downloadButton.disabled = dirty;
+                if (loadingPanel) {
+                    loadingPanel.hidden = true;
+                }
+                if (workbookStep) {
+                    workbookStep.setAttribute('aria-busy', 'false');
+                }
+                if (refreshSubmit && !dirty) {
+                    refreshSubmit.disabled = false;
+                }
+                if (downloadButton) {
+                    downloadButton.innerHTML = originalButtonHtml;
+                    downloadButton.style.minWidth = '';
+                    downloadButton.disabled = dirty;
+                    if (dirty) {
+                        downloadButton.setAttribute('aria-disabled', 'true');
+                    } else {
+                        downloadButton.removeAttribute('aria-disabled');
+                    }
+                }
             }
         });
     }
@@ -140,10 +261,17 @@
     window.addEventListener('pageshow', () => {
         busy = false;
         form.removeAttribute('aria-busy');
-        if (previewSubmit) previewSubmit.disabled = false;
+        if (previewSubmit && !initialPreviewDisabled) previewSubmit.disabled = false;
         if (refreshSubmit) refreshSubmit.disabled = false;
         if (downloadForm) downloadForm.removeAttribute('aria-busy');
-        if (downloadButton) downloadButton.disabled = dirty;
+        if (downloadButton) {
+            downloadButton.disabled = dirty;
+            if (dirty) {
+                downloadButton.setAttribute('aria-disabled', 'true');
+            } else {
+                downloadButton.removeAttribute('aria-disabled');
+            }
+        }
     });
     window.addEventListener('pagehide', () => downloadController?.abort());
     updateCount();

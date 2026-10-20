@@ -292,6 +292,7 @@ function pefCcTermChoices(array $records, array $currentTerm): array
             'eligible' => $allErrors === [],
             'gwa_eligible' => $gwaEligible,
             'integrity_errors' => array_values(array_unique($integrityErrors)),
+            'temporal_errors' => array_values(array_unique($temporalErrors)),
             'errors' => $allErrors,
         ];
     }
@@ -628,7 +629,11 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
     $policy = pefCcPlanningPolicy($context, $planningInput, $currentTerm);
     $errors = $policy['errors'];
     $fieldErrors = $policy['field_errors'];
-    if ($policy['mode'] === 'regular') {
+    $reviewConcerns = $policy['review_concerns'] ?? [];
+    if ($policy['mode'] === 'irregular') {
+        $reviewConcerns[] = $policy['section_notice'];
+    }
+    if (in_array($policy['mode'], ['regular', 'review_copy'], true)) {
         if ($planningInput['subject_ids'] !== $policy['nominal_ids']) {
             $errors[] = 'Regular students must retain the complete nominal subject plan. Review the updated list and preview again.';
             $fieldErrors['subject_ids'] = 'The nominal subject plan is read-only; insertion, deletion and replacement are not permitted.';
@@ -636,6 +641,10 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $planningInput['subject_ids'] = $policy['nominal_ids'];
     } elseif ($policy['mode'] !== 'irregular') {
         $planningInput['subject_ids'] = [];
+    }
+    if (!pefCcSectionIsApproved($policy, $planningInput['section'], $planningInput)) {
+        $errors[] = PEF_CC_SECTION_MESSAGE;
+        $fieldErrors['section'] = PEF_CC_SECTION_MESSAGE;
     }
     $sourceIdentity = $context['identity'] ?? [];
     $identity = [];
@@ -684,7 +693,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
             break;
         }
     }
-    // Enforce immediate predecessor parity and completion
+    // Enforce term parity; incomplete outcomes qualify the copy below.
     $targetYear = $policy['target_year'] ?? $planningInput['target_year'];
     $targetSemester = $policy['target_semester'] ?? $planningInput['target_semester'];
     $requiredPred = is_string($targetYear) && is_int($targetSemester)
@@ -717,32 +726,24 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $fieldErrors['evaluation_year'] = 'No recorded subjects exist for this term.';
     }
 
-    $isProvisionalCandidate = ($isPredMatch && $isPredCurrent && !$predComp['is_complete']
+    $isProvisionalCandidate = ($isPredMatch && !$predComp['is_complete']
         && in_array($predComp['reason'], ['incomplete_grades', 'unresolved_outcomes'], true));
 
-    $isNormalCandidate = ($isPredMatch && $predComp['is_complete']);
-
+    $evaluationComplete = pefCcTermCompletion($records, $planningInput['evaluation_year'], $planningInput['evaluation_semester'])['is_complete'];
     $termGwaEligible = false;
     if ($evalChoice !== null) {
-        if ($isProvisionalCandidate) {
-            $errors = array_merge($errors, $evalChoice['integrity_errors']);
-            $termGwaEligible = false;
-        } elseif ($isNormalCandidate && $isPredCurrent) {
-            $errors = array_merge($errors, $evalChoice['integrity_errors']);
-            $termGwaEligible = ($evalChoice['integrity_errors'] === []);
+        $errors = array_merge($errors, $evalChoice['integrity_errors']);
+        if ($isPredMatch && $isPredCurrent) {
+            foreach ($recorded as $row) {
+                if (!in_array($row['is_current'] ?? null, [0, '0', 1, '1'], true)) {
+                    $errors[] = 'The evaluation term contains an invalid current-record marker.';
+                }
+            }
+            $termGwaEligible = $evaluationComplete && $evalChoice['integrity_errors'] === [];
         } else {
-            $errors = array_merge($errors, $evalChoice['errors']);
-            $termGwaEligible = $evalChoice['gwa_eligible'];
+            $errors = array_merge($errors, $evalChoice['temporal_errors']);
+            $termGwaEligible = $evaluationComplete && $evalChoice['gwa_eligible'];
         }
-    }
-
-    if (!$isProvisionalCandidate && $requiredPred !== null && !$predComp['is_complete']) {
-        $msg = 'The immediate predecessor record (' . $requiredPred['school_year'] . ' ' . pefCcSemesterLabel($requiredPred['semester'])
-            . ') is incomplete. Complete grades or academic evaluator review are required before generating the next-semester planning workbook.';
-        if (!in_array($msg, $errors, true)) {
-            $errors[] = $msg;
-        }
-        $fieldErrors['target_year'] = $msg;
     }
     $coverage = ['recorded_count' => count($recorded), 'eligible_count' => 0, 'eligible_units' => 0, 'excluded' => []];
     $gwaRows = [];
@@ -810,20 +811,25 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         $fieldErrors = array_replace($fieldErrors, $printErrors);
     }
     $errors = array_values(array_unique($errors));
-    $isPredComplete = ($requiredPred !== null && ($predComp['is_complete'] ?? false));
+    // Completion gates the selected-term calculation; no partial or substitute GWA.
+    $gwa = $termGwaEligible ? computeWeightedGWA($gwaRows) : null;
+    if ($evaluationComplete && $gwa === null) {
+        $reviewConcerns[] = 'The selected-term GWA is unavailable from the verified outcomes. Academic evaluator review is required.';
+    }
+    $reviewConcerns = array_values(array_unique($reviewConcerns));
     $mode = match (true) {
         $errors !== [] => 'invalid',
+        $reviewConcerns !== [] => 'review',
         $isProvisionalCandidate => 'provisional',
-        $isPredComplete => 'normal',
+        $isPredMatch && $evaluationComplete && $gwa !== null => 'normal',
         default => 'invalid',
     };
-    $exportable = ($errors === []) && in_array($mode, ['normal', 'provisional'], true);
-    $gwa = ($isProvisionalCandidate || !$termGwaEligible) ? null : computeWeightedGWA($gwaRows);
+    $exportable = $errors === [] && in_array($mode, ['normal', 'provisional', 'review'], true);
     $gwaState = match (true) {
-        $isProvisionalCandidate => 'pending',
+        !$evaluationComplete => 'pending',
+        $gwa !== null => 'available',
         !$termGwaEligible => 'requires_review',
-        $gwa === null => 'unavailable',
-        default => 'available',
+        default => 'unavailable',
     };
     $historicalMatrixData = pefCcBuildHistoricalStandingMatrix($records, $identity, $context['catalog'] ?? [], $currentTerm);
     $history = $historicalMatrixData['history'];
@@ -835,6 +841,7 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         'identity' => $identity,
         'policy' => $policy,
         'evaluation' => ['school_year' => $planningInput['evaluation_year'], 'semester' => $planningInput['evaluation_semester'], 'label' => pefCcSemesterLabel($planningInput['evaluation_semester'])],
+        'evaluation_complete' => $evaluationComplete,
         'recorded' => $recordedRows,
         'gwa' => $gwa,
         'gwa_state' => $gwaState,
@@ -853,6 +860,6 @@ function pefCcBuildViewModel(array $context, array $input, array $reference, arr
         'template_version' => $config['template_version'], 'template_hash' => $config['template_sha256'],
         'print_contract' => $config['printable'],
         'exportable' => $exportable,
-        'errors' => $errors, 'field_errors' => $fieldErrors,
+        'errors' => $errors, 'field_errors' => $fieldErrors, 'review_concerns' => $reviewConcerns,
     ]);
 }

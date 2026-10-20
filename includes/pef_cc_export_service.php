@@ -300,7 +300,10 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         || ($data['template_hash'] ?? null) !== $config['template_sha256']
         || ($data['template_version'] ?? null) !== $config['template_version']
         || ($data['print_contract'] ?? null) !== $config['printable']
-        || !in_array($data['mode'] ?? null, ['normal', 'provisional'], true)) {
+        || (($data['evaluation_complete'] ?? false) !== true && ($data['gwa'] ?? null) !== null)
+        || (($data['mode'] ?? null) === 'normal'
+            && (($data['evaluation_complete'] ?? false) !== true || !is_numeric($data['gwa'] ?? null)))
+        || !in_array($data['mode'] ?? null, ['normal', 'provisional', 'review'], true)) {
         throw new RuntimeException('Refresh a valid planning preview before downloading.');
     }
     if (($data['policy']['version'] ?? null) !== PEF_CC_PLANNING_POLICY_VERSION
@@ -460,7 +463,7 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
         }
 
         // Apply on-sheet red notice and dynamic print area by mode
-        if (($data['mode'] ?? '') === 'provisional') {
+        if (in_array($data['mode'] ?? '', ['provisional', 'review'], true)) {
             $pef->mergeCells('A73:G73');
             pefCcWriteCell($pef, 'A73', 'PROVISIONAL PLANNING COPY');
             $pef->getStyle('A73')->getFont()->setName('Arial Narrow')->setSize(10)->setBold(true)->getColor()->setARGB('FFFF0000');
@@ -469,7 +472,10 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
                 ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
             $pef->mergeCells('A74:G75');
-            pefCcWriteCell($pef, 'A74', "Current-semester grades are incomplete. The proposed subjects and section require academic evaluator review and may change after final grades are recorded.");
+            $notice = empty($data['evaluation_complete'])
+                ? 'Current-semester grades are incomplete. The proposed subjects and section require academic evaluator review and may change after final grades are recorded.'
+                : 'Some planning information requires academic evaluator review. This provisional planning copy includes only verified information; unresolved planning fields remain blank.';
+            pefCcWriteCell($pef, 'A74', $notice);
             $pef->getStyle('A74')->getFont()->setName('Arial Narrow')->setSize(9)->setItalic(true)->getColor()->setARGB('FFFF0000');
             $pef->getStyle('A74')->getAlignment()
                 ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
@@ -591,7 +597,7 @@ function pefCcGenerateWorkbook(PefCcViewModel $model, array $config): array
 function pefCcRemoveOutput(string $path, array $config): void
 {
     $paths = pefCcPrivatePaths($config, false);
-    if (preg_match('/\Apefcc-[0-9a-f]{32}\.(?:tmp|xlsx)\z/D', basename($path)) !== 1
+    if (preg_match('/\Apefcc-[0-9a-f]{32}\.(?:tmp|xlsx|pdf)\z/D', basename($path)) !== 1
         || pefCcPathKey(dirname($path)) !== pefCcPathKey($paths['temp_path']) || is_link($path)) {
         throw new RuntimeException('Refusing to remove an unowned export path.');
     }
@@ -604,6 +610,122 @@ function pefCcRemoveOutput(string $path, array $config): void
     if (!unlink($path)) { throw new RuntimeException('Export cleanup requires another attempt.'); }
 }
 
+function pefCcValidatePdf(string $pdfPath, array $config): array
+{
+    $paths = pefCcPrivatePaths($config, false);
+    if (preg_match('/\Apefcc-[0-9a-f]{32}\.pdf\z/D', basename($pdfPath)) !== 1
+        || pefCcPathKey(dirname($pdfPath)) !== pefCcPathKey($paths['temp_path']) || is_link($pdfPath)) {
+        throw new RuntimeException('Refusing to validate an unowned PDF export path.');
+    }
+    clearstatcache(true, $pdfPath);
+    if (!is_file($pdfPath) || !is_readable($pdfPath)) {
+        throw new RuntimeException('The planning PDF output could not be read.');
+    }
+    $bytes = filesize($pdfPath);
+    if ($bytes === false || $bytes <= 0 || $bytes > ($config['max_output_bytes'] ?? 5242880)) {
+        throw new RuntimeException('The planning PDF output exceeds its size limit.');
+    }
+    $handle = fopen($pdfPath, 'rb');
+    if ($handle === false) {
+        throw new RuntimeException('The planning PDF output could not be opened.');
+    }
+    $header = fread($handle, 8);
+    fclose($handle);
+    if (!is_string($header) || !str_starts_with($header, '%PDF-')) {
+        throw new RuntimeException('The planning PDF output header is invalid.');
+    }
+    $content = file_get_contents($pdfPath);
+    if ($content === false) {
+        throw new RuntimeException('The planning PDF output could not be verified.');
+    }
+    // Must be exactly 2 pages: Page 1 = PEF, Page 2 = CC
+    preg_match_all('~/Type\s*/Page\b~', $content, $matches);
+    $pageCount = count($matches[0]);
+    if ($pageCount !== 2) {
+        throw new RuntimeException('The planning PDF must contain exactly two pages.');
+    }
+    return [
+        'path' => $pdfPath,
+        'bytes' => $bytes,
+        'pages' => 2,
+        'sha256' => hash_file('sha256', $pdfPath),
+    ];
+}
+
+function pefCcRenderPdfFromWorkbook(string $xlsxPath, array $config): array
+{
+    $paths = pefCcPrivatePaths($config, false);
+    if (preg_match('/\Apefcc-[0-9a-f]{32}\.xlsx\z/D', basename($xlsxPath)) !== 1
+        || pefCcPathKey(dirname($xlsxPath)) !== pefCcPathKey($paths['temp_path']) || is_link($xlsxPath)) {
+        throw new RuntimeException('Refusing to convert an unowned workbook path.');
+    }
+    clearstatcache(true, $xlsxPath);
+    if (!is_file($xlsxPath) || !is_readable($xlsxPath)) {
+        throw new RuntimeException('The source planning workbook is unavailable.');
+    }
+    $jobId = substr(basename($xlsxPath), 6, 32);
+    $pdfPath = $paths['temp_path'] . DIRECTORY_SEPARATOR . 'pefcc-' . $jobId . '.pdf';
+
+    register_shutdown_function(static function () use ($pdfPath, $config): void {
+        try { pefCcRemoveOutput($pdfPath, $config); } catch (Throwable) { /* CLI reaper handles a later retry. */ }
+    });
+
+    $lockPath = $paths['temp_path'] . DIRECTORY_SEPARATOR . '.pefcc_converter.lock';
+    $lockFp = @fopen($lockPath, 'c+');
+    if ($lockFp === false) {
+        throw new RuntimeException('The converter lock could not be initialized.');
+    }
+    $locked = false;
+    $waitLimit = 20;
+    $startWait = microtime(true);
+    while (microtime(true) - $startWait < $waitLimit) {
+        if (flock($lockFp, LOCK_EX | LOCK_NB)) {
+            $locked = true;
+            break;
+        }
+        usleep(100000);
+    }
+    if (!$locked) {
+        fclose($lockFp);
+        throw new RuntimeException('The planning PDF is currently being prepared. Try again shortly.');
+    }
+
+    try {
+        $realXlsx = realpath($xlsxPath);
+        if ($realXlsx === false) {
+            throw new RuntimeException('The source planning workbook is unavailable.');
+        }
+        $psXlsx = str_replace('\\', '/', $realXlsx);
+        $psPdf = str_replace('\\', '/', $pdfPath);
+        $psScript = "\$ErrorActionPreference = 'Stop'; \$excel = New-Object -ComObject Excel.Application; \$excel.Visible = \$false; \$excel.DisplayAlerts = \$false; try { \$book = \$excel.Workbooks.Open('$psXlsx', 0, \$true); \$book.ExportAsFixedFormat(0, '$psPdf', 0, \$false, \$false); \$book.Close(\$false); Write-Output 'SUCCESS' } finally { \$excel.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject(\$excel) | Out-Null }";
+
+        $cmd = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ' . escapeshellarg($psScript);
+        $output = shell_exec($cmd);
+
+        if (!is_string($output) || !str_contains($output, 'SUCCESS') || !file_exists($pdfPath)) {
+            throw new RuntimeException('The planning PDF could not be created.');
+        }
+
+        $validated = pefCcValidatePdf($pdfPath, $config);
+        $validated['job_id'] = $jobId;
+        return $validated;
+    } catch (Throwable $e) {
+        if (file_exists($pdfPath)) {
+            try { pefCcRemoveOutput($pdfPath, $config); } catch (Throwable) {}
+        }
+        throw $e;
+    } finally {
+        if ($locked) {
+            flock($lockFp, LOCK_UN);
+        }
+        if (is_resource($lockFp)) {
+            fclose($lockFp);
+        }
+        // Immediate cleanup of temporary intermediate XLSX workbook
+        try { pefCcRemoveOutput($xlsxPath, $config); } catch (Throwable) {}
+    }
+}
+
 function pefCcCleanupExports(array $config, bool $delete = false, ?int $now = null): array
 {
     $paths = pefCcPrivatePaths($config, false);
@@ -611,7 +733,7 @@ function pefCcCleanupExports(array $config, bool $delete = false, ?int $now = nu
     $result = ['scanned' => 0, 'eligible' => 0, 'deleted' => 0];
     foreach (new DirectoryIterator($paths['temp_path']) as $entry) {
         if ($entry->isDot() || $entry->isLink() || !$entry->isFile()
-            || preg_match('/\Apefcc-[0-9a-f]{32}\.(?:tmp|xlsx)\z/D', $entry->getFilename()) !== 1) { continue; }
+            || preg_match('/\Apefcc-[0-9a-f]{32}\.(?:tmp|xlsx|pdf)\z/D', $entry->getFilename()) !== 1) { continue; }
         $result['scanned']++;
         if ($entry->getMTime() > $now - $config['cleanup_age_seconds']) { continue; }
         $result['eligible']++;

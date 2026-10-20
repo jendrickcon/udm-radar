@@ -146,6 +146,7 @@ if (!is_string($signingKey) || strlen($signingKey) !== 32) {
 }
 $inputs = array_intersect_key($_POST, array_flip(['evaluation_year', 'evaluation_semester', 'target_year', 'target_semester', 'section', 'subject_ids']));
 $output = null;
+$pdf = null;
 $handle = null;
 $previousAbort = ignore_user_abort(true);
 try {
@@ -183,23 +184,25 @@ try {
         pefCcDownloadError(409, 'Your academic records or planning details changed after preview. Refresh the preview before downloading.');
     }
     $output = pefCcGenerateWorkbook($model, $config);
-    if (!is_file($output['path']) || !is_readable($output['path']) || filesize($output['path']) !== $output['bytes']
-        || $output['bytes'] <= 0 || $output['bytes'] > $config['max_output_bytes']) {
-        throw new RuntimeException('Generated workbook did not pass the delivery size check.');
+    $pdf = pefCcRenderPdfFromWorkbook($output['path'], $config);
+    $output = null;
+    if (!is_file($pdf['path']) || !is_readable($pdf['path']) || filesize($pdf['path']) !== $pdf['bytes']
+        || $pdf['bytes'] <= 0 || $pdf['bytes'] > $config['max_output_bytes']) {
+        throw new RuntimeException('Generated planning PDF did not pass the delivery size check.');
     }
-    $handle = fopen($output['path'], 'rb');
+    $handle = fopen($pdf['path'], 'rb');
     if ($handle === false) {
-        throw new RuntimeException('Generated workbook could not be opened.');
+        throw new RuntimeException('Generated planning PDF could not be opened.');
     }
     // Headers are emitted only after generation, verification, and opening succeeded.
     ob_end_clean();
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="UDM-RADAR-PEF-CC.xlsx"');
-    header('Content-Length: ' . $output['bytes']);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="UDM-RADAR-PEF-CC.pdf"');
+    header('Content-Length: ' . $pdf['bytes']);
     while (!feof($handle) && !connection_aborted()) {
         $chunk = fread($handle, 65536);
         if ($chunk === false) {
-            throw new RuntimeException('Workbook stream interrupted.');
+            throw new RuntimeException('PDF stream interrupted.');
         }
         echo $chunk;
         flush();
@@ -216,7 +219,14 @@ try {
             pefCcRemoveOutput($output['path'], $config);
             $output = null;
         }
-        pefCcDownloadError(503, 'The planning copy could not be prepared. Please refresh your preview and try again.');
+        if (is_array($pdf) && isset($pdf['path'])) {
+            pefCcRemoveOutput($pdf['path'], $config);
+            $pdf = null;
+        }
+        $msg = ($e->getMessage() === 'The planning PDF is currently being prepared. Try again shortly.')
+            ? 'The planning PDF is currently being prepared. Try again shortly.'
+            : 'The planning copy could not be prepared. Please refresh your preview and try again.';
+        pefCcDownloadError(503, $msg);
     }
 } finally {
     if (is_resource($handle)) {
@@ -224,6 +234,9 @@ try {
     }
     if (is_array($output) && isset($output['path'])) {
         pefCcRemoveOutput($output['path'], $config);
+    }
+    if (is_array($pdf) && isset($pdf['path'])) {
+        pefCcRemoveOutput($pdf['path'], $config);
     }
     ignore_user_abort((bool) $previousAbort);
 }
