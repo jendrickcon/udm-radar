@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.4';
+const PEF_CC_PLANNING_POLICY_VERSION = 'sd-2022-2023-wp1.5';
 const PEF_CC_SECTION_MESSAGE = 'The suggested section is not available for this planning context. Choose one of the approved section options before previewing or downloading.';
 const PEF_CC_NOMINAL_REVIEW = 'The nominal subject plan could not be resolved from the available curriculum record. Academic evaluator review is required.';
 const PEF_CC_LEGACY_REVIEW = 'This historical curriculum track requires academic evaluator review and is not included in the current Software Development planning workflow.';
@@ -49,7 +49,7 @@ function pefCcNextTerm(string $schoolYear, int $semester): ?array
  * B. Passing status: 1.00..4.00 and P pass; 0.00, FA, UD fail; INC is unresolved.
  * C. Term GWA eligibility: numeric grades calculate weighted GWA; 0.00 and textual outcomes excluded.
  * D. GS/WS standing: unverified institutional calculation; displayed as pending evaluator review.
- * E. Next-term planning eligibility: immediate predecessor must be fully complete.
+ * E. Planning uses the identified predecessor; incomplete grades qualify a copy, not prohibit it.
  */
 function pefCcTermCompletion(array $records, string $schoolYear, int $semester): array
 {
@@ -146,6 +146,15 @@ function pefCcSectionIsApproved(array $policy, mixed $section, ?array $planning 
             || pefCcSemester($planning['target_semester'] ?? null) !== $targetSemester))) {
         return false;
     }
+    if (($policy['mode'] ?? null) === 'review_copy') {
+        $evaluation = $policy['review_evaluation'] ?? [];
+        $predecessor = pefCcPredecessorTerm($targetYear, $targetSemester);
+        return $section === '' && ($policy['section_options'] ?? []) === ['']
+            && ($evaluation['source'] ?? null) === 'recorded_evaluation_term'
+            && ($evaluation['school_year'] ?? null) === ($predecessor['school_year'] ?? null)
+            && ($evaluation['semester'] ?? null) === ($predecessor['semester'] ?? null)
+            && ($policy['review_concerns'] ?? []) !== [];
+    }
     $hasEvidence = static function () use ($policy, $section, $targetYear, $targetSemester): bool {
         foreach ($policy['section_evidence'] ?? [] as $row) {
             if (($row['section'] ?? null) === $section && pefCcSectionEvidenceMatches($row, $targetYear, $targetSemester)) {
@@ -191,16 +200,73 @@ function pefCcInitialPlanningInputs(array $context, array $input, array $current
         $input['evaluation_year'] = (string) $policy['predecessor_term']['school_year'];
         $input['evaluation_semester'] = (string) $policy['predecessor_term']['semester'];
     }
-    if ($policy['mode'] === 'regular') {
-        // Keep syntactically valid input when binding is unavailable so the
-        // model can still show historical grades/GWA. Policy blocks export;
-        // the form displays the unresolved target as read-only review state.
+    if (in_array($policy['mode'], ['regular', 'review_copy'], true)) {
+        // GET defaults are server-derived; POST values are checked unchanged.
         $input['target_year'] = $policy['target_year'] ?? $input['target_year'];
         $input['target_semester'] = $policy['target_semester'] ?? $input['target_semester'];
         $input['section'] = $policy['section_default'];
         $input['subject_ids'] = $policy['nominal_ids'];
     }
     return $input;
+}
+
+/** A controlled copy may omit unresolved planning fields, never authorize arbitrary input. */
+function pefCcControlledReviewPolicy(array $policy, array $context, array $input, array $currentTerm, string $concern): array
+{
+    $evaluationYear = $input['evaluation_year'] ?? null;
+    $evaluationSemester = pefCcSemester($input['evaluation_semester'] ?? null);
+    $choice = null;
+    foreach (pefCcTermChoices($context['records'] ?? [], $currentTerm) as $candidate) {
+        if ($candidate['school_year'] === $evaluationYear && $candidate['semester'] === $evaluationSemester) {
+            $choice = $candidate;
+            break;
+        }
+    }
+    $isCurrent = pefCcValidYear($currentTerm['school_year'] ?? null)
+        && pefCcSemester($currentTerm['semester'] ?? null) !== null
+        && $evaluationYear === $currentTerm['school_year']
+        && $evaluationSemester === pefCcSemester($currentTerm['semester']);
+    if ($choice === null || $choice['integrity_errors'] !== []
+        || (!$isCurrent && !$choice['gwa_eligible'])) {
+        $policy['errors'][] = $concern;
+        return $policy;
+    }
+    $target = $policy['target_year'] !== null && $policy['target_semester'] !== null
+        ? ['school_year' => $policy['target_year'], 'semester' => $policy['target_semester']]
+        : pefCcNextTerm($evaluationYear, $evaluationSemester);
+    $predecessor = $target === null ? null : pefCcPredecessorTerm($target['school_year'], $target['semester']);
+    if ($predecessor === null || $predecessor['school_year'] !== $evaluationYear
+        || $predecessor['semester'] !== $evaluationSemester) {
+        $policy['errors'][] = 'The evaluation term must be the immediate predecessor of the verified target term.';
+        return $policy;
+    }
+    $policy['mode'] = 'review_copy';
+    $policy['status'] = 'evaluator_review_required';
+    $policy['review_concerns'][] = $concern;
+    $policy['review_evaluation'] = ['school_year' => $evaluationYear, 'semester' => $evaluationSemester,
+        'source' => 'recorded_evaluation_term'];
+    $policy['target_year'] = $target['school_year'];
+    $policy['target_semester'] = $target['semester'];
+    $policy['predecessor_term'] = $predecessor;
+    $completion = pefCcTermCompletion($context['records'] ?? [], $evaluationYear, $evaluationSemester);
+    $policy['predecessor_status'] = $completion;
+    $policy['predecessor_complete'] = $completion['is_complete'];
+    $policy['section_options'] = [''];
+    $policy['section_default'] = '';
+    $policy['section_evidence'] = [];
+    $policy['section_notice'] = 'The proposed section is left blank for academic evaluator review.';
+    foreach (['target_year' => $target['school_year'], 'target_semester' => $target['semester']] as $field => $expected) {
+        $actual = $field === 'target_semester' ? pefCcSemester($input[$field] ?? null) : ($input[$field] ?? null);
+        if ($actual !== $expected) {
+            $policy['errors'][] = 'The target term must match the verified evaluation-term successor. Refresh the planning preview.';
+            $policy['field_errors'][$field] = 'Use the verified target term.';
+        }
+    }
+    if (($input['section'] ?? '') !== '') {
+        $policy['errors'][] = PEF_CC_SECTION_MESSAGE;
+        $policy['field_errors']['section'] = PEF_CC_SECTION_MESSAGE;
+    }
+    return $policy;
 }
 
 /** A coherent own current-term record set corroborates the current profile year. */
@@ -325,7 +391,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
         'section_options' => [], 'section_evidence' => [], 'section_default' => '', 'nominal' => [], 'nominal_ids' => [],
         'section_notice' => 'Available section assignments require evaluator confirmation.',
         'disclosure' => 'Suggested sections are planning preferences and remain subject to availability and evaluator review.',
-        'errors' => [], 'field_errors' => [],
+        'errors' => [], 'field_errors' => [], 'review_concerns' => [],
     ];
     $fail = static function (string $message, ?string $field = null) use (&$policy): void {
         $policy['errors'][] = $message;
@@ -406,8 +472,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     if (($mapping['curriculum_version'] ?? null) !== '2022-2023' || ($mapping['program'] ?? null) !== 'BSIT'
         || ($mapping['track'] ?? null) !== 'Software Development'
         || ($mapping['supported_course_value'] ?? null) !== $identity['program']) {
-        $fail(PEF_CC_NOMINAL_REVIEW);
-        return $policy;
+        return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm, PEF_CC_NOMINAL_REVIEW);
     }
     $year = filter_var($identity['year_level'] ?? null, FILTER_VALIDATE_INT);
     $section = pefCcSupportedSection($identity['section'] ?? null);
@@ -417,8 +482,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     }
     $anchor = pefCcProfileTerm($context['records'] ?? [], $currentTerm, $year, $mapping, $context['catalog'] ?? []);
     if ($anchor === null) {
-        $fail(PEF_CC_TERM_REVIEW);
-        return $policy;
+        return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm, PEF_CC_TERM_REVIEW);
     }
     $policy['profile_term'] = $anchor;
     $targetYear = $anchor['semester'] === 1 ? $anchor['school_year']
@@ -426,8 +490,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     $targetSemester = $anchor['semester'] === 1 ? 2 : 1;
     $targetNominal = $year + ($anchor['semester'] === 2 ? 1 : 0);
     if ($targetNominal > 4) {
-        $fail(PEF_CC_TERM_REVIEW);
-        return $policy;
+        return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm, PEF_CC_TERM_REVIEW);
     }
     $policy['horizon'] = $anchor['semester'] === 1 ? 'same_school_year' : 'next_school_year';
     $policy['target_year'] = $targetYear;
@@ -472,8 +535,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
     $terms = array_values(array_filter($mapping['terms'] ?? [], static fn(array $t): bool =>
         ($t['year_level'] ?? null) === $targetNominal && ($t['semester'] ?? null) === $targetSemester));
     if (count($terms) !== 1 || empty($terms[0]['subjects'])) {
-        $fail(PEF_CC_NOMINAL_REVIEW);
-        return $policy;
+        return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm, PEF_CC_NOMINAL_REVIEW);
     }
     foreach ($terms[0]['subjects'] as $subject) {
         $matches = array_values(array_filter($context['catalog'] ?? [], static fn(array $row): bool => ($row['code'] ?? null) === $subject['code']));
@@ -485,8 +547,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
             || pefCcSemester($matches[0]['semester'] ?? null) !== $targetSemester
             || trim(str_replace("\u{00a0}", ' ', (string) ($matches[0]['title'] ?? ''))) !== $subject['title']) {
             $policy['nominal'] = $policy['nominal_ids'] = [];
-            $fail(PEF_CC_NOMINAL_REVIEW);
-            return $policy;
+            return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm, PEF_CC_NOMINAL_REVIEW);
         }
         $policy['nominal'][] = ['id' => (int) $matches[0]['id'], 'code' => $subject['code'], 'title' => $subject['title'],
             'units' => $subject['units'], 'prerequisites' => $subject['prerequisites'], 'elective_slot' => $subject['elective_slot']];
@@ -530,6 +591,10 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
             // A valid retained current-year section is a preference only.
             $policy['section_options'] = [$identity['section']];
             $policy['section_default'] = $identity['section'];
+        }
+        if ($policy['section_options'] === [] && ($input['section'] ?? '') === '') {
+            return pefCcControlledReviewPolicy($policy, $context, $input, $currentTerm,
+                'No verified section is available for this target term. Academic evaluator review is required.');
         }
         if (!in_array($input['section'] ?? '', $policy['section_options'], true)) {
             $fail('The selected section is outside the available planning range. Choose the current block, one block below, or one block above for the next school year.', 'section');

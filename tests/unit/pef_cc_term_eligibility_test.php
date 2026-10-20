@@ -153,10 +153,13 @@ pefTestCheck($m3->data['academic_standing'] === 'Pending evaluator review'
     && $m3->data['academic_standing_code'] === null,
     'Incomplete term standing remains pending.');
 
-// 11b. Verified completed term produces Good Standing (GS) under Student Manual 2025.
-pefTestCheck($m2->data['academic_standing'] === 'Good Standing (GS)'
-    && $m2->data['academic_standing_code'] === 'GS',
-    'Verified completed term produces Good Standing (GS) under Student Manual 2025.');
+// 11b. Complete safe-review output does not certify selected-term standing.
+pefTestCheck($m2->data['mode']==='review' && $m2->data['academic_standing']==='Pending evaluator review'
+    && $m2->data['academic_standing_code']===null, 'Safe review copy with complete outcomes retains evaluator-review standing');
+[$normalContext,$normalInputs,$normalTerm]=pefTestPlanningState('A');
+$normalStanding=pefCcBuildViewModel($normalContext,$normalInputs,pefTestReference(),$testConfig,$normalTerm)->data;
+pefTestCheck($normalStanding['academic_standing']==='Good Standing (GS)' && $normalStanding['academic_standing_code']==='GS',
+    'Verified complete State A still derives Good Standing');
 
 // 12. Missing historical standing remains blank, not WS.
 $historicalStanding = $m2->data['historical_standing'] ?? [];
@@ -456,7 +459,7 @@ pefTestCheck(count($genMedia) === 1 && $genMedia === $templateMedia,
 
 // 23. Rows 73–81 commentary is absent.
 $commentaryPresent = false;
-for ($r = 73; $r <= 81; $r++) {
+for ($r = 76; $r <= 81; $r++) {
     foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G'] as $col) {
         $val = $pefSheet->getCell($col . $r)->getValue();
         if ($val !== null && trim((string) $val) !== '') {
@@ -468,8 +471,8 @@ for ($r = 73; $r <= 81; $r++) {
 pefTestCheck($commentaryPresent === false, 'Rows 73–81 commentary is absent.');
 
 // 24. PEF print area is A1:G71.
-pefTestCheck($pefSheet->getPageSetup()->getPrintArea() === 'A1:G71',
-    'PEF print area is A1:G71.');
+pefTestCheck($pefSheet->getPageSetup()->getPrintArea() === 'A1:G75' && $pefSheet->getCell('A73')->getValue() === 'PROVISIONAL PLANNING COPY',
+    'Review copy includes the approved red notice in A1:G75.');
 
 // 25. Browser disclosures remain present.
 $planningFile = file_get_contents(dirname(__DIR__, 2) . '/student/enrolment_planning.php');
@@ -691,7 +694,7 @@ pefTestCheck($ccSheet->getCell('F11')->getValue() === 'F' && $ccTestModel->data[
 pefTestCheck(!isset($ccTestModel->data['risk_level']), '30. Risk level is not used to derive CC Status.');
 
 // 31. PEF remains unchanged.
-pefTestCheck($pefSheet->getPageSetup()->getPrintArea() === 'A1:G75' || $pefSheet->getPageSetup()->getPrintArea() === 'A1:G71', '31. PEF remains unchanged.');
+pefTestCheck($pefSheet->getPageSetup()->getPrintArea() === 'A1:G75' || $pefSheet->getPageSetup()->getPrintArea() === 'A1:G75' && $pefSheet->getCell('A73')->getValue() === 'PROVISIONAL PLANNING COPY', '31. PEF remains unchanged.');
 
 // 32. CC remains one Portrait Folio page.
 pefTestCheck($ccSheet->getPageSetup()->getOrientation() === \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT, '32. CC remains one Portrait Folio page.');

@@ -127,6 +127,22 @@ function pefTestReference(): array {
         'grade_cell'=>'E'.($i+7),'remark_cell'=>'F'.($i+7),'status_cell'=>'G'.($i+7)];
     return ['version'=>'2022-2023','rows'=>$rows];
 }
+/** Explicit A/B/C/D scalar fixtures. No account, session or database writes. */
+function pefTestPlanningState(string $state): array {
+    $current = ['school_year'=>'2026-2027', 'semester'=>1];
+    $context = pefTestRegularContext(3, 1, $state !== 'B');
+    $inputs = pefTestRegularInputs($context);
+    if (in_array($state, ['C', 'C-pending'], true)) {
+        $context['records'] = array_slice($context['records'], 0, 3);
+        if ($state === 'C-pending') $context['records'][0]['grade'] = null;
+        $inputs = pefCcInitialPlanningInputs($context, pefTestInputs(), $current);
+    } elseif ($state === 'D') {
+        $inputs['section'] = 'UNVERIFIED';
+    } elseif (!in_array($state, ['A', 'B'], true)) {
+        throw new InvalidArgumentException('Unknown synthetic planning state');
+    }
+    return [$context, $inputs, $current];
+}
 /** Catalogue-derived print data; identities/grades remain entirely synthetic. */
 function pefTestOperationalContext(array $subjects, ?string $name = null): array {
     $c=pefTestContext(0);$c['catalog']=[];$c['records']=[];
@@ -167,6 +183,9 @@ function pefTestPrintSamples(string $directory): array {
         $input=pefTestRegularInputs($c);$input['section']=$section;return [$c,$input];
     };
     $cases['normal']=$regularCase(3,'IT-32');
+    foreach(['provisional'=>'B','review'=>'C','review-pending'=>'C-pending'] as $name=>$state){
+        [$stateContext,$stateInputs]=pefTestPlanningState($state);$cases[$name]=[$stateContext,$stateInputs];
+    }
     $cases['longest-section']=$regularCase(4,'IT-43');
     $cases['irregular-marker']=[$normal,pefTestInputs(['subject_ids'=>[1001,1002],'section'=>'IT-IRREG'])];
     $blank=pefTestOperationalContext(array_slice($all,0,3),'EXAMPLE, SYNTHETIC');
@@ -180,7 +199,7 @@ function pefTestPrintSamples(string $directory): array {
     foreach(array_chunk($all,12) as $index=>$subjects){
         $c=pefTestOperationalContext($subjects);$cases['catalogue-'.($index+1)]=[$c,pefTestInputs(['subject_ids'=>array_column($c['catalog'],'id'),'section'=>'IT-32'])];
     }
-    $result=['matrix'=>'sd-section-membership-wp1.3','template_version'=>$config['template_version'],'template_sha256'=>$config['template_sha256'],'curriculum_sha256'=>$mapping['sha256'],'cases'=>[],
+    $result=['matrix'=>'pef-cc-four-state-r6','template_version'=>$config['template_version'],'template_sha256'=>$config['template_sha256'],'curriculum_sha256'=>$mapping['sha256'],'cases'=>[],
         'metrics'=>['active_subjects'=>count($all),'code_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['code']),$all)),
             'title_max'=>max(array_map(static fn(array $s):int=>mb_strlen($s['title']),$all)),
             'normal_name'=>$capacity['identity']['name'],'normal_name_characters'=>mb_strlen($capacity['identity']['name']),
@@ -191,7 +210,20 @@ function pefTestPrintSamples(string $directory): array {
         $out=pefCcGenerateWorkbook($model,$config);$path=$real.'/'.$name.'.xlsx';
         try{if(!copy($out['path'],$path))throw new RuntimeException('Print sample copy failed');}
         finally{pefCcRemoveOutput($out['path'],$config);}
+        $expectedCells=['PEF'=>['C37'=>$model->data['gwa'],'C38'=>null,
+            'B68'=>$config['signatories']['program_head_name'],'B70'=>$config['signatories']['dean_name']],
+            'CC'=>['B69'=>null,'J69'=>$config['signatories']['dean_name'],'B70'=>'Evaluator','J70'=>$config['signatories']['dean_title']]];
+        foreach([1=>42,2=>43,3=>44,4=>45] as $year=>$row)foreach(['sem1'=>'C','sem2'=>'D','sem3'=>'E','summer'=>'F'] as $key=>$column){
+            $code=null;foreach($model->data['historical_standing'] as $standing)if((int)$standing['year_level']===$year && in_array($standing[$key]??null,['GS','WS'],true))$code=$standing[$key];
+            $expectedCells['PEF'][$column.$row]=$code;
+        }
+        foreach($reference['rows'] as $i=>$ref){$annotation=$model->data['cc']['rows'][$i];
+            $expectedCells['CC'][$ref['grade_cell']]=$annotation['grade_display']??$annotation['grade']??null;
+            $expectedCells['CC'][$ref['remark_cell']]=$annotation['remarks']??null;
+            $expectedCells['CC'][$ref['status_cell']]=$annotation['status']??null;
+        }
         $result['cases'][$name]=['role'=>'operational','path'=>$path,'sha256'=>hash_file('sha256',$path),'section'=>$inputs['section'],'planning_mode'=>$model->data['policy']['mode'],
+            'expected_cells'=>$expectedCells,'mode'=>$model->data['mode'],'gwa'=>$model->data['gwa'],'evaluation_complete'=>$model->data['evaluation_complete'],
             'recorded_count'=>count($model->data['recorded']),'proposed_count'=>count($model->data['proposed']),
             'recorded_codes'=>array_column($model->data['recorded'],'code'),'proposed_codes'=>array_column($model->data['proposed'],'code')];
     }
@@ -254,6 +286,10 @@ function pefTestNewId(PDO $db, string $table): int {
 /** All IDs are manifest-owned; no schema migration, TRUNCATE, or existing-row replacement. */
 function pefTestCreateFixture(PDO $db): array {
     pefTestAssertScratch($db);
+    $gradeType=$db->query("SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='grades' AND COLUMN_NAME='final_grade'")->fetchColumn();
+    if(!in_array($gradeType,['varchar','char','text'],true))throw new RuntimeException('SCHEMA PREREQUISITE: scratch grades.final_grade must support textual outcomes; found '.(string)$gradeType.'. No fixtures were inserted; no migration is authorized.');
+
+    pefTestAssertScratch($db);
     $type=$db->query("SHOW COLUMNS FROM grades LIKE 'final_grade'")->fetch();
     if (!str_starts_with(strtolower($type['Type']??''),'varchar')) throw new RuntimeException('Scratch final-grade migration prerequisite unavailable; no automatic rebuild');
     $token=bin2hex(random_bytes(5));$password=bin2hex(random_bytes(18));
@@ -278,6 +314,10 @@ function pefTestCreateFixture(PDO $db): array {
     }
     $currentTerm=getCurrentTerm();
     $manifest['current_term']=$currentTerm;$manifest['nominal_subject_ids']=$nominal;
+    $manifest['evaluation_year']=$currentTerm['semester']===1
+        ?(((int)substr($currentTerm['school_year'],0,4)-1).'-'.((int)substr($currentTerm['school_year'],5,4)-1)):$currentTerm['school_year'];
+    $manifest['evaluation_semester']=$currentTerm['semester']===1?2:1;
+    $manifest['target_year']=$currentTerm['school_year'];$manifest['target_semester']=$currentTerm['semester'];
     $lock='pefcc-fixture-'.$token;
     $s=$db->prepare('SELECT GET_LOCK(?, 0)');$s->execute([$lock]);
     if ((int)$s->fetchColumn()!==1) throw new RuntimeException('Fixture lock unavailable');
@@ -301,25 +341,34 @@ function pefTestCreateFixture(PDO $db): array {
             $section=$isRegular||$key==='regular_missing'?'IT-'.$year.'2':'IT-IRREG';
             $course=$key==='legacy_cy'?'BSIT - Cyber Security':($key==='legacy_ds'?'BSIT - Data Science':'BSIT - Software Development');
             $manifest['accounts'][$key]=['id'=>$id,'login'=>$login,'year_level'=>$year,'status'=>$status,'count'=>$count,'role'=>$role,'grade_ids'=>[],'current_grade_ids'=>[],
-                'section'=>$section,'course'=>$course,'inputs'=>pefTestInputs(['section'=>$section])];
+                'section'=>$section,'course'=>$course,'inputs'=>pefTestInputs(['evaluation_year'=>$manifest['evaluation_year'],'evaluation_semester'=>$manifest['evaluation_semester'],'target_year'=>$manifest['target_year'],'target_semester'=>$manifest['target_semester'],'section'=>$section])];
             if($role==='student') $profile->execute([pefTestNewId($db,'student_profiles'),$id,$login,$course,'CCS',$year,$section,$status,'Active',4.00]);
             for($i=0;$i<$count;$i++) {
-                $g=$key==='allinc'?'INC':(['3.00','INC','0.00',null,'1.00','4.00'][$i%6]);
-                $grade->execute([$id,$manifest['subjects'][$i],'2024-2025',2,$g,$key==='mixed'&&$i===1?1:0]);
+                $g=$key==='allinc'?'INC':(in_array($key,['first','regular_missing','legacy_cy','legacy_ds'],true)?'3.00':(['3.00','INC','0.00',null,'1.00','4.00'][$i%6]));
+                $grade->execute([$id,$manifest['subjects'][$i],$manifest['evaluation_year'],$manifest['evaluation_semester'],$g,$key==='mixed'&&$i===1?1:0]);
                 $manifest['accounts'][$key]['grade_ids'][]=(int)$db->lastInsertId();
+            }
+            if($key==='regular_missing'){
+                $manifest['accounts'][$key]['inputs']['section']='';
+                $manifest['accounts'][$key]['inputs']['subject_ids']=[];
+                $manifest['accounts'][$key]['expected_mode']='review';
+                $manifest['accounts'][$key]['expected_exportable']=true;
+                $manifest['accounts'][$key]['expected_gwa_display']=$key==='regular3'?'Pending':'3.00';
             }
             if($isRegular){
                 foreach(array_slice($nominal[$year.'/'.$currentTerm['semester']],0,3) as $subjectId){
-                    $grade->execute([$id,$subjectId,$currentTerm['school_year'],$currentTerm['semester'],null,1]);
+                    $grade->execute([$id,$subjectId,$currentTerm['school_year'],$currentTerm['semester'],$key==='regular3'?null:'3.00',1]);
                     $manifest['accounts'][$key]['current_grade_ids'][]=(int)$db->lastInsertId();
                 }
                 $targetNominal=$year+($currentTerm['semester']===2?1:0);
                 $targetSemester=$currentTerm['semester']===1?2:1;
                 $targetYear=$currentTerm['semester']===1?$currentTerm['school_year']:
                     (((int)substr($currentTerm['school_year'],0,4)+1).'-'.((int)substr($currentTerm['school_year'],5,4)+1));
-                $manifest['accounts'][$key]['inputs']=pefTestInputs(['target_year'=>$targetYear,'target_semester'=>$targetSemester,'section'=>$section,
+                $manifest['accounts'][$key]['inputs']=pefTestInputs(['evaluation_year'=>$currentTerm['school_year'],'evaluation_semester'=>$currentTerm['semester'],'target_year'=>$targetYear,'target_semester'=>$targetSemester,'section'=>$currentTerm['semester']===1?$section:'',
                     'subject_ids'=>$nominal[$targetNominal.'/'.$targetSemester]??[]]);
-                $manifest['accounts'][$key]['expected_exportable']=$currentTerm['semester']===1;
+                $manifest['accounts'][$key]['expected_exportable']=true;
+                $manifest['accounts'][$key]['expected_gwa_display']=$key==='regular3'?'Pending':'3.00';
+                $manifest['accounts'][$key]['expected_mode']=$currentTerm['semester']===1?($key==='regular3'?'provisional':'normal'):'review';
             }
         }
         $db->commit();return $manifest;

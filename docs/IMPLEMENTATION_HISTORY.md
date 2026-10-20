@@ -7,6 +7,18 @@
 
 ---
 
+## PEF/CC PDF/state continuation — owner acceptance and final gate (2026-10-20)
+
+- **Delivery:** Initial WP1 PR #51 is merged; continuation PR #54 is open and unmerged. Published commit `0a52b3c` is preserved. Follow-up commits are conditional on the required validation gate; no history rewrite or automatic merge is authorized.
+- **Owner manual acceptance:** 20 October 2026, including safe State C. Normal, incomplete-grade Provisional and safely verified Review-required PDFs are accepted; unsafe output remains blocked. This is not formal UAT, institutional approval, genuine-record validation or Azure/IIS production renderer validation.
+- **Current contract:** Public PDF only; private XLSX engine; r6 SHA-256 `5941b7b36c5bbee585f32162397de2cd18e0279171cdd6470578e389b18e43ec`. Selected-term GWA is numeric only when complete/calculable, otherwise Pending/blank. No invented section/subjects, partial GWA substitution or public XLSX fallback. Existing previous standing and CC Remarks/Status/clean signatories remain.
+- **Fresh validation:** Six PHP scripts: 915 assertions passed/0 failed. JavaScript contract:19 passed/0 failed. Pinned Playwright:53 passed/0 failed/59 authenticated skips. Native r6 audit:4,434 checks/4,378 passed/56 font-floor failures, exit1; active CC text6.12pt. Guarded read-integration preflight:1 assertion/1 schema prerequisite failure, exit1. HTTP integration unavailable without a valid guarded state. No fixtures inserted, migrations, follow-up commits, pushes or PR updates. Automated final State C coverage was deferred before this gate and is not inferred from manual review. Generated/static and mocked browser checks are distinct from authenticated scratch/native rendering. A scratch DECIMAL final_grade column is a blocking textual-outcome prerequisite; no automatic migration is permitted. Native Folio geometry and the unchanged 8pt operational floor remain required.
+- **Blocking UI correction:** Fresh generated manual-control tests failed before and passed after a minimal `form.elements` listener correction; the controls are associated with a hidden transport form through the form attribute. The approved A/B/C/D policy and private geometry remain unchanged.
+- **Deployment:** Windows Excel COM is the current local prototype renderer. Apache/IIS identity, Excel/printer availability, private ACLs, cleanup and production renderer operation need host-specific validation.
+- **Historical boundary:** The dated entry below describes the 18 October review state. Its unmerged/Draft/public-XLSX wording is historical and does not override the current PDF contract or PR status.
+
+---
+
 ## PEF-CC-WP1 — unmerged draft review record (2026-10-18)
 
 - **Status:** Draft software review candidate; release blocked on maximum-text print layout and owner paper acceptance. **Not merged.** The current PR and final delivery commit are recorded in the external delivery report.

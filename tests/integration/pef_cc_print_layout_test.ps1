@@ -16,10 +16,17 @@ foreach ($path in @($samplesRoot,$outputRoot)) {
 }
 if (Test-Path -LiteralPath $outputRoot) { throw 'Use a new output directory; previous print evidence is immutable.' }
 $matrix = Get-Content -Raw -LiteralPath (Join-Path $samplesRoot 'samples.json') | ConvertFrom-Json
-if($matrix.matrix -ne 'sd-section-membership-wp1.3' -or $matrix.template_version -ne 'v0.2-r3'){throw 'Use the r3 section-membership operational matrix, with excessive sections rejected before export.'}
+if($matrix.matrix -ne 'pef-cc-four-state-r6' -or $matrix.template_version -ne 'v0.2-r6' -or $matrix.template_sha256 -ne '5941b7b36c5bbee585f32162397de2cd18e0279171cdd6470578e389b18e43ec'){throw 'Use the approved r6 four-state matrix and immutable template hash.'}
 $samples = $matrix.cases
-$required = @('normal','longest-section','irregular-marker','blank','capacity','longest-title','catalogue-1','catalogue-2','catalogue-3','catalogue-4','catalogue-5')
+$required = @('normal','provisional','review','review-pending','longest-section','irregular-marker','blank','capacity','longest-title','catalogue-1','catalogue-2','catalogue-3','catalogue-4','catalogue-5')
 if ((@($samples.PSObject.Properties.Name | Sort-Object) -join ',') -ne (@($required | Sort-Object) -join ',')) { throw 'The complete synthetic stress matrix is required.' }
+foreach($name in $required){
+    $expectedCells=$samples.$name.expected_cells
+    if($null -eq $expectedCells -or $null -eq $expectedCells.PEF -or $null -eq $expectedCells.CC -or
+       @($expectedCells.PEF.PSObject.Properties).Count -eq 0 -or @($expectedCells.CC.PSObject.Properties).Count -eq 0){
+        throw 'The r6 model-to-native field contract must be present for every sample.'
+    }
+}
 New-Item -ItemType Directory -Path $outputRoot | Out-Null
 $excel=$null; $book=$null; $results=@()
 try {
@@ -37,7 +44,9 @@ try {
         $excel.ActivePrinter=$Printer
         $excel.CalculateFullRebuild()
         if ((@($book.Worksheets | ForEach-Object {$_.Name}) -join ',') -ne 'PEF,CC') { throw 'Unexpected sheets.' }
-        $entry=@{case=$name;sha256=$hash;read_only=$book.ReadOnly;sheets=@();fields=@()}
+        $combinedPdf=Join-Path $outputRoot ($name+'-PEF-CC.pdf')
+        $book.ExportAsFixedFormat(0,$combinedPdf,0,$false,$false)
+        $entry=@{case=$name;sha256=$hash;read_only=$book.ReadOnly;sheets=@();fields=@();mode=$sample.mode;gwa_expected=$sample.gwa;combined_pdf=$combinedPdf}
         foreach ($sheet in $book.Worksheets) {
             $page=$sheet.PageSetup
             $pdf=Join-Path $outputRoot ($name+'-'+$sheet.Name+'.pdf')
@@ -50,6 +59,20 @@ try {
         $pef=$book.Worksheets.Item('PEF')
         $cc=$book.Worksheets.Item('CC')
         $entry.cc_name=[string]$cc.Range('B1').Value2
+        $entry.gwa=$pef.Range('C37').Value2
+        $entry.current_standing=$pef.Range('C38').Value2
+        $entry.notice=[string]$pef.Range('A73').Value2
+        $entry.notice_color=$pef.Range('A73').Font.Color
+        $entry.notice_detail=[string]$pef.Range('A74').Value2
+        $entry.signatories=@([string]$pef.Range('B68').Value2,[string]$pef.Range('B70').Value2,[string]$cc.Range('J69').Value2)
+        $entry.cell_checks=@()
+        foreach($sheetExpected in $sample.expected_cells.PSObject.Properties){
+            $nativeSheet=$book.Worksheets.Item($sheetExpected.Name)
+            foreach($cellExpected in $sheetExpected.Value.PSObject.Properties){
+                $entry.cell_checks+=@{sheet=$sheetExpected.Name;cell=$cellExpected.Name;expected=$cellExpected.Value;actual=$nativeSheet.Range($cellExpected.Name).Value2}
+            }
+        }
+        $entry.cc_print_area=[string]$cc.PageSetup.PrintArea
         $anchor=$pef.Range('A49:G49')
         $entry.anchor=@{left=$anchor.Left;top=$anchor.Top;width=$anchor.Width;height=$pef.Range('A49:G52').Height}
         $entry.section_wrap=$pef.Range('A51').WrapText
@@ -95,9 +118,23 @@ for case in native['cases']:
     check(case['read_only'] and not case['section_wrap'] and case['section_row_height']==19.5, name, 'Read-only workbook; original 19.5pt section row with wrapping off')
     check(case['section_label_height']==12 and case['section_font']==18 and case['section_horizontal']==-4108 and case['section_vertical']==-4108, name, 'Original 12pt label row and centered 18pt section font')
     check(case['section_merge']=='$A$51:$G$51' and case['section_label_merge']=='$A$52:$G$52' and case['proposed_row_heights']==[12]*12,name,'Separate section/label merges and all twelve original-height subject slots')
+    check(case['gwa']==case['gwa_expected'],name,'Native selected-term GWA matches signed model; incomplete is blank')
+    check(case['current_standing'] is None,name,'Unverified current standing is blank')
+    provisional=case['mode']!='normal'
+    check((case['notice']=='PROVISIONAL PLANNING COPY')==provisional,name,'Exact Normal/Provisional/Review notice contract')
+    if provisional:
+        check(case['notice_color']==255 and bool(case['notice_detail']),name,'Provisional notice is red and has review guidance')
+    check(case['signatories']==['MS. CHRISTINA P. ATAL','MR. FRANCIS ARLANDO L. ATIENZA','MR. FRANCIS ARLANDO L. ATIENZA'],name,'PEF/CC signatories preserved')
+    check(bool(case['cell_checks']),name,'Native model-to-cell parity checks cannot be empty')
+    for field in case['cell_checks']:
+        check(field['actual']==field['expected'],name,field['sheet']+'!'+field['cell']+' native selected GWA/history/CC/signatory parity')
+    with pdfplumber.open(case['combined_pdf']) as combined:
+        check(len(combined.pages)==2,name,'Whole workbook exports exactly two PEF/CC pages')
+        if len(combined.pages)==2:
+            check('SUBJECT' in (combined.pages[0].extract_text() or '') and 'CHECKLIST' in (combined.pages[1].extract_text() or '').upper(),name,'Page 1 PEF and page 2 CC order')
     for sheet in case['sheets']:
         check(sheet['paper_size']==14 and sheet['orientation']==1 and sheet['zoom'] is False and sheet['fit_wide']==sheet['fit_tall']==1, name, sheet['name']+' native Folio portrait / one-page settings')
-        expected='$A$1:$G$80' if sheet['name']=='PEF' else '$A$1:$O$73'
+        expected=('$A$1:$G$71' if case['mode']=='normal' else '$A$1:$G$75') if sheet['name']=='PEF' else '$A$1:$O$70'
         check(sheet['print_area']==expected and not any(sheet['headers']+sheet['footers']), name, sheet['name']+' bounded print area and empty headers/footers')
         with pdfplumber.open(sheet['pdf']) as pdf:
             check(len(pdf.pages)==1, name, sheet['name']+' exports to one page')

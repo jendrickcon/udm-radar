@@ -206,7 +206,9 @@ if ($requestValid) {
             $inputs = pefCcInitialPlanningInputs($context, $inputs, $currentTerm);
         }
         try {
-            $reference = pefCcTemplateReference($config);
+            $reference = $method === 'GET'
+                ? pefCcPlanningTemplateReference($context['catalog'], $config)
+                : pefCcTemplateReference($config);
             $cc = pefCcBuildReferenceCc($context['records'], $reference);
             // Section 10: Fail closed on obsolete template
             $activeReviewedContract = pefCcTemplateContract('v0.2-r6');
@@ -265,10 +267,9 @@ $formPolicy = $data['policy'] ?? pefCcPlanningPolicy($context, $inputs, $current
 $manualPlanning = $formPolicy['mode'] === 'irregular';
 $regularPlanning = $formPolicy['mode'] === 'regular';
 $hasCompletePredecessor = ($formPolicy['predecessor_complete'] ?? false);
-$isProvisional = ($data !== null ? (($data['mode'] ?? '') === 'provisional') : ($formPolicy['provisional_allowed'] ?? false));
+$isProvisional = ($data !== null ? (($data['gwa_state'] ?? '') === 'pending') : ($formPolicy['provisional_allowed'] ?? false));
 $incompleteWarning = ($formPolicy['incomplete_warning'] ?? '');
-$formUnavailable = !$manualPlanning && ($formPolicy['nominal'] === []
-    || $formPolicy['target_year'] === null || $formPolicy['section_options'] === []);
+$formUnavailable = $data === null || !($data['exportable'] ?? false);
 if ($model === null && $requestValid && $context['identity'] !== []) {
     $errors = array_merge($errors, $formPolicy['errors']);
 }
@@ -276,7 +277,9 @@ $history = $data['history'] ?? [];
 $summaryStatus = $isProvisional ? 'Provisional' : 'Ready for normal planning';
 $summaryEvalTerm = ($data['evaluation']['school_year'] ?? $inputs['evaluation_year']) . ' · ' . ($data['evaluation']['label'] ?? pefCcSemesterLabel((int) ($inputs['evaluation_semester'] ?? 1)));
 $summaryTargetTerm = ($data['planning']['target_year'] ?? $inputs['target_year']) . ' · ' . ((int) ($data['planning']['target_semester'] ?? $inputs['target_semester']) === 1 ? 'First Semester' : 'Second Semester');
-$summarySection = ($data['planning']['section'] ?? $inputs['section']) !== '' ? ($data['planning']['section'] ?? $inputs['section']) : ($formPolicy['section_default'] ?? 'Not assigned — evaluator review');
+$summarySection = ($data['planning']['section'] ?? $inputs['section']) !== ''
+    ? ($data['planning']['section'] ?? $inputs['section'])
+    : (($formPolicy['section_default'] ?? '') !== '' ? $formPolicy['section_default'] : 'Not assigned — evaluator review');
 $summaryProposedCount = count($data['planning']['subject_ids'] ?? $inputs['subject_ids'] ?? []);
 $selectedIds = array_map('strval', $inputs['subject_ids']);
 $hasCompletedTerm = count(array_filter($choices, static fn(array $choice): bool => $choice['eligible'])) > 0;
@@ -299,9 +302,33 @@ $hasMultipleSections = $regularPlanning && count($formPolicy['section_options'] 
 $hasEditableChoices = $manualPlanning || $hasMultipleSections;
 $totalRecorded = count($data['recorded'] ?? []);
 $recordedGrades = count(array_filter($data['recorded'] ?? [], static fn(array $r): bool => !in_array($r['gwa_reason'] ?? '', ['null', 'blank'], true) && ($r['grade'] ?? null) !== null && ($r['grade'] ?? null) !== ''));
-$termGwaDisplay = $isProvisional ? 'Pending' : ($data['gwa'] === null ? 'Unavailable' : number_format((float) $data['gwa'], 2));
-$summaryStatus = $isProvisional ? 'Provisional' : 'Normal';
+$termGwaDisplay = $isProvisional ? 'Pending' : (($data['gwa'] ?? null) === null ? 'Unavailable' : number_format((float) $data['gwa'], 2));
 $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s['units'] ?? 0), $data['proposed'] ?? []));
+
+// Section 3: Four mutually exclusive planning workflow states
+// Priority 1 (State D): Export blocked (truly unsafe or unresolvable)
+// Priority 2 (State C): Review-required provisional PDF available
+// Priority 3 (State B): Provisional PDF available (incomplete evaluation grades)
+// Priority 4 (State A): Normal PDF available (complete grades, valid plan)
+$mode = $model->data['mode'] ?? ($isProvisional ? 'provisional' : 'normal');
+$exportable = $model->data['exportable'] ?? false;
+
+if ($formUnavailable || !$requestValid || $choices === [] || $reference === null || $mode === 'invalid' || !$exportable) {
+    $planningState = 'D';
+} elseif ($mode === 'review') {
+    $planningState = 'C';
+} elseif ($mode === 'provisional' || $isProvisional) {
+    $planningState = 'B';
+} else {
+    $planningState = 'A';
+}
+
+$summaryStatus = match ($planningState) {
+    'B' => 'Provisional',
+    'C' => 'Review required',
+    'D' => 'Blocked',
+    default => 'Normal',
+};
 ?>
 <main class="main-content pef-cc-page" id="main-content">
     <div class="header">
@@ -321,25 +348,41 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
         <a class="btn btn--quiet" href="grades.php">Back to Grades</a>
     </div>
 
-    <?php if ($errors !== [] && ($formUnavailable || !$requestValid || (!$hasCompletePredecessor && !$isProvisional) || in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true))): ?>
-    <section class="card pef-cc-errors" role="alert" tabindex="-1" data-testid="preview-errors">
-        <h2>Review before exporting</h2>
-        <?php if (in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true)): ?>
-            <p id="pef-print-limit-explanation"><?= pefCcPageEscape(PEF_CC_PRINT_LIMIT_MESSAGE) ?> Read-only record values require record review; your safe planning choices are retained.<?php if (isset($fieldErrors['identity.name'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name'] ?? '') ?></span><?php endif; ?><?php if (isset($fieldErrors['identity.student_number'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.student_number', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['student_number'] ?? '') ?></span><?php endif; ?></p>
-        <?php endif; ?>
-        <ul>
-            <?php foreach (array_unique($errors) as $err): ?>
-                <li><?= pefCcPageEscape(pefCcTranslateError((string) $err)) ?></li>
-            <?php endforeach; ?>
-        </ul>
-        <a class="btn btn--secondary" href="enrolment_planning.php">Reload planning records</a>
-    </section>
-    <?php endif; ?>
-
-    <!-- Plan-Status Banner (Section 3) -->
-    <?php if ($isProvisional): ?>
+    <!-- Plan-Status Banner (Section 3: Four mutually exclusive states, single primary banner) -->
+    <?php if ($planningState === 'D'): ?>
+    <div class="pef-cc-banner pef-cc-banner--blocked" role="region" aria-label="Planning status" data-testid="blocked-planning-banner">
+        <h2>Planning information could not be prepared</h2>
+        <div class="pef-cc-banner-alert" role="alert">
+            <h3 class="pef-cc-banner-alert-title">A safe planning PDF is not available</h3>
+            <?php if ($errors !== []): ?>
+            <ul class="pef-cc-error-list">
+                <?php foreach (array_unique($errors) as $err): ?>
+                    <li><?= pefCcPageEscape(pefCcTranslateError((string) $err)) ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <?php else: ?>
+            <p class="pef-cc-banner-alert-desc">The academic record or term configuration could not be resolved safely. Academic evaluator review is required.</p>
+            <?php endif; ?>
+            <div class="pef-cc-banner-alert-actions">
+                <a class="btn btn--secondary" href="enrolment_planning.php">Reload planning records</a>
+            </div>
+        </div>
+    </div>
+    <?php elseif ($planningState === 'C'): ?>
+    <div class="pef-cc-banner pef-cc-banner--review" role="region" aria-label="Planning status" data-testid="evaluator-review-banner">
+        <h2>Planning PDF available for evaluator review</h2>
+        <dl class="pef-cc-banner-grid">
+            <div><dt>Current term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
+            <div><dt>Next term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
+            <div><dt>Final grades</dt><dd><span data-testid="final-grades-count"><?= (int) $recordedGrades ?> of <?= (int) $totalRecorded ?></span></dd></div>
+            <div><dt>Term GWA</dt><dd data-testid="term-gwa"><?= pefCcPageEscape($termGwaDisplay) ?></dd></div>
+            <div><dt>Planning status</dt><dd data-testid="planning-status">Review required</dd></div>
+        </dl>
+        <p class="pef-cc-banner-note">Some planning information requires academic evaluator review. The PDF will include only verified information and will be marked as a provisional planning copy.</p>
+    </div>
+    <?php elseif ($planningState === 'B'): ?>
     <div class="pef-cc-banner pef-cc-banner--provisional" role="region" aria-label="Planning status" data-testid="incomplete-term-warning">
-        <h2>Provisional planning available</h2>
+        <h2>Provisional planning PDF available</h2>
         <dl class="pef-cc-banner-grid">
             <div><dt>Current term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
             <div><dt>Next term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
@@ -347,11 +390,11 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
             <div><dt>Term GWA</dt><dd data-testid="term-gwa"><?= pefCcPageEscape($termGwaDisplay) ?></dd></div>
             <div><dt>Status</dt><dd data-testid="planning-status">Provisional</dd></div>
         </dl>
-        <p class="pef-cc-banner-note">Current-term final grades are incomplete. The workbook may still be prepared for academic evaluator review.</p>
+        <p class="pef-cc-banner-note">Some current-semester final grades are incomplete. A provisional planning PDF can still be prepared for academic evaluator review.</p>
     </div>
     <?php else: ?>
     <div class="pef-cc-banner pef-cc-banner--normal" role="region" aria-label="Planning status">
-        <h2>Planning workbook available</h2>
+        <h2>Planning PDF available</h2>
         <dl class="pef-cc-banner-grid">
             <div><dt>Current term</dt><dd><?= pefCcPageEscape($summaryEvalTerm) ?></dd></div>
             <div><dt>Next term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
@@ -359,7 +402,13 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
             <div><dt>Term GWA</dt><dd data-testid="term-gwa"><?= pefCcPageEscape($termGwaDisplay) ?></dd></div>
             <div><dt>Status</dt><dd data-testid="planning-status">Normal</dd></div>
         </dl>
-        <p class="pef-cc-banner-note">The current evaluation term is complete. The planning workbook is ready to be prepared.</p>
+        <p class="pef-cc-banner-note">The current evaluation term is complete. The planning PDF is ready to be prepared.</p>
+    </div>
+    <?php endif; ?>
+
+    <?php if (in_array(PEF_CC_PRINT_LIMIT_MESSAGE, $errors, true)): ?>
+    <div class="pef-cc-notice pef-cc-notice--warning" data-testid="preview-errors">
+        <p id="pef-print-limit-explanation"><?= pefCcPageEscape(PEF_CC_PRINT_LIMIT_MESSAGE) ?> Read-only record values require record review; your safe planning choices are retained.<?php if (isset($fieldErrors['identity.name'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.name', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['name'] ?? '') ?></span><?php endif; ?><?php if (isset($fieldErrors['identity.student_number'])): ?><span class="sr-only"<?= pefCcPagePrintIssue('identity.student_number', $fieldErrors) ?>><?= pefCcPageEscape($data['identity']['student_number'] ?? '') ?></span><?php endif; ?></p>
     </div>
     <?php endif; ?>
 
@@ -421,7 +470,7 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
             <div><dt>Suggested section</dt><dd data-testid="suggested-section-display"><?= pefCcPageEscape($summarySection) ?></dd></div>
             <div><dt>Proposed subjects</dt><dd data-testid="proposed-subjects-display"><?= (int) $summaryProposedCount ?></dd></div>
             <div><dt>Total units</dt><dd><span data-testid="total-units-display"><?= (int) $totalProposedUnits ?></span></dd></div>
-            <div><dt>Planning mode</dt><dd data-testid="plan-mode-display"><?= $isProvisional ? 'Provisional' : 'Normal' ?></dd></div>
+            <div><dt>Planning mode</dt><dd data-testid="plan-mode-display"><?= pefCcPageEscape($summaryStatus) ?></dd></div>
         </dl>
         <?php if ($regularPlanning && !$hasMultipleSections): ?>
             <p class="pef-cc-note">The current section is retained for this planning copy.</p>
@@ -508,12 +557,19 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
     <section class="card pef-cc-section" id="step-workbook" aria-labelledby="heading-workbook" data-testid="panel-workbook">
         <h2 id="heading-workbook">3. Create planning workbook</h2>
         <p class="pef-cc-meta"><strong>Workbook contents:</strong> Pre-Enrolment Form and Curriculum Checklist</p>
-        <p class="pef-cc-help">The workbook uses the current record and the proposed next-term plan.</p>
+        <p class="pef-cc-help">The planning PDF uses the current record and the proposed next-term plan.</p>
 
         <?php if ($preview === ''): ?>
             <div class="pef-cc-actions-bar">
-                <button type="submit" class="btn btn--primary" form="pef-cc-planning-form" id="btn-generate-preview" data-testid="preview-button"<?= ($choices === [] || $reference === null || !$requestValid || $formUnavailable || (!$hasCompletePredecessor && !$isProvisional)) ? ' disabled' : '' ?>>Generate workbook preview</button>
+                <button type="submit" class="btn btn--primary" form="pef-cc-planning-form" id="btn-generate-preview" data-testid="preview-button"<?= ($planningState === 'D') ? ' disabled' : '' ?>><?= match ($planningState) {
+                    'B' => 'Generate provisional planning preview',
+                    'C' => 'Generate review planning preview',
+                    default => 'Generate planning preview',
+                } ?></button>
             </div>
+            <?php if ($planningState === 'D'): ?>
+                <p class="pef-cc-help pef-cc-help--state" data-testid="planning-state-help">Resolve the blocking issue above, then reload the planning records or correct the available choices.</p>
+            <?php endif; ?>
         <?php else: ?>
             <div class="pef-cc-preview-card" data-testid="pef-preview">
                 <span class="pef-cc-preview-ready-badge">Preview ready</span>
@@ -523,18 +579,34 @@ $totalProposedUnits = array_sum(array_map(static fn(array $s): int => (int) ($s[
                     <div><dt>Next planning term</dt><dd><?= pefCcPageEscape($summaryTargetTerm) ?></dd></div>
                     <div><dt>Suggested section</dt><dd><?= pefCcPageEscape($summarySection) ?></dd></div>
                     <div><dt>Proposed subjects</dt><dd><?= (int) $summaryProposedCount ?></dd></div>
-                    <div><dt>Planning mode</dt><dd><?= $isProvisional ? 'Provisional' : 'Normal' ?></dd></div>
+                    <div><dt>Planning mode</dt><dd><?= match ($planningState) { 'B' => 'Provisional', 'C' => 'Review required', default => 'Normal' } ?></dd></div>
                     <div><dt>Workbook sheets</dt><dd>Pre-Enrolment Form, Curriculum Checklist</dd></div>
                 </dl>
             </div>
             <div class="pef-cc-actions-bar">
-                <button class="btn btn--primary" type="submit" form="pef-cc-download-form" id="pef-cc-download" data-testid="download-button"><?= $isProvisional ? 'Download provisional workbook' : 'Download planning workbook' ?></button>
+                <button class="btn btn--primary" type="submit" form="pef-cc-download-form" id="pef-cc-download" data-testid="download-button"><?= match ($planningState) {
+                    'B' => 'Download provisional planning PDF',
+                    'C' => 'Download review planning PDF',
+                    default => 'Download planning PDF',
+                } ?></button>
                 <button type="submit" class="btn btn--secondary" form="pef-cc-planning-form" id="btn-refresh-preview" data-testid="refresh-preview-button">Refresh preview</button>
             </div>
+            <div id="pef-cc-loading-panel" class="pef-cc-loading-panel" role="status" aria-live="polite" aria-atomic="true" hidden>
+                <div class="pef-cc-loading-content">
+                    <span class="pef-cc-loading-spinner" aria-hidden="true"></span>
+                    <div class="pef-cc-loading-text">
+                        <strong class="pef-cc-loading-title">Preparing your planning PDF</strong>
+                        <p class="pef-cc-loading-desc">Creating the Pre-Enrolment Form and Curriculum Checklist. Please keep this page open.</p>
+                        <p class="pef-cc-loading-note">The download will begin automatically when the PDF is ready.</p>
+                    </div>
+                </div>
+            </div>
+            <div id="pef-cc-download-feedback" class="pef-cc-notice pef-cc-notice--warning" role="alert" hidden></div>
         <?php endif; ?>
 
         <p id="preview-invalidated" data-testid="preview-invalidated" class="pef-cc-notice pef-cc-notice--warning" role="status" hidden>The academic record or plan changed. Refresh the preview before downloading.</p>
         <p id="download-status" data-testid="download-status" role="status" aria-live="polite"></p>
+        <div id="pef-cc-live-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <p class="pef-cc-disclosure" data-testid="single-disclosure">This workbook is a planning aid for academic evaluator review and does not constitute official enrolment approval.<?= $isProvisional ? ' Final grades are incomplete, so the proposed subjects and section may change.' : '' ?></p>
     </section>

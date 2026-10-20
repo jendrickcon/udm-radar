@@ -100,8 +100,10 @@ try {
   pefTestCheck($pef->getCell('D69')->getValue()==='Signature'&&$pef->getCell('D71')->getValue()==='Signature','Signature labels preserved');
   pefTestCheck($pef->getCell('G69')->getValue()==='Date'&&$pef->getCell('G71')->getValue()==='Date','Date labels preserved');
   foreach(['PEF','CC'] as $name){$s=$book->getSheetByName($name);$t=$template->getSheetByName($name);
-   pefTestCheck($s->getMergeCells()===$t->getMergeCells(),'Merge geometry preserved '.$name);
-   pefTestCheck($s->getPageSetup()->getPrintArea()===$t->getPageSetup()->getPrintArea(),'Print area preserved '.$name);
+   $expectedMerges=$t->getMergeCells();
+   if($name==='PEF' && in_array($model->data['mode'],['provisional','review'],true))foreach(['A73:G73','A74:G75'] as $merge)$expectedMerges[$merge]=$merge;
+   pefTestCheck($s->getMergeCells()===$expectedMerges,'Only approved provisional notice merges added '.$name);
+   pefTestCheck($s->getPageSetup()->getPrintArea()===($name==='PEF' && $model->data['mode']!=='normal'?'A1:G75':$t->getPageSetup()->getPrintArea()),'Print area follows exact approved state geometry '.$name);
    pefTestCheck($s->getPageSetup()->getPaperSize()===$t->getPageSetup()->getPaperSize(),'Paper configuration preserved '.$name);
    pefTestCheck(count($s->getDataValidationCollection())===count($t->getDataValidationCollection()),'Validation preserved '.$name);
    pefTestCheck(count($s->getConditionalStylesCollection())===count($t->getConditionalStylesCollection()),'Conditional formatting preserved '.$name);
@@ -112,9 +114,11 @@ try {
  } finally { pefCcRemoveOutput($generated['path'],$config); }
  pefTestCheck(!file_exists($generated['path']),'Success cleanup removes owned output');
  $empty=$build(pefTestContext(3,['INC']));
- pefTestThrows(fn()=>pefCcGenerateWorkbook($empty,$config),'Incomplete term with INC rejected by export writer');
+ $incompleteOutput=pefCcGenerateWorkbook($empty,$config);
+ try{$incompleteBook=\PhpOffice\PhpSpreadsheet\IOFactory::load($incompleteOutput['path']);pefTestCheck($incompleteBook->getSheetByName('PEF')->getCell('C37')->getValue()===null,'Incomplete INC term exports with blank selected-term GWA');$incompleteBook->disconnectWorksheets();}finally{pefCcRemoveOutput($incompleteOutput['path'],$config);}
  $blank=$build(pefTestContext(3,['','   ',null]));
- pefTestThrows(fn()=>pefCcGenerateWorkbook($blank,$config),'Incomplete term with blank/null rejected by export writer');
+ $blankOutput=pefCcGenerateWorkbook($blank,$config);
+ try{$blankBook=\PhpOffice\PhpSpreadsheet\IOFactory::load($blankOutput['path']);pefTestCheck($blankBook->getSheetByName('PEF')->getCell('C37')->getValue()===null,'Blank/null term exports without inventing GWA');$blankBook->disconnectWorksheets();}finally{pefCcRemoveOutput($blankOutput['path'],$config);}
  // Writer defense independent of form rejection: even control/newline prefixes cannot create formulas.
  $payloads=['=1+1','+SUM(A1:A2)','-1+2','@SUM(A1)','  =HYPERLINK("https://invalid.example")',"\t=1+1","\r=1+1","\n=1+1","\r\n=1+1",'Unicode 界 ñ','../name.xlsx','a<>:"|?*'];
  $data=$model->data;

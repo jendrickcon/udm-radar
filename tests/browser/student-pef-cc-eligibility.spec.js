@@ -55,7 +55,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     // 3. Status banner
     const banner = page.locator('.pef-cc-banner');
     await expect(banner).toBeVisible();
-    await expect(banner.locator('h2')).toHaveText('Provisional planning available');
+    await expect(banner.locator('h2')).toHaveText('Provisional planning PDF available');
     await expect(page.getByTestId('planning-status')).toHaveText('Provisional');
 
     // 4. Three sequential full-width sections render
@@ -96,7 +96,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     await expect(panelWorkbook.locator('h2')).toHaveText('3. Create planning workbook');
     const previewBtn = page.getByTestId('preview-button');
     await expect(previewBtn).toBeVisible();
-    await expect(previewBtn).toHaveText('Generate workbook preview');
+    await expect(previewBtn).toHaveText('Generate provisional planning preview');
     await expect(page.getByTestId('download-button')).toHaveCount(0);
 
     // 8. Single consolidated disclosure
@@ -175,7 +175,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     // 2. Download and Refresh buttons present
     const downloadBtn = page.getByTestId('download-button');
     await expect(downloadBtn).toBeVisible();
-    await expect(downloadBtn).toHaveText('Download provisional workbook');
+    await expect(downloadBtn).toHaveText('Download provisional planning PDF');
     const refreshBtn = page.getByTestId('refresh-preview-button');
     await expect(refreshBtn).toBeVisible();
     await expect(refreshBtn).toHaveText('Refresh preview');
@@ -191,3 +191,62 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     expect(errors).toEqual([]);
   });
 }
+
+// Generated production PHP presentation, not authenticated/native-renderer evidence.
+for (const [kind, state, previewLabel, downloadLabel, gwa] of [
+  ['normal-initial','Normal','Generate planning preview','Download planning PDF','3.00'],
+  ['provisional','Provisional','Generate provisional planning preview','Download provisional planning PDF','Pending'],
+  ['review','Review required','Generate review planning preview','Download review planning PDF','3.00'],
+  ['blocked','Blocked',null,null,null],
+]) {
+  test(`[Generated static HTML] independent ${state} workflow contract`, async ({page}) => {
+    const source=execFileSync(php,['tests/unit/pef_cc_print_contract_test.php','--render',kind],{cwd:root,encoding:'utf8'});
+    await page.route('**/*',route=>route.fulfill({contentType:'text/html',body:source}));
+    await page.goto('http://pef-state.invalid/');
+    const button=page.getByTestId('preview-button');
+    if(state==='Blocked') {
+      await expect(button).toBeDisabled();
+      await expect(page.getByTestId('download-button')).toHaveCount(0);
+      await expect(page.locator('#pef-cc-download-form')).toHaveCount(0);
+      return;
+    }
+    await expect(button).toBeEnabled();await expect(button).toHaveText(previewLabel);
+    await expect(page.getByTestId('planning-status')).toHaveText(state);
+    await expect(page.getByTestId('term-gwa')).toHaveText(gwa);
+    const readyKind={'normal-initial':'normal','provisional':'provisional-preview','review':'review-preview'}[kind];
+    const ready=execFileSync(php,['tests/unit/pef_cc_print_contract_test.php','--render',readyKind],{cwd:root,encoding:'utf8'});
+    await page.setContent(ready);
+    await expect(page.getByTestId('download-button')).toBeEnabled();
+    await expect(page.getByTestId('download-button')).toHaveText(downloadLabel);
+    await expect(page.locator('#pef-cc-download-form input[name="preview"]')).not.toHaveValue('');
+  });
+}
+
+async function mountManualPreview(page){
+  const markup=execFileSync(php,['tests/unit/pef_cc_print_contract_test.php','--render','manual-preview'],{cwd:root,encoding:'utf8'});
+  await page.route('**/*',route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path==='/udm-radar/student/enrolment_planning.php')return route.fulfill({contentType:'text/html',body:markup});
+    if(path.startsWith('/udm-radar/assets/')){
+      const local=resolve(root,path.slice('/udm-radar/'.length));
+      if(!local.startsWith(resolve(root,'assets')+sep))return route.abort();
+      return route.fulfill({body:readFileSync(local),contentType:local.endsWith('.js')?'text/javascript':local.endsWith('.css')?'text/css':'application/octet-stream'});
+    }
+    return route.abort();
+  });
+  await page.goto('http://pef-controls.invalid/udm-radar/student/enrolment_planning.php');
+}
+test('[Generated static HTML] associated manual controls invalidate signed preview',async({page})=>{
+  await mountManualPreview(page);await expect(page.getByTestId('download-button')).toBeEnabled();
+  await page.locator('#proposed-section').selectOption('IT-IRREG');
+  await expect(page.getByTestId('preview-invalidated')).toBeVisible();
+  await expect(page.getByTestId('download-button')).toBeDisabled();
+  await expect(page.getByTestId('refresh-preview-button')).toBeEnabled();
+});
+test('[Generated static HTML] associated subject control retains 13 choices and reports capacity',async({page})=>{
+  await mountManualPreview(page);await page.locator('#pef-cc-subjects').selectOption(Array.from({length:13},(_,i)=>String(i+1)));
+  await expect(page.getByTestId('proposed-count')).toHaveText('13');
+  expect(await page.locator('#pef-cc-subjects').evaluate(el=>el.selectedOptions.length)).toBe(13);
+  expect(await page.locator('#pef-cc-subjects').evaluate(el=>el.validity.customError)).toBe(true);
+  await expect(page.getByTestId('download-button')).toBeDisabled();
+});
