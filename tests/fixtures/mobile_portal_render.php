@@ -11,6 +11,7 @@ set_error_handler(static function ($severity, $message, $file, $line) {
 $root = dirname(__DIR__, 2);
 define('BASE_URL', '/');
 require_once $root . '/config/constants.php';
+require_once $root . '/includes/goal_calculator.php';
 function getCsrfToken() { return 'fixture-only-no-session'; }
 function viewFragment(string $source, string $start, string $end): string {
     $a = strpos($source, $start);
