@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/auth.php';
 require_once '../config/constants.php';
+require_once '../includes/goal_calculator.php';
 require_once '../config/db.php';
 
 requireRole('student');
@@ -224,6 +225,7 @@ function renderTargetOptions($valid_grades) {
     }
     return $html;
 }
+$calculatorConfig = goalCalculatorConfig();
 
 $pageTitle = 'Dashboard';
 $navItems = [
@@ -656,6 +658,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div id="calculator-section" class="card" style="display: none; border: 2px solid var(--accent-blue); background-color: var(--card-bg);">
+        <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/goal-calculator.css">
         <div class="calculator-heading" style="margin-bottom: 16px;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
@@ -667,7 +670,7 @@ require_once '../includes/sidebar.php';
             <div class="calculator-actions">
                 <div style="background: var(--bg-color); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
                     <span style="font-size: 0.75rem; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Scenario Semester GWA</span><br>
-                    <span id="projected-gwa" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-blue);">0.00</span>
+                    <span id="projected-gwa" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-blue);">N/A</span>
                 </div>
                 <button onclick="toggleCalculator()" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -676,6 +679,7 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
+        <p id="calculator-goal-help">Target final-grade options above the highest mathematically reachable point grade are disabled using the available percentages and remaining period weights. Scenario Semester GWA is unit-weighted. Prototype performance on synthetic academic records.</p>
         <div class="data-table-scroll" role="region" aria-label="Grade goal calculator" tabindex="0">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
             <thead>
@@ -691,25 +695,23 @@ require_once '../includes/sidebar.php';
             </thead>
             <tbody>
                 <?php foreach ($current_subjects as $idx => $subj): 
-                    $p_val  = $subj['prelim_raw'] !== null ? round((float)$subj['prelim_raw']) : '';
-                    $m_val  = $subj['midterm_raw'] !== null ? round((float)$subj['midterm_raw']) : '';
-                    $pf_val = $subj['prefinal_raw'] !== null ? round((float)$subj['prefinal_raw']) : '';
-                    $p_bg  = $p_val  !== '' ? 'var(--bg-color)' : 'var(--card-bg)';
-                    $m_bg  = $m_val  !== '' ? 'var(--bg-color)' : 'var(--card-bg)';
-                    $pf_bg = $pf_val !== '' ? 'var(--bg-color)' : 'var(--card-bg)';
+                    $p_period = goalCalculatorPeriod($subj['prelim_raw']);
+                    $m_period = goalCalculatorPeriod($subj['midterm_raw']);
+                    $pf_period = goalCalculatorPeriod($subj['prefinal_raw']);
                 ?>
                 <tr style="border-bottom: 1px solid var(--border-color);" class="calc-row">
                     <td style="padding: 12px; font-weight: 600; color: var(--text-dark); text-align: left;"><?= htmlspecialchars($subj['code']) ?></td>
                     <td style="padding: 12px; font-weight: 500; color: var(--text-dark); text-align: left;"><?= htmlspecialchars(displaySubjectTitle($subj['code'], $subj['title'])) ?></td>
                     <td style="padding: 12px; color: var(--text-dark);" class="calc-units"><?= htmlspecialchars($subj['units']) ?></td>
                     
-                    <td style="padding: 12px;"><input type="number" min="0" max="100" class="form-input calc-term-input calc-prelim" value="<?= $p_val ?>" <?= $p_val !== '' ? 'disabled' : '' ?> oninput="computeRowFinal(this)" style="background: <?= $p_bg ?>; color: var(--text-dark); text-align: center; padding: 6px;"></td>
-                    <td style="padding: 12px;"><input type="number" min="0" max="100" class="form-input calc-term-input calc-midterm" value="<?= $m_val ?>" <?= $m_val !== '' ? 'disabled' : '' ?> oninput="computeRowFinal(this)" style="background: <?= $m_bg ?>; color: var(--text-dark); text-align: center; padding: 6px;"></td>
-                    <td style="padding: 12px;"><input type="number" min="0" max="100" class="form-input calc-term-input calc-prefinal" value="<?= $pf_val ?>" <?= $pf_val !== '' ? 'disabled' : '' ?> oninput="computeRowFinal(this)" style="background: <?= $pf_bg ?>; color: var(--text-dark); text-align: center; padding: 6px;"></td>
+                    <?php foreach (['prelim'=>$p_period, 'midterm'=>$m_period, 'prefinal'=>$pf_period] as $periodName=>$period): ?>
+                    <td style="padding: 12px;"><input type="number" min="0" max="100" step="0.01" class="form-input calc-term-input calc-<?= $periodName ?>" aria-label="<?= htmlspecialchars(ucfirst($periodName) . ' percentage for ' . $subj['code']) ?>" value="<?= htmlspecialchars($period['value']) ?>" data-period-state="<?= $period['state'] ?>" <?= $period['state'] !== 'remaining' ? 'disabled' : '' ?> <?= $period['state'] === 'unavailable' ? 'aria-invalid="true"' : '' ?> oninput="computeRowFinal(this)" style="background: var(--card-bg); color: var(--text-dark); text-align: center; padding: 6px;"></td>
+                    <?php endforeach; ?>
                     <td style="padding: 12px; border-left: 2px dashed var(--border-color); background: var(--bg-color);">
-                        <select class="calc-final-input" style="width: 100%; padding: 8px; border: 1px solid var(--accent-blue); background: var(--card-bg); color: var(--accent-blue); border-radius: 4px; font-family: inherit; font-weight: 700;" onchange="seekGrades(this)">
+                        <select class="calc-final-input" aria-label="Target final grade for <?= htmlspecialchars($subj['code']) ?>" aria-describedby="calculator-goal-help calc-status-<?= (int)$idx ?>" style="width: 100%; padding: 8px; border: 1px solid var(--accent-blue); background: var(--card-bg); color: var(--accent-blue); border-radius: 4px; font-family: inherit; font-weight: 700;" onchange="seekGrades(this)">
                             <?= renderTargetOptions($valid_grades) ?>
                         </select>
+                        <div class="calc-goal-status" id="calc-status-<?= (int)$idx ?>" role="status" aria-live="polite" aria-atomic="true"><span class="calc-goal-limit"></span><output class="calc-row-result"></output></div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -719,117 +721,11 @@ require_once '../includes/sidebar.php';
     </div>
 </div>
 
+<script id="goal-calculator-config" type="application/json"><?= json_encode($calculatorConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="<?= BASE_URL ?>assets/js/goal-calculator.js"></script>
+<script src="<?= BASE_URL ?>assets/js/goal-calculator-ui.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const WEIGHT_PRELIM = <?= WEIGHT_PRELIM ?? 0.30 ?>;
-const WEIGHT_MIDTERM = <?= WEIGHT_MIDTERM ?? 0.30 ?>;
-const WEIGHT_PREFINAL = <?= WEIGHT_PREFINAL ?? 0.40 ?>;
-
-function toggleCalculator() {
-    const calcDiv = document.getElementById('calculator-section');
-    if (calcDiv.style.display === 'none') {
-        calcDiv.style.display = 'block';
-        calcDiv.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-        document.querySelectorAll('.calc-prelim').forEach(el => computeRowFinal(el));
-    } else {
-        calcDiv.style.display = 'none';
-    }
-}
-
-function convertPercentageToPoint(pct) {
-    if (pct >= 99) return 4.00; if (pct >= 97) return 3.75; if (pct >= 95) return 3.50; if (pct >= 92) return 3.25;
-    if (pct >= 90) return 3.00; if (pct >= 88) return 2.75; if (pct >= 86) return 2.50; if (pct >= 84) return 2.25;
-    if (pct >= 82) return 2.00; if (pct >= 80) return 1.75; if (pct >= 78) return 1.50; if (pct >= 76) return 1.25;
-    if (pct >= 75) return 1.00; return 0.00;
-}
-
-function getMinPercentageForPoint(point) {
-    if (point >= 4.00) return 99; if (point >= 3.75) return 97; if (point >= 3.50) return 95; if (point >= 3.25) return 92;
-    if (point >= 3.00) return 90; if (point >= 2.75) return 88; if (point >= 2.50) return 86; if (point >= 2.25) return 84;
-    if (point >= 2.00) return 82; if (point >= 1.75) return 80; if (point >= 1.50) return 78; if (point >= 1.25) return 76;
-    if (point >= 1.00) return 75; return 0;
-}
-
-function computeRowFinal(inputElem) {
-    const row = inputElem.closest('.calc-row');
-    const pStr = row.querySelector('.calc-prelim').value;
-    const mStr = row.querySelector('.calc-midterm').value;
-    const pfStr = row.querySelector('.calc-prefinal').value;
-    const finalSel = row.querySelector('.calc-final-input');
-
-    if (pStr !== '' && mStr !== '' && pfStr !== '') {
-        const totalPct = (parseFloat(pStr) * WEIGHT_PRELIM) + (parseFloat(mStr) * WEIGHT_MIDTERM) + (parseFloat(pfStr) * WEIGHT_PREFINAL);
-        finalSel.value = convertPercentageToPoint(totalPct).toFixed(2);
-    } else { finalSel.value = ''; }
-    calculateOverallGwa();
-}
-
-function seekGrades(targetSelect) {
-    const row = targetSelect.closest('.calc-row');
-    const pInput = row.querySelector('.calc-prelim');
-    const mInput = row.querySelector('.calc-midterm');
-    const pfInput = row.querySelector('.calc-prefinal');
-    const targetPoint = parseFloat(targetSelect.value);
-
-    if (isNaN(targetPoint)) {
-        if (!pInput.hasAttribute('disabled')) pInput.value = '';
-        if (!mInput.hasAttribute('disabled')) mInput.value = '';
-        if (!pfInput.hasAttribute('disabled')) pfInput.value = '';
-        calculateOverallGwa(); return;
-    }
-
-    const pLocked = pInput.hasAttribute('disabled'); const mLocked = mInput.hasAttribute('disabled'); const pfLocked = pfInput.hasAttribute('disabled');
-    const pVal = pLocked ? parseFloat(pInput.value) : 0; const mVal = mLocked ? parseFloat(mInput.value) : 0; const pfVal = pfLocked ? parseFloat(pfInput.value) : 0;
-    const targetPercent = getMinPercentageForPoint(targetPoint);
-    
-    let currentTotal = 0; let missingWeight = 0;
-    if (pLocked) currentTotal += (pVal * WEIGHT_PRELIM); else missingWeight += WEIGHT_PRELIM;
-    if (mLocked) currentTotal += (mVal * WEIGHT_MIDTERM); else missingWeight += WEIGHT_MIDTERM;
-    if (pfLocked) currentTotal += (pfVal * WEIGHT_PREFINAL); else missingWeight += WEIGHT_PREFINAL;
-
-    if (missingWeight === 0) {
-        alert("All terms already have grades, so there is nothing left to calculate.");
-        targetSelect.value = ''; return;
-    }
-
-    const pointsNeeded = targetPercent - currentTotal;
-    const requiredGrade = Math.ceil(pointsNeeded / missingWeight);
-
-    if (requiredGrade > 100) {
-        alert("This target is not reachable with the remaining terms, because it would need more than 100%. Try a lower target.");
-        targetSelect.value = '';
-        if (!pLocked) pInput.value = ''; if (!mLocked) mInput.value = ''; if (!pfLocked) pfInput.value = '';
-    } else {
-        const finalRequired = Math.max(0, requiredGrade);
-        if (!pLocked) pInput.value = finalRequired; if (!mLocked) mInput.value = finalRequired; if (!pfLocked) pfInput.value = finalRequired;
-    }
-    calculateOverallGwa();
-}
-
-function calculateOverallGwa() {
-    const rows = document.querySelectorAll('.calc-row');
-    let totalUnits = 0; let totalGradePoints = 0;
-
-    rows.forEach(row => {
-        const unitsVal = parseFloat(row.querySelector('.calc-units').innerText);
-        const finalVal = parseFloat(row.querySelector('.calc-final-input').value);
-        if (!isNaN(finalVal) && !isNaN(unitsVal)) {
-            totalUnits += unitsVal; totalGradePoints += (finalVal * unitsVal);
-        }
-    });
-
-    const outputElement = document.getElementById('projected-gwa');
-    if (totalUnits > 0) {
-        const projected = (totalGradePoints / totalUnits).toFixed(2);
-        outputElement.innerText = projected;
-        if (projected >= 3.25) outputElement.style.color = 'var(--risk-low)'; 
-        else if (projected >= 2.50) outputElement.style.color = 'var(--risk-mod)'; 
-        else outputElement.style.color = 'var(--risk-high)'; 
-    } else {
-        outputElement.innerText = '0.00'; outputElement.style.color = 'var(--accent-blue)';
-    }
-}
-
 function getThemeColors() {
     const root = getComputedStyle(document.documentElement);
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';

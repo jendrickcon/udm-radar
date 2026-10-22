@@ -7,6 +7,16 @@
 
 ---
 
+## Goal Calculator feasible targets — owner-accepted integration (2026-10-22)
+
+- **Package:** `GOAL-CALCULATOR-FEASIBLE-GWA-OPTIONS-SOL-WP1`, base `0642417025aa558a3cb3b215f594d58e01e27aa5`, branch `codex/goal-calculator-feasible-gwa-options`. Owner accepted the implementation report and authorized commit, push and PR creation after final focused verification on 22 October 2026. Merge remains a separate owner action.
+- **Behavior:** Disable unreachable per-subject final-point targets using canonical percentage conversion and 30/30/40 weights; preserve valid goals, clear invalid goals/stale suggestions and guard manipulated controls. Unit-weighted scenario GWA and existing zero/status exclusions retained. No aggregate-GWA goal selector added.
+- **Owner UI revision:** Keep original option text and compact layout; no extra visible notes. Hover titles are supplied for disabled options where the native browser supports them. Accessible descriptions/status remain visually hidden.
+- **Boundary:** Pure identifier-free math and controlled generated HTML; no app/database/Flask call or stored-grade change. Existing dashboard GWA fixture has an unrelated pre-existing markup-boundary failure, reported separately. No official-policy, authenticated-UAT or deployment claim.
+- **Tracking:** UX-011 in [UI_UX_FINDINGS_REGISTER.md](UI_UX_FINDINGS_REGISTER.md). Verification logs/screenshots are ignored local evidence, not repository deliverables.
+
+---
+
 ## PEF/CC PDF/state continuation — owner acceptance and final gate (2026-10-20)
 
 - **Delivery:** Initial WP1 PR #51 is merged; continuation PR #54 is open and unmerged. Published commit `0a52b3c` is preserved. Follow-up commits are conditional on the required validation gate; no history rewrite or automatic merge is authorized.

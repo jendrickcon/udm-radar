@@ -261,14 +261,15 @@ assertCheck(
     "COPY-013: Empty subject triage uses exact approved text"
 );
 
-// COPY-014: student/dashboard.php - Grade Goal Calculator alerts
+// COPY-014: Calculator now uses a polite inline status, never blocking alerts.
+$calculatorScript = file_get_contents($repoRoot . '/assets/js/goal-calculator-ui.js');
 assertCheck(
-    str_contains($contents['dashboard'], 'alert("All terms already have grades, so there is nothing left to calculate.");'),
-    "COPY-014: Calculator all terms locked alert matches approved wording"
+    str_contains($calculatorScript, 'Goal already achieved. All periods are complete; no remaining grade is needed.'),
+    "COPY-014: Completed calculator goal has supportive inline guidance"
 );
 assertCheck(
-    str_contains($contents['dashboard'], 'alert("This target is not reachable with the remaining terms, because it would need more than 100%. Try a lower target.");'),
-    "COPY-014: Calculator target unreachable alert matches approved wording"
+    str_contains($calculatorScript, 'This target is not reachable with the remaining terms, because it would need more than 100%. Try a lower target.'),
+    "COPY-014: Calculator unreachable guidance preserves supportive wording"
 );
 
 // COPY-015: student/grades.php - High Risk subject tooltip

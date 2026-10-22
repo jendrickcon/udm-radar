@@ -37,10 +37,19 @@ This register converts qualitative audits, static inspection findings, and usabi
 | **UX-008** | Role-specific dashboard workflow differentiation | Cross-portal | Medium | Proposed | `UI-ROLE-WP1` | Source-Confirmed |
 | **UX-009** | Authenticated mobile-verification gap | Cross-portal | High | Partially resolved | `UI-WP-MOBILE` | Requires verification (Emulation verified; physical hardware pending) |
 | **UX-010** | External Chart.js CDN dependency review | Cross-portal | Low | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
+| **UX-011** | Unreachable calculator targets stay selectable until calculation | Student | Medium | Verified | `GOAL-CALCULATOR-FEASIBLE-GWA-OPTIONS-SOL-WP1` | Generated fixture / deterministic math; local branch, unmerged |
 
 ---
 
 ## 3. Finding Detail Records
+
+### UX-011: Mathematically Unreachable Calculator Targets
+* **Observed:** The per-subject Target Final Grade dropdown initially offered every point grade; impossible targets were rejected only after selection.
+* **Owner scope:** 22 October 2026: native disabled options, original compact layout and option labels, optional hover explanation; no added visible notes. This supersedes the work package's visible explanatory-message examples.
+* **Local implementation:** Canonical PHP-derived conversion/weight configuration, guarded feasibility checks, preserved decimal evidence, invalid-goal/stale-suggestion clearing and screen-reader status. Scenario GWA remains unit-weighted with existing zero/status exclusions.
+* **Evidence:** Focused deterministic and generated-fixture browser checks; no database or live authenticated route. Owner accepted integration through branch `codex/goal-calculator-feasible-gwa-options`; merge remains pending. Native disabled-option tooltips depend on browser support.
+
+---
 
 ### UX-001: Pressure-Heavy Student Projection and Risk Copy
 * **Description:** Student-facing dashboard alerts and risk messages employ deficit, blaming, or deterministic phrasing that induces panic rather than academic agency.

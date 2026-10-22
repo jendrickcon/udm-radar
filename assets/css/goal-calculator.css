@@ -1,0 +1,7 @@
+/* Keep the existing compact layout; descriptions are for assistive technology. */
+#calculator-section .calc-final-input { min-width:6rem; }
+#calculator-section .calc-goal-status, #calculator-section #calculator-goal-help {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+}
+#calculator-section .calc-term-input:disabled { background:var(--bg-color) !important; }

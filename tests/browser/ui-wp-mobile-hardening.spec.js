@@ -41,6 +41,7 @@ async function mount(page, route, theme, viewport, reducedMotion = 'reduce') {
             return request.abort();
         }
         if (url.hostname === 'mobile.test' && url.pathname === '/' + route) return request.fulfill({ contentType: 'text/html', body: html });
+        if (url.hostname === 'mobile.test' && ['/assets/js/goal-calculator.js','/assets/js/goal-calculator-ui.js','/assets/css/goal-calculator.css'].includes(url.pathname)) return request.fulfill({contentType:url.pathname.endsWith('.css')?'text/css':'application/javascript',body:readFileSync(resolve('.'+url.pathname))});
         if (url.pathname.endsWith('/logo_sidebar.png')) return request.fulfill({ contentType: 'image/png', body: readFileSync(resolve('assets/img/logo_sidebar.png')) });
         if (url.hostname === 'cdn.jsdelivr.net' && url.pathname === '/npm/chart.js') return request.fulfill({ contentType: 'application/javascript', body: chartMock });
         if (url.hostname === 'fonts.googleapis.com') return request.fulfill({ contentType: 'text/css', body: '' });
@@ -198,7 +199,8 @@ for (const theme of ['light', 'dark']) for (const viewport of matrix) {
         const region = page.getByRole('region', { name: 'Grade goal calculator' });
         await expect(region).toHaveAttribute('tabindex', '0');
         for (const field of ['prelim','midterm','prefinal']) await calculator.locator('.calc-' + field).fill('90');
-        await expect(calculator.locator('.calc-final-input')).toHaveValue('3.00');
+        await expect(calculator.locator('.calc-final-input')).toHaveValue('');
+        await expect(calculator.locator('.calc-row-result')).toContainText('Scenario final grade: 3.00');
         await expect(page.locator('#projected-gwa')).toHaveText('3.00');
         if (viewport[0] <= 600) {
             expect(await region.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
