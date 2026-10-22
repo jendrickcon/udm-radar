@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../config/db.php';
 require_once '../includes/SimpleXLSX.php';
+require_once '../includes/grade_history.php';
 
 use Shuchkin\SimpleXLSX;
 
@@ -561,86 +562,9 @@ foreach ($predStmt->fetchAll() as $p) {
 }
 
 // Label each completed term by the curriculum year its subjects belong to,
-// not by the order the terms happen to appear. The previous version counted
-// school-year keys per student starting at 1st Year, so any student missing an
-// early term — an irregular, transferee, or shifted student — had every later
-// term labelled one or more years too low. Subjects already carry their own
-// year_level, so the label is derived from that instead of inferred.
-$histStmt = $db->query("
-    SELECT g.student_id, g.school_year, g.semester, s.code, s.title, s.year_level, g.final_grade
-    FROM grades g JOIN subjects s ON s.id = g.subject_id
-    WHERE g.is_current = 0 AND g.final_grade IS NOT NULL
-    ORDER BY g.student_id, g.school_year ASC, g.semester ASC, s.code
-");
-
-$tempHistory = [];
-foreach ($histStmt->fetchAll() as $h) {
-    $sid = $h['student_id'];
-    $sy = $h['school_year'] ?? 'Unknown Year';
-    $sem = $h['semester'];
-
-    // A subject's year_level is authoritative when present; school_year is a
-    // fallback only for rows that predate the curriculum column being filled in.
-    $curriculumYear = ($h['year_level'] !== null && (int) $h['year_level'] > 0)
-        ? (int) $h['year_level']
-        : 0; // 0 = unknown; labelled from the term's dominant year below
-
-    $tempHistory[$sid][$sy][$sem][$curriculumYear][] = [
-        'code'  => $h['code'],
-        'title' => cleanSubjectTitle($h['title']),
-        'grade' => formatFinalGrade($h['final_grade']),
-    ];
-}
-
-$historyByStudent = [];
-foreach ($tempHistory as $sid => $years) {
-    foreach ($years as $sy => $sems) {
-        // Detect a term the registrar has already recounted for (final grades
-        // are re-encoded at the student's actual year level), so its labels
-        // follow the recorded year rather than the curriculum's nominal one.
-        $termYears = [];
-        foreach ($sems as $subjectsByYear) {
-            foreach ($subjectsByYear as $yl => $subjects) {
-                if ($yl > 0) $termYears[$yl] = true;
-            }
-        }
-
-        // A term is labelled by the highest curriculum year it contains. In a
-        // normal term that is simply the year every subject belongs to. In a
-        // term where a student is retaking a failed lower-year subject
-        // alongside their current load, the retake sits below the term's real
-        // level, so the highest year is the one that describes the term.
-        // Rows with no curriculum year are folded into whichever level the
-        // term resolves to rather than being dropped or mislabelled as 1st.
-        $termYearLevel = !empty($termYears) ? (int) max(array_keys($termYears)) : 0;
-
-        // Resolved once for the whole school year, and never mutated inside the
-        // loop below — doing so let a term with no resolvable curriculum year
-        // write its fallback into the sibling semester of the same school year,
-        // mislabelling a 2nd-semester term as 1st Year.
-        $labelYear = $termYearLevel > 0 ? $termYearLevel : 1;
-
-        foreach ($sems as $sem => $subjectsByYear) {
-            $yearLevel = [];
-            foreach ($subjectsByYear as $subjects) {
-                foreach ($subjects as $entry) { $yearLevel[] = $entry; }
-            }
-            if (empty($yearLevel)) continue;
-
-            $ordinalYear = match ($labelYear) {
-                1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th',
-                default => $labelYear . 'th',
-            };
-            $ordinalSem = ($sem == 1) ? '1st Sem' : (($sem == 2) ? '2nd Sem' : 'Unknown Sem');
-            $termKey = "$sy | {$ordinalYear} Year, $ordinalSem";
-
-            foreach ($yearLevel as $entry) {
-                $historyByStudent[$sid][$termKey][] = $entry;
-            }
-        }
-    }
-    krsort($historyByStudent[$sid], SORT_NATURAL);
-}
+// not by the order the terms happen to appear. Shared helper fetchAllStudentsGroupedHistory()
+// resolves curriculum year from subjects and maintains canonical term ordering.
+$historyByStudent = fetchAllStudentsGroupedHistory($db);
 
 $modalData = [];
 $stats = ['total' => count($students), 'high' => 0, 'moderate' => 0, 'support' => 0, 'needs_review' => 0];
