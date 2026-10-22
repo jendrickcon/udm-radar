@@ -7,6 +7,19 @@
 
 ---
 
+## Admin Grades Student Modal with Read-Only Academic History — Implementation Ready for Review (2026-10-22)
+
+- **Package:** `ADMIN-GRADES-STUDENT-MODAL-HISTORY`, base `8e43e6ebbee41d3f86bf4412b8a31873f0e4edda`, branch `fix/admin-grades-modal-history`.
+- **Visual Baseline & Layout:** Aligned with the Administrator Students modal (`admin/students.php`) visual hierarchy: header, context subline (`studentNo · Section · Year · Status`), 3 summary cards (Cumulative GWA Historical, Projected Term GWA, Advisory Risk Level), and expanded desktop width `width: min(920px, calc(100vw - 32px))` reserving stable column width for the MODERATE risk badge without crowding. Contained horizontal scroll via `.grades-modal-scroll` ensures no page-level overflow across all viewports.
+- **Current-Semester Proposal Governance:** Current-semester grade corrections remain strictly proposal-based and audited via `pending_corrections` with CSRF protection, admin role authorization, and mandatory correction reason prompt. Direct database editing is prohibited.
+- **Read-Only Academic History:** Historical grades covering First Year through the latest recorded academic term are accessible inside the same modal via a collapsed `View Grade History` control. Historical grades are strictly read-only (no edit or proposal controls).
+- **Lazy Loading & Performance:** Historical grades are lazy-loaded on demand upon first activating `View Grade History` via `grades_data.php?action=academic_history`. Re-expanding uses cached modal data; opening another student clears the cache. Initial page load remains lightweight.
+- **Shared Query & View Model:** Extracted and unified academic history queries and curriculum-year grouping into shared helper `includes/grade_history.php`, reused by `admin/grades.php`, `admin/grades_data.php`, and `admin/students.php`.
+- **Academic Rules Integrity:** Advisory risk levels remain non-punitive decision support. Missing grades are rendered as neutral indicators (`—` or `In Progress`) and are not treated as zero or failure. Non-numeric outcomes are excluded from unit-weighted Term GWA calculations via canonical `computeWeightedGWA()`.
+- **Boundary:** Decision-support prototype operating on synthetic academic records. No database schema changes, migrations, or genuine record modifications applied. No unrestricted editing, registrar replacement, institutional certification, or production deployment claim.
+
+---
+
 ## Goal Calculator feasible targets — owner-accepted integration (2026-10-22)
 
 - **Package:** `GOAL-CALCULATOR-FEASIBLE-GWA-OPTIONS-SOL-WP1`, base `0642417025aa558a3cb3b215f594d58e01e27aa5`, branch `codex/goal-calculator-feasible-gwa-options`. Owner accepted the implementation report and authorized commit, push and PR creation after final focused verification on 22 October 2026. Merge remains a separate owner action.
