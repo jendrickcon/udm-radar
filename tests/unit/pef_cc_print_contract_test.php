@@ -28,11 +28,11 @@ function pefPrintRenderContext(array $context, array $inputs, array $currentTerm
     $source=file_get_contents(dirname(__DIR__,2).'/student/enrolment_planning.php');
     $start=strpos($source,'function pefCcPageEscape(');$end=strpos($source,'/** Bound actual bytes');
     if(!function_exists('pefCcPageEscape'))eval(substr($source,$start,$end-$start));
-    $start=strpos($source,'$data = $model?->data;');$end=strpos($source,"\$pageTitle = 'Enrolment Planning';",$start);
+    $start=strpos($source,'$data = $model?->data;');$end=strpos($source,"\$pageTitle = 'Enrollment Planning';",$start);
     eval(substr($source,$start,$end-$start));
     $start=strpos($source,'<link rel="stylesheet"');$end=strpos($source,'<?php require_once __DIR__',$start);
     $template=substr($source,$start,$end-$start);$template=str_replace('__DIR__',var_export(dirname(__DIR__,2).'/student',true),$template);
-    ob_start();try{$pageTitle='Enrolment Planning';require dirname(__DIR__,2).'/includes/header.php';eval('?>'.$template);echo '</body></html>';return ob_get_clean();}catch(Throwable $e){ob_end_clean();throw $e;}
+    ob_start();try{$pageTitle='Enrollment Planning';require dirname(__DIR__,2).'/includes/header.php';eval('?>'.$template);echo '</body></html>';return ob_get_clean();}catch(Throwable $e){ob_end_clean();throw $e;}
 }
 function pefPrintRender(string $case): string {
     $stateCases=['normal'=>'A','normal-initial'=>'A','provisional'=>'B','incomplete'=>'B','provisional-preview'=>'B',

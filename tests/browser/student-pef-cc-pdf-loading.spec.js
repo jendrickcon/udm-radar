@@ -129,7 +129,7 @@ test.describe('[Mocked client state] PEF/CC Accessible PDF Generation Loading St
     await expect(loadingPanel).toHaveAttribute('aria-live', 'polite');
     await expect(loadingPanel).toHaveAttribute('aria-atomic', 'true');
     await expect(loadingPanel.locator('.pef-cc-loading-title')).toHaveText('Preparing your planning PDF');
-    await expect(loadingPanel.locator('.pef-cc-loading-desc')).toHaveText('Creating the Pre-Enrolment Form and Curriculum Checklist. Please keep this page open.');
+    await expect(loadingPanel.locator('.pef-cc-loading-desc')).toHaveText('Creating the Pre-Enrollment Form and Curriculum Checklist. Please keep this page open.');
     await expect(loadingPanel.locator('.pef-cc-loading-note')).toHaveText('The download will begin automatically when the PDF is ready.');
 
     // Save screenshot 2: PDF_DOWNLOAD_PROCESSING.png

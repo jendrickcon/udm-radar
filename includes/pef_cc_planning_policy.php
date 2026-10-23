@@ -507,7 +507,7 @@ function pefCcPlanningPolicy(array $context, array $input, array $currentTerm, ?
             $policy['status'] = 'incomplete_term_blocked';
             $policy['incomplete_warning'] = 'No recorded subjects exist for the immediate predecessor term (' . $pred['school_year'] . ' ' . pefCcSemesterLabel($pred['semester']) . ').';
             $fail($policy['incomplete_warning'], 'target_year');
-            $policy['section_notice'] = 'Enrolment planning is not yet available because the predecessor semester record is missing.';
+            $policy['section_notice'] = 'Enrollment planning is not yet available because the predecessor semester record is missing.';
         } else {
             $policy['status'] = 'incomplete_term_provisional';
             $policy['provisional_allowed'] = true;
