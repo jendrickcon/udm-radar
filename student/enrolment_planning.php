@@ -22,7 +22,7 @@ register_shutdown_function(static function () use ($pefCcPageBufferLevel, &$pefC
     header('Pragma: no-cache');
     header('Expires: 0');
     header('X-Content-Type-Options: nosniff');
-    echo '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Planning unavailable · UDM-RADAR</title></head><body><main><h1>Planning is temporarily unavailable</h1><p>Please try again later or ask the system administrator to check the service.</p><a href="enrolment_planning.php">Reload Enrolment Planning</a></main></body></html>';
+    echo '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Planning unavailable · UDM-RADAR</title></head><body><main><h1>Planning is temporarily unavailable</h1><p>Please try again later or ask the system administrator to check the service.</p><a href="enrolment_planning.php">Reload Enrollment Planning</a></main></body></html>';
     flush();
     // Do not exit: later shutdown callbacks may still own cleanup work.
 });
@@ -131,7 +131,7 @@ if (!in_array($method, ['GET', 'POST'], true)) {
     $requestValid = false;
 } elseif ($_GET !== [] || $_FILES !== []) {
     http_response_code(422);
-    $errors[] = 'Unexpected request fields. Open Enrolment Planning again and use the form.';
+    $errors[] = 'Unexpected request fields. Open Enrollment Planning again and use the form.';
     $requestValid = false;
 } elseif ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $config['max_request_bytes']
     || !pefCcPageBodyWithinLimit($config['max_request_bytes'])) {
@@ -287,7 +287,7 @@ $years = array_values(array_unique(array_map(static fn(array $choice): string =>
 if ($inputs['evaluation_year'] !== '' && !in_array($inputs['evaluation_year'], $years, true)) {
     $years[] = $inputs['evaluation_year'];
 }
-$pageTitle = 'Enrolment Planning';
+$pageTitle = 'Enrollment Planning';
 $navItems = [
     ['Home', 'index.php', ''], ['Dashboard', 'dashboard.php', ''],
     ['Grades & History', 'grades.php', ''], ['Performance Trend', 'trend.php', ''],
@@ -333,7 +333,7 @@ $summaryStatus = match ($planningState) {
 <main class="main-content pef-cc-page" id="main-content">
     <div class="header">
         <div>
-            <h1>Enrolment Planning</h1>
+            <h1>Enrollment Planning</h1>
             <p class="pef-cc-lead">Review your current semester, check the proposed next-semester plan, and create your planning workbook.</p>
             <nav class="pef-cc-stepper" aria-label="Planning progress">
                 <ol class="pef-cc-steps">
@@ -556,7 +556,7 @@ $summaryStatus = match ($planningState) {
     <!-- Step 3: Create planning workbook (Sections 7, 8, 9) -->
     <section class="card pef-cc-section" id="step-workbook" aria-labelledby="heading-workbook" data-testid="panel-workbook">
         <h2 id="heading-workbook">3. Create planning workbook</h2>
-        <p class="pef-cc-meta"><strong>Workbook contents:</strong> Pre-Enrolment Form and Curriculum Checklist</p>
+        <p class="pef-cc-meta"><strong>Workbook contents:</strong> Pre-Enrollment Form and Curriculum Checklist</p>
         <p class="pef-cc-help">The planning PDF uses the current record and the proposed next-term plan.</p>
 
         <?php if ($preview === ''): ?>
@@ -580,7 +580,7 @@ $summaryStatus = match ($planningState) {
                     <div><dt>Suggested section</dt><dd><?= pefCcPageEscape($summarySection) ?></dd></div>
                     <div><dt>Proposed subjects</dt><dd><?= (int) $summaryProposedCount ?></dd></div>
                     <div><dt>Planning mode</dt><dd><?= match ($planningState) { 'B' => 'Provisional', 'C' => 'Review required', default => 'Normal' } ?></dd></div>
-                    <div><dt>Workbook sheets</dt><dd>Pre-Enrolment Form, Curriculum Checklist</dd></div>
+                    <div><dt>Workbook sheets</dt><dd>Pre-Enrollment Form, Curriculum Checklist</dd></div>
                 </dl>
             </div>
             <div class="pef-cc-actions-bar">
@@ -596,7 +596,7 @@ $summaryStatus = match ($planningState) {
                     <span class="pef-cc-loading-spinner" aria-hidden="true"></span>
                     <div class="pef-cc-loading-text">
                         <strong class="pef-cc-loading-title">Preparing your planning PDF</strong>
-                        <p class="pef-cc-loading-desc">Creating the Pre-Enrolment Form and Curriculum Checklist. Please keep this page open.</p>
+                        <p class="pef-cc-loading-desc">Creating the Pre-Enrollment Form and Curriculum Checklist. Please keep this page open.</p>
                         <p class="pef-cc-loading-note">The download will begin automatically when the PDF is ready.</p>
                     </div>
                 </div>
@@ -608,7 +608,7 @@ $summaryStatus = match ($planningState) {
         <p id="download-status" data-testid="download-status" role="status" aria-live="polite"></p>
         <div id="pef-cc-live-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
-        <p class="pef-cc-disclosure" data-testid="single-disclosure">This workbook is a planning aid for academic evaluator review and does not constitute official enrolment approval.<?= $isProvisional ? ' Final grades are incomplete, so the proposed subjects and section may change.' : '' ?></p>
+        <p class="pef-cc-disclosure" data-testid="single-disclosure">This workbook is a planning aid for academic evaluator review and does not constitute official enrollment approval.<?= $isProvisional ? ' Final grades are incomplete, so the proposed subjects and section may change.' : '' ?></p>
     </section>
 
     <!-- Planning Form Data Transport -->

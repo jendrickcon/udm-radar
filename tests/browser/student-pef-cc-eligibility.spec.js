@@ -41,7 +41,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
 
     // 1. Heading and intro lead sentence
     const heading = page.locator('h1');
-    await expect(heading).toHaveText('Enrolment Planning');
+    await expect(heading).toHaveText('Enrollment Planning');
     const lead = page.locator('.pef-cc-lead');
     await expect(lead).toHaveText('Review your current semester, check the proposed next-semester plan, and create your planning workbook.');
 
@@ -102,7 +102,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     // 8. Single consolidated disclosure
     const disclosure = page.getByTestId('single-disclosure');
     await expect(disclosure).toBeVisible();
-    await expect(disclosure).toContainText('This workbook is a planning aid for academic evaluator review and does not constitute official enrolment approval.');
+    await expect(disclosure).toContainText('This workbook is a planning aid for academic evaluator review and does not constitute official enrollment approval.');
 
     // 9. Absence of old verbose items from default flow
     await expect(page.getByTestId('cc-preview')).toHaveCount(0);

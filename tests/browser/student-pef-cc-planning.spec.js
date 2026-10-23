@@ -189,7 +189,7 @@ test('thirteen proposed choices stay selected with visible native capacity valid
 test('mobile drawer coexists with preview and returns keyboard focus',async({page})=>{
  await page.setViewportSize({width:390,height:700});await login(page);await preview(page);
  const toggle=page.locator('#mobile-nav-toggle');await toggle.click();await expect(toggle).toHaveAttribute('aria-expanded','true');
- await expect(page.locator('#sidebar').getByRole('link',{name:'Enrolment Planning',exact:true})).toBeVisible();
+ await expect(page.locator('#sidebar').getByRole('link',{name:'Enrollment Planning',exact:true})).toBeVisible();
  await page.keyboard.press('Escape');await expect(toggle).toHaveAttribute('aria-expanded','false');await expect(toggle).toBeFocused();
  await expect(page.getByTestId('download-button')).toBeEnabled();
 });

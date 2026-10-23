@@ -7,7 +7,7 @@ $navItems = $navItems ?? [];
 // Student pages share this navigation without copying the new item into every page.
 if (($user['role'] ?? '') === 'student'
     && !in_array('enrolment_planning.php', array_column($navItems, 1), true)) {
-    $planningItem = ['Enrolment Planning', 'enrolment_planning.php', ''];
+    $planningItem = ['Enrollment Planning', 'enrolment_planning.php', ''];
     $settingsIndex = array_search('Settings', array_column($navItems, 0), true);
     if ($settingsIndex === false) {
         $navItems[] = $planningItem;
@@ -98,7 +98,7 @@ if (isset($user) && isset($user['role'])) {
             'Students', 'Faculty' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
             'Grades', 'Term Grade Submission' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>',
             'Academic History' => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
-            'Enrolment Planning' => '<rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 3v4h6V3M8 11h8M8 15h5"></path>',
+            'Enrollment Planning' => '<rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 3v4h6V3M8 11h8M8 15h5"></path>',
             'Performance Trend', 'Performance Trends' => '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
             'Program Analytics', 'Class Analytics' => '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
             'Feedback & Reports', 'Feedback & Support', 'Activity & Inbox', 'Concerns & Reports' => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
