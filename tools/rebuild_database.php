@@ -4,7 +4,7 @@
  *
  * PURPOSE:
  * Rebuilds udm_radar_scratch or udm_radar_demo from the baseline canonical SQL dump
- * (database/udm_radar.sql) and the complete migration sequence (000 through 008).
+ * (database/udm_radar.sql) and the complete migration sequence (000 through 010).
  *
  * STRICT GOVERNANCE RULES:
  * - Live production database ('udm_radar') is STRICTLY FORBIDDEN and CANNOT be rebuilt.
@@ -114,7 +114,7 @@ $migrationsDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'database' . DIRECTORY
 $migrationFiles = glob($migrationsDir . DIRECTORY_SEPARATOR . '*.sql');
 sort($migrationFiles);
 
-echo "[3/4] Applying migration chain (000 through 008)...\n";
+echo "[3/4] Applying migration chain (000 through 010)...\n";
 foreach ($migrationFiles as $mig) {
     $baseName = basename($mig);
     echo "  -> Applying $baseName... ";

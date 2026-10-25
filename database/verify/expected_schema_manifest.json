@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": "UDM-RADAR",
+  "baseline_version": "post-010-reconciled",
+  "canonical_baseline_sql": "database/udm_radar.sql",
+  "expected_table_count": 18,
+  "approved_migrations": [
+    "000_create_export_audit_logs.sql",
+    "001_add_student_record_status.sql",
+    "002_feedback_status_cleanup.sql",
+    "003_export_audit_failure_info.sql",
+    "004_create_workflow_and_support_tables.sql",
+    "005_standardize_final_grade_storage.sql",
+    "006_repair_student_course_values.sql",
+    "007_harmonize_prediction_source.sql",
+    "008_add_prediction_completeness_metadata.sql",
+    "009_add_support_reason_code.sql",
+    "010_add_notice_issued_at.sql"
+  ],
+  "excluded_migrations": [
+    "011"
+  ],
+  "expected_tables": [
+    "academic_support_cases",
+    "admin_change_log",
+    "export_audit_logs",
+    "faculty_class_loads",
+    "feedback_messages",
+    "feedback_reports",
+    "feedback_status_history",
+    "grades",
+    "otp_tokens",
+    "pending_corrections",
+    "pending_grade_batches",
+    "predictions",
+    "student_profiles",
+    "subjects",
+    "support_actions",
+    "support_case_referrals",
+    "support_status_history",
+    "users"
+  ],
+  "critical_column_definitions": {
+    "grades.final_grade": {
+      "data_type": "varchar",
+      "max_length": 10,
+      "is_nullable": "YES"
+    },
+    "student_profiles.course": {
+      "data_type": "enum",
+      "allowed_values": ["BSIT - Software Development", "BSIT - Data Science", "BSIT - Cyber Security"]
+    },
+    "student_profiles.record_status": {
+      "data_type": "enum",
+      "allowed_values": ["Active", "Archived", "Graduated"]
+    },
+    "predictions.prediction_source": {
+      "data_type": "varchar",
+      "max_length": 30,
+      "is_nullable": "NO"
+    },
+    "predictions.data_completeness": {
+      "data_type": "varchar",
+      "max_length": 20,
+      "is_nullable": "NO"
+    },
+    "support_case_referrals.reason_code": {
+      "data_type": "varchar",
+      "max_length": 50,
+      "is_nullable": "YES"
+    },
+    "support_case_referrals.notice_issued_at": {
+      "data_type": "datetime",
+      "is_nullable": "YES"
+    }
+  },
+  "required_check_constraints": [
+    "chk_grades_final_grade_domain",
+    "chk_student_profiles_course_valid",
+    "chk_predictions_source_valid",
+    "chk_predictions_completeness_valid",
+    "chk_predictions_is_provisional_valid",
+    "chk_predictions_provisional_basis_valid",
+    "chk_predictions_completeness_consistency",
+    "chk_predictions_subject_counts",
+    "chk_support_cases_source_valid",
+    "chk_referral_reason_valid"
+  ]
+}

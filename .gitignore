@@ -55,3 +55,8 @@ playwright/.auth/
 # --- Database Backups & Temporary Dumps ---
 backups/
 *.sql.bak
+/*.sql
+!database/udm_radar.sql
+!database/migrations/*.sql
+!database/seeds/*.sql
+!database/verify/*.sql
