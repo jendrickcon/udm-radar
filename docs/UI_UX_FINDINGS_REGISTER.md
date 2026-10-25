@@ -46,7 +46,7 @@ This register converts qualitative audits, static inspection findings, and usabi
 
 ### UX-012: Post-defense analytics interpretability
 
-The approved v3 guide requested clearer estimated GWA/advisory meaning, comparable academic summaries and support follow-up context. Five local MVPs now share canonical formulas and record scope, native controls, tables and representative line/bar views. Range/deferral/historical-assignment gaps remain explicit. Desktop actual-handler and generated regression evidence is recorded in [implementation status](post-defense/10_IMPLEMENTATION_STATUS.md); final chart redesign and UAT are deferred. The owner now directs **no further mobile testing or screenshotting; focus on desktops**. Independent review follow-up is pending; this is local implementation, not a merged resolution or institutional acceptance.
+The approved v3 guide requested clearer estimated GWA/advisory meaning, comparable academic summaries and support follow-up context. Five local MVPs now share canonical formulas and record scope, native controls, tables and representative line/bar views. Range/deferral/historical-assignment gaps remain explicit. Desktop actual-handler and generated regression evidence is recorded in [implementation status](post-defense/10_IMPLEMENTATION_STATUS.md); final chart redesign and UAT are deferred. The owner now directs **no further mobile testing or screenshotting; focus on desktops**. The completed [independent follow-up](post-defense/16_INDEPENDENT_REVIEW_FOLLOWUP.md) approves the bounded corrected MVP with documented non-blocking limitations; UX-012 remains In Progress for overall publication/UAT, and analytics remain local and unmerged. External Stage B and institutional acceptance are separate.
 
 ---
 

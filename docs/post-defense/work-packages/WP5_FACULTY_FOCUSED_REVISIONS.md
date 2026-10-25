@@ -1,6 +1,6 @@
 # Focused Faculty view — MVP work package
 
-Status: Implemented and tested locally; unmerged. Continuity integrated at e8d72a6; independent review/corrections in progress. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+Status: Implemented and tested locally; UNMERGED. Continuity integrated at e8d72a6. Independent follow-up at correction commit 63c2296f19c5ea0df99860c66f27cc196938d366: APPROVED WITH DOCUMENTED NON-BLOCKING LIMITATIONS; IR-01–08 closed. External Antigravity Stage B remains separate. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
 
 ## Canonical metric mapping
 

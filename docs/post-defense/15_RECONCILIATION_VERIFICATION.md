@@ -1,6 +1,6 @@
 # Reconciliation verification record — 26 October 2026
 
-This is fresh reconciliation evidence, separate from the original checkpoint and the external Antigravity Stage A package. No Stage B certification is claimed. Baseline e8d72a6d487444dcc6b5d11b1e0824376d7e8015; original checkpoint 554312cbef2efab9c0b574cef18f518be2b3b6d6; normal continuity merge c32bc38d99d38401b9690adcc1a35d6f7f739a7c. Current logs are ignored logs/analytics-reconciliation/. Runtime/test correction files are frozen for independent follow-up; exact final immutable SHA will be in the owner report and Git.
+This is fresh reconciliation evidence, separate from the original checkpoint and the external Antigravity Stage A package. No Stage B certification is claimed. Baseline e8d72a6d487444dcc6b5d11b1e0824376d7e8015; original checkpoint 554312cbef2efab9c0b574cef18f518be2b3b6d6; normal continuity merge c32bc38d99d38401b9690adcc1a35d6f7f739a7c. Current logs are ignored logs/analytics-reconciliation/. Runtime/test correction files at 63c2296f19c5ea0df99860c66f27cc196938d366 received APPROVED WITH DOCUMENTED NON-BLOCKING LIMITATIONS in 16_INDEPENDENT_REVIEW_FOLLOWUP.md. The final metadata-only commit preserves those contents; the external owner report supplies its exact immutable SHA and clean Git state.
 
 ## Commands and actual results
 
