@@ -2,7 +2,7 @@
 
 **Document Version:** 1.1.0 (Post-Defense Revision & Metric Clarification)
 **Accepted Baseline SHA:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
-**Standard Scale:** The discrete point scale currently configured and accepted for the UDM-RADAR prototype (guided by the Universidad de Manila Student Manual 2025 and codified in `config/constants.php`): $4.00\text{--}1.00$ discrete point scale ($4.00$ = Highest/Excellent; $1.00$ = Minimum Passing; $0.00$ = Numeric Failure).
+**Standard Scale:** The discrete point scale currently configured and accepted for the UDM-RADAR prototype and codified in `config/constants.php`: $4.00\text{--}1.00$ discrete point scale ($4.00$ = Highest/Excellent; $1.00$ = Minimum Passing; $0.00$ = Numeric Failure).
 
 ---
 
@@ -120,7 +120,7 @@
 - **Excluded Records:** Students with missing grade inputs (`No Data`).
 - **Missing-Data Behavior:** Never defaults to `LOW` or `HIGH`; displays `No Data`.
 - **Intended Roles:** Student, Faculty, Admin.
-- **Interpretation Warning:** Non-punitive institutional risk triage. Does NOT determine probation, retention, or official academic standing.
+- **Interpretation Warning:** Prototype-configured non-punitive advisory-risk triage. Does NOT determine probation, retention, or official academic standing.
 
 ---
 
@@ -247,7 +247,7 @@
 - **Formula:**
   $$\text{MTTFA} = \frac{\sum_{c \in C_{\text{action}}} (t_{\text{first\_action}, c} - t_{\text{created}, c})}{|C_{\text{action}}|}$$
 - **Start Timestamp ($t_{\text{created}, c}$):** Exact `support_case_referrals.created_at` timestamp.
-- **End Timestamp ($t_{\text{first\_action}, c}$):** Earliest timestamp of an authorized intervention event: `MIN(notice_issued_at, first_meeting_logged_at)` on referral case $c$.
+- **End Timestamp ($t_{\text{first\_action}, c}$):** The earliest valid timestamp of an authorized support action available from the accepted support-workflow records (in the accepted schema baseline, `support_case_referrals.notice_issued_at` is the verified column; candidate events such as meetings remain conceptual placeholders pending future schema expansion).
 - **Numerator:** Sum of elapsed calendar days (or decimal hours) elapsed between `created_at` and `first_action_at` across all eligible acted-upon cases.
 - **Denominator ($|C_{\text{action}}|$):** Total count of unique eligible support cases that have at least one documented first-action timestamp within the reporting window.
 - **Eligible Cases ($C_{\text{action}}$):** Non-duplicate support referral cases created in the active evaluation period having a valid, documented first-action event ($t_{\text{first\_action}} \ge t_{\text{created}}$).
@@ -266,7 +266,7 @@
 - **Formula:**
   $$\text{MTTC} = \frac{\sum_{c \in C_{\text{closed}}} (t_{\text{latest\_closed}, c} - t_{\text{created}, c})}{|C_{\text{closed}}|}$$
 - **Start Timestamp ($t_{\text{created}, c}$):** Exact `support_case_referrals.created_at` timestamp.
-- **End Timestamp ($t_{\text{latest\_closed}, c}$):** Latest documented closure timestamp (`latest_closed_at` or `resolved_at`) where the case reached `status IN ('closed', 'resolved')`.
+- **End Timestamp ($t_{\text{latest\_closed}, c}$):** Conceptual latest valid closure timestamp (`latest_closed_at`), pending approved schema support, where the case reached `status IN ('closed', 'resolved')`.
 - **Numerator:** Sum of elapsed calendar days from `created_at` to `latest_closed_at` across eligible closed cases.
 - **Denominator ($|C_{\text{closed}}|$):** Exactly the count of unique eligible cases that reached a documented closed state during the selected reporting period. Does NOT include open, pending, in-progress, cancelled, or unclosed cases.
 - **Eligible Cases ($C_{\text{closed}}$):** Cases with `status IN ('closed', 'resolved')` and a valid $t_{\text{latest\_closed}} \ge t_{\text{created}}$.

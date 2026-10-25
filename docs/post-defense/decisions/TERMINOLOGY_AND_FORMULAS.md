@@ -1,7 +1,7 @@
 # Quick Reference: Prototype Terminology and Academic Formulas — UDM-RADAR
 
 **Document Version:** 1.1.0
-**Source of Truth:** The discrete point scale configured and accepted for the UDM-RADAR prototype (guided by the Universidad de Manila Student Manual 2025 and codified in `config/constants.php`)
+**Source of Truth:** The discrete point scale currently configured and accepted for the UDM-RADAR prototype and codified in `config/constants.php`
 
 ---
 
@@ -76,11 +76,11 @@ $$\text{GWA} = \frac{\sum_{i=1}^{n} (\text{Grade}_i \times \text{Units}_i)}{\sum
 - **Mean Time to First Action (MTR-20, MTTFA):**
   $$\text{MTTFA} = \frac{\sum_{c \in C_{\text{action}}} (t_{\text{first\_action}, c} - t_{\text{created}, c})}{|C_{\text{action}}|}$$
   - **Start Timestamp:** `support_case_referrals.created_at`.
-  - **End Timestamp:** Earliest authorized action (`MIN(notice_issued_at, first_meeting_logged_at)`).
+  - **End Timestamp:** The earliest valid timestamp of an authorized support action from accepted records (verified column `notice_issued_at`; candidate events like meetings remain conceptual).
   - **Denominator:** Total acted-upon cases ($|C_{\text{action}}|$). Open unacted cases strictly excluded (never assigned 0).
 - **Mean Time to Intervention Closure (MTR-21, MTTC):**
   $$\text{MTTC} = \frac{\sum_{c \in C_{\text{closed}}} (t_{\text{latest\_closed}, c} - t_{\text{created}, c})}{|C_{\text{closed}}|}$$
   - **Start Timestamp:** `support_case_referrals.created_at`.
-  - **End Timestamp:** Latest documented closure timestamp (`latest_closed_at`).
+  - **End Timestamp:** Conceptual latest valid closure timestamp (`latest_closed_at`), pending approved schema support.
   - **Denominator:** Total documented closed cases ($|C_{\text{closed}}|$). Open unclosed cases strictly excluded (never assigned 0).
   - **Status:** Classified as `PLANNED / BLOCKED` pending schema confirmation of explicit closure timestamps in baseline.

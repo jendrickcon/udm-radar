@@ -75,10 +75,10 @@
      - Student receipt acknowledgments recorded (`MTR-19: Acknowledgment Rate`)
      - Closed support cases.
   2. **Faculty Responsiveness — Time to First Action (`MTR-20`):**
-     - Measures elapsed duration from case creation (`created_at`) to first documented action (`MIN(notice_issued_at, first_meeting_logged_at)`).
+     - Measures elapsed duration from case creation (`created_at`) to the earliest valid timestamp of an authorized support action from accepted records (using verified column `notice_issued_at`; candidate events like meetings remain conceptual).
      - Denominator includes only acted-upon cases. Open/unacted cases are strictly excluded from the mean (never assigned zero duration).
   3. **Case Resolution Duration — Time to Closure (`MTR-21`):**
-     - Measures elapsed duration from case creation (`created_at`) to latest valid closure timestamp (`latest_closed_at`).
+     - Measures elapsed duration from case creation (`created_at`) to the latest valid closure timestamp among closed cases (conceptual `latest_closed_at`, pending approved schema support).
      - Denominator includes only eligible closed cases. Open cases are excluded from the mean.
      - **Status:** Classified as `PLANNED / BLOCKED` pending schema verification for explicit case closure timestamps.
   4. Display a frequency breakdown of the six canonical reason codes.

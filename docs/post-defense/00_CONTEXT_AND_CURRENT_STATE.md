@@ -95,7 +95,7 @@ graph TD
 
 ## 4. Academic Grading Scale and Prototype Boundaries
 
-UDM-RADAR strictly operates on the discrete point scale currently configured and accepted for the UDM-RADAR prototype, guided by the **Universidad de Manila Student Manual 2025** and codified in `config/constants.php`:
+UDM-RADAR strictly operates on the discrete point scale currently configured and accepted for the UDM-RADAR prototype and codified in `config/constants.php`:
 
 ### 4.1 Numerical Scale Direction (Higher Numbers Indicate Stronger Performance)
 - **Range:** `4.00` (Highest/Excellent) down to `1.00` (Minimum Passing Grade) and `0.00` (Numeric Failure).
@@ -128,7 +128,7 @@ UDM-RADAR strictly operates on the discrete point scale currently configured and
   $$\text{GWA} = \frac{\sum (\text{Numeric Point Grade} \times \text{Units})}{\sum \text{Units for Numeric Point Grades}}$$
   Non-numeric outcomes (`INC`, `DRP`, `P`) and legacy zeros are excluded from GWA unit denominators pending institutional confirmation.
 
-### 4.3 Prototype Academic Risk Triage
+### 4.4 Prototype-Configured Advisory Academic Risk Triage
 - **Low Risk:** GWA $2.50$ and above.
 - **Moderate Risk:** GWA $1.75$ through $2.49$.
 - **High Risk:** GWA below $1.75$.

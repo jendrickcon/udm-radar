@@ -50,7 +50,7 @@ flowchart TD
 2. **DO NOT ASSUME $R^2$ is an accuracy percentage.**
    $R^2$ is the regression coefficient of determination ($-\infty \le R^2 \le 1.0$), measuring variance explained. It must never be described as "92% model accuracy".
 3. **DO NOT ASSUME higher GWA numbers are worse.**
-   UDM-RADAR operates on the accepted grade-point scale configured for the prototype (guided by the UDM Student Manual 2025 where noted) where **$4.00$ is the highest/excellent grade** and **$1.00$ is passing** ($0.00$ is numeric failure). $4.00 > 3.00 > 2.00 > 1.00$. A positive change ($+0.25$) represents academic improvement.
+   UDM-RADAR operates on the discrete point scale currently configured and accepted for the UDM-RADAR prototype and codified in `config/constants.php` where **$4.00$ is the highest/excellent grade** and **$1.00$ is passing** ($0.00$ is numeric failure). $4.00 > 3.00 > 2.00 > 1.00$. A positive change ($+0.25$) represents academic improvement.
 4. **DO NOT ASSUME Faculty comparisons measure teaching quality.**
    Section grade variations reflect student cohort pacing, irregular student load, and curriculum difficulty. You must never rank faculty or create "best/worst professor" lists. The mandatory non-evaluative disclaimer is legally required.
 5. **DO NOT ASSUME a Git pull updates MariaDB automatically.**
@@ -67,5 +67,5 @@ flowchart TD
     Missing preliminary or final grades must be rendered as `NULL`, `—`, or `In Progress`. Never coerce missing data to `0.00` or treat it as failure.
 11. **DO NOT ASSUME the prediction range is a statistical confidence interval.**
     The empirical prediction range applies aggregate test MAE symmetrically as an interpretive aid. It is not an individual probability distribution, offers zero guarantee, and is not a confidence interval. If no reproducible, verified active-model MAE exists, MTR-07 remains blocked.
-12. **DO NOT ASSUME multiple agents can write to `10_IMPLEMENTATION_STATUS.md`.**
+12. **DO NOT ASSUME multiple agents can write to `10_IMPLEMENTATION_STATUS.md` (Single-Writer Rule).**
     While an active implementation branch is in progress, **Sol owns updates to `docs/post-defense/10_IMPLEMENTATION_STATUS.md`**. Other agents must NOT edit this file directly; propose status transitions in handoff notes instead.

@@ -95,8 +95,8 @@ flowchart TD
 - **Dependencies:** Phase 3; `academic_support_cases` and `support_case_referrals` tables.
 - **MVP Deliverables:**
   - Administrative Support Metrics: Total cases opened (`MTR-17: Referral Volume`), active notices issued (`MTR-18: Notice Volume`), student receipt acknowledgments (`MTR-19: Acknowledgment Rate`).
-  - Faculty Responsiveness (`MTR-20: Mean Time to First Action`): Average elapsed duration from case creation to first documented action (`MIN(notice_issued_at, first_meeting_logged_at) - created_at`). Denominator strictly excludes unacted open cases (open cases must never be assigned zero duration).
-  - Case Resolution Duration (`MTR-21: Mean Time to Intervention Closure`): Average elapsed duration from case creation to latest valid closure timestamp among closed cases. Denominator includes only closed cases. Marked **`PLANNED / BLOCKED`** pending schema/table field verification for explicit closure timestamps.
+  - Faculty Responsiveness (`MTR-20: Mean Time to First Action`): Average elapsed duration from case creation (`created_at`) to the earliest valid timestamp of an authorized support action from accepted records (using verified column `notice_issued_at`; candidate events like meetings remain conceptual). Denominator strictly excludes unacted open cases (open cases must never be assigned zero duration).
+  - Case Resolution Duration (`MTR-21: Mean Time to Intervention Closure`): Average elapsed duration from case creation (`created_at`) to latest valid closure timestamp among closed cases (referral-level closure timestamp remains conceptual, pending approved schema support). Denominator includes only closed cases. Marked **`PLANNED / BLOCKED`** pending schema/table field verification for explicit closure timestamps.
   - Student responsiveness: Average elapsed time from notice issuance to student acknowledgment (`student_acknowledged_at - notice_issued_at`).
   - Reason code breakdown chart (distribution of the 6 canonical reason codes).
 - **Deferred Refinement:** Automated follow-up escalations or email dispatch integration.
