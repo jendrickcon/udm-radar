@@ -1,4 +1,4 @@
-﻿# Member Contribution and Git Workflow Guide — UDM-RADAR
+# Member Contribution and Git Workflow Guide — UDM-RADAR
 
 **Document Version:** 1.0.0 (Post-Defense Operational Standard)
 **Applicability:** All student proponents, faculty researchers, and contributing software engineers.
@@ -133,9 +133,15 @@ Open a pull request on GitHub targeting `main`. Provide:
 
 ## 6. Updating Implementation Status & Continuation Handoff
 
+The post-defense engineering roadmap is structured into **seven roadmap phases, consisting of Phase 0 through Phase 6**.
+
+> [!IMPORTANT]
+> **SINGLE-WRITER GOVERNANCE RULE FOR STATUS TRACKING:**
+> While an active implementation branch is in progress, **Sol owns updates to `docs/post-defense/10_IMPLEMENTATION_STATUS.md`**. Other agents and contributing members may propose status transitions in handoff reports and PR summaries, but must **not** edit `10_IMPLEMENTATION_STATUS.md` directly unless ownership is explicitly transferred or the active implementation branch is merged into `main`. This prevents merge collisions and conflicting progress ledgers.
+
 Whenever completing or transferring work:
-1. Update `docs/post-defense/10_IMPLEMENTATION_STATUS.md` reflecting the new state (`IN PROGRESS`, `MVP COMPLETE`, etc.).
-2. Fill out the `AGENT_HANDOFF_TEMPLATE.md` in your PR description or work log.
+1. Provide proposed status updates in your PR description using the canonical status taxonomy (`NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `MVP COMPLETE`, `VERIFIED`, `MERGED`, `DEFERRED`).
+2. Fill out the `AGENT_HANDOFF_TEMPLATE.md` in your PR description or handover documentation.
 3. If using a worktree, remove it cleanly after PR merge:
    ```powershell
    git worktree remove C:\xampp\htdocs\udm-radar-cohort-filters

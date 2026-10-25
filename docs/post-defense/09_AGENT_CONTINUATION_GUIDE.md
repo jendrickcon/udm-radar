@@ -1,4 +1,4 @@
-﻿# Autonomous Agent Continuation Protocol — UDM-RADAR
+# Autonomous Agent Continuation Protocol — UDM-RADAR
 
 **Document Version:** 1.0.0 (Mandatory Protocol)
 **Applicability:** All autonomous AI coding agents (Antigravity, Codex, Copilot, etc.) operating in this repository.
@@ -50,13 +50,13 @@ flowchart TD
 2. **DO NOT ASSUME $R^2$ is an accuracy percentage.**
    $R^2$ is the regression coefficient of determination ($-\infty \le R^2 \le 1.0$), measuring variance explained. It must never be described as "92% model accuracy".
 3. **DO NOT ASSUME higher GWA numbers are worse.**
-   UDM uses the standard Philippine discrete point scale where **$4.00$ is the highest/excellent grade** and **$1.00$ is passing**. $4.00 > 3.00 > 2.00 > 1.00$. A positive change ($+0.25$) is an improvement.
+   UDM-RADAR operates on the accepted grade-point scale configured for the prototype (guided by the UDM Student Manual 2025 where noted) where **$4.00$ is the highest/excellent grade** and **$1.00$ is passing** ($0.00$ is numeric failure). $4.00 > 3.00 > 2.00 > 1.00$. A positive change ($+0.25$) represents academic improvement.
 4. **DO NOT ASSUME Faculty comparisons measure teaching quality.**
    Section grade variations reflect student cohort pacing, irregular student load, and curriculum difficulty. You must never rank faculty or create "best/worst professor" lists. The mandatory non-evaluative disclaimer is legally required.
 5. **DO NOT ASSUME a Git pull updates MariaDB automatically.**
    Git operates strictly on the filesystem. Database schema changes require explicit execution of approved SQL migrations.
 6. **DO NOT ASSUME Migration 011 is approved.**
-   Migration 011 was an unmerged prototype and is strictly excluded. The current canonical migration sequence ends at `010`.
+   Migration 011 is excluded from the accepted migrations 000 to 010 baseline and remains unapproved.
 7. **DO NOT ASSUME the Python Flask ML service is always running.**
    The application is intentionally resilient. If Flask on port 5000 is offline, PHP automatically invokes deterministic calculation fallbacks without fatal crashes.
 8. **DO NOT ASSUME the private PEF/CC template is tracked in Git.**
@@ -65,3 +65,7 @@ flowchart TD
    Student acknowledgment of support notices records **receipt only** (`student_acknowledged_at`), never admission of fault or agreement.
 10. **DO NOT ASSUME missing grades are zero or failure.**
     Missing preliminary or final grades must be rendered as `NULL`, `—`, or `In Progress`. Never coerce missing data to `0.00` or treat it as failure.
+11. **DO NOT ASSUME the prediction range is a statistical confidence interval.**
+    The empirical prediction range applies aggregate test MAE symmetrically as an interpretive aid. It is not an individual probability distribution, offers zero guarantee, and is not a confidence interval. If no reproducible, verified active-model MAE exists, MTR-07 remains blocked.
+12. **DO NOT ASSUME multiple agents can write to `10_IMPLEMENTATION_STATUS.md`.**
+    While an active implementation branch is in progress, **Sol owns updates to `docs/post-defense/10_IMPLEMENTATION_STATUS.md`**. Other agents must NOT edit this file directly; propose status transitions in handoff notes instead.

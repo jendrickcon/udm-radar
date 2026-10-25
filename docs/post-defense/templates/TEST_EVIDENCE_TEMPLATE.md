@@ -1,4 +1,4 @@
-﻿# Test Evidence Record
+# Test Evidence Record
 
 **Test Execution Date:** `[YYYY-MM-DD HH:MM:SS]`
 **Target Environment:** `[Local Windows XAMPP / MariaDB 10.4 / PHP 8.2]`

@@ -1,4 +1,4 @@
-﻿# Post-Defense Implementation Status Ledger — UDM-RADAR
+# Post-Defense Implementation Status Ledger — UDM-RADAR
 
 **Document Version:** 1.0.0
 **Accepted Baseline Git SHA:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
@@ -8,16 +8,24 @@
 
 ---
 
+> [!IMPORTANT]
+> **SINGLE-WRITER GOVERNANCE RULE:**
+> While an active implementation branch is in progress, **Sol owns updates to this file (`docs/post-defense/10_IMPLEMENTATION_STATUS.md`)**. Other agents and contributing members may propose status transitions in handoff reports and PR summaries, but must **not** edit this file directly unless ownership is explicitly transferred or the active implementation branch is merged into `main`. This prevents merge collisions and conflicting progress ledgers.
+
+---
+
 ## 1. Work Package Status Summary
+
+The post-defense analytics roadmap consists of **seven roadmap phases, consisting of Phase 0 through Phase 6**, governing 21 analytical metrics (`MTR-01` through `MTR-21`):
 
 | Phase | Description | Assigned Owner | Target PR / Branch | Current Status | MVP Exit Criteria Met |
 |---|---|:---:|---|:---:|:---:|
-| **Phase 0** | **Baseline Knowledge & Continuity Package** | Antigravity | `docs/post-defense-continuity-package` | **MVP COMPLETE** | Yes (all 18 docs & manifests created) |
-| **Phase 1** | **Continuous GWA Prediction Clarity & Uncertainty** | Sol | `feat/post-defense-phase1-prediction-clarity` | `NOT STARTED` | Pending |
-| **Phase 2** | **Student Longitudinal Progression & Point Delta** | Sol | `feat/post-defense-phase2-student-progression` | `NOT STARTED` | Pending |
-| **Phase 3** | **Administrator Multi-Cohort Comparison Filters** | Sol | `feat/post-defense-phase3-admin-comparisons` | `NOT STARTED` | Pending |
-| **Phase 4** | **Intervention & Support Lifecycle Analytics** | Sol | `feat/post-defense-phase4-intervention-analytics` | `NOT STARTED` | Pending |
-| **Phase 5** | **Focused Faculty Analytics & Class Dispersion** | Sol | `feat/post-defense-phase5-faculty-load-analytics` | `NOT STARTED` | Pending |
+| **Phase 0** | **Baseline Knowledge & Continuity Package** | Antigravity | `docs/post-defense-continuity-package` | **MVP COMPLETE, PR PENDING** | Yes (all 18 docs, manifests, and offline ZIP verified) |
+| **Phase 1** | **Continuous GWA Prediction Clarity & Uncertainty** (`MTR-06`, `MTR-07`) | Sol | `feat/post-defense-phase1-prediction-clarity` | `NOT STARTED` | Pending |
+| **Phase 2** | **Student Longitudinal Progression & Point Delta** (`MTR-01` to `MTR-05`) | Sol | `feat/post-defense-phase2-student-progression` | `NOT STARTED` | Pending |
+| **Phase 3** | **Administrator Multi-Cohort Comparison Filters** (`MTR-09` to `MTR-16`) | Sol | `feat/post-defense-phase3-admin-comparisons` | `NOT STARTED` | Pending |
+| **Phase 4** | **Intervention & Support Lifecycle Analytics** (`MTR-17` to `MTR-21`) | Sol | `feat/post-defense-phase4-intervention-analytics` | `NOT STARTED` | Pending (`MTR-21` BLOCKED on schema verification) |
+| **Phase 5** | **Focused Faculty Analytics & Class Dispersion** (`MTR-12` to `MTR-14`) | Sol | `feat/post-defense-phase5-faculty-load-analytics` | `NOT STARTED` | Pending |
 | **Phase 6** | **Chart Refinement & Manuscript Publication Assets** | Sol / Proponents | `feat/post-defense-phase6-charts-manuscript` | `NOT STARTED` | Pending |
 
 ---

@@ -1,4 +1,4 @@
-﻿# Architectural Decision Log (ADR) — Post-Defense Revision
+# Architectural Decision Log (ADR) — Post-Defense Revision
 
 **Document Version:** 1.0.0
 **Accepted Baseline Git SHA:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
@@ -11,7 +11,7 @@
 - **Alternatives Considered:**
   1. *Relative Percentage Change alone ($+12.4\%$):* Misleading because a $0.25$ jump on a $1.50$ baseline produces a very different percentage than on a $3.00$ baseline.
   2. *Logarithmic Velocity ($\ln(\text{GWA}_t/\text{GWA}_{t-1})$):* Mathematically sound for research, but confusing to undergraduate students.
-  3. *Discrete Point Delta ($\Delta\text{GWA} = \text{Current} - \text{Previous}$):* Immediately maps to the official institutional $4.00\text{--}1.00$ point grading scale.
+  3. *Discrete Point Delta ($\Delta\text{GWA} = \text{Current} - \text{Previous}$):* Immediately maps to the accepted grade-point scale configured for the UDM-RADAR prototype ($4.00\text{--}1.00$).
 - **Decision:** Adopt discrete point delta as the primary user-facing indicator. Provide relative percentage change as secondary tooltip context; retain logarithmic change purely for backend research.
 - **Consequences:** Intuitive student interface; consistent directionality (positive delta = academic improvement).
 
@@ -21,8 +21,8 @@
 - **Context:** Panel observed that presenting single-point forecasts (e.g. `2.15`) gives an illusion of exact foresight.
 - **Alternatives Considered:**
   1. *Standard 95% Gaussian Confidence Intervals:* Assumes normal i.i.d. residual distribution, which Decision Tree regressors on non-linear academic data do not satisfy.
-  2. *Empirical Residual Error Margin based on test MAE:* Sets bounds to $[\widehat{\text{GWA}} - \text{MAE}, \; \widehat{\text{GWA}} + \text{MAE}]$, clamped to the valid domain $[1.00, 4.00]$.
-- **Decision:** Use the empirical test MAE margin ($\pm 0.15$). Label it clearly as an advisory prediction range, NOT a confidence interval.
+  2. *Empirical Residual Error Margin based on verified test MAE:* Sets bounds to $[\max(1.00, \; \widehat{\text{GWA}} - \text{MAE}_{\text{verified}}), \; \min(4.00, \; \widehat{\text{GWA}} + \text{MAE}_{\text{verified}})]$.
+- **Decision:** Use the empirical test MAE margin as an interpretive aid only. Explicitly state that it does not represent an individual probability distribution, offers zero guarantee, and is not a confidence interval. Enforce a blocking gate: if no reproducible active-model MAE evaluated on a held-out test set is available, MTR-07 remains blocked.
 - **Consequences:** Defensible mathematical claims in manuscript and defense follow-ups.
 
 ---
@@ -64,3 +64,13 @@
   2. *Reconcile baseline dump to 18 tables post-010 (schema-only) and provide a separate synthetic starter seed:* Single-step clean setup with built-in safety refusal.
 - **Decision:** Commit `b7a24a3` reconciled `database/udm_radar.sql` to post-010 schema-only (397 lines). PR #60 added `database/seeds/001_synthetic_demo.sql` with a safety refusal guard.
 - **Consequences:** Fast, modular, fail-safe member onboarding without sensitive data leakage.
+
+---
+
+## ADR-07: Separation of Operational Responsiveness from Case Resolution Duration
+- **Context:** Intervention timing encompasses two distinct operational phases: how quickly faculty acts on an alert, and how long the case remains active until final closure.
+- **Alternatives Considered:**
+  1. *Single combined turnaround metric:* Distorts operations because a support case may receive immediate same-day notice issuance but remain open across multiple weeks of ongoing student mentoring.
+  2. *Independent timing metrics with defensible denominators:* MTR-20 (Mean Time to First Action) measures elapsed time from `created_at` to earliest authorized action; MTR-21 (Mean Time to Intervention Closure) measures elapsed time from `created_at` to latest valid closure. Both metrics strictly exclude open cases from mean calculations (never assigning zero days to active cases).
+- **Decision:** Establish MTR-20 and MTR-21 as separate analytical metrics. Mark MTR-21 as `PLANNED / BLOCKED` pending schema verification for explicit case-level closure timestamps in baseline.
+- **Consequences:** Clear administrative visibility into faculty responsiveness without distorting counseling lifecycles.

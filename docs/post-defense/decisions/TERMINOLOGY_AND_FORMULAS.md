@@ -1,11 +1,11 @@
-﻿# Quick Reference: Institutional Terminology and Academic Formulas — UDM-RADAR
+# Quick Reference: Prototype Terminology and Academic Formulas — UDM-RADAR
 
-**Document Version:** 1.0.0
-**Source of Truth:** Universidad de Manila Student Manual 2025; `config/constants.php`
+**Document Version:** 1.1.0
+**Source of Truth:** The discrete point scale configured and accepted for the UDM-RADAR prototype (guided by the Universidad de Manila Student Manual 2025 and codified in `config/constants.php`)
 
 ---
 
-## 1. Official UDM Grading Scale Table
+## 1. Prototype Grade-Point Scale Table
 
 | Raw Percentage | Official Discrete Point Grade | Status Description | GWA Inclusion |
 |:---:|:---:|---|:---:|
@@ -68,3 +68,19 @@ $$\text{GWA} = \frac{\sum_{i=1}^{n} (\text{Grade}_i \times \text{Units}_i)}{\sum
 - **Average GWA by Year Level:** Arithmetic mean of student GWAs in a specific curriculum year.
 - **Average GWA by Semester:** Arithmetic mean of student GWAs enrolled in a specific term.
 - **Pass-Rate Denominator:** Strictly $\text{Recognized Outcomes} = \text{Passed} + \text{Failed}$. Exclude dropped (`DRP`), incomplete (`INC`), and missing grades.
+
+---
+
+## 6. Academic Support Lifecycle Timing Metrics
+
+- **Mean Time to First Action (MTR-20, MTTFA):**
+  $$\text{MTTFA} = \frac{\sum_{c \in C_{\text{action}}} (t_{\text{first\_action}, c} - t_{\text{created}, c})}{|C_{\text{action}}|}$$
+  - **Start Timestamp:** `support_case_referrals.created_at`.
+  - **End Timestamp:** Earliest authorized action (`MIN(notice_issued_at, first_meeting_logged_at)`).
+  - **Denominator:** Total acted-upon cases ($|C_{\text{action}}|$). Open unacted cases strictly excluded (never assigned 0).
+- **Mean Time to Intervention Closure (MTR-21, MTTC):**
+  $$\text{MTTC} = \frac{\sum_{c \in C_{\text{closed}}} (t_{\text{latest\_closed}, c} - t_{\text{created}, c})}{|C_{\text{closed}}|}$$
+  - **Start Timestamp:** `support_case_referrals.created_at`.
+  - **End Timestamp:** Latest documented closure timestamp (`latest_closed_at`).
+  - **Denominator:** Total documented closed cases ($|C_{\text{closed}}|$). Open unclosed cases strictly excluded (never assigned 0).
+  - **Status:** Classified as `PLANNED / BLOCKED` pending schema confirmation of explicit closure timestamps in baseline.

@@ -1,4 +1,4 @@
-﻿# Post-Defense Analytics Roadmap — UDM-RADAR
+# Post-Defense Analytics Roadmap — UDM-RADAR
 
 **Document Version:** 1.0.0
 **Accepted Baseline SHA:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
@@ -8,6 +8,8 @@
 ---
 
 ## 1. Roadmap Architecture Overview
+
+The post-defense analytics roadmap consists of **seven roadmap phases, consisting of Phase 0 through Phase 6**, structured to ensure mathematical validity, non-punitive governance, and isolated technical execution:
 
 ```mermaid
 flowchart TD
@@ -34,7 +36,7 @@ flowchart TD
 - **Deferred Refinement:** Automated documentation sync bots (unnecessary overhead for prototype).
 - **Verification Tests:** Documentation cross-link inspection, Markdown linter, clean ZIP integrity check.
 - **Exit Criteria:** Continuity package reviewed, merged to `main`, and accessible to all team members.
-- **Current Status:** `IN PROGRESS` (Antigravity delivery)
+- **Current Status:** `MVP COMPLETE, PR PENDING` (Antigravity delivery)
 
 ---
 
@@ -42,8 +44,10 @@ flowchart TD
 - **Goal:** Address panel feedback regarding continuous GWA output transparency, model error margins, and non-deterministic presentation.
 - **Dependencies:** Phase 0 baseline; active `python_ml/model.pkl` and `python_ml/model_metrics.json`.
 - **MVP Deliverables:**
-  - Clear label in Student and Admin portals stating: *"The Decision Tree Regressor predicts estimated continuous GWA on the 4.00–1.00 point scale. Advisory risk triage is derived from this point estimate."*
-  - Empirical error band display using test MAE ($\pm 0.15$ points), clamping the range to $[1.00, 4.00]$.
+  - Clear label in Student and Admin portals stating: *"The Decision Tree Regressor predicts estimated continuous GWA on the prototype-configured 4.00–1.00 point scale. Advisory risk triage is derived from this point estimate."*
+  - Empirical error band display (MTR-07) using verified test MAE ($\pm \text{MAE}_{\text{verified}}$ points), clamping the range strictly to $[1.00, 4.00]$.
+  - Mandatory interpretive subline: range is an interpretive error band based on aggregate test MAE, not an individual confidence interval, and offers zero guarantee.
+  - Blocking Gate: If no reproducible, verified active-model MAE is available, MTR-07 remains **`BLOCKED`** or **`DEFERRED`**.
   - Transparent distinction between model evaluation metrics (MAE, RMSE, $R^2$) and derived risk triage.
 - **Deferred Refinement:** Dynamic heteroscedastic prediction intervals based on student feature distance.
 - **Verification Tests:** PHP unit test asserting range clamping $[1.00, 4.00]$; browser checks verifying clear uncertainty wording.
@@ -90,8 +94,9 @@ flowchart TD
 - **Goal:** Provide visibility into the lifecycle, responsiveness, and outcomes of academic support interventions.
 - **Dependencies:** Phase 3; `academic_support_cases` and `support_case_referrals` tables.
 - **MVP Deliverables:**
-  - Administrative Support Metrics: Total cases opened, active notices awaiting student review, acknowledged notices.
-  - Faculty responsiveness: Average elapsed time from case trigger to notice issuance (`notice_issued_at - created_at`).
+  - Administrative Support Metrics: Total cases opened (`MTR-17: Referral Volume`), active notices issued (`MTR-18: Notice Volume`), student receipt acknowledgments (`MTR-19: Acknowledgment Rate`).
+  - Faculty Responsiveness (`MTR-20: Mean Time to First Action`): Average elapsed duration from case creation to first documented action (`MIN(notice_issued_at, first_meeting_logged_at) - created_at`). Denominator strictly excludes unacted open cases (open cases must never be assigned zero duration).
+  - Case Resolution Duration (`MTR-21: Mean Time to Intervention Closure`): Average elapsed duration from case creation to latest valid closure timestamp among closed cases. Denominator includes only closed cases. Marked **`PLANNED / BLOCKED`** pending schema/table field verification for explicit closure timestamps.
   - Student responsiveness: Average elapsed time from notice issuance to student acknowledgment (`student_acknowledged_at - notice_issued_at`).
   - Reason code breakdown chart (distribution of the 6 canonical reason codes).
 - **Deferred Refinement:** Automated follow-up escalations or email dispatch integration.

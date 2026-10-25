@@ -1,4 +1,4 @@
-﻿# Work Package Specification: [WP-ID / Title]
+# Work Package Specification: [WP-ID / Title]
 
 **Package Identifier:** `[e.g. POST-DEFENSE-WP1-PREDICTION-CLARITY]`
 **Target Release Phase:** `[e.g. Phase 1]`
@@ -66,5 +66,5 @@
 
 ## 9. Handoff Checklist
 - [ ] All tests passing with 0 failures.
-- [ ] Status updated in `10_IMPLEMENTATION_STATUS.md`.
+- [ ] Proposed status update prepared for `10_IMPLEMENTATION_STATUS.md` (updated by Sol per single-writer rule).
 - [ ] PR opened targeting `main`.

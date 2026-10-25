@@ -1,4 +1,4 @@
-﻿# Agent Handoff Specification
+# Agent Handoff Specification
 
 **From Agent:** `[e.g. Antigravity / Sol]`
 **To Agent / Proponent:** `[e.g. Sol / Proponents / Next Agent]`
@@ -60,3 +60,8 @@
 - `C:\xampp\htdocs\capstone` (canonical checkout serving Apache)
 - Production database `udm_radar`
 - Protected assets: `database/udm_radar.sql`, `python_ml/model.pkl`, `python_ml/model_metrics.json`
+
+---
+
+## 9. Status Ledger Single-Writer Reminder
+- **Single-Writer Rule:** While an active implementation branch is in progress, **Sol owns updates to `docs/post-defense/10_IMPLEMENTATION_STATUS.md`**. Other agents must propose status transitions in this handoff document and PR description instead of editing `10_IMPLEMENTATION_STATUS.md` directly.

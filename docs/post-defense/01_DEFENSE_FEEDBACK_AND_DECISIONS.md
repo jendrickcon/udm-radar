@@ -1,4 +1,4 @@
-﻿# Defense Feedback and Implementation Decisions — UDM-RADAR
+# Defense Feedback and Implementation Decisions — UDM-RADAR
 
 **Document Version:** 1.0.0 (Post-Defense Baseline)
 **Accepted `origin/main` Baseline:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
@@ -22,7 +22,7 @@ During the capstone oral defense and manuscript review, the academic panel raise
 | **P-2** | **Deterministic Overconfidence:** Presenting a single point estimate (e.g. `GWA: 2.15`) gives students and faculty a false illusion of exact foresight. | Avoid presenting predictive forecasts as deterministic certainty. Provide an understandable **prediction margin or error range** reflecting empirical model uncertainty. | Student, Admin |
 | **P-3** | **Lack of Academic Progression Context:** A single GWA figure lacks comparative context. Does an estimated GWA of $2.20$ represent improvement or decline for this specific student? | Introduce clear, intuitive **academic comparisons** (term-over-term trajectory, subject performance relative to section cohort averages). | Student, Admin |
 | **P-4** | **Limited Analytical Slicing for Administrators:** Institutional summaries showed program-wide aggregates without the ability to drill into specific cohorts. | Provide multi-dimensional filtering across **School Year, Semester, Curriculum Year Level (1st to 4th), Subject, Section, and Faculty Teaching Assignment**. | Admin |
-| **P-5** | **Opacity of Support Interventions:** The platform stored academic support cases, but administrators could not track the lifecycle of faculty actions or student acknowledgments. | Surface transparent **intervention analytics**: referral counts, faculty notice issuance timeline, and student acknowledgment latency. | Faculty, Admin |
+| **P-5** | **Opacity of Support Interventions:** The platform stored academic support cases, but administrators could not track the lifecycle of faculty actions or student acknowledgments. | Surface transparent **intervention analytics**: referral counts, faculty notice issuance timeline, student acknowledgment latency, operational responsiveness (Time to First Action, MTR-20), and case resolution duration (Time to Closure, MTR-21). | Faculty, Admin |
 | **P-6** | **Chart Interpretability Issues:** Certain complex visual diagrams (e.g. multi-axis radar charts or unscaled scatter plots) caused cognitive overload during demonstration. | Replace ambiguous charts with **standardized, accessible visualizations** (grouped bar charts, longitudinal line trends, distribution histograms) with legible axis labels and high-contrast color palettes. | Student, Faculty, Admin |
 | **P-7** | **Terminology Ambiguity:** Non-technical users questioned the meaning of statistical indicators like $R^2$ or raw root-mean-square errors on student dashboards. | Reserve raw statistical regression metrics for model governance views. Use human-readable, student-safe labels and context sublines in operational views. | Student, Faculty |
 
@@ -47,11 +47,11 @@ To address the panel's critique while maintaining institutional ethics, data pri
 - **Decision:** Logarithmic change ($\ln(\text{GWA}_t / \text{GWA}_{t-1})$) is strictly restricted to internal model performance analysis and manuscript tables.
 - **Rationale:** Logarithmic transformations have zero pedagogical meaning to undergraduate students and would violate institutional transparency guidelines.
 
-### D-4: Empirical Prediction Margin (Residual-Based Interval)
-- **Decision:** Prediction uncertainty is expressed as an empirical range based on test set Mean Absolute Error (MAE):
-  $$\text{Prediction Range} = [\text{Predicted GWA} - \text{MAE}, \; \text{Predicted GWA} + \text{MAE}]$$
-  clamped to the institutional valid domain $[1.00, 4.00]$.
-- **Rationale:** A full Gaussian confidence interval assumes normal residual distribution that decision tree regressors do not guarantee. An empirical MAE-based interval is mathematically honest and easily explained to faculty.
+### D-4: Empirical Prediction Margin (Residual-Based Interpretive Interval)
+- **Decision:** Prediction uncertainty is expressed as an empirical range based on test set Mean Absolute Error ($\text{MAE}$):
+  $$\text{Prediction Range} = [\max(1.00, \; \widehat{\text{GWA}} - \text{MAE}_{\text{verified}}), \; \min(4.00, \; \widehat{\text{GWA}} + \text{MAE}_{\text{verified}})]$$
+  clamped to the prototype-configured valid domain $[1.00, 4.00]$.
+- **Mandatory Statistical Boundary:** This range applies the verified aggregate test $\text{MAE}$ symmetrically around an individual point prediction as an interpretive aid. It does **not** estimate an individual probability distribution, guarantee that the eventual realized GWA will fall within the interval, or constitute a statistical confidence or prediction interval. If no reproducible, verified $\text{MAE}$ evaluated on an approved held-out test set is available for the active model version, the prediction range analytic (MTR-07) must remain **`BLOCKED`** or **`DEFERRED`**. It must never be computed using an arbitrary, unverified constant.
 
 ### D-5: Strict Prohibition of Faculty Rankings
 - **Decision:** Administrator analytics must **never rank faculty members** or imply teaching efficacy evaluations based on section grade distributions or student risk counts.
@@ -69,9 +69,12 @@ To address the panel's critique while maintaining institutional ethics, data pri
 
 ## 3. Mapping Matrix: Feedback to Implementation Phase
 
+The roadmap organizes technical deliverables across **seven roadmap phases, consisting of Phase 0 through Phase 6** (with Phase 0 establishing baseline continuity):
+
 ```mermaid
 flowchart LR
-    P1[P-1 Target Output] --> Phase1[Phase 1: Prediction Clarity]
+    P0[Phase 0: Continuity Package] --> Phase1[Phase 1: Prediction Clarity]
+    P1[P-1 Target Output] --> Phase1
     P2[P-2 Error Margin] --> Phase1
     P7[P-7 Terminology] --> Phase1
 

@@ -1,4 +1,4 @@
-﻿# Feature Acceptance Record
+# Feature Acceptance Record
 
 **Feature Title:** `[Feature Name]`
 **Work Package ID:** `[WP-ID]`
@@ -28,5 +28,5 @@
 ---
 
 ## 3. Evaluator Signoff
-- **Decision:** `[ACCEPTED / REJECTED / REVISIONS REQUESTED]`
+- **Decision:** `[ACCEPTED / REVISIONS REQUESTED / NOT ACCEPTED]`
 - **Comments / Observations:** `[Evaluation comments]`

@@ -1,4 +1,4 @@
-﻿# System Context and Current State — UDM-RADAR
+# System Context and Current State — UDM-RADAR
 
 **Document Version:** 1.0.0 (Post-Defense Baseline)
 **Accepted `origin/main` Baseline:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
@@ -93,11 +93,11 @@ graph TD
 
 ---
 
-## 4. Institutional Academic & Grading Rules
+## 4. Academic Grading Scale and Prototype Boundaries
 
-UDM-RADAR strictly enforces the institutional standards defined in the **Universidad de Manila Student Manual 2025**:
+UDM-RADAR strictly operates on the discrete point scale currently configured and accepted for the UDM-RADAR prototype, guided by the **Universidad de Manila Student Manual 2025** and codified in `config/constants.php`:
 
-### 4.1 Numerical Scale Direction (Higher is Better)
+### 4.1 Numerical Scale Direction (Higher Numbers Indicate Stronger Performance)
 - **Range:** `4.00` (Highest/Excellent) down to `1.00` (Minimum Passing Grade) and `0.00` (Numeric Failure).
   - `4.00`: $99\text{--}100\%$
   - `3.00`: $93\text{--}95\%$
@@ -106,10 +106,15 @@ UDM-RADAR strictly enforces the institutional standards defined in the **Univers
   - `0.00`: $74\%$ and below (Numeric Failure)
 - **Term Weighting Formula:**
   $$\text{Final Percentage} = (\text{Prelim} \times 0.30) + (\text{Midterm} \times 0.30) + (\text{Pre-Final} \times 0.40)$$
-  - Raw term components are percentages ($0\text{--}100\%$).
+  - Raw preliminary, midterm, and pre-final inputs are raw percentages ($0\text{--}100\%$).
   - Final Grade is an official discrete point grade (`4.00` to `1.00`, `0.00`) or recognized textual outcome.
 
-### 4.2 Textual Outcomes & GWA Exclusions
+### 4.2 Prototype Risk Triage vs. Official Institutional Standing
+> [!IMPORTANT]
+> **Boundary Distinction:**
+> Prototype risk-triage tiers (`HIGH`: GWA $<1.75$, `MODERATE`: GWA $1.75\text{--}2.49$, `LOW`: GWA $\ge 2.50$) are internal decision-support thresholds designed solely for early advising alerts. They do **not** constitute official institutional academic standing, warning status, probation, or dismissal, which remain under the exclusive jurisdiction of the College Dean and University Registrar.
+
+### 4.3 Textual Outcomes & GWA Exclusions
 - Stored as `VARCHAR(10)` in `grades.final_grade` protected by `chk_grades_final_grade_domain`.
 - **Recognized Outcomes:**
   - `INC`: Incomplete. Unresolved, neither passing nor failed. Excluded from pass-rate denominators and numeric GWA.
@@ -178,7 +183,7 @@ Enforced by table-level CHECK constraints:
 - **Current Verified Application Base Tables:** Exactly 18 tables:
   `users`, `student_profiles`, `subjects`, `faculty_class_loads`, `grades`, `predictions`, `academic_support_cases`, `support_case_referrals`, `support_actions`, `support_status_history`, `feedback_reports`, `feedback_messages`, `feedback_status_history`, `pending_grade_batches`, `pending_corrections`, `admin_change_log`, `export_audit_logs`, `otp_tokens`.
 - **Approved Migrations:** `000` through `010` in `database/migrations/`.
-- **Excluded Migration 011:** Does not exist on `origin/main` and is strictly excluded.
+- **Migration 011 Status:** Migration 011 is excluded from the accepted migrations 000 to 010 baseline and remains unapproved.
 - **Database Isolation Invariant:**
   - `udm_radar`: Production/dev database. Automated write scripts are strictly forbidden.
   - `udm_radar_scratch`: Automated mutation testbed.
@@ -197,3 +202,12 @@ Enforced by table-level CHECK constraints:
    Grades and risk distributions across sections IT-31 through IT-38 were calibrated for software functionality testing and do not represent actual historical student performance in UDM sections.
 4. **Active Checkout Stability:**
    The canonical Apache checkout lives at `C:\xampp\htdocs\capstone`. Team members and AI agents must work in dedicated registered worktrees and never edit the live checkout directly.
+
+---
+
+## 9. Post-Defense Analytics Roadmap & Metrics Governance
+
+The post-defense revision scope encompasses **seven roadmap phases, consisting of Phase 0 through Phase 6**, governing 21 analytical metrics (`MTR-01` through `MTR-21`):
+- **Phase 0:** Baseline & Continuity Package (`MVP COMPLETE, PR PENDING` on branch `docs/post-defense-continuity-package`).
+- **Phases 1 through 6:** Analytics implementation, multidimensional filtering, and chart refinement, actively owned by Sol.
+- **Timing Metrics Separation:** Operational responsiveness (`MTR-20: Mean Time to First Action`) and case resolution duration (`MTR-21: Mean Time to Intervention Closure`) are strictly separated into independent analytical metrics with distinct denominators and open-case exclusion rules.

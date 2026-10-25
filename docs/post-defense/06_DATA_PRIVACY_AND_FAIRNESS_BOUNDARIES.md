@@ -1,4 +1,4 @@
-﻿# Data Privacy, Academic Ethics, and Fairness Boundaries — UDM-RADAR
+# Data Privacy, Academic Ethics, and Fairness Boundaries — UDM-RADAR
 
 **Document Version:** 1.0.0 (Post-Defense Revision)
 **Accepted Baseline SHA:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
