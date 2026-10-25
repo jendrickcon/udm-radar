@@ -43,6 +43,8 @@ https://github.com/user-attachments/assets/fde979b0-e4c3-4814-91ea-dc3fd33d82c2
 For active Work Package status, completed implementation history, and approved roadmap planning, consult the canonical documentation:
 - **Active Roadmap & Future Planning:** [docs/ROADMAP.md](docs/ROADMAP.md)
 - **Completed Implementation History:** [docs/IMPLEMENTATION_HISTORY.md](docs/IMPLEMENTATION_HISTORY.md)
+- **Setup & Database Guide:** [SETUP.md](SETUP.md)
+- **Member Git Synchronization Guide:** [docs/MEMBER_GIT_UPDATE_GUIDE.md](docs/MEMBER_GIT_UPDATE_GUIDE.md)
 - **Agent Governance & Guidelines:** [AGENTS.md](AGENTS.md)
 
 ## Core Portals

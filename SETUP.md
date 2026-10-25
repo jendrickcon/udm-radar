@@ -110,69 +110,73 @@ Create the database expected by `config/db.php`, normally:
 udm_radar
 ```
 
-### 6.1 Database Import & Migration Sequence (Phase 0 Upgrade Path)
+### 6.1 Fresh Installation (New Database Setup)
 
-> [!WARNING]
-> **Fresh-Install Dependency Notice**: The committed `database/udm_radar.sql` file contains the baseline 10-table schema (Sep 29). Commits after `606d728` depend on features and tables introduced in subsequent migrations (`export_audit_logs`, `record_status`, `failure_reason`, the 7 workflow/support tables, and `final_grade` storage standardization). Until the canonical consolidated dump is regenerated in WP-9, setting up the database requires importing the baseline dump followed by migrations `000` through `005` in order:
+The committed baseline file `database/udm_radar.sql` is a **reconciled schema-only dump** containing all 18 official application tables incorporating migrations `000` through `010`.
 
 ```powershell
-# 1. Create database and import baseline schema
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS udm_radar;"
+# 1. Create fresh database
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS udm_radar CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+
+# 2. Import canonical 18-table baseline schema (post-010)
 mysql -u root udm_radar < database\udm_radar.sql
 
-# 2. Apply sequential idempotent migrations
-mysql -u root udm_radar < database\migrations\000_create_export_audit_logs.sql
-mysql -u root udm_radar < database\migrations\001_add_student_record_status.sql
-mysql -u root udm_radar < database\migrations\002_feedback_status_cleanup.sql
-mysql -u root udm_radar < database\migrations\003_export_audit_failure_info.sql
-mysql -u root udm_radar < database\migrations\004_create_workflow_and_support_tables.sql
-mysql -u root udm_radar < database\migrations\005_standardize_final_grade_storage.sql
+# 3. Seed starter synthetic demonstration data
+mysql -u root udm_radar < database\seeds\001_synthetic_demo.sql
 ```
 
-The upgraded database will include all 18 tables required by the active application portals, with `grades.final_grade` standardized to `VARCHAR(10)` and `student_profiles.course` standardized to canonical ENUM tracks:
-- **Migration 005**: Standardizes `grades.final_grade` from `DECIMAL(4,2)` to `VARCHAR(10) NULL DEFAULT NULL` with CHECK constraint `chk_grades_final_grade_domain`.
-- **Migration 006**: Repairs synthetic student course records, converting `student_profiles.course` to `ENUM('BSIT - Software Development', 'BSIT - Data Science', 'BSIT - Cyber Security') NOT NULL DEFAULT 'BSIT - Software Development'` with CHECK constraint `chk_student_profiles_course_valid` and temporary pre-migration backup table `_backup_student_profiles_course_wp6`.
-- **Temporary Migration Backup Lifecycle**: `_backup_student_profiles_course_wp6` exists temporarily during migration and verification (raising the temporary base table count to 19). It is not part of the official 18-table application schema, is not included in the ERD or Data Dictionary, its evidence is exported to `backups/backup_student_profiles_course_wp6.sql`, and it will be removed before WP-9 canonical dump regeneration.
-- **Track Assignment Policy**: The existing synthetic records are assigned Software Development for internal prototype consistency. This is not evidence of actual UDM section-to-track allocation. Official track-curriculum verification is registered as a prerequisite before multi-track cohort generation.
-- **Textual Status Support**: Institutional statuses (`INC`, `DRP`, `P`, `DO`, `DU`, `FA`, `UD`) and canonical numeric point grades (`4.00` to `1.00`) become reproducibly supported.
-- **Application Validation Authoritative**: Application write-path validation in PHP remains authoritative for new-entry policy (rejecting new `0.00` inputs while preserving historical `0.00`).
-- **Canonical Dump**: Remains unchanged; consolidated schema dump regeneration is scheduled for WP-9.
+> [!NOTE]
+> **Baseline vs. Migrations Distinction**:
+> - `database/udm_radar.sql` already incorporates all structural changes from migrations `000` through `010`.
+> - Re-running migrations `000` to `010` after importing `database/udm_radar.sql` is **not required** on a fresh install (though doing so is harmless because all migrations are strictly idempotent).
+> - The starter seed (`database/seeds/001_synthetic_demo.sql`) populates initial curriculum subjects and synthetic accounts (`admin`, `faculty01`, `faculty02`, `24-00-001`, `24-00-002`, `24-00-003`).
 
-```text
-users
-student_profiles (with record_status, canonical course tracks)
-subjects
-grades (final_grade VARCHAR(10))
-predictions
-faculty_class_loads
-pending_grade_batches
-pending_corrections
-feedback_reports
-feedback_messages
-feedback_status_history
-academic_support_cases
-support_actions
-support_case_referrals
-support_status_history
-admin_change_log
-export_audit_logs (with failure_reason)
-otp_tokens
-```
+#### Temporary Starter Credentials
+- **Administrator:** `admin` / `AdminPassword2026!`
+- **Faculty:** `faculty01` / `FacultyPassword2026!` (Class load: ITE321, ITE322, ITE331)
+- **Faculty:** `faculty02` / `FacultyPassword2026!` (Class load: ITE323, ITE341, SD351)
+- **Student (Low Risk):** `24-00-001` / `StudentPassword2026!`
+- **Student (Moderate Risk):** `24-00-002` / `StudentPassword2026!`
+- **Student (High Risk / Case Trigger):** `24-00-003` / `StudentPassword2026!`
 
-### 6.2 Testing on Scratch Database
-Before running schema or data changes, always verify them on an isolated scratch database:
+*Change temporary passwords in shared or team development environments.*
+
+### 6.2 Upgrading an Existing Local Installation
+
+If you already have a working local installation and need to update after pulling new code:
+
+> [!CAUTION]
+> **DO NOT RE-IMPORT `database/udm_radar.sql` OVER AN EXISTING DATABASE.**
+> Re-importing the baseline dump will drop or conflict with your active development records.
+> **DO NOT IMPORT DEMO SEED DATA OVER ACTIVE DEV DATA.**
+> The starter seed will refuse execution if user records already exist. Use migrations to update existing schemas.
 
 ```powershell
-mysql -u root -e "DROP DATABASE IF EXISTS udm_radar_scratch; CREATE DATABASE udm_radar_scratch;"
-mysql -u root udm_radar_scratch < database\udm_radar.sql
-mysql -u root udm_radar_scratch < database\migrations\000_create_export_audit_logs.sql
-mysql -u root udm_radar_scratch < database\migrations\001_add_student_record_status.sql
-mysql -u root udm_radar_scratch < database\migrations\002_feedback_status_cleanup.sql
-mysql -u root udm_radar_scratch < database\migrations\003_export_audit_failure_info.sql
-mysql -u root udm_radar_scratch < database\migrations\004_create_workflow_and_support_tables.sql
-mysql -u root udm_radar_scratch < database\migrations\005_standardize_final_grade_storage.sql
-mysql -u root udm_radar_scratch < database\migrations\006_repair_student_course_values.sql
+# 1. Always back up your database before updating
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+mysqldump -u root udm_radar > "capstone_backup_$timestamp.sql"
+
+# 2. Pull latest code (safe fast-forward only)
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+# 3. Apply ONLY pending migrations in numerical order (example: if upgrading from 008)
+mysql -u root udm_radar < database\migrations\009_add_support_reason_code.sql
+mysql -u root udm_radar < database\migrations\010_add_notice_issued_at.sql
+
+# 4. Verify schema health
+mysql -u root udm_radar < database\verify\verify_schema.sql
 ```
+
+### 6.3 Testing on Scratch Database
+Before executing schema changes, migrations, or data-mutating tests, run them on an isolated scratch database:
+
+```powershell
+# Rebuild clean scratch database using the automated rebuild tool
+php tools\rebuild_database.php --target=scratch
+```
+*Note: The live database (`udm_radar`) cannot be targeted by automated rebuild scripts.*
 
 Do not commit database backups or local dumps to Git (enforced in `.gitignore`).
 
@@ -332,10 +336,36 @@ Do not commit:
 - `config/mail.php`
 - local `.env` files
 - virtual environments
-- generated student reports
-- imported real student datasets
+- generated student reports or populated PEF/CC workbooks
+- imported real student datasets or registrar evaluations
+- private PEF/CC workbook templates containing real student records
 - temporary model candidates
 - application or web-server logs containing private data
+
+### 12.1 Synthetic Records & PEF/CC Privacy Boundary
+
+- **Prototype Nature:** UDM-RADAR operates on synthetic academic records authorized by the Capstone Adviser. All user-facing views carry the label: `Prototype performance on synthetic academic records`.
+- **Private PEF/CC Templates:** Original registrar Curriculum Checklist spreadsheets and populated student workbooks contain identity-bearing registrar evaluations and must remain outside version control.
+- **Decision Support Only:** Advisory predictions do not constitute binding disciplinary actions, registrar evaluations, or official honors determinations.
+
+### 12.2 Member Git Update Workflow
+
+To synchronize with `origin/main` without risking local work:
+
+```powershell
+# 1. Check working tree status
+git status
+
+# 2. Switch to main and fast-forward pull
+git switch main
+git fetch origin
+git pull --ff-only origin main
+```
+
+- **If you have uncommitted local changes:** Do NOT pull directly. Either commit your changes to a feature branch (`git switch -c feat/my-feature; git commit -m "wip"`) or stash them (`git stash push -m "wip"`).
+- **If dependencies changed:** Run `composer install --no-dev` or `pip install -r python_ml\requirements.txt`.
+- **If migrations were added:** Inspect `database/migrations/` and apply pending files in order.
+- **For full update scenarios:** Consult [docs/MEMBER_GIT_UPDATE_GUIDE.md](docs/MEMBER_GIT_UPDATE_GUIDE.md).
 
 ## 13. Troubleshooting
 
