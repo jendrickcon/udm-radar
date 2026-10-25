@@ -795,6 +795,7 @@ let currentModalStudentId = null;
 let currentStudentHistory = null;
 let isHistoryLoading      = false;
 let modalActiveTrigger    = null;
+let modalFocusFrame       = null;
 
 function openHistory(studentId, name) {
     currentModalStudentId = studentId;
@@ -834,11 +835,23 @@ function openHistory(studentId, name) {
         </div>
     `;
 
-    document.getElementById('history-modal-overlay').classList.add('open');
+    const modal = document.getElementById('history-modal-overlay');
+    modal.classList.add('open');
     const closeBtn = document.getElementById('history-modal-close-btn');
+    if (modalFocusFrame !== null) cancelAnimationFrame(modalFocusFrame);
     if (closeBtn) {
-        closeBtn.focus();
-        setTimeout(() => { if (closeBtn) closeBtn.focus(); }, 50);
+        // Opening transitions can leave the control hidden for several frames.
+        // Focus only once it can receive focus, and stop if the dialog closes.
+        const focusWhenVisible = () => {
+            modalFocusFrame = null;
+            if (!modal.classList.contains('open')) return;
+            if (getComputedStyle(closeBtn).visibility === 'visible' && closeBtn.getClientRects().length) {
+                if (!modal.contains(document.activeElement)) closeBtn.focus();
+            } else {
+                modalFocusFrame = requestAnimationFrame(focusWhenVisible);
+            }
+        };
+        modalFocusFrame = requestAnimationFrame(focusWhenVisible);
     }
 
     fetch('grades_data.php?action=student_detail&student_id=' + studentId)
@@ -1069,6 +1082,8 @@ function confirmProposal(form) {
 }
 
 function closeHistoryModal() {
+    if (modalFocusFrame !== null) cancelAnimationFrame(modalFocusFrame);
+    modalFocusFrame = null;
     const modal = document.getElementById('history-modal-overlay');
     modal.classList.remove('open');
     if (modalActiveTrigger && typeof modalActiveTrigger.focus === 'function') {

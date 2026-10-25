@@ -17,8 +17,13 @@ function renderStudentGwaFixture(string $scenario): array {
     if ($start === false || $end === false) throw new RuntimeException('Dashboard state boundaries missing');
     eval(substr($source, $start, $end - $start));
     preg_match('/<h2 id="gwa-card-value".*?<\/h2>/s', $source, $card);
-    $start = strpos($source, '    <?php $isAtRiskGauge =');
-    $end = strpos($source, '        <!-- FIXED: Removed padding-bottom', $start);
+    // The accepted gauge now has a multiline PHP state block. Isolate its
+    // current card using the rendered value's ID, not a removed layout comment.
+    $state = strpos($source, '$isAtRiskGauge =');
+    $value = strpos($source, 'id="gwa-gauge-value"');
+    if ($state === false || $value === false) throw new RuntimeException('Dashboard gauge boundaries missing');
+    $start = strrpos(substr($source, 0, $state), '<?php');
+    $end = strpos($source, '<div class="card"', $value);
     if (empty($card) || $start === false || $end === false) throw new RuntimeException('Dashboard markup boundaries missing');
     $markup = $card[0] . substr($source, $start, $end - $start) . '</div>';
     ob_start(); eval('?>' . $markup); $html = ob_get_clean();

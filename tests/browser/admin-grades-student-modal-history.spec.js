@@ -39,6 +39,7 @@ import { test, expect } from '@playwright/test';
 
 const adminGradesPhp = readFileSync(resolve('admin/grades.php'), 'utf-8');
 const dashboardCss   = readFileSync(resolve('assets/css/dashboard.css'), 'utf-8');
+const accessibilityCss = readFileSync(resolve('assets/css/accessibility-preferences.css'), 'utf-8');
 const uiJs           = readFileSync(resolve('assets/js/ui.js'), 'utf-8');
 
 // Extract inline styles and scripts from admin/grades.php for realistic mounting
@@ -84,6 +85,7 @@ function buildAdminGradesPage() {
                 color: var(--text-dark);
             }
             ${dashboardCss}
+            ${accessibilityCss}
             ${adminGradesCss}
         </style>
         <script>
@@ -598,7 +600,9 @@ test.describe('Admin Grades Student Modal with Read-Only History', () => {
         await expect(page.locator('.history-term-block:has-text("2025-2026 | 2nd Year, 2nd Sem")')).toBeVisible();
     });
 
-    test('8. Accessibility & Focus Management: Dialog role, focus trap, Escape key closes, returns focus', async ({ page }) => {
+    for (const motion of ['no-preference', 'reduce']) {
+    test(`8. Accessibility & Focus Management: visible focus, keyboard trap and return (${motion})`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: motion });
         await page.setContent(buildAdminGradesPage());
 
         const trigger = page.locator('#trigger-student-286');
@@ -610,11 +614,28 @@ test.describe('Admin Grades Student Modal with Read-Only History', () => {
         // Focus should move into close button
         await expect(page.locator('#history-modal-close-btn')).toBeFocused();
 
+        // Keyboard navigation must remain within the visible dialog controls.
+        await page.keyboard.press('Shift+Tab');
+        await expect(page.locator('#modal-full-record-link')).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(page.locator('#history-modal-close-btn')).toBeFocused();
+
         // Escape closes modal
         await page.keyboard.press('Escape');
         await expect(modal).not.toHaveClass(/open/);
 
         // Focus returns to the trigger button
+        await expect(trigger).toBeFocused();
+    });
+    }
+
+    test('closing during the opening transition cancels pending modal focus', async ({ page }) => {
+        await page.setContent(buildAdminGradesPage());
+        const trigger = page.locator('#trigger-student-286');
+        await trigger.click();
+        await page.evaluate(() => closeHistoryModal());
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        await expect(page.locator('#history-modal-overlay')).not.toHaveClass(/open/);
         await expect(trigger).toBeFocused();
     });
 
