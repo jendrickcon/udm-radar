@@ -1,5 +1,7 @@
 # Post-defense analytics MVP implementation plan
 
+> Historical implementation plan for checkpoint 554312c. Do not restart it. Current continuation is 10_IMPLEMENTATION_STATUS.md, 13_MVP_REVIEW_HANDOFF.md and 14_METRIC_RECONCILIATION.md under the owner-authorized reconciliation/review package. Its required independent follow-up supersedes the original one-review execution rule.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans inline, with test-driven-development and one fresh final review. Steps use checkbox syntax.
 
 **Goal:** Deliver safe working representatives of the five authorized MVPs from the approved v3 guide.
@@ -74,4 +76,4 @@
 
 ## Final execution record
 
-Desktop-only owner override: no further mobile tests or screenshots. Independent reviewer dispatch failed at the account usage limit; author self-review is recorded, with independent review still required before integration. Support-only dropdown choices were corrected after five failing regression assertions. Test/lifecycle details and the local checkpoint record are in 10_IMPLEMENTATION_STATUS.md; exact hash is in Git and the final handoff.
+Desktop-only owner override: no further mobile tests or screenshots. At the original checkpoint, reviewer dispatch failed at the account limit. A separate independent review has now executed after continuity integration; initial findings and correction follow-up are tracked in the current reconciliation records. Support-only dropdown choices were corrected after five failing regression assertions. Test/lifecycle details and the local checkpoint record are in 10_IMPLEMENTATION_STATUS.md; exact hash is in Git and the final handoff.

@@ -18,31 +18,30 @@ function analyticsHours(?string $start,?string $end):?float {
     return $times[1]>=$times[0]?($times[1]-$times[0])/3600:null;
 }
 
+function analyticsNoticeHours(array $referral):?float {
+    return analyticsHours($referral['created_at']??null,$referral['notice_issued_at']??null);
+}
+
 function analyticsSupportSummary(array $cases,array $referrals,array $actions):array {
     $caseMap=[];foreach($cases as $c){$caseMap[(int)$c['id']]=$c;}
     $refs=[];foreach($referrals as $r){if(isset($caseMap[(int)$r['case_id']]))$refs[(int)$r['id']]=$r;}
-    $issued=0;$reviewed=0;$ack=0;$closed=0;$first=[];$closure=[];$actionTimes=[];
-    foreach($actions as $a){if(($a['actor_role']??'')==='faculty'&&isset($caseMap[(int)$a['case_id']]))$actionTimes[(int)$a['case_id']][]=$a['created_at']??null;}
+    $issued=0;$reviewed=0;$ack=0;$closed=0;$first=[];$closure=[];
     foreach($refs as $r){
-        if(!empty($r['notice_issued_at'])){$issued++;$actionTimes[(int)$r['case_id']][]=$r['notice_issued_at'];}
-        if(in_array($r['status']??'', ['action_taken','acknowledged','closed'],true)||!empty($r['notice_issued_at']))$reviewed++;
-        if(!empty($r['student_acknowledged_at']))$ack++;
+        $hours=analyticsNoticeHours($r);$validNotice=$hours!==null;
+        if($validNotice){$issued++;$first[]=$hours;}
+        if(in_array($r['status']??'', ['action_taken','acknowledged','closed'],true)||$validNotice)$reviewed++;
+        $receipt=$r['student_acknowledged_at']??null;
+        if(analyticsHours($receipt,$receipt)!==null&&analyticsHours($r['created_at']??$receipt,$receipt)!==null&&(!$validNotice||analyticsHours($r['notice_issued_at'],$receipt)!==null))$ack++;
     }
     foreach($caseMap as $id=>$c){
         $isClosed=($c['status']??'')==='closed';if($isClosed)$closed++;
         $duration=$isClosed?analyticsHours($c['created_at']??null,$c['closed_at']??null):null;
         if($duration!==null)$closure[]=$duration;
-        $observed=[];
-        foreach($actionTimes[$id]??[] as $time){
-            $hours=analyticsHours($c['created_at']??null,$time);
-            if($hours!==null&&(!$isClosed||$duration===null||$hours<=$duration))$observed[]=$hours;
-        }
-        if($observed)$first[]=min($observed);
     }
     return ['eligible_cases'=>count($caseMap),'referrals_created'=>count($refs),'referrals_reviewed'=>$reviewed,
         'notices_issued'=>$issued,'notices_deferred'=>null,'student_acknowledgments'=>$ack,
         'open_cases'=>count($caseMap)-$closed,'closed_cases'=>$closed,
-        'median_first_action_hours'=>analyticsMedian($first),'first_action_sample'=>count($first),
+        'mean_first_action_hours'=>$first?round(array_sum($first)/count($first),2):null,'first_action_sample'=>count($first),
         'median_closure_hours'=>analyticsMedian($closure),'closure_sample'=>count($closure),
         'deferral_reason'=>'Unavailable: existing records do not contain an explicit notice-deferred decision. Closure without a notice is not assumed to mean deferral.'];
 }

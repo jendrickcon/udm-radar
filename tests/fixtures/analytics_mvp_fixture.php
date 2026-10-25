@@ -22,8 +22,8 @@ function analyticsFixtureInsert(PDO $db,string $table,array $rows):void {
     if(!preg_match('/^[a-z_]+$/D',$table))throw new RuntimeException('Invalid fixture table');
     foreach($rows as $r){$cols=array_keys($r);$stmt=$db->prepare('INSERT INTO `'.$table.'` (`'.implode('`,`',$cols).'`) VALUES ('.implode(',',array_fill(0,count($cols),'?')).')');$stmt->execute(array_values($r));}
 }
-function analyticsFixtureSchemaStatements(string $sql):array {
-    $out=[];$statement='';$quote=null;$lineComment=false;$blockComment=false;$length=strlen($sql);
+function analyticsFixtureSchemaStatements(string $sql,?array &$sections=null):array {
+    $out=[];$sections=[];$statement='';$quote=null;$lineComment=false;$blockComment=false;$length=strlen($sql);$rawStart=0;
     for($i=0;$i<$length;$i++){
         $ch=$sql[$i];$next=$sql[$i+1]??'';
         if($lineComment){if($ch==="\n"){$lineComment=false;$statement.="\n";}continue;}
@@ -39,8 +39,13 @@ function analyticsFixtureSchemaStatements(string $sql):array {
         if(in_array($ch,["'",'"','`'],true))$quote=$ch;
         $statement.=$ch;
         if($ch===';'){
-            $trim=trim($statement);if(preg_match('/^CREATE TABLE `/i',$trim))$out[]=$trim;
-            $statement='';
+            $trim=trim($statement);
+            if(preg_match('/^CREATE TABLE `([^`]+)`/i',$trim,$match)){
+                $out[]=$trim;$start=strpos($sql,'CREATE TABLE `'.$match[1].'`',$rawStart);
+                if($start===false)throw new RuntimeException('DDL source position unavailable');
+                $sections[]=['table'=>$match[1],'start_line'=>substr_count(substr($sql,0,$start),"\n")+1,'end_line'=>substr_count(substr($sql,0,$i+1),"\n")+1,'sha256'=>hash('sha256',$trim)];
+            }
+            $statement='';$rawStart=$i+1;
         }
     }
     if($quote!==null)throw new RuntimeException('Unterminated schema literal');
@@ -55,7 +60,13 @@ function analyticsFixtureSetup():array {
         $server->exec('USE `'.$name.'`');$server->exec('CREATE TABLE analytics_fixture_owner (token CHAR(64) NOT NULL)');
         $server->prepare('INSERT INTO analytics_fixture_owner VALUES (?)')->execute([$state['token']]);
         $schema=file_get_contents(__DIR__.'/../../database/udm_radar.sql');
-        $blocks=analyticsFixtureSchemaStatements($schema);
+        $parsed=analyticsFixtureSchemaStatements($schema,$sections);$blocks=[];$used=[];$unused=[];
+        // Exact dependencies of the allowlisted login/analytics/existing-workspace handlers.
+        $required=['users','student_profiles','subjects','grades','predictions','faculty_class_loads','academic_support_cases','support_case_referrals','support_actions','support_status_history','feedback_reports','feedback_messages','feedback_status_history','pending_corrections','pending_grade_batches','admin_change_log'];
+        foreach($sections as $index=>$section){if(in_array($section['table'],$required,true)){$blocks[]=$parsed[$index];$used[]=$section;}else{$unused[]=$section;}}
+        if(count($used)!==count($required))throw new RuntimeException('Required accepted table definition unavailable');
+        $state['schema_source']=['path'=>'database/udm_radar.sql','sha256'=>hash('sha256',$schema),'sections'=>$used,'excluded_sections'=>$unused,'data_imported'=>false];
+        $state['provenance']=['marker_table'=>'analytics_fixture_owner','token_sha256'=>hash('sha256',$state['token']),'verified'=>true];
         if(!$blocks)throw new RuntimeException('Accepted schema unavailable');
         $server->exec('SET FOREIGN_KEY_CHECKS=0');foreach($blocks as $block)$server->exec($block);$server->exec('SET FOREIGN_KEY_CHECKS=1');
         $hash=password_hash($state['password'],PASSWORD_DEFAULT);$users=[];
@@ -103,14 +114,19 @@ function analyticsFixtureSetup():array {
             ['case_id'=>3,'actor_id'=>12,'action_type'=>'academic_notice_sent','created_at'=>'2026-10-20 10:00:00'],
         ]);
         return $state;
-    }catch(Throwable $e){$server->exec('DROP DATABASE `'.$name.'`');throw $e;}
+    }catch(Throwable $e){$server->exec('DROP DATABASE `'.$name.'`');$q=$server->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');$q->execute([$name]);if((int)$q->fetchColumn()!==0)throw new RuntimeException('Setup-failure cleanup could not remove '.$name,0,$e);throw new RuntimeException('Disposable setup failed; cleanup asserted for '.$name,0,$e);}
 }
-function analyticsFixtureCleanup(array $state):void {
+function analyticsFixtureCleanup(array $state):array {
     $db=analyticsFixtureConnect($state);$name=analyticsFixtureName($state['database']);$db->exec('DROP DATABASE `'.$name.'`');
+    $server=analyticsFixtureServer();$q=$server->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');$q->execute([$name]);
+    if((int)$q->fetchColumn()!==0)throw new RuntimeException('Owned disposable database cleanup assertion failed: '.$name);
+    $unchanged=isset($state['schema_source']['sha256'])&&hash_equals($state['schema_source']['sha256'],hash_file('sha256',__DIR__.'/../../database/udm_radar.sql'));
+    return ['database'=>$name,'seed'=>$state['seed'],'removed'=>true,'cleanup_asserted'=>true,'provenance'=>$state['provenance'],'schema_source'=>$state['schema_source'],'schema_byte_identical'=>$unchanged,'genuine_or_dump_data_imported'=>false,'protected_databases_accessed'=>false];
 }
 if(PHP_SAPI==='cli'&&realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){
     $command=$argv[1]??'';
     if($command==='setup'){echo json_encode(analyticsFixtureSetup(),JSON_THROW_ON_ERROR);}
-    elseif($command==='cleanup'&&isset($argv[2])){analyticsFixtureCleanup(json_decode(file_get_contents($argv[2]),true,512,JSON_THROW_ON_ERROR));echo "Owned disposable analytics database removed\n";}
+    elseif($command==='cleanup-stdin'){echo json_encode(analyticsFixtureCleanup(json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR)),JSON_THROW_ON_ERROR);}
+    elseif($command==='cleanup'&&isset($argv[2])){echo json_encode(analyticsFixtureCleanup(json_decode(file_get_contents($argv[2]),true,512,JSON_THROW_ON_ERROR)),JSON_THROW_ON_ERROR);}
     else{fwrite(STDERR,"Use setup or cleanup <owned-state-file>\n");exit(1);}
 }

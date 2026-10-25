@@ -35,6 +35,11 @@ $trendRows=[
 $trend=analyticsTrend($trendRows);check($trend['current']['gwa']===3.0&&$trend['previous']['gwa']===2.5&&$trend['change']['point_change']===0.5,'Chronological comparable term change');
 $trendRows[]=['id'=>3,'student_id'=>1,'subject_id'=>3,'school_year'=>'2025-2026','semester'=>2,'final_grade'=>null,'units'=>3];
 $trend=analyticsTrend($trendRows);check($trend['current']['provisional']&&$trend['change']['direction']==='Unavailable','Incomplete latest term cannot assert a trend direction');
+check($trend['current']['gwa']===null,'Incomplete current scalar is Pending, never a partial term GWA');
+$seasonal=[];foreach([[1,'2025-2026',2,'2.50'],[2,'2025-2026',3,'4.00'],[3,'2026-2027',1,'3.00']] as [$id,$sy,$sem,$grade])$seasonal[]=['id'=>$id,'student_id'=>1,'subject_id'=>1,'school_year'=>$sy,'semester'=>$sem,'final_grade'=>$grade,'units'=>3];
+check(analyticsTrend($seasonal)['previous']['key']==='2025-2026|2','Regular term excludes intervening summer from comparison');
+$seasonal[]=['id'=>4,'student_id'=>1,'subject_id'=>1,'school_year'=>'2026-2027','semester'=>3,'final_grade'=>'3.50','units'=>3];
+check(analyticsTrend($seasonal)['previous']['key']==='2025-2026|3','Summer is comparable only with previous summer');
 check(analyticsTrend([$trendRows[0]])['previous']===null,'No prior term stays unavailable');
 check(analyticsClipRange(0.5,4.5)===['lower'=>1.0,'upper'=>4.0],'Prediction range clips to GWA domain');
 check(analyticsClipRange(3.5,2.0)===null&&analyticsClipRange(NAN,3.0)===null,'Reversed/nonfinite bounds unavailable');
@@ -45,13 +50,17 @@ foreach(['heuristic','calculation_fallback'] as $source){check(analyticsPredicti
 foreach(['historical_only','prelim_only','legacy_unknown',null] as $complete){check(analyticsPrediction(['predicted_gwa'=>2.75,'prediction_source'=>'decision_tree','data_completeness'=>$complete])['is_provisional'],'Partial/unknown metadata not silently complete');}
 foreach([null,0,4.5,'bad',NAN] as $value){$p=analyticsPrediction(['predicted_gwa'=>$value]);check($p['estimated_gwa']===null&&$p['advisory_indicator']===null,'Invalid estimate not risk classified');}
 $cases=[['id'=>1,'status'=>'closed','created_at'=>'2026-09-01 00:00:00','closed_at'=>'2026-09-02 00:00:00'],['id'=>2,'status'=>'closed','created_at'=>'2026-09-01 00:00:00','closed_at'=>'2026-09-03 00:00:00'],['id'=>3,'status'=>'needs_review','created_at'=>'2026-09-01 00:00:00','closed_at'=>null]];
-$refs=[['id'=>10,'case_id'=>1,'status'=>'acknowledged','notice_issued_at'=>'2026-09-01 12:00:00','student_acknowledged_at'=>'2026-09-01 13:00:00'],['id'=>11,'case_id'=>1,'status'=>'closed','notice_issued_at'=>null],['id'=>12,'case_id'=>2,'status'=>'needs_review','updated_at'=>'2026-09-01 01:00:00']];
+$refs=[['id'=>10,'case_id'=>1,'created_at'=>'2026-09-01 00:00:00','status'=>'acknowledged','notice_issued_at'=>'2026-09-01 12:00:00','student_acknowledged_at'=>'2026-09-01 13:00:00'],['id'=>11,'case_id'=>1,'status'=>'closed','notice_issued_at'=>null],['id'=>12,'case_id'=>2,'status'=>'needs_review','updated_at'=>'2026-09-01 01:00:00']];
 $actions=[['case_id'=>1,'actor_role'=>'admin','created_at'=>'2026-09-01 00:30:00'],['case_id'=>1,'actor_role'=>'faculty','created_at'=>'2026-09-01 06:00:00'],['case_id'=>2,'actor_role'=>'faculty','created_at'=>'2026-09-01 02:00:00']];
 $s=analyticsSupportSummary([...$cases,$cases[0]],[...$refs,$refs[0]],$actions);
-foreach(['eligible_cases'=>3,'referrals_created'=>3,'referrals_reviewed'=>2,'notices_issued'=>1,'notices_deferred'=>null,'student_acknowledgments'=>1,'open_cases'=>1,'closed_cases'=>2,'median_first_action_hours'=>4.0,'first_action_sample'=>2,'median_closure_hours'=>36.0,'closure_sample'=>2] as $key=>$want){check($s[$key]===$want,"Support $key");}
+foreach(['eligible_cases'=>3,'referrals_created'=>3,'referrals_reviewed'=>2,'notices_issued'=>1,'notices_deferred'=>null,'student_acknowledgments'=>1,'open_cases'=>1,'closed_cases'=>2,'mean_first_action_hours'=>12.0,'first_action_sample'=>1,'median_closure_hours'=>36.0,'closure_sample'=>2] as $key=>$want){check(($s[$key]??null)===$want,"Support $key");}
+$unequal=[];foreach([[1,1],[2,2],[3,9]] as [$id,$hours])$unequal[]=['id'=>$id,'case_id'=>1,'created_at'=>'2026-09-01 01:00:00','notice_issued_at'=>sprintf('2026-09-01 %02d:00:00',1+$hours),'status'=>'action_taken'];
+$mean=analyticsSupportSummary([$cases[0]],$unequal,$actions);check(($mean['mean_first_action_hours']??null)===4.0&&$mean['first_action_sample']===3,'MTR20 uses arithmetic mean per distinct referral origin, not case-event median');
+$invalidRefs=[['id'=>20,'case_id'=>1,'created_at'=>'2026-09-01 10:00:00','notice_issued_at'=>'2026-09-01 09:00:00','status'=>'needs_review'],['id'=>21,'case_id'=>1,'created_at'=>'2026-09-01 10:00:00','notice_issued_at'=>null,'status'=>'needs_review']];
+$invalid=analyticsSupportSummary([$cases[0]],$invalidRefs,$actions);check(($invalid['mean_first_action_hours']??null)===null&&$invalid['first_action_sample']===0,'Invalid/unacted referral evidence cannot use unrelated case actions or zero durations');
 $bad=analyticsSupportSummary([['id'=>1,'status'=>'closed','created_at'=>'2026-09-02 00:00:00','closed_at'=>'2026-09-01 00:00:00']],[],[['case_id'=>1,'actor_role'=>'faculty','created_at'=>'2026-08-01 00:00:00']]);
-check($bad['median_closure_hours']===null&&$bad['median_first_action_hours']===null,'Reversed/missing times never become durations');
-$none=analyticsSupportSummary([],[],[]);check($none['eligible_cases']===0&&$none['first_action_sample']===0&&$none['median_first_action_hours']===null,'No cases has counts but no invented response time');
+check($bad['median_closure_hours']===null&&($bad['mean_first_action_hours']??null)===null,'Reversed/missing times never become durations');
+$none=analyticsSupportSummary([],[],[]);check($none['eligible_cases']===0&&$none['first_action_sample']===0&&($none['mean_first_action_hours']??null)===null,'No cases has counts but no invented response time');
 require_once __DIR__.'/../../includes/analytics/service.php';
 $supportOnly=['grades'=>[],'faculty'=>[11=>'Assigned Faculty'],'cases'=>[['school_year'=>'2023-2024','semester'=>2]],'referrals'=>[['subject_id'=>102,'code'=>'OLD102','title'=>'Historical referral','section'=>'OLD-A','faculty_id'=>11,'curriculum_year'=>2]]];
 $options=analyticsOptions($supportOnly,['id'=>1,'role'=>'admin']);

@@ -37,7 +37,7 @@ try{
  try{analyticsReport($db,['id'=>11,'role'=>'admin'],[]);verify(false,'Stale/tampered role fails closed');}catch(DomainException){verify(true,'Actual account role verified');}
  $year=analyticsReport($db,$admin,['year_level'=>'3']);verify($year['summary']['expected_grade_count']===2,'Curriculum year filter');
  verify($current['support']['eligible_cases']===4&&$current['support']['referrals_created']===4,'Cases/referrals use separate denominators');
- verify($current['support']['median_first_action_hours']===2.0&&$current['support']['first_action_sample']===3,'Evidenced first Faculty action median');
+ verify($current['support']['mean_first_action_hours']===2.5&&$current['support']['first_action_sample']===2,'MTR20 mean referral-to-notice duration, no unrelated parent case events');
  verify($current['support']['median_closure_hours']===48.0&&$current['support']['notices_deferred']===null,'Closure and unavailable deferral');
  $closed=analyticsReport($db,$admin,['case_status'=>'closed']);verify($closed['support']['eligible_cases']===1&&$closed['support']['referrals_created']===1,'Case status filter');
  $issued=analyticsReport($db,$admin,['decision'=>'issued']);verify($issued['support']['referrals_created']===2&&$issued['support']['eligible_cases']===2,'Decision filter');

@@ -13,7 +13,7 @@ Work package: POST-DEFENSE-ANALYTICS-RECONCILIATION-AND-INDEPENDENT-REVIEW-WP1. 
 
 ## MTR-01 through MTR-21
 
-Each row explicitly states implementation/function, formula, numerator, denominator, eligible records, exclusions, missingness, visibility, status, evidence, conflict and required action. Pending independent review must not be represented as equivalence approval.
+Each row is the initial checkpoint comparison: implementation/function, formula, numerator, denominator, eligible records, exclusions, missingness, visibility, evidence, conflict and required action. The correction record below supersedes pending-action wording in these historical comparison rows. Independent follow-up must not be represented as approval before it is received.
 
 | ID / canonical name | Sol display / function (includes/analytics unless stated) | Formula / numerator | Denominator | Eligible records | Exclusions | Missing-data behavior | Roles | Implementation status / tests | Conflict | Required action |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -48,3 +48,18 @@ Each row explicitly states implementation/function, formula, numerator, denomina
 5. Known broader canonical documentation inconsistencies (e.g. zero exclusions in outcome means versus GWA, grade-conversion prose, future enrollment denominator) are not authority to alter institutional policy or stored results. Implemented formulas and their names/limitations must remain explicit; future equivalence requires a separate approved package.
 
 Independent review must assess these rulings and every identified difference. Current review/verification artifacts and final resolutions are linked from 13_MVP_REVIEW_HANDOFF.md and 10_IMPLEMENTATION_STATUS.md.
+
+## Current correction record (initial IR-01–08)
+
+- MTR-01: analyticsTrend now nulls the incomplete current scalar. Its provisional recorded-point series remains separately labeled; current is not cumulative. Numeric-plus-missing regression passed.
+- MTR-02: both trend and report paths call analyticsPreviousComparable. Regular excludes summer; summer compares summer; selected-semester constraints remain. Regular/summer regressions passed.
+- MTR-03: unchanged higher-is-better guarded subtraction, inheriting corrected eligibility.
+- MTR-04: unchanged guarded formula now rendered as supporting contextual text rather than a peer KPI; browser assertion passed.
+- MTR-07 remains BLOCKED; all bounds null. MTR-09–16 canonical non-equivalences remain as documented, with pooled/subset and overlapping-completeness copy visible. No formula renamed to imply equivalence.
+- MTR-18: analyticsNoticeHours validates creation-to-issuance; count, inferred-review and issued filter use the same predicate. Zero-date/malformed/reversed regressions passed.
+- MTR-19 remains raw count only; valid legacy orphan receipts remain counted, invalid/reversed receipts excluded; canonical rate NOT IMPLEMENTED.
+- MTR-20: owner option 1 applied and independently judged defensible in initial IR-04. Arithmetic mean = sum of valid notice-issued minus referral-created hours / distinct acted-upon referral count. Only notice evidence; no generic parent-case action. Fixture mean 2.50h, n=2. Unequal-duration regression distinguishes mean from median and referral origin from parent origin. Canonical reopened first-action policy is not expanded. Follow-up review pending.
+- MTR-21 remains PLANNED / BLOCKED. Visible display now says limited median recorded parent-case closed duration and explicitly disclaims canonical referral/reopening equivalence.
+- Shared fixture: accepted CREATE TABLE source manifest, source byte hash and provenance hash, guarded cleanup even after failed state-file write, post-DROP absence assertion. Only 16 required table definitions execute; otp_tokens/export_audit_logs are parsed but excluded. No data statements imported.
+
+Canonical FRs beyond the bounded five-MVP request remain planned, not silently satisfied. The new owner work package supplies the mean correction and desktop-only authority; these implementation decisions are not retrospectively attributed to panel instructions.

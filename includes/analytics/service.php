@@ -62,8 +62,7 @@ function analyticsBuildReport(array $data,array $f,array $user):array {
     // Previous recorded comparable term can lie outside the selected school year.
     if($trend['current']!==null){
         $comparisonFilters=$f;$comparisonFilters['school_year']='';
-        $candidates=analyticsGroup(analyticsFilterGrades($data['grades'],$comparisonFilters),'semester');$previous=null;
-        foreach($candidates as $period){if(strnatcmp($period['key'],$trend['current']['key'])<0&&!$period['provisional']&&$period['gwa']!==null)$previous=$period;}
+        $candidates=analyticsGroup(analyticsFilterGrades($data['grades'],$comparisonFilters),'semester');$previous=analyticsPreviousComparable($candidates,$trend['current']);
         $trend['previous']=$previous;$trend['change']=analyticsChange($previous['gwa']??null,$trend['current']['gwa'],!$trend['current']['provisional']&&$previous!==null);
     }
     $dimensions=$role==='admin'?['semester','school_year','year_level','subject','section','faculty_subject']:($role==='faculty'?['subject','section']:[]);
@@ -80,7 +79,7 @@ function analyticsBuildReport(array $data,array $f,array $user):array {
             if($f['section']!==''&&$r['section']!==$f['section'])continue;
             if($f['faculty']!==''&&(string)$r['faculty_id']!==$f['faculty'])continue;
             if($f['year_level']!==''&&(string)$r['curriculum_year']!==$f['year_level'])continue;
-            $issued=!empty($r['notice_issued_at']);$reviewed=in_array($r['status'],['action_taken','acknowledged','closed'],true)||$issued;
+            $issued=analyticsNoticeHours($r)!==null;$reviewed=in_array($r['status'],['action_taken','acknowledged','closed'],true)||$issued;
             if(($f['decision']==='issued'&&!$issued)||($f['decision']==='awaiting_review'&&$reviewed)||($f['decision']==='reviewed_without_notice'&&(!$reviewed||$issued))||$f['decision']==='deferred')continue;
             $refsByCase[(int)$r['case_id']][]=$r;
         }

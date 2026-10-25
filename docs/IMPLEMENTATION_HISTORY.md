@@ -7,15 +7,6 @@
 
 ---
 
-## Post-defense analytics MVPs — local feature implementation (2026-10-26)
-
-- **Base/branch:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`, `feat/post-defense-analytics-mvp`; not merged or deployed. Five work packages were established before implementation against the approved v3 guide.
-- **Behavior:** one scoped read-only backend/API and three role views; canonical weighted means, explicit recorded-slot coverage, safe point/relative changes, separate stored-estimate/source/provisional/rule interpretation, six Administrator comparison dimensions, support count/time evidence and authorized existing-workspace drill-down. No invented numerical range, historical assignment or deferred decision.
-- **Verification:** 80 new unit + 44 owned disposable SQL checks; 512 existing academic/prediction PHP checks; 29 feature desktop + six Faculty layout/source + 49 existing generated browser cases passed, no failures/skips. Independent review was unavailable at the account usage limit; author self-review and local delivery are recorded; exact final results and limitations live in [10_IMPLEMENTATION_STATUS.md](post-defense/10_IMPLEMENTATION_STATUS.md).
-- **Owner continuation directive:** “from now on skip all mobile testing and screenshotting and focus on desktops”; no new mobile/screenshot work. The test fixture creates and removes only a provenance-marked temporary synthetic database; live/scratch, Apache, canonical checkout, active model/dump, starter seed, Migration 011, private responses, manuscript and recovery/handoff are outside scope.
-
----
-
 ## Admin Grades Student Modal with Read-Only Academic History — Implementation Ready for Review (2026-10-22)
 
 - **Package:** `ADMIN-GRADES-STUDENT-MODAL-HISTORY`, base `8e43e6ebbee41d3f86bf4412b8a31873f0e4edda`, branch `fix/admin-grades-modal-history`.

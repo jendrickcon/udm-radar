@@ -55,10 +55,21 @@ function analyticsGroup(array $rows,string $dimension):array {
     return $out;
 }
 
-/** Latest selected term versus the most recent earlier complete recorded term. */
+/** Regular terms compare to regular terms; summer compares only to summer. */
+function analyticsPreviousComparable(array $series,array $current):?array {
+    $summer=str_ends_with($current['key'],'|3');$previous=null;
+    foreach($series as $period){
+        $periodSummer=str_ends_with($period['key'],'|3');
+        if($summer!==$periodSummer||strnatcmp($period['key'],$current['key'])>=0||$period['provisional']||$period['gwa']===null)continue;
+        $previous=$period;
+    }
+    return $previous;
+}
+
+/** Latest selected term versus the most recent earlier complete comparable term. */
 function analyticsTrend(array $rows):array {
     $series=analyticsGroup($rows,'semester');$current=$series?end($series):null;$previous=null;
-    if($current!==null){for($i=count($series)-2;$i>=0;$i--){if(!$series[$i]['provisional']&&$series[$i]['gwa']!==null){$previous=$series[$i];break;}}}
+    if($current!==null){$previous=analyticsPreviousComparable($series,$current);if($current['provisional'])$current['gwa']=null;}
     return ['series'=>$series,'current'=>$current,'previous'=>$previous,
         'change'=>analyticsChange($previous['gwa']??null,$current['gwa']??null,$current!==null&&!$current['provisional']&&$previous!==null)];
 }

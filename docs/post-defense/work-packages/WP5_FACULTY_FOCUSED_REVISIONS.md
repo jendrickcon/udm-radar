@@ -1,6 +1,10 @@
 # Focused Faculty view — MVP work package
 
-Status: Implemented and tested locally; unmerged. Independent review remains pending (account usage limit). Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+Status: Implemented and tested locally; unmerged. Continuity integrated at e8d72a6; independent review/corrections in progress. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+
+## Canonical metric mapping
+
+MTR-12–14 limited current assigned scope; MTR-17–20 own referral evidence. See ../14_METRIC_RECONCILIATION.md for formulas, eligibility, evidence and non-equivalence; bounded MVP completion does not imply every canonical metric is implemented. Current review: ../16_INDEPENDENT_REVIEW_INITIAL.md. Desktop only (1440×900, 1024×768, 1280×600; both themes), no new screenshots; historical mobile evidence retained.
 
 ## Purpose
 
@@ -64,7 +68,7 @@ Subject+section ownership, another Faculty ID rejected, no historical or unrelat
 
 ## Browser tests
 
-Assigned-only filter options, focus/empty/mobile states, existing dashboard layout regression, authorized links.
+Assigned-only filter options, focus/empty/desktop states, existing dashboard layout regression, authorized links.
 
 ## Empty and incomplete states
 
@@ -72,7 +76,7 @@ No current loads => no assigned-record data; no dated prior assignment => compar
 
 ## Evidence to preserve
 
-RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, screenshots, request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
+RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, desktop request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
 
 ## Documentation to update
 

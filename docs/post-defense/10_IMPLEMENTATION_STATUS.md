@@ -1,6 +1,6 @@
 # Post-Defense Implementation Status Ledger — UDM-RADAR
 
-**Document version:** 1.1 reconciliation candidate, 26 October 2026
+**Document version:** 1.1 reconciliation and correction record, 26 October 2026
 **Accepted implementation base:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
 **Integrated continuity baseline:** `e8d72a6d487444dcc6b5d11b1e0824376d7e8015` (PR #61, MERGED)
 **Active implementation owner / single writer:** Sol
@@ -23,7 +23,7 @@ The canonical vocabulary is NOT STARTED → IN PROGRESS → MVP COMPLETE → VER
 | 1 | Prediction clarity, MTR-06–08 | MVP COMPLETE | UI/source/risk contract tested; MTR-07 BLOCKED | PENDING | UNMERGED |
 | 2 | Student progression, MTR-01–05 | MVP COMPLETE | Recorded-term representative tested; canonical differences in matrix | PENDING | UNMERGED |
 | 3 | Administrator aggregates/coverage, MTR-09–16 | MVP COMPLETE | Scoped weighted recorded-grade comparisons tested; limited canonical equivalence | PENDING | UNMERGED |
-| 4 | Support counts/durations, MTR-17–21 | IN PROGRESS | Count/drill-down MVP tested; MTR-20 reconciliation pending, MTR-21 PLANNED / BLOCKED | PENDING | UNMERGED |
+| 4 | Support counts/durations, MTR-17–21 | MVP COMPLETE | Count/drill-down and canonical MTR-20 mean tested; MTR-21 PLANNED / BLOCKED | PENDING | UNMERGED |
 | 5 | Focused assigned Faculty view, MTR-12–14,17–20 | MVP COMPLETE | Current assigned scope and own referral tests | PENDING | UNMERGED |
 | 6 | Final chart/manuscript assets | DEFERRED | No final refinement/publication package | NOT RUN | UNMERGED |
 
@@ -54,7 +54,7 @@ Full checkpoint path inventory and exact original commands are preserved in igno
 
 Evidence: `logs/post-defense-mvp/{post_defense_analytics_test.log,integration-final.txt,browser-final.json,faculty-layout.json,existing-browser.json,fixture-lifecycle.json}`. The previous run removed its provenance-marked temporary schema. Independent review was previously unavailable due to account usage; no prior author self-review is represented as independent approval.
 
-Current reconciliation evidence will be recorded under ignored `logs/analytics-reconciliation/`, with tracked review and final-report artifacts. No current acceptance claims until actual execution/review.
+Fresh reconciliation results: 85 analytics unit + seven DDL-contract + seven timestamp regressions; 44 SQL checks; 512 existing PHP checks; 29 feature desktop cases (27 real application, two controlled mocked error/race); six Faculty generated/source cases; 20 generated desktop calculator/GWA cases. Canonical-equivalent isolated-copy baseline: three Admin focus cases and ten Student fixture cases passed. All completed acceptance runs: zero failures/skips. PHP lint 21 files, JS syntax three files, whitespace/protected diffs passed. Controlled failure-path runs intentionally exited 1 and proved cleanup after state-write and early-server-exit failure. Actual independent initial review found two HIGH/six MEDIUM; all eight corrections implemented, follow-up pending. See 15_RECONCILIATION_VERIFICATION.md and ignored logs/analytics-reconciliation.
 
 ## Data and publication boundary
 
@@ -73,6 +73,6 @@ Desktop verification only: 1440×900, 1024×768, 1280×600, both supported theme
 
 ## Known limitations and next safe action
 
-No accepted residual set; no dated historical Faculty loads/section membership; no explicit notice-deferral decision; recorded-slot coverage cannot infer absent enrollment opportunities; existing case closure is not canonical MTR-21. Pooled record means and current subject curriculum year do not silently become canonical Student-mean/cumulative-year metrics. MTR-19 currently exposes count rather than canonical rate. MTR-20 median-versus-mean must be explicitly corrected or blocked.
+No accepted residual set; no dated historical Faculty loads/section membership; no explicit notice-deferral decision; recorded-slot coverage cannot infer absent enrollment opportunities; existing case closure is not canonical MTR-21. Pooled record means and current subject curriculum year do not silently become canonical Student-mean/cumulative-year metrics. MTR-19 currently exposes count rather than canonical rate. MTR-20 is corrected to the canonical mean of distinct referral creation-to-valid-notice durations; no parent-case action substitution.
 
-Finish metric reconciliation, obtain actual independent review, correct verified defects, run only authorized desktop/disposable checks, and commit locally if all required gates pass. If review or a metric policy decision remains unavailable, preserve the checkpoint and report the precise blocker. Do not publish.
+Metric reconciliation and verified defect corrections are complete with fresh desktop/disposable checks. Obtain the independent follow-up verdict on IR-01–08, then commit locally and return the owner report if all gates pass. If review or a metric policy decision remains unavailable, preserve the checkpoint and report the precise blocker. Do not publish.

@@ -1,6 +1,10 @@
 # Administrator comparative analytics and shared transport — MVP work package
 
-Status: Implemented and tested locally; unmerged. Independent review remains pending (account usage limit). Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+Status: Implemented and tested locally; unmerged. Continuity integrated at e8d72a6; independent review/corrections in progress. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+
+## Canonical metric mapping
+
+MTR-09–16: limited pooled/recorded-subset indicators, not all canonical equivalents. See ../14_METRIC_RECONCILIATION.md for formulas, eligibility, evidence and non-equivalence; bounded MVP completion does not imply every canonical metric is implemented. Current review: ../16_INDEPENDENT_REVIEW_INITIAL.md. Desktop only (1440×900, 1024×768, 1280×600; both themes), no new screenshots; historical mobile evidence retained.
 
 ## Purpose
 
@@ -32,7 +36,7 @@ grades, subjects, active student_profiles/users, current faculty_class_loads, la
 
 ## Formula definitions
 
-Pooled unit-weighted eligible final-point average, not sum of GWAs. n=distinct matched Students; eligible-grade count=canonical numeric GWA contributors with positive units; numeric coverage=eligible/recorded slots*100. Recorded-outcome coverage and incomplete counts are distinct. Missing enrollments outside grades cannot be inferred.
+Pooled unit-weighted eligible final-point average, not sum or arithmetic mean of Student GWAs. Canonical Student-mean/year-level/outcome-mean equivalents are not claimed. n=distinct matched Students; eligible-grade count=canonical numeric GWA contributors with positive units; numeric coverage=eligible/recorded slots*100. Recorded-outcome coverage and incomplete counts are distinct. Missing enrollments outside grades cannot be inferred.
 
 ## UI components
 
@@ -72,7 +76,7 @@ No rows => table headings plus in-table empty message; unavailable historical as
 
 ## Evidence to preserve
 
-RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, screenshots, request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
+RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, desktop request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
 
 ## Documentation to update
 

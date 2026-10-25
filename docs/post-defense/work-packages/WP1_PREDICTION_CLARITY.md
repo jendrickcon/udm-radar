@@ -1,6 +1,10 @@
 # Prediction clarity — MVP work package
 
-Status: Implemented and tested locally; unmerged. Independent review remains pending (account usage limit). Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+Status: Implemented and tested locally; unmerged. Continuity integrated at e8d72a6; independent review/corrections in progress. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+
+## Canonical metric mapping
+
+MTR-06, MTR-07 (BLOCKED), MTR-08. See ../14_METRIC_RECONCILIATION.md for formulas, eligibility, evidence and non-equivalence; bounded MVP completion does not imply every canonical metric is implemented. Current review: ../16_INDEPENDENT_REVIEW_INITIAL.md. Desktop only (1440×900, 1024×768, 1280×600; both themes), no new screenshots; historical mobile evidence retained.
 
 ## Purpose
 
@@ -72,7 +76,7 @@ No stored estimate => N/A and insufficient data; missing residual evidence => ra
 
 ## Evidence to preserve
 
-RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, screenshots, request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
+RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, desktop request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
 
 ## Documentation to update
 

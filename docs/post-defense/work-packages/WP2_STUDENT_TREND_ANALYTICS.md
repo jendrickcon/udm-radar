@@ -1,6 +1,10 @@
 # Student trend analytics — MVP work package
 
-Status: Implemented and tested locally; unmerged. Independent review remains pending (account usage limit). Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+Status: Implemented and tested locally; unmerged. Continuity integrated at e8d72a6; independent review/corrections in progress. Authorized scope: approved v3 Blue revision guide and the user's MVP package (26 October 2026). Base a79fb4838c5e2bc163cf943cda20afba9946d26b.
+
+## Canonical metric mapping
+
+MTR-01–04; MTR-05 DEFERRED. See ../14_METRIC_RECONCILIATION.md for formulas, eligibility, evidence and non-equivalence; bounded MVP completion does not imply every canonical metric is implemented. Current review: ../16_INDEPENDENT_REVIEW_INITIAL.md. Desktop only (1440×900, 1024×768, 1280×600; both themes), no new screenshots; historical mobile evidence retained.
 
 ## Purpose
 
@@ -16,7 +20,7 @@ Student trend and dashboard use existing historical grades and canonical helpers
 
 ## MVP behavior
 
-Own-record term trend, latest selected term, previous recorded complete term, point/relative change and plain-language direction. Partial numeric GWA remains explicitly provisional; direction/change is unavailable until the compared terms are complete/calculable.
+Own-record term trend, latest selected term, previous recorded complete term, point/relative change and plain-language direction. The incomplete current-term scalar is unavailable/Pending; only the separately labeled recorded-point series may show partial provisional values. Regular terms exclude summer; summer compares only to summer. Direction/change requires complete comparable terms.
 
 ## Deferred final behavior
 
@@ -36,7 +40,7 @@ GWA = computeWeightedGWA(eligible points/units); zero/status exclusions unchange
 
 ## UI components
 
-Previous/current cards, point/percentage change, historical line chart with accessible data table, completeness and estimate component.
+Previous/current cards, primary point change and secondary percentage context, historical line chart with accessible data table, completeness and estimate component.
 
 ## Files likely affected
 
@@ -64,7 +68,7 @@ Own-only rows and cross-role parity for identical authorized grade subsets; reco
 
 ## Browser tests
 
-Trend/table consistency, filter refresh, no-prior-term and incomplete explanations, keyboard and mobile rendering.
+Trend/table consistency, filter refresh, no-prior-term and incomplete explanations, keyboard and desktop rendering.
 
 ## Empty and incomplete states
 
@@ -72,7 +76,7 @@ No prior complete term => comparison unavailable; no usable final points => N/A;
 
 ## Evidence to preserve
 
-RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, screenshots, request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
+RED/GREEN logs, actual pass/fail/skip counts, isolated-database target/provenance and cleanup evidence, desktop request/response role checks and protected-path/source hashes under ignored logs/post-defense-mvp/.
 
 ## Documentation to update
 

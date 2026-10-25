@@ -23,6 +23,7 @@ test('Student sees canonical change, distinct prediction meaning and unavailable
  await expect(page.locator('[data-metric="previous-gwa"]')).toHaveText('3.00');
  await expect(page.locator('[data-metric="point-change"]')).toHaveText('+0.63');
  await expect(page.locator('[data-metric="relative-change"]')).toHaveText('+21.00%');
+ await expect(page.locator('.analytics-metrics [data-metric="relative-change"]')).toHaveCount(0);
  await expect(page.locator('[data-metric="estimate"]')).toHaveText('3.25');
  await expect(page.locator('[data-metric="lower"]')).toHaveText('Unavailable');
  await expect(page.locator('[data-metric="upper"]')).toHaveText('Unavailable');
@@ -53,7 +54,9 @@ test('Administrator intervention counts and drill-down use actual existing recor
  await login(page,'admin');
  await expect(page.locator('[data-support="eligible_cases"]')).toHaveText('4');
  await expect(page.locator('[data-support="notices_deferred"]')).toHaveText('Unavailable');
- await expect(page.locator('[data-support="median_first_action_hours"]')).toHaveText('2.00 hours (n=3)');
+ await expect(page.locator('[data-support="mean_first_action_hours"]')).toHaveText('2.50 hours (n=2)');
+ await expect(page.getByText('Mean referral time to first evidenced notice (MTR-20)',{exact:true})).toBeVisible();
+ await expect(page.getByText('Median recorded parent-case closed duration (limited indicator)',{exact:true})).toBeVisible();
  await page.getByLabel('Case status').selectOption('closed');await page.getByRole('button',{name:'Apply filters'}).click();
  await expect(page.locator('[data-support="eligible_cases"]')).toHaveText('1');
  const link=page.locator('#drilldown-table').getByRole('link',{name:'Case 2'});await expect(link).toBeVisible();
