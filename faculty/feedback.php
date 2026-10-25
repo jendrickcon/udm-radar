@@ -236,6 +236,12 @@ $stmtInbox->execute([$user['id']]);
 $inbox = $stmtInbox->fetchAll(PDO::FETCH_ASSOC);
 
 // FIXED: Now queries child referrals, displaying subject context first
+$analyticsReferral = $_GET['analytics_referral'] ?? null;
+if ($analyticsReferral !== null && (filter_var($analyticsReferral, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]) === false)) {
+    http_response_code(422);
+    exit('Invalid referral filter.');
+}
+$analyticsReferralFilter = $analyticsReferral !== null ? 'AND r.id = ?' : '';
 $stmtCases = $db->prepare("
     SELECT r.*, c.trigger_risk_level AS program_risk, c.school_year, c.semester,
            u.first_name, u.last_name, u.user_id AS student_no,
@@ -245,11 +251,12 @@ $stmtCases = $db->prepare("
     JOIN users u ON c.student_id = u.id
     JOIN subjects s ON r.subject_id = s.id
     WHERE r.faculty_id = ?
+    $analyticsReferralFilter
     ORDER BY 
         CASE WHEN r.status = 'needs_review' THEN 0 WHEN r.status = 'action_taken' THEN 1 ELSE 2 END,
         r.created_at DESC
 ");
-$stmtCases->execute([$user['id']]);
+$stmtCases->execute($analyticsReferral !== null ? [$user['id'], (int)$analyticsReferral] : [$user['id']]);
 $support_cases = $stmtCases->fetchAll(PDO::FETCH_ASSOC);
 // $c['section'] used at display time below comes from r.* (support_case_referrals.section
 // is already an own column, selected via the r.* wildcard above — a snapshot of the

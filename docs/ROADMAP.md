@@ -5,6 +5,14 @@
 
 ---
 
+## Post-defense analytics MVPs — feature branch, not merged (2026-10-26)
+
+Approved v3 Blue revisions are implemented as five bounded MVPs on `feat/post-defense-analytics-mvp`, accepted base `a79fb4838c5e2bc163cf943cda20afba9946d26b`: prediction meaning/range availability, Student GWA changes, Administrator comparisons, support summaries/drill-down and focused assigned Faculty review. Shared SELECT-only calculations preserve academic rules and record scope. Numerical ranges, historical teaching attribution and explicit notice deferrals remain unavailable where evidence is absent; no final redesign or production acceptance is claimed.
+
+Current verification: 80 new unit, 44 disposable SQL integration, 512 existing academic/prediction PHP checks; 29 feature desktop, six Faculty desktop/structural and 49 existing generated-HTML browser cases passed. Independent review is unavailable at the account usage limit and remains a pre-integration gate; author self-review and local delivery are recorded in the durable status. Latest owner instruction: **skip further mobile testing and screenshotting; focus on desktops**. See [durable status](post-defense/10_IMPLEMENTATION_STATUS.md), [methods](post-defense/12_ANALYTICS_METHODS.md) and [five work packages](post-defense/work-packages/WP1_PREDICTION_CLARITY.md) for exact scope, evidence and continuation. No canonical main, current/scratch database, Apache, protected model/dump, starter seed, manuscript or recovery/handoff change.
+
+---
+
 ## PEF/CC planning export — owner-accepted continuation, final gate pending
 
 PR #51 (initial WP1) is merged. The PDF/state/UI continuation is **PR #54**, on `feat/student-pef-cc-planning-export`; published commit `0a52b3c` remains intact. It is not merged. The owner manually accepted Normal, Provisional and safely representable Review-required copies on **20 October 2026**. This is not formal UAT or institutional/production approval.
