@@ -1,59 +1,78 @@
-# Post-defense analytics MVP implementation status
+# Post-Defense Implementation Status Ledger — UDM-RADAR
 
-Durable continuation point. Base: a79fb4838c5e2bc163cf943cda20afba9946d26b. Branch: feat/post-defense-analytics-mvp. Canonical main, Apache, both existing databases, protected models/dump, existing recovery/member handoff and manuscript remain outside this change.
+**Document version:** 1.1 reconciliation candidate, 26 October 2026
+**Accepted implementation base:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
+**Integrated continuity baseline:** `e8d72a6d487444dcc6b5d11b1e0824376d7e8015` (PR #61, MERGED)
+**Active implementation owner / single writer:** Sol
+**Knowledge and continuity maintainer:** Antigravity
+**Feature branch:** `feat/post-defense-analytics-mvp`
+**Original checkpoint:** `554312cbef2efab9c0b574cef18f518be2b3b6d6`
+**Safety reference:** `backup/post-defense-analytics-mvp-pre-continuity` at the original checkpoint.
 
-Approved guide: UDM-RADAR_Post-Defense_System_Revisions_v3_Blue.docx; SHA-256 edced7b3df97f0e9464870f4182535a4aee065ab162336ce8dee32db01b750d6. The user's detailed MVP request supplies the execution scope; no additional redesign approval is inferred.
+## Ledger purpose and governance
 
-## Latest owner instruction (26 October 2026)
+This is the single implementation-status ledger for the seven roadmap phases (Phase 0 through Phase 6) and MTR-01 through MTR-21. Sol owns updates while the implementation branch is active. Other agents/members propose transitions through review/handoff records unless ownership is explicitly transferred or the implementation is merged. Preserve Antigravity's continuity context and the implementation's actual evidence together; neither prior add/add side supersedes the other wholesale.
+
+The canonical vocabulary is NOT STARTED → IN PROGRESS → MVP COMPLETE → VERIFIED → MERGED; BLOCKED and DEFERRED describe unavailable dependencies or consciously excluded work. Local implementation, tests, independent review and publication are separate columns. A local passing test does not imply VERIFIED, a complete canonical metric, a merge, institutional acceptance or deployment.
+
+## Phase status
+
+| Phase | Scope / metric IDs | Status | Local evidence | Independent review | Publication |
+|---|---|---|---|---|---|
+| 0 | Continuity knowledge package, 18 files | MERGED | PR #61 at e8d72a6 | Canonical history | MERGED |
+| 1 | Prediction clarity, MTR-06–08 | MVP COMPLETE | UI/source/risk contract tested; MTR-07 BLOCKED | PENDING | UNMERGED |
+| 2 | Student progression, MTR-01–05 | MVP COMPLETE | Recorded-term representative tested; canonical differences in matrix | PENDING | UNMERGED |
+| 3 | Administrator aggregates/coverage, MTR-09–16 | MVP COMPLETE | Scoped weighted recorded-grade comparisons tested; limited canonical equivalence | PENDING | UNMERGED |
+| 4 | Support counts/durations, MTR-17–21 | IN PROGRESS | Count/drill-down MVP tested; MTR-20 reconciliation pending, MTR-21 PLANNED / BLOCKED | PENDING | UNMERGED |
+| 5 | Focused assigned Faculty view, MTR-12–14,17–20 | MVP COMPLETE | Current assigned scope and own referral tests | PENDING | UNMERGED |
+| 6 | Final chart/manuscript assets | DEFERRED | No final refinement/publication package | NOT RUN | UNMERGED |
+
+MVP COMPLETE refers only to the bounded five-package request, not fulfillment of every later canonical FR or MTR. No analytics phase is MERGED or VERIFIED. Actual metric-level status and differences are in [14_METRIC_RECONCILIATION.md](14_METRIC_RECONCILIATION.md).
+
+## Metric inventory and authority
+
+MTR-01 Current Term GWA; 02 Previous Comparable GWA; 03 Point Change; 04 Relative Percentage Change; 05 Logarithmic Change; 06 Estimated GWA; 07 Empirical Prediction Range; 08 Advisory Risk; 09 Average GWA by Semester; 10 Average GWA by School Year; 11 Average GWA by Year Level; 12 Subject Average Grade; 13 Section Average Grade; 14 Faculty-Subject Class Average; 15 Grade Coverage; 16 Prediction Coverage; 17 Referral Volume; 18 Notice Volume; 19 Receipt Acknowledgment Rate; 20 Mean Time to First Action; 21 Mean Time to Intervention Closure.
+
+The configured prototype higher-is-better point scale and advisory rules in `config/constants.php` are the implementation authority. Institutional equivalence is not newly certified. Preserve canonical weighted-GWA exclusions (including existing zero exclusion), independent subject outcomes and honors. Risk does not determine standing, pacing, enrollment or benefits.
+
+MTR-07 remains BLOCKED: no accepted active-model held-out residual evidence; null bounds, no arbitrary/unverified MAE or RMSE margin, no confidence-interval claim. MTR-21 remains PLANNED / BLOCKED: the implemented parent-case closed-duration median does not establish referral lifecycle/reopening equivalence. Migration 011 and support-review experiments remain excluded and unapproved; no migration/schema change is authorized.
+
+## Five MVP implementation record
+
+- WP1 prediction interpretation: `includes/analytics/predictions.php`; numeric estimate, rule-derived advisory, source/completeness, unavailable bounds.
+- WP2 Student trends: `calculations.php`, shared report and `student/academic_analytics.php`; recorded-term history and safe changes.
+- WP3 Administrator comparisons: `repository.php`, `service.php`, `api/academic_analytics.php`, `admin/comparative_analytics.php`; six academic filters and pooled unit-weighted recorded-grade groups.
+- WP4 support: `interventions.php`, filtered summaries and existing role-guarded case/referral drill-down in `admin/activity.php` and `faculty/feedback.php`.
+- WP5 Faculty: `faculty/assigned_analytics.php`; only verified current configured-term assigned subject/section grades and own referrals. No historical teaching inference or cross-Faculty ranking.
+- Shared presentation: `includes/analytics/presentation.php`, `assets/js/academic-analytics.js`, `assets/css/academic-analytics.css`; minimal existing dashboard entry links. No duplicate portal formulas.
+
+Full checkpoint path inventory and exact original commands are preserved in ignored `logs/analytics-reconciliation/checkpoint-files.txt`, prior `logs/post-defense-mvp/`, and Git. Five work packages, methods and original handoff are retained; new reconciliation/review records supersede stale continuation instructions without rewriting accepted history.
+
+## Evidence: original checkpoint, not current reconciliation acceptance
+
+80 unit, 44 disposable SQL integration, 512 existing academic/prediction PHP assertions; 29 desktop feature browser, six Faculty desktop/structural and 49 earlier generated-HTML browser checks passed. PHP lint: 19 files; JavaScript syntax and whitespace passed. These are prior-run evidence, not freshly certified reconciliation results.
+
+Evidence: `logs/post-defense-mvp/{post_defense_analytics_test.log,integration-final.txt,browser-final.json,faculty-layout.json,existing-browser.json,fixture-lifecycle.json}`. The previous run removed its provenance-marked temporary schema. Independent review was previously unavailable due to account usage; no prior author self-review is represented as independent approval.
+
+Current reconciliation evidence will be recorded under ignored `logs/analytics-reconciliation/`, with tracked review and final-report artifacts. No current acceptance claims until actual execution/review.
+
+## Data and publication boundary
+
+Only newly generated provenance-guarded disposable analytics databases may be created/removed; neither udm_radar nor udm_radar_scratch is an authorized connection target, even read-only. No existing temporary schema may be reused. Canonical checkout, Apache, protected model/dump, migrations/seeds, authentication policy, private templates, manuscripts, recovery/member archives and dependencies remain outside scope. The owner subsequently authorized read-only database/udm_radar.sql access solely for accepted CREATE TABLE definitions into a newly owned temporary schema. Record exact DDL sections/hash, provenance, synthetic-only imports, byte-identical source and verified cleanup. No existing database connection is permitted.
+
+No push, PR, merge to main or deployment. A normal merge of origin/main into this feature branch is authorized and does not publish the implementation. Integration method: --no-commit --no-ff; the only conflict is this status ledger, reconciled by preserving governance, all phases/metrics and truthful local evidence.
+
+## Owner instruction retained verbatim
 
 > from now on skip all mobile testing and screenshotting and focus on desktops
 > include this message in your report output as well for future references
 > also, 12% remaining usage
 > finish what you can/
 
-Future verification is desktop only, with no new screenshots. The interrupted mixed-viewport rerun was stopped and its owned database removed. Earlier mobile evidence predates this instruction and is not a continuing acceptance requirement. The default runner now excludes the legacy mixed-viewport/screenshot cases and tests 1440×900, 1024×768 and 1280×600 in both themes.
+Desktop verification only: 1440×900, 1024×768, 1280×600, both supported themes. Mobile/screenshot work is excluded by owner scope, not passed or deleted. No new screenshots.
 
-| Package | Not started | In progress | Implemented | Tested | Merged | Deferred |
-| --- | --- | --- | --- | --- | --- | --- |
-| WP1 Prediction clarity | No | No | Yes | Yes, unit/integration/desktop | No | Numerical empirical bounds pending accepted residuals |
-| WP2 Student trend | No | No | Yes | Yes, unit/integration/desktop | No | Full chart redesign |
-| WP3 Admin comparisons/shared transport | No | No | Yes | Yes, SQL/API/desktop filters | No | Historical section/Faculty attribution without evidence |
-| WP4 Intervention analytics | No | No | Yes | Yes, counts/time/scoped drill-down | No | Explicit notice-deferral metric without recorded decisions |
-| WP5 Faculty focused view | No | No | Yes | Yes, scope/entry links/desktop layout | No | Historical class comparisons without dated assignments |
+## Known limitations and next safe action
 
-## Ownership and interfaces
+No accepted residual set; no dated historical Faculty loads/section membership; no explicit notice-deferral decision; recorded-slot coverage cannot infer absent enrollment opportunities; existing case closure is not canonical MTR-21. Pooled record means and current subject curriculum year do not silently become canonical Student-mean/cumulative-year metrics. MTR-19 currently exposes count rather than canonical rate. MTR-20 median-versus-mean must be explicitly corrected or blocked.
 
-WP1 owns prediction presentation contract; WP2 owns shared numerical aggregation/change; WP3 owns SELECT-only repository, scoped API, filters and common UI integration; WP4 owns support count/time semantics; WP5 consumes these contracts for current assigned Faculty scope. No portal duplicates the calculations. Shared-file integration is owned by WP3 rather than conflicting package implementations.
-
-## Implementation record
-
-- Worktree: `C:\Users\Alexa Mhae Tala\.codex\worktrees\post-defense-analytics-mvp\capstone`, native registered and attached. Branch `feat/post-defense-analytics-mvp`, base `a79fb4838c5e2bc163cf943cda20afba9946d26b`.
-- Commit: local passing-work checkpoint under the stop rule; use `git log -1` for its exact hash (also in the final response). PR: none; no push/PR/merge authorization inferred. Merge and canonical deployment remain separate actions.
-- Files changed: `includes/analytics/{calculations,predictions,interventions,repository,service,presentation}.php`; `api/academic_analytics.php`; `student/academic_analytics.php`; `admin/comparative_analytics.php`; `faculty/assigned_analytics.php`; `assets/{css/academic-analytics.css,js/academic-analytics.js}`; minimal links in `student/dashboard.php`, `admin/analytics.php`, `faculty/dashboard.php`; validated read-only selected-record filters in `admin/activity.php`, `faculty/feedback.php`; five work packages, plan/status/methods and canonical tracking docs; new unit/integration/browser tests plus fixture/router/runner.
-- Tests: new PHP unit **80 passed**, actual SQL integration **44 passed**; existing academic/prediction PHP **512 passed** (271 final-grade, 108 GWA, 101 outcome, 32 prediction-explanation). Latest feature desktop browser **29 passed**, Faculty desktop/structural layout **6 passed**, existing generated-HTML calculator/GWA browser **49 passed**. All listed runs: zero failures/skips. PHP lint: 19 changed/new PHP files passed; JavaScript syntax and tracked whitespace checks passed. Independent review was attempted but unavailable because the reviewer hit the account usage limit. An author self-review covered the combined product diff and access/formula boundaries; one support-only dropdown gap was fixed with five RED-to-GREEN checks. Independent review remains a pre-integration gate.
-- Evidence: ignored `logs/post-defense-mvp/`: `post_defense_analytics_test.log`, `integration-final.txt`, `browser-final.json`, `faculty-layout-desktop.json`, `existing-browser.json`, academic `.log` files, `php-lint.log`, `fixture-lifecycle.json`. The last owned database was removed successfully. Earlier mixed-viewport evidence is historical; no further mobile/screenshot work is authorized.
-- Known limitations: no accepted residual set; undated Faculty loads/current profile membership; no explicit notice-deferral decision; coverage cannot infer entirely absent enrollments.
-- Next safe action: obtain the unavailable independent review before integration; preserve the locally tested branch. Members should read this status plus `12_ANALYTICS_METHODS.md`, reproduce only the owned disposable desktop runner, and review the code before proposing integration. Do not point tests at current databases or manually copy feature files onto main.
-
-## Decisions and continuation ledger
-
-- Ruling: the attached v3 guide is explicitly approved; its four revisions plus the detailed MVP package are the design authority. Existing PHP/canonical helpers and small role views are routine implementation choices, not a new redesign.
-- Ruling: Faculty loads/current sections cannot prove historical assignment. Historical attribution and Faculty prior-class change remain unavailable; cost is reduced comparison coverage until dated records are approved.
-- Ruling: absent notice-deferral decisions return unavailable; cost is one unavailable metric rather than invented Faculty actions.
-- Ruling: tests may mutate only a newly created, provenance-checked temporary analytics database. Both udm_radar and udm_radar_scratch are forbidden targets under this request.
-- Task 1: complete, pure contracts RED to GREEN (75 checks). Task 2: complete, scoped SQL/report contracts RED to GREEN (44 checks); temporary schemas removed using matching provenance marker.
-- Task 3: complete: initial missing-view/filter-label RED corrected, real handlers and controlled error/race tests GREEN. Task 4: complete: selected-case and navigation RED corrected; current desktop29 and required layout6 GREEN. Task 5: author self-review complete; independent review unavailable (reviewer account usage limit). Support-only filter regression fixed RED to GREEN; final desktop rerun passed (29 feature + six Faculty cases). Local passing-work checkpoint is recorded in Git; publication and independent review remain pending.
-- Ruling: the checked-in implementation status and plan serve as the Windows execution ledger; ignored logs/post-defense-mvp holds evidence. No Unix helper scripts or per-task commits are needed to preserve execution state. Cost: review uses the combined worktree against the accepted base rather than task commit ranges.
-- Ruling: the latest low-usage instruction invokes the package's stop rule to commit passing work after final review; no push, PR, merge or deployment follows automatically. Cost: members receive a local review branch rather than a published PR.
-
-## Exact deferred work
-
-1. Numerical empirical prediction bounds: `includes/analytics/predictions.php`; accepted held-out residual evidence is absent. UI and null-bound contract are implemented.
-2. Historical section/Faculty and prior-class change: `includes/analytics/repository.php` and `service.php`; current loads/profile sections are undated. Requires separately approved dated data contract, not invented attribution.
-3. Explicit deferred-notice count: `includes/analytics/interventions.php`; current records have no such decision field. Migration 011 remains excluded.
-4. Final visual refinements, export/report expansion and institutional/genuine-record UAT: outside this MVP. No additional mobile tests or screenshots, per latest owner instruction.
-5. Push, draft PR, merge and deployment: not performed. This feature does not change the existing recovery/member handoff packages or canonical checkout.
-
-## Newer main and final handoff
-
-Canonical main advanced externally to e8d72a6d487444dcc6b5d11b1e0824376d7e8015 (continuity package PR #61) and was observed clean. This task did not update it. This feature remains based on the authorized a79 baseline; both branches add this status path. Preserve both records when reconciling that add/add conflict, and review differing proposed metric definitions before integration. See 13_MVP_REVIEW_HANDOFF.md for exact pending gates, evidence and the retained owner instruction. No automatic rebase/merge was performed.
+Finish metric reconciliation, obtain actual independent review, correct verified defects, run only authorized desktop/disposable checks, and commit locally if all required gates pass. If review or a metric policy decision remains unavailable, preserve the checkpoint and report the precise blocker. Do not publish.
