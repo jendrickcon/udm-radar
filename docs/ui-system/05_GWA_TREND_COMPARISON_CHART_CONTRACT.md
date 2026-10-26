@@ -1,5 +1,5 @@
 # Student GWA trend and future comparison contract
-Documentation: READY FOR OWNER REVIEW. Student implementation: NOT STARTED. Numeric cohort: BLOCKED.
+Documentation: READY FOR OWNER REVIEW. Future Student refinement: NOT STARTED. Existing own-record Academic review is merged in PR64. Numeric cohort: BLOCKED.
 Current reference contract: own-recorded-gwa-reference-v1.
 Active series: **Your recorded GWA**.
 Comparison status: **BLOCKED**.
@@ -21,8 +21,8 @@ Axis0–4 ascending per configured higher-is-better prototype scale. Do not reve
 Canonical own GWA remains unit-weighted via existing helpers, zero/text exclusions intact; incomplete Current Term GWA unavailable. A future explicitly provisional partial recorded-point line would require a different label/contract; this own recorded complete-series contract rejects a numeric incomplete value.
 Tooltip/table precision is2decimal points, plus state. Cohort column contains unavailable text only. Accessible table is the equivalent source if plotting or host library is unavailable.
 
-## Enablement gate: Member 2 verifies, owner approves
-The owner approved interface preparation only. Cohort is BLOCKED, not DEFERRED. Member 2 owns both the Student unavailable interface and the calculation/privacy proposal, and must complete self-verification; numeric release still requires final owner approval. Neither member may invent an average or privacy threshold.
+## Enablement gate: Joshua verifies, owner approves
+The owner approved interface preparation only. Cohort is BLOCKED, not DEFERRED. Joshua owns both the Student unavailable interface and the calculation/privacy proposal, and must complete self-verification; numeric release still requires final owner approval. Neither member may invent an average or privacy threshold.
 
 | Gate | Required decision and evidence | Status |
 | --- | --- | --- |
@@ -37,10 +37,10 @@ The owner approved interface preparation only. Cohort is BLOCKED, not DEFERRED. 
 | 9 | Role visibility and server authorization; Student own record plus separately authorized privacy-safe aggregate only | BLOCKED |
 | 10 | Identifier-free synthetic expected results, exclusions, duplicates, sparse groups and authorization negatives | BLOCKED; tests PLANNED, no data contract accepted |
 | 11 | Privacy/fairness review: composition bias, re-identification, small groups, non-ranking copy | BLOCKED |
-| Final | Owner approval of Member 2's verified contract and exact implementation scope | BLOCKED |
+| Final | Owner approval of Joshua's verified contract and exact implementation scope | BLOCKED |
 
-No number is proposed for group-size threshold. Do not infer a threshold from another project's practice. Use no Faculty assignment default for Student cohorts. No single other Student's GWA/identity, raw rows or suppressed group counts may leak. Member 2 must consider whether release of counts/filters enables differencing before a future server endpoint is authorized.
-No backend/DB changes or contract enablement are authorized now. Member 2 retains Student chart presentation and Student calculation/privacy responsibility after approval; shared global assets still need one assigned custodian.
+No number is proposed for group-size threshold. Do not infer a threshold from another project's practice. Use no Faculty assignment default for Student cohorts. No single other Student's GWA/identity, raw rows or suppressed group counts may leak. Joshua must consider whether release of counts/filters enables differencing before a future server endpoint is authorized.
+No backend/DB changes or contract enablement are authorized now. Joshua retains Student chart presentation and Student calculation/privacy responsibility after approval; shared global assets still need one assigned custodian.
 
 ## Reference acceptance cases
 Node reference tests: own complete values preserve precision, null/incomplete accepted without numeric invention, all-missing empty text, disabled cohort legend exact, any numeric cohort/enable flag rejected, bad order/duplicates/scale rejected, null gaps remain gaps, all table cells match validated values, no fetch/import/DB.
@@ -48,6 +48,12 @@ Future production cases: own authorization, approved aggregate and suppression (
 
 ## Student growth and self-verification
 
-Member 2 verifies current and previous comparable recorded-term GWA using accepted helpers, point change (current minus previous), supporting relative change only under approved nonzero-baseline comparability, grade/prediction coverage and missing/incomplete/summer rules. Exact start/end periods and population are visible. Incompatible inputs display “Change unavailable” with reason; plotted adjacency never establishes comparability.
+Joshua verifies current and previous comparable recorded-term GWA using accepted helpers, point change (current minus previous), supporting relative change only under approved nonzero-baseline comparability, grade/prediction coverage and missing/incomplete/summer rules. Exact start/end periods and population are visible. Incompatible inputs display “Change unavailable” with reason; plotted adjacency never establishes comparability.
 
-Display real school-year and semester labels; missing terms remain gaps. The exact accessible table follows the visualization; legend, tooltips and table share values, precision and states. Test Student own-record authorization and another-Student denial, Goal Calculator, Grades/history, Enrollment Planning, themes, keyboard and desktop containment. Cross-review supplements Member 2's mandatory self-verification.
+Display real school-year and semester labels; missing terms remain gaps. The exact accessible table follows the visualization; legend, tooltips and table share values, precision and states. Test Student own-record authorization and another-Student denial, Goal Calculator, Grades/history, Enrollment Planning, themes, keyboard and desktop containment. Cross-review supplements Joshua's mandatory self-verification.
+
+## Final merged Student baseline
+
+At PR64's bdb4a267f30aa31ea36983304a03b01dc28f0fcd, student/academic_analytics.php already delegates to the shared Academic review with current/previous comparable GWA, point/supporting relative change, prediction meaning/source/completeness, own-history SVG and exact term/coverage table. Joshua's package is post-MVP improvement and self-verification, not reimplementation.
+
+The live historical table can disclose provisional partial recorded-point means while term GWA/change remains unavailable under the accepted contract. This inert reference is stricter: numeric incomplete values are rejected. Its complete-only “Your recorded GWA” and disabled-cohort legend are future presentation contracts, not claims that the merged UI already uses those exact labels or exposes a cohort toggle. Preserve this distinction when adapting; no source, formula or privacy release changes occur now. Migration011 remains BLOCKED.

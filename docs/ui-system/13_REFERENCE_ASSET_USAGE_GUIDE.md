@@ -12,8 +12,8 @@ Start at [reference README](reference/README.md). All six recommended reference 
 | reference/reference-contract.test.mjs | Node-only identifier-free reference contract checks; not a production/browser acceptance suite |
 
 ## Adaptation checklist
-1. Obtain approved UI implementation package/base and read the final accepted Antigravity integration, not an old checkpoint.
-2. Vincent adapts Admin/Faculty UI and self-verifies; Member 2 adapts Student UI, verifies Student calculations/privacy and self-verifies. Global styles/tokens/JS need one assigned integration custodian, sequential edits and cross-portal regressions.
+1. Obtain approved post-MVP refinement package/base and read merged PR64 at bdb4a267f30aa31ea36983304a03b01dc28f0fcd, not an old checkpoint. Existing SVG analytics are accepted baseline, not code to replace with this Chart.js example.
+2. Vincent adapts Admin/Faculty UI and self-verifies; Joshua adapts Student UI, verifies Student calculations/privacy and self-verifies. Global styles/tokens/JS need one assigned integration custodian, sequential edits and cross-portal regressions.
 3. Map data attributes and scoped classes deliberately; preserve current navigation/accessibility-preferences system.
 4. Supply recorded own data from an existing authorized service; no fetch/backend/DB is implemented by the reference.
 5. Keep comparison status BLOCKED and pass no comparison numeric values. Data/privacy/threshold approval is a separate contract and future implementation.
@@ -27,3 +27,9 @@ No production header/sidebar/script/style references to docs/ui-system/reference
 Local reference CSS/JS syntax and Node contract checks are authorized preparation validation. Production browser implementation tests are NOT RUN because no production implementation is authorized.
 
 The GWA reference selects a scalar bar for a single valid recorded value and a line only for at least two valid chronological points; empty data constructs no chart. Tables remain below the visual. Optional future two/three-group controls, wide chart/details layout and support cards are documented contracts, not implemented reference or production features.
+
+## Reference boundary against final main
+
+Canonical merged PR64 is bdb4a267f30aa31ea36983304a03b01dc28f0fcd. Production uses shared SVG analytics; these Chart.js/reference files are not loaded. Student own history and change already exist. Reference 0–4 axis/complete-only model versus live 1–4 historical baselines/provisional recorded-point disclosure must be reconciled only within an approved future adaptation, not by substituting one for the other now.
+
+Future work is post-MVP refinement; desktop collapsible sidebar is still absent, numeric cohort stays BLOCKED. Joshua owns Student reference adaptation and verification; Vincent Admin/Faculty; global integration custody is explicit. Migration011 remains BLOCKED. The current reconciliation has local commit permission only.

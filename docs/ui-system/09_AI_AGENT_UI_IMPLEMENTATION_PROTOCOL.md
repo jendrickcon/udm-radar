@@ -26,7 +26,7 @@ Confirm correct branch and shared ownership before editing. Unknown dirty work, 
 
 ## Portal ownership and self-verification
 Vincent owns Administrator and Faculty revisions on `feat/member1-admin-faculty-ui`, package `ADMIN-AND-FACULTY-PORTAL-UI-ANALYTICS-AND-SELF-VERIFICATION`.
-Member 2 owns Student revisions on `feat/member2-student-portal`, package `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION`.
+Joshua owns Student revisions on `feat/member2-student-portal`, package `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION`.
 Both implement, test, verify, fix and document their own portals before handoff. Cross-review supplements self-verification. Neither member is the universal UI owner, universal backend owner or sole tester.
 Shared cross-portal CSS/JS, header/sidebar, analytics contracts, fixtures and status files require one owner-assigned integration custodian per exact file, sequential edits and cross-portal regressions. A review finding does not transfer ownership.
 
@@ -34,18 +34,18 @@ Shared cross-portal CSS/JS, header/sidebar, analytics contracts, fixtures and st
 One local clone and assigned long-lived branch per human member. Optional AI task branches start from that member's own assigned branch in the same clone; compatible task-suffixed names avoid Git ref file/directory conflicts. Extra worktrees require explicit owner-authorized exceptions.
 Save approved local work, inspect status, fetch, update clean main fast-forward, return assigned branch, integrate latest approved main by the package-approved method, resolve conflicts and record the starting SHA before editing.
 After self-verification, an approved local immutable candidate and complete handoff precede owner retest. Push only after separate owner authorization, then one reviewed PR against verified current main with auto-merge off; merge and deployment require their own authorization. Both members update main after approved merges. No broad staging, destructive recovery, branch deletion or cleanup by default.
-The existing local readiness commit `ee4ddf4b5e001328a1beeeea3471d58dd87c1614` records the earlier package. These portal/roadmap amendments are a new uncommitted revision awaiting owner review and explicit local-commit authorization.
+Preserved readiness `648207bc563f2bb1aa280d08ab9699f07a4f39c7` is owner-accepted. This final reconciliation is authorized for a local documentation commit only; no push or PR.
 
 ## Protected boundaries
 No production edits, database access, migrations/Migration 011, genuine records, model/dependency/authentication changes, mobile tests or screenshots are authorized by readiness preparation.
 MTR-07 and canonical MTR-21 remain BLOCKED. MTR-19 remains a bounded receipt count; limited parent-case duration is not MTR-21. Historical Faculty attribution remains BLOCKED without dated evidence; no Faculty ranking/teaching-quality inference.
-Student cohort average remains BLOCKED until Member 2's eleven technical/privacy items and owner approval; no fabricated comparison, privacy threshold, pooled Admin-mean substitution or enabling flag.
+Student cohort average remains BLOCKED until Joshua's eleven technical/privacy items and owner approval; no fabricated comparison, privacy threshold, pooled Admin-mean substitution or enabling flag.
 Freeze PR #63 files: `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, `docs/post-defense/10_IMPLEMENTATION_STATUS.md`. Reconcile later using the separate plan; no silent overwrite.
 
 
 ## Execute approved portal work
 
-Vincent implements Administrator/Faculty visual analytics, dashboard summaries, support visuals, sidebar, filters, themes and accessibility, and tests calculations as displayed plus authorization. Member 2 implements Student UI and verifies own-record GWA/change/coverage/missing/summer behavior, prediction clarity and privacy. Reuse approved helpers/services; no duplicate calculation engines.
+Vincent implements Administrator/Faculty visual analytics, dashboard summaries, support visuals, sidebar, filters, themes and accessibility, and tests calculations as displayed plus authorization. Joshua implements Student UI and verifies own-record GWA/change/coverage/missing/summer behavior, prediction clarity and privacy. Reuse approved helpers/services; no duplicate calculation engines.
 
 Agree metric unit, scope, denominator, exclusions, periods and availability before a new display. Point change needs comparable start/end periods; relative change is supporting context only with an approved nonzero baseline. Incompatible evidence shows “Change unavailable” and a reason. One-period values use scalar bars/dots; lines require at least two valid ordered historical values. Preserve exact tables below charts.
 
@@ -57,7 +57,7 @@ Use “Prototype performance on synthetic academic records”. Preserve higher-i
 
 MTR-20 remains the arithmetic mean of eligible distinct-referral durations from creation to first valid notice; display “Average time before the first notice” with actual n and human-readable duration. Exclude unacted, invalid/reversed timestamps; avoid duplicate joins. Do not change its formula. MTR-19 is a bounded receipt count. Parent closed-case median is limited parent duration, not canonical MTR-21.
 
-MTR-07 requires verified active-model residual evidence. Historical Faculty attribution needs dated evidence; no rankings/teaching-quality claims. Cohort is BLOCKED: Member 2 owns its Student unavailable UI and eleven-item proposal in the [chart contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md), then owner approval. Never invent numbers/privacy thresholds or substitute pooled administrative means.
+MTR-07 requires verified active-model residual evidence. Historical Faculty attribution needs dated evidence; no rankings/teaching-quality claims. Cohort is BLOCKED: Joshua owns its Student unavailable UI and eleven-item proposal in the [chart contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md), then owner approval. Never invent numbers/privacy thresholds or substitute pooled administrative means.
 
 ## Verification and handoff
 
@@ -67,7 +67,7 @@ For future faculty/dashboard.php or shared dashboard CSS edits, run `tests/brows
 
 Use the [Definition of Done](10_UI_TEST_AND_ACCEPTANCE_MATRIX.md). Self-verification precedes cross-review; disclose authorship and never call self-review independent acceptance. Fix only verified in-scope defects, with no design expansion. Original implementer fixes portal defects; shared-contract exceptions require an assigned owner or explicit transfer.
 
-A final handoff follows completed scope or an explicitly requested blocked handoff. Include exact SHA/status/files, actual categorized results, cleanup/integrity, limitations, owner retest and separate publication gates. Do not commit these new readiness amendments without owner approval.
+A final handoff follows completed scope or an explicitly requested blocked handoff. Include exact SHA/status/files, actual categorized results, cleanup/integrity, limitations, owner retest and separate publication gates. The current final reconciliation has local commit approval; future implementation candidates require their own commit authorization.
 
 ## Desktop-only instruction
 
@@ -77,3 +77,9 @@ A final handoff follows completed scope or an explicitly requested blocked hando
 > finish what you can/
 
 The usage line is historical, not a current measurement. No mobile tests or screenshots are authorized. Future desktop acceptance covers 1440×900, 1280×600 and 1024×768, light and dark.
+
+## Current merged intake for future agents
+
+Use PR64/main bdb4a267f30aa31ea36983304a03b01dc28f0fcd or a later reviewed owner-approved main containing accepted documentation. Do not wait for the superseded moving Antigravity checkpoint or treat completed MVP components as unfinished work. Vincent owns Admin/Faculty; Joshua owns Student. Require an explicit post-MVP refinement or verified defect, with exact files and shared custody.
+
+Read the merged database/README.md: schema-only database/udm_radar.sql is separate from database/seeds/001_synthetic_demo.sql. No automatic import, schema reset or migration replay. Migration011, MTR07 range, canonical MTR21, historical Faculty attribution and Student cohort remain BLOCKED. The current final documentation reconciliation has local commit authority only, with no push/PR/remote merge/closure.

@@ -1,13 +1,13 @@
 # Risks and stop conditions
 
 Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED.
-Vincent owns Administrator/Faculty implementation and self-verification; Member 2 owns Student implementation, calculations/privacy and self-verification. No universal UI/backend owner or tester-only role.
+Vincent owns Administrator/Faculty implementation and self-verification; Joshua owns Student implementation, calculations/privacy and self-verification. No universal UI/backend owner or tester-only role.
 
 | Risk | Prevention / evidence | Stop affected work when |
 | --- | --- | --- |
-| Old ownership split persists | Portal map, own tests/fixes, cross-review supplemental | Student assigned to Vincent or all technical testing delegated to Member 2 |
+| Old ownership split persists | Portal map, own tests/fixes, cross-review supplemental | Student assigned to Vincent or all technical testing delegated to Joshua |
 | Shared-file collision | One owner-assigned custodian per literal file, sequential candidates | Simultaneous editor, unknown dirty changes or missing custody |
-| Antigravity overlap | Wait immutable accepted handoff and actual main; no moving-source certification | Need to edit its active checkout or repeat accepted scope without finding/approval |
+| Antigravity overlap | Use immutable merged PR64/current approved main; no need to wait for a superseded implementation handoff | Need to edit its active checkout or repeat accepted scope without finding/approval |
 | PR #63 silent overwrite | Freeze three paths, use separate reconciliation plan after merge/close | Proposed update overlaps unresolved PR63 status/history |
 | Main/base drift | Recheck refs/PR/files and approve current base | Unexplained overlapping commit or unapproved base |
 | Sidebar/drawer collision | Separate desktop preference and existing drawer; no mobile tests | Fix needs unauthorized smaller-device behavior |
@@ -18,7 +18,7 @@ Vincent owns Administrator/Faculty implementation and self-verification; Member 
 | False line/trend | Scalar for one period; chronological ≥2-valid-point line, real labels, gaps | Ordinal-only history, interpolation or invented point |
 | Invalid comparison/growth | Approved unit/population/period/denominator, exact tables/n/coverage | Incompatible delta, zero baseline relative change, hidden missingness |
 | Wrong average | Preserve canonical own Student GWA versus pooled recorded-grade mean | Relabeling or unsupported weighting/eligibility |
-| Cohort privacy | BLOCKED until eleven Member 2 gates and owner approval | Any fabricated average/threshold/enable flag or peer detail |
+| Cohort privacy | BLOCKED until eleven Joshua gates and owner approval | Any fabricated average/threshold/enable flag or peer detail |
 | Support overclaim | MTR19 bounded count, MTR20 mean with n, parent median distinct | Count treated as effectiveness/rate or parent duration as MTR21 |
 | Unsupported evidence | MTR07 range and historical Faculty attribution BLOCKED | Invented residual bounds, current-assignment historical inference/ranking |
 | Academic meaning drift | Separate pass/fail, risk, standing, pacing, benefits; supportive copy | Punitive/official conclusion or formula change outside scope |
@@ -34,4 +34,10 @@ Only docs/ui-system documentation/reference changes. No access to either databas
 
 Future branch names: `feat/member1-admin-faculty-ui` and `feat/member2-student-portal`. They are not created here. Same-clone task suffixes avoid Git parent/child ref conflicts. Both members self-verify before handoff. Cross-review reports defects; original implementer fixes unless explicitly reassigned.
 
-Cohort unavailable-interface preparation is permitted despite the numeric BLOCKED contract; this does not authorize data access or release. Current amendments await local documentation commit approval; no push/PR/merge/deploy or cleanup. Preserve work on stopping, report exact blocker and safe continuation, and do not manufacture completion.
+Cohort unavailable-interface preparation is permitted despite the numeric BLOCKED contract; this does not authorize data access or release. Current reconciliation has local documentation commit authorization only; no push/PR/merge/deploy or cleanup. Preserve work on stopping, report exact blocker and safe continuation, and do not manufacture completion.
+
+## Reconciled stop conditions
+
+Stop a proposed member task that reimplements accepted PR64 behavior without a finding or approved refinement. Stop onboarding that would execute bootstrap DROP TABLE statements against an existing populated target, replay migrations000–010, enable Migration011 or import seed implicitly. Current reconciliation performs source inspection only.
+
+PR63's three-file status proposal remains pending; update/merge it first is the recommendation. No owner decision is inferred from mergeability, and no remote action follows. Canonical bdb4a267f30aa31ea36983304a03b01dc28f0fcd is merged and locally deployed; stale “await final UI handoff” assumptions are removed. No production diff beyond that approved main is allowed.

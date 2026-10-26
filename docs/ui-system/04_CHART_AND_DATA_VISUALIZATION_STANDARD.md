@@ -1,6 +1,6 @@
 # Chart and visualization standard
 Status: PLANNED; reference adapter is not production.
-Vincent owns Administrator/Faculty chart, legend, card and tooltip work and its self-verification; Member 2 owns Student presentation and calculations/privacy plus its self-verification. Shared files have one assigned integration custodian.
+Vincent owns Administrator/Faculty chart, legend, card and tooltip work and its self-verification; Joshua owns Student presentation and calculations/privacy plus its self-verification. Shared files have one assigned integration custodian.
 
 ## Meaning first
 Every chart names metric, unit, population, term order, eligible count/coverage and availability. Distinguish percentage term scores, final point grades, GWA, stored numerical estimate and rule-derived advisory. A chart never establishes official standing, pacing, benefits, teaching rank or causal support effects.
@@ -35,3 +35,11 @@ Visual-first chart/details may use about two-thirds plot and one-third detail on
 Support cards visualize case/referral status and referral → notice → receipt flow. “Average time before the first notice” preserves MTR-20 arithmetic mean and displays human-readable duration with actual eligible n/small-sample explanation. MTR-19 stays bounded count; limited parent-case median is not canonical MTR-21. Counts do not prove effectiveness; drill-down remains authorized and read-only.
 
 Verify all chart surfaces in light/dark in each portal; no pure-white dark card. One primary page scroll owner; no page horizontal overflow. This documents future behavior only.
+
+## Merged SVG versus inert reference
+
+PR64 already renders SVG trends/comparisons, full term labels, chart/details, exact tables, support visuals and theme-aware surfaces through shared presentation/academic-analytics.js. Student Academic review already has own history/change. Treat those as the regression baseline for approved refinements, not unfinished implementation.
+
+The standalone reference accepts complete own GWA only and proposes a 0–4 axis; merged historical SVG code uses 1–4 reference baselines and can label provisional recorded-point means. These are distinct contracts. Do not call a partial recorded-point mean a complete term GWA, switch the deployed axis/library, or replace accepted SVG with the inert Chart.js example without an approved refinement and parity tests. A single historical value produces a dot without a multi-point trend; the future reference explicitly chooses a scalar bar. No production rewrite is authorized by this difference.
+
+Accepted runtime baseline: PR64 merge bdb4a267f30aa31ea36983304a03b01dc28f0fcd; see the current context and phase plan.

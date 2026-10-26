@@ -2,7 +2,7 @@ REFERENCE ONLY. NOT LOADED BY PRODUCTION PAGES.
 Future implementers must adapt this file to the active UDM-RADAR layout and tests.
 
 # Reference-only assets
-These examples require explicit host adaptation. They are not an application, production import or permission to enable a cohort average. Vincent owns Administrator/Faculty adaptation and self-verification; Member 2 owns Student adaptation, Student technical/data/privacy contracts and self-verification. Global presentation assets require one assigned integration custodian and sequential handoff.
+These examples require explicit host adaptation. They are not an application, production import or permission to enable a cohort average. Vincent owns Administrator/Faculty adaptation and self-verification; Joshua owns Student adaptation, Student technical/data/privacy contracts and self-verification. Global presentation assets require one assigned integration custodian and sequential handoff.
 
 - [Tokens](ui-tokens.reference.css): scoped semantic aliases and proposed dimensions.
 - [Sidebar CSS](collapsible-sidebar.reference.css), [controller](collapsible-sidebar.reference.js): explicit desktop root lifecycle.
@@ -17,7 +17,7 @@ Legend and accessible table text come from the validated model; host DOM writes 
 
 ## Blocked comparison
 “Your recorded GWA” may have authorized complete own-term points.
-“Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” stays **BLOCKED**. No numeric cohort input or enabled flag is accepted. Optional disabled dataset contains no numbers. Member 2 must verify the eleven technical/privacy items and owner approve before a separately versioned future implementation.
+“Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” stays **BLOCKED**. No numeric cohort input or enabled flag is accepted. Optional disabled dataset contains no numbers. Joshua must verify the eleven technical/privacy items and owner approve before a separately versioned future implementation.
 
 ## Non-production checks
 Run from repository root:
@@ -28,7 +28,7 @@ The repository does not declare type:module; tests load each standalone referenc
 CSS syntax validation may use an already installed parser; don't install a library merely to validate this prep. Static parsing cannot prove actual contrast/layout/keyboard rendering.
 
 ## Markup contract illustration
-This is documentation, not a live component. Member 2 adapts this Student chart markup and verifies the supplied data and own-record authorization; Vincent adapts only approved Administrator/Faculty equivalents, with shared files assigned separately. Fill no numeric cohort cells.
+This is documentation, not a live component. Joshua adapts this Student chart markup and verifies the supplied data and own-record authorization; Vincent adapts only approved Administrator/Faculty equivalents, with shared files assigned separately. Fill no numeric cohort cells.
 
 ```html
 <section class="ui-ref-chart-card" aria-labelledby="own-gwa-heading">
@@ -54,3 +54,9 @@ When authorized own records exist, table term cells become row headers and value
 ## Readiness boundary
 
 Exact accessible tables follow the visualization. One-period scalar encoding never claims a trend; missing periods remain gaps with real academic labels. Keep both-theme surfaces and one primary page scroll owner during future adaptation. Two/three-group comparison controls, growth/details and support visuals are future contracts, not features implemented by these assets. Numeric cohort remains BLOCKED; no flag enables it. No production page imports these files.
+
+## PR64 baseline and named owner
+
+Merged production baseline is bdb4a267f30aa31ea36983304a03b01dc28f0fcd and uses SVG through shared analytics presentation. Student history/change already exists. This inert Chart.js example (0–4/complete-only) is distinct from live historical1–4/provisional-recorded-point presentation. It is not imported or used to replace accepted SVG.
+
+Joshua owns Student post-MVP refinements; Vincent Administrator/Faculty. Both self-verify and keep shared custody explicit. The collapsible rail remains a proposal. Cohort numeric data, MTR07/MTR21, historical Faculty attribution and Migration011 remain BLOCKED. No production implementation or SQL execution occurs in this package.

@@ -1,5 +1,5 @@
 # Component and state patterns
-Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED. Vincent owns Administrator/Faculty components and self-verification; Member 2 owns Student UI/calculation/privacy and self-verification. Shared components have one assigned integration custodian.
+Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED. Vincent owns Administrator/Faculty components and self-verification; Joshua owns Student UI/calculation/privacy and self-verification. Shared components have one assigned integration custodian.
 Use [tokens](02_DESIGN_TOKENS_AND_THEME_CONTRACT.md), [accessibility](07_ACCESSIBILITY_AND_KEYBOARD_CONTRACT.md) and the canonical shared UI. The table is a contract, not permission to duplicate standard components.
 
 | Component | Purpose; required content | Optional content | Prohibited content | Keyboard behavior | Dark theme | Minimum future evidence |
@@ -33,3 +33,9 @@ Comparison controls default to two groups, allow a third and no fourth; overlay/
 Support flow cards show referral → notice → receipt and case/referral states. Label MTR-20 “Average time before the first notice” with duration/n; bounded MTR-19 counts and limited parent median remain distinct from blocked MTR-21. Support counts do not measure effectiveness.
 
 Use one primary page scroll owner, theme every card/control/table/chart/legend/axis/tooltip/badge/state/details surface, and keep no page horizontal overflow at supported desktop sizes.
+
+## Existing component baseline
+
+PR64 already supplies Admin/Faculty tabs, primary/advanced/support filters, SVG charts, two/three comparison cards, right-side details and exact tables, support flow, dashboard summaries and theme/layout hooks. Student own-record review/history/change also exists. The rows above specify preservation and regression behavior for post-MVP refinements; they are not new implementation assignments. The reference desktop collapsible rail and Student cohort unavailable presentation remain proposals; numeric cohort is BLOCKED.
+
+Accepted runtime baseline: PR64 merge bdb4a267f30aa31ea36983304a03b01dc28f0fcd; see the current context and phase plan.

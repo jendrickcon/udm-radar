@@ -1,67 +1,69 @@
 # Implementation sequence and roadmap
 
-## Goal and status rules
+## Goal and status authority
 
 > Deliver a coherent, understandable, role-appropriate academic analytics experience across Administrator, Faculty, and Student portals, where charts and summaries explain current results, comparable periods, growth or change, coverage, sample size, support activity, and unavailable evidence without ranking Faculty, fabricating comparisons, or overwhelming users with technical text and controls.
 
-This [visual direction](01_VISUAL_DIRECTION_AND_BOUNDARIES.md) defines ten goals; this sequence does not authorize execution. Repository authorities remain [roadmap](../ROADMAP.md) and [history](../IMPLEMENTATION_HISTORY.md); changes to those frozen files require the separate [reconciliation plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md).
+Canonical accepted runtime/onboarding baseline: `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`, merged PR #64 and owner-confirmed local deployment. Preserved readiness commit `648207bc563f2bb1aa280d08ab9699f07a4f39c7` remains an ancestor. This pass commits reconciliation locally only; publication requires a separate owner decision.
 
-Allowed phase/readiness statuses: **COMPLETE**, **IN PROGRESS**, **READY FOR OWNER REVIEW**, **PLANNED**, **BLOCKED**, **DEFERRED**, **NOT STARTED**. Evidence uses actual Passed/Failed/Skipped/Not Run/Unavailable separately. Completed documentation or passing reference checks never make a production phase COMPLETE.
+Allowed phase/readiness statuses: COMPLETE, IN PROGRESS, READY FOR OWNER REVIEW, PLANNED, BLOCKED, DEFERRED, NOT STARTED. Test outcomes remain separate. Documentation readiness does not complete member implementation.
 
-## Current evidence snapshot — 26 October 2026
+## Verified status — 27 October 2026
 
-| Item | Documentation / review status | Implementation / acceptance status |
+| Item | Documentation/review status | Implementation/deployment status |
 | --- | --- | --- |
-| Certified PR #62 analytics MVP | COMPLETE, per owner post-merge/deployment acceptance history | COMPLETE; owner-reported MERGED AND DEPLOYED, not re-executed in this package |
-| PR #63 status-only documentation | IN PROGRESS; verified OPEN, unmerged, auto-merge off, three frozen files | NOT STARTED for merge; recheck before action |
-| Antigravity analytics UI integration, Phase A | IN PROGRESS; owner retest iteration, no final immutable handoff supplied | IN PROGRESS; visible Git metadata is not certification |
-| Earlier readiness package | COMPLETE as local documentation commit `ee4ddf4b5e001328a1beeeea3471d58dd87c1614` | NOT STARTED for production/publishing |
-| These portal/goal amendments | READY FOR OWNER REVIEW; uncommitted | NOT STARTED |
-| Vincent portal package, Phase C | PLANNED | NOT STARTED |
-| Member 2 portal package, Phase D | PLANNED | NOT STARTED |
-| Numeric Student cohort, MTR-07, canonical MTR-21, historical Faculty attribution | BLOCKED | BLOCKED; required contracts/evidence unresolved |
+| PR #62 bounded analytics | COMPLETE as accepted historical implementation | COMPLETE; merged at edef1b382b7874af770feb5713c20e9b68979241 |
+| PR #64 analytics UI and onboarding refresh | COMPLETE as merged source; local deployment supplied by owner | COMPLETE at bdb4a267f30aa31ea36983304a03b01dc28f0fcd; local prototype deployment, not institutional UAT |
+| PR #63 status documentation | IN PROGRESS; OPEN, three files, unmerged | BLOCKED for readiness publication until owner-approved resolution |
+| Preserved readiness package | COMPLETE as accepted local commit 648207bc563f2bb1aa280d08ab9699f07a4f39c7 | NOT STARTED for member improvements |
+| Current documentation reconciliation | READY FOR OWNER REVIEW; local commit authorized | NOT STARTED for remote publication |
+| Vincent Administrator/Faculty post-MVP package | PLANNED | NOT STARTED |
+| Joshua Student post-MVP package | PLANNED | NOT STARTED |
+| MTR-07, canonical MTR-21, historical Faculty attribution, Student cohort, Migration 011 | BLOCKED | BLOCKED |
 
-At 12:12 UTC on 26 October 2026, actual remote main and cached origin/main were `edef1b382b7874af770feb5713c20e9b68979241`; PR #63 base was that SHA, head `6d0ece576c74ac4c143719308865aa0c1cacc367`. Antigravity's metadata showed `497c4c47ae44a28d580d0f35ee371cb7121f4a88`, clean and six commits ahead of origin/main. No final handoff/acceptance was supplied, so this observed checkpoint is not a certified review target and Phase A remains IN PROGRESS. The new member branches were absent from checked refs; none was created. Revalidate all metadata before future work.
+PR #64 final head: `9f6ed109d968c47fe439eecc816f68ec0167694d`; merged tree `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`. PR #63 reviewed head: `6d0ece576c74ac4c143719308865aa0c1cacc367`. Recheck live refs before publication; old moving Antigravity checkpoints are superseded by the merged commit.
 
 ## Phases A–F
 
-| Phase | Status | Responsible party | Entry, outputs and acceptance gate |
+| Phase | Status | Responsible party | Delivered baseline or remaining gate |
 | --- | --- | --- | --- |
-| A — Finish and publish current analytics UI integration | IN PROGRESS | Antigravity until immutable handoff; owner acceptance | One Program Analytics destination; original Overview retained; scroll/width defects corrected; finalized visual comparisons and chart/details hierarchy; growth/change; real periods; Support visuals; Faculty parity; full themes. Owner retest, immutable commit, independent review, reviewed PR and authorized merge required. Keep IN PROGRESS until final candidate accepted and merged; deployment acceptance is a separate exit gate before publication is called complete. |
-| B — Repository and member-readiness consolidation | IN PROGRESS | Sol documentation; owner approval | Resolve/merge/reconcile PR #63, review and authorize amended readiness commit, then separately reconcile repository roadmap/history. Finalize portal packages, branches and shared custodians; verify current main for member pulls. Docs ready does not mean implementation started. |
-| C — Vincent Administrator/Faculty package | NOT STARTED | Vincent | Approved `ADMIN-AND-FACULTY-PORTAL-UI-ANALYTICS-AND-SELF-VERIFICATION` on `feat/member1-admin-faculty-ui`. Future collapsible sidebar, both dashboards, chart/layout consistency, filters, support, themes, accessibility, assigned-scope negatives, portal and cross-portal regressions. Self-verification and owner handoff required. Do not repeat accepted Antigravity changes without finding/approved improvement; this future sidebar does not block Phase A. |
-| D — Member 2 Student package | NOT STARTED | Member 2 | Approved `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION` on `feat/member2-student-portal`. Dashboard/Academic Analytics, GWA history/change, prediction clarity, Goal Calculator/Grades/history/Enrollment regression, own-record privacy and unavailable cohort interface. Verify Student calculations and propose future cohort contract; numeric cohort stays BLOCKED. Self-verification and owner handoff required. |
-| E — Cross-portal shared integration | PLANNED | Both; one assigned custodian per exact shared file | Integrate accepted candidates sequentially; reconcile shared CSS/JS, header/sidebar and analytics API; cross-portal regressions, theme/accessibility parity, no duplicate formulas; final owner retest/handoff. Can coordinate independent portal work after contracts and ownership are approved; no simultaneous shared-file edits. |
-| F — Broader validation/institutional readiness | PLANNED | Future separately authorized owners | Approved genuine-record validation, institutional UAT, broad accessibility, mobile only if reauthorized, MTR-07 model residual evidence, MTR-21 referral lifecycle, cohort privacy/calculation approval. No implemented claim; individual unresolved dependencies remain BLOCKED. |
+| A — Analytics UI MVP publication | COMPLETE | Antigravity implementation; owner accepted merged/deployed outcome | PR64 delivered single Admin Program Analytics/tabs/legacy redirects, original Overview, comparison cards and chart/details/table, growth/real periods, support flow, Faculty review parity, dashboard summaries and theme/layout work. Local deployment at bdb4a267f30aa31ea36983304a03b01dc28f0fcd is owner-confirmed. Do not reassign these as new member implementation. |
+| B — Repository/member-readiness consolidation | IN PROGRESS | Sol prepares docs; owner decides publication/PR63 | Inspect/resolve PR63 through owner-approved update/merge; commit this reconciled package locally, assign shared custodians and verify current main for member pulls. Canonical bootstrap/README already merged. Documentation publication and PR63 resolution remain pending. |
+| C — Vincent Admin/Faculty post-MVP refinements | NOT STARTED | Vincent | Approved file-specific refinements only: future collapsible desktop sidebar, measured density/spacing/usability improvements and verified portal defects. Preserve accepted MVP charts/tabs/support/filter behavior as regression scope. Reuse formulas; own unit/integration/auth/negative/theme/accessibility/layout tests and fixes, owner retest/handoff. Sidebar remains unimplemented. |
+| D — Joshua Student post-MVP refinements | NOT STARTED | Joshua | Refine existing own-record Academic review/Dashboard/GWA history/change/prediction explanations only under approved package. Maintain Goal Calculator/Grades/history/Enrollment regressions; future Student sidebar/chart-label/legend improvements and cohort unavailable interface are proposals. Numeric cohort remains BLOCKED; existing SVG trend is not a new assignment. Own calculation/privacy verification, authorization, themes/accessibility/tests/fixes required. |
+| E — Shared cross-portal integration | PLANNED | Both; one named custodian per exact shared file | Sequential changes to global CSS/JS/header/sidebar/API/fixtures, no duplicate formulas, cross-portal/theme/keyboard regressions and final owner retest. Accepted MVP components are preserved rather than rebuilt. |
+| F — Broader institutional readiness | PLANNED | Separately authorized future owners | Genuine-record validation, institutional UAT, broader accessibility and mobile only if reauthorized; accepted MTR07 residuals, MTR21 lifecycle, dated assignments, cohort privacy/calculation approval and separate Migration011 approval. Blocked dependencies are not promoted by prototype delivery. |
 
-## Non-negotiable member delivery
+The ten [product goals](01_VISUAL_DIRECTION_AND_BOUNDARIES.md) remain requirements and regression expectations. They do not automatically authorize further work on features already shipped.
 
-## Definition of Done — required for each portal package
-A package is not done because its page renders. Both Vincent and Member 2 must supply:
-1. Implemented approved scope on the assigned branch.
-2. Passing portal-specific unit checks.
-3. Passing relevant integration checks under separately authorized isolated targets.
-4. Passing authenticated desktop workflows.
-5. Passing negative authorization tests.
-6. Passing light and dark themes, including cards, axes, legends, tooltips and details.
-7. Passing keyboard and visible-focus checks.
-8. No page horizontal overflow at 1440×900,1280×600,1024×768; one primary page scroll owner.
-9. Exact accessible tables matching chart values, populations, units and periods.
-10. Complete, empty, provisional, unavailable and noncomparable states tested.
-11. Cross-portal regressions for affected shared contracts and navigation.
-12. Protected-file integrity evidence.
+## Definition of Done — both future portal packages
+
+1. Approved post-MVP refinement implemented on assigned branch.
+2. Passing portal unit checks.
+3. Relevant integration checks under separately authorized isolated targets.
+4. Authenticated desktop workflows.
+5. Negative authorization tests.
+6. Light/dark themes across all surfaces.
+7. Keyboard and visible focus.
+8. No page horizontal overflow at 1440×900,1280×600,1024×768; one primary scroll owner.
+9. Exact accessible table/plot parity.
+10. Complete, empty, provisional, unavailable and noncomparable states.
+11. Affected cross-portal regressions.
+12. Protected-file integrity.
 13. No unauthorized database/schema/migration work.
-14. Clean clone/worktree and complete diff review.
-15. Full immutable candidate SHA and complete evidence handoff, when commit authority exists.
-16. Owner retest of visible workflows, with defects resolved before acceptance.
-17. Separate push, PR, merge and deployment authorization; self-verification grants none automatically.
-Unavailable required evidence keeps the gate BLOCKED; inapplicable tests require a reason and owner acceptance, not an invented pass. Report PHP/SQL/authenticated/generated/mocked/structural/accessibility/syntax/integrity separately. Cross-review does not replace self-verification; fixes return to the portal implementer unless the owner explicitly transfers them.
+14. Clean clone and complete diff review.
+15. Authorized immutable candidate and full evidence handoff.
+16. Owner visible retest and defect closure.
+17. Separate push, PR, merge and deployment authorization.
 
+Missing required evidence keeps acceptance BLOCKED. Cross-review supplements own tests; original portal implementer fixes defects unless a shared custodian or explicit owner transfer applies. Standalone PHP scripts are PHP regression checks, not PHPUnit. Report unit/integration/authenticated/structural/generated/mocked/authorization/accessibility/syntax/integrity evidence separately.
 
-## Contract blockers and integration order
+## Member starting baseline and blocked contracts
 
-MTR-07 needs verified active-model test residuals; canonical MTR-21 needs referral-level closure evidence. No invented field/migration/Migration 011. MTR-19 remains a bounded receipt count. Limited parent-case median is separate. Historical Faculty attribution needs dated assignments; current teaching loads cannot substitute.
+Vincent: `feat/member1-admin-faculty-ui`, Administrator/Faculty. Joshua: `feat/member2-student-portal`, Student. One clone each, optional same-clone AI task branch from own assigned HEAD; extra worktrees only owner exceptions. Start from current approved main containing bdb4a267f30aa31ea36983304a03b01dc28f0fcd and the later accepted documentation merges, rather than cloning an old readiness or implementation branch. See [onboarding workflow](08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md).
 
-Member 2's [eleven cohort items](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md) and owner approval precede any numeric series. The blocked interface may be prepared without enabling data. No privacy threshold or administrative pooled-mean substitution.
+Schema bootstrap is separate from synthetic seed. Read [database/README.md](../../database/README.md); use fresh member-owned local setup only. No import, DB connection or migrations are executed by this pass.
 
-Agree shared contracts/custodians first; implement portal files independently; each self-verifies; cross-review; owner retest; authorize publication separately. Merge the lesser shared-file package first; the second member updates main before its PR. Keep auto-merge off. No phase authorizes agent messaging, branch creation, commit, push, merge, deployment or database work by itself.
+MTR-07, canonical MTR-21, historical Faculty attribution, Student cohort and Migration 011 remain BLOCKED. MTR19 stays bounded receipt count, MTR20 arithmetic mean and parent-case median separate. Joshua's eleven cohort gates plus owner approval are required; no pooled Admin-mean substitution.
+
+Recommend updating/merging PR63 first, then separately publishing these readiness docs after refreshed main/overlap checks. No automatic merge, closure, push, PR, deploy or cleanup. See [exact PR63 plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md).

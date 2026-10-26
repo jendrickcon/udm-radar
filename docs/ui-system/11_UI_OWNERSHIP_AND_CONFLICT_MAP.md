@@ -7,9 +7,9 @@ Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED.
 | Member / package / assigned branch | Complete portal responsibility | Mandatory self-verification |
 | --- | --- | --- |
 | Vincent — `ADMIN-AND-FACULTY-PORTAL-UI-ANALYTICS-AND-SELF-VERIFICATION` — `feat/member1-admin-faculty-ui` | Administrator Dashboard, Program Analytics Overview/Academic Comparisons/Support & Interventions; Faculty Dashboard and Assigned-Class Analytics; both portals' navigation/sidebar, charts, details/deltas, filters, legends, table fallbacks, themes, keyboard/accessibility and desktop layouts; portal-level fixes | Unit/integration, authenticated Admin and Faculty, role negatives, chart/table/value parity, support semantics, themes, keyboard, desktop containment and cross-portal regressions |
-| Member 2, name pending — `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION` — `feat/member2-student-portal` | Student Dashboard/Academic Analytics, recorded GWA history/change, prediction/source/completeness/range-unavailable, Goal Calculator links, Grades/history, Enrollment Planning, Student sidebar/charts/legend/table/themes/accessibility; Student calculation/privacy contracts and portal fixes | Unit/integration, authenticated own-record and other-Student denial, current/previous comparable/summer/missing GWA/change, prediction clarity, table parity, Goal Calculator/Grades/Enrollment regressions, themes, keyboard and desktop containment |
+| Joshua — `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION` — `feat/member2-student-portal` | Student Dashboard/Academic Analytics, recorded GWA history/change, prediction/source/completeness/range-unavailable, Goal Calculator links, Grades/history, Enrollment Planning, Student sidebar/charts/legend/table/themes/accessibility; Student calculation/privacy contracts and portal fixes | Unit/integration, authenticated own-record and other-Student denial, current/previous comparable/summer/missing GWA/change, prediction clarity, table parity, Goal Calculator/Grades/Enrollment regressions, themes, keyboard and desktop containment |
 
-Neither member is universal UI/backend owner or tester-only. Both implement, test, verify, fix and document their portals; do not split a portal's sidebar and charts between members. Vincent reuses approved analytics formulas/services. Member 2's Student technical responsibility does not grant edit authority over every backend file.
+Neither member is universal UI/backend owner or tester-only. Both implement, test, verify, fix and document their portals; do not split a portal's sidebar and charts between members. Vincent reuses approved analytics formulas/services. Joshua's Student technical responsibility does not grant edit authority over every backend file.
 
 ## One integration custodian per shared file
 
@@ -24,15 +24,15 @@ The future approved package must replace each “unassigned” entry with one na
 | Shared browser fixtures/helpers | Unassigned | Review side effects; integrate tests sequentially and run all affected portal regressions |
 | Shared UI-system/status documentation | Unassigned for future implementation | One status writer; frozen PR #63 paths remain excluded now |
 | Admin/Faculty-only components | Vincent within approved literal allowlist | Own implementation, tests and fixes |
-| Student-only components and calculation/privacy proposal | Member 2 within approved literal allowlist | Own implementation, tests and fixes; cohort numeric release remains BLOCKED |
+| Student-only components and calculation/privacy proposal | Joshua within approved literal allowlist | Own implementation, tests and fixes; cohort numeric release remains BLOCKED |
 
-If Vincent needs a new backend field, document its presentation contract and request the assigned technical custodian's change; do not invent the formula in the UI. Member 2 must document Administrator/Faculty API impact when changing an authorized shared Student field. Review findings never transfer ownership automatically.
+If Vincent needs a new backend field, document its presentation contract and request the assigned technical custodian's change; do not invent the formula in the UI. Joshua must document Administrator/Faculty API impact when changing an authorized shared Student field. Review findings never transfer ownership automatically.
 
 ## Integration order and cross-review
 
 1. Agree shared contracts, owner-approved files, clean current-main base and custodians.
 2. Implement portal-specific work independently and complete each member's self-verification.
-3. Member 2 may cross-review Vincent's calculation labels/privacy/authorization; Vincent may cross-review Member 2's visual consistency/usability/themes/accessibility. No independent redesign of the other's portal.
+3. Joshua may cross-review Vincent's calculation labels/privacy/authorization; Vincent may cross-review Joshua's visual consistency/usability/themes/accessibility. No independent redesign of the other's portal.
 4. Original implementer fixes verified defects, unless the defect belongs to another assigned shared contract, or the owner explicitly transfers the fix/reassigns unavailable work. Disclose repair authorship; do not present self-review as independent review.
 5. Review the package with fewer shared changes first. After its authorized merge, the second member updates main and reconciles before opening the next PR. Overlapping PRs require an explicit conflict-resolution order.
 6. One custodian applies shared-file candidates sequentially, records source SHAs and runs cross-portal regressions.
@@ -48,6 +48,12 @@ Before each package, preserve authorized work, inspect status, fetch/update clea
 
 ## Cohort and protected boundaries
 
-Member 2 owns the Student chart interface and eleven-item calculation/privacy proposal; owner approval is the final release gate. Vincent neither owns Student UI nor defines its cohort formula. Keep “Your recorded GWA” active and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” visible. No numeric cohort, privacy threshold, pooled-mean substitution or enable flag.
+Joshua owns the Student chart interface and eleven-item calculation/privacy proposal; owner approval is the final release gate. Vincent neither owns Student UI nor defines its cohort formula. Keep “Your recorded GWA” active and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” visible. No numeric cohort, privacy threshold, pooled-mean substitution or enable flag.
 
-MTR-07, canonical MTR-21 and historical Faculty attribution remain BLOCKED. MTR-19 is bounded count; limited parent-case median is separate. Current preparation permits no DB/production/model/dependency/migration edits, mobile tests, screenshots or publication. Freeze the three PR #63 files and follow the [reconciliation plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). Current amendments await explicit local-commit approval.
+MTR-07, canonical MTR-21 and historical Faculty attribution remain BLOCKED. MTR-19 is bounded count; limited parent-case median is separate. Current preparation permits no DB/production/model/dependency/migration edits, mobile tests, screenshots or publication. Freeze the three PR #63 files and follow the [reconciliation plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). Current reconciliation has local-commit authorization only; publication remains unauthorized.
+
+## Post-MVP scope boundary and starting state
+
+PR64 is already merged/deployed at bdb4a267f30aa31ea36983304a03b01dc28f0fcd. Ownership is portal accountability for approved post-MVP changes; it does not assign rebuilding existing Overview/tabs/comparison/growth/support/theme/dashboard/trend features. Vincent's and Joshua's future desktop collapsible navigation remains NOT STARTED.
+
+Joshua is the named Member2 owner; existing assigned branch/package identifiers remain unchanged. Both self-verify their changes and accepted-MVP regressions. Member starting main must include PR64 and later owner-approved docs; use the merged database/README.md for separate schema/seed onboarding. Shared custodians still require assignment. PR63 remains open and its three files are untouched here.

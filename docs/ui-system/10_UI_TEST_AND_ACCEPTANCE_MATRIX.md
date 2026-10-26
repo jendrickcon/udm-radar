@@ -1,19 +1,19 @@
 # Portal test and acceptance matrix
 
 Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED.
-Roadmap statuses use the seven allowed values in the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md). Test outcomes are recorded separately as Passed, Failed, Skipped, Not Run or Unavailable. A test existing does not mean it ran. None of these future production requirements has been executed by this documentation preparation.
+Roadmap statuses use the seven allowed values in the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md). Test outcomes are recorded separately as Passed, Failed, Skipped, Not Run or Unavailable. A test existing does not mean it ran. No future member self-verification row is marked executed by this documentation pass. Most listed Admin/Faculty/Student analytics components already ship in PR64; those rows are preservation/regression gates for later approved refinements, not assignments to implement them again. Only the desktop collapsible rail and explicitly approved new refinements remain implementation proposals.
 
 ## Mandatory self-verification
 
-Vincent executes Administrator AND Faculty checks. Member 2 executes Student checks. Each also verifies cross-portal seams affected by their work. A cross-reviewer supplements the implementer; do not assign all tests to the other member.
+Vincent executes Administrator AND Faculty checks. Joshua executes Student checks. Each also verifies cross-portal seams affected by their work. A cross-reviewer supplements the implementer; do not assign all tests to the other member.
 
-| ID | Requirement and required future evidence | Implementer and self-verifier | Current readiness status |
+| ID | Requirement and required future evidence | Implementer and self-verifier | Future member verification status |
 | --- | --- | --- | --- |
-| SID-01 | Expanded icon/label, current route, named toggle, collapsed names/badges/footer, focus remains usable | Vincent Admin/Faculty; Member 2 Student; custodian for global files | NOT STARTED |
+| SID-01 | Expanded icon/label, current route, named toggle, collapsed names/badges/footer, focus remains usable | Vincent Admin/Faculty; Joshua Student; custodian for global files | NOT STARTED |
 | SID-02 | Released width, chart resize, no clipped values/controls; one primary page scroll owner | Each portal implementer | NOT STARTED |
 | SID-03 | Valid/invalid/denied local preference storage; desktop preference separate from existing drawer; no academic identifiers stored | Each portal implementer | NOT STARTED |
 | SID-04 | One initializer, settled event, coalesced ResizeObserver, hidden-panel refresh, cleanup/remount/pagehide | Each portal implementer; one global custodian | NOT STARTED |
-| SID-05 | Faculty warning-banner closes before advisory/KPI/section/roster/performer cards; run faculty-dashboard-layout-regression.spec.js for affected layout | Vincent; Member 2 also runs when its shared changes affect Faculty layout | PLANNED |
+| SID-05 | Faculty warning-banner closes before advisory/KPI/section/roster/performer cards; run faculty-dashboard-layout-regression.spec.js for affected layout | Vincent; Joshua also runs when its shared changes affect Faculty layout | PLANNED |
 | ADM-01 | Admin login/access; single Program Analytics destination and original Overview; tabs, dashboard summaries and natural drill-down | Vincent | NOT STARTED |
 | ADM-02 | ≤4 primary controls where possible, Advanced, active collapsed scope, parent/child filters, Apply/Reset; support controls only in Support | Vincent | NOT STARTED |
 | ADM-03 | Two comparison groups by default, third optional, no fourth; overlay/separate cards; year/semester/curriculum/subject/section/verified Faculty scope | Vincent | NOT STARTED |
@@ -25,14 +25,14 @@ Vincent executes Administrator AND Faculty checks. Member 2 executes Student che
 | FAC-01 | Faculty login/current assignment; assigned subject/section controls; unassigned section denial, cross-Faculty denial, own-referral scope | Vincent | NOT STARTED |
 | FAC-02 | Assigned-Class Analytics/dashboard/support parity, comparable-only trend/change, exact table values and authorized drill-down | Vincent | NOT STARTED |
 | FAC-03 | Historical Faculty attribution unavailable without dated records; no ranking or teaching-quality conclusion | Vincent; shared contract custodian | BLOCKED for historical attribution |
-| STU-01 | Student login/own-record scope, deny another Student identifier across page/API/parameters | Member 2 | NOT STARTED |
-| STU-02 | Current recorded-term GWA, previous comparable term, units/exclusions, point direction, relative change/nonzero baseline, missing/incomplete/summer rules | Member 2 | NOT STARTED |
-| STU-03 | Real school-year/semester labels, chronological gaps, complete/empty/unavailable/incomplete model, no smoothing or fabricated zeros | Member 2 | NOT STARTED |
-| STU-04 | Prediction numerical estimate/source/coverage, advisory risk distinct from official standing; unsupported range remains unavailable | Member 2 | NOT STARTED |
-| STU-05 | Dashboard/Academic Analytics, Goal Calculator navigation and regression, Grades/history, Enrollment Planning links/wording | Member 2 | NOT STARTED |
-| STU-06 | “Your recorded GWA” plus visible blocked cohort explanation; no numeric cohort or enable flag; pooled Admin mean never relabeled | Member 2 | NOT STARTED for unavailable interface |
-| COH-01 | All eleven Student unit/cohort/eligible/excluded/missing/privacy-size/weighting/period/role/synthetic/fairness items and final owner approval | Member 2 proposes and verifies; owner approves | BLOCKED |
-| EVID-01 | MTR-07 range without active-model residual contract; canonical MTR-21 referral closure without lifecycle fields | Separate future approved owners | BLOCKED |
+| STU-01 | Student login/own-record scope, deny another Student identifier across page/API/parameters | Joshua | NOT STARTED |
+| STU-02 | Current recorded-term GWA, previous comparable term, units/exclusions, point direction, relative change/nonzero baseline, missing/incomplete/summer rules | Joshua | NOT STARTED |
+| STU-03 | Real school-year/semester labels, chronological gaps, complete/empty/unavailable/incomplete model, no smoothing or fabricated zeros | Joshua | NOT STARTED |
+| STU-04 | Prediction numerical estimate/source/coverage, advisory risk distinct from official standing; unsupported range remains unavailable | Joshua | NOT STARTED |
+| STU-05 | Dashboard/Academic Analytics, Goal Calculator navigation and regression, Grades/history, Enrollment Planning links/wording | Joshua | NOT STARTED |
+| STU-06 | “Your recorded GWA” plus visible blocked cohort explanation; no numeric cohort or enable flag; pooled Admin mean never relabeled | Joshua | NOT STARTED for unavailable interface |
+| COH-01 | All eleven Student unit/cohort/eligible/excluded/missing/privacy-size/weighting/period/role/synthetic/fairness items and final owner approval | Joshua proposes and verifies; owner approves | BLOCKED |
+| EVID-01 | MTR-07 range without active-model residual contract; canonical MTR-21 referral closure without lifecycle fields; Migration 011 excluded pending separate approval | Separate future approved owners | BLOCKED |
 | CH-01 | Exact accessible table below plot: values/precision/population/unit/period/availability match; fallback without Chart.js; full tooltip period names | Each portal implementer | NOT STARTED |
 | CH-02 | Visible critical n/coverage/limits and non-color legend; extended formulas/policy in accessible disclosure | Each portal implementer | NOT STARTED |
 | THEME-01 | All cards/controls/tables/canvas/axes/legends/tooltips/badges/empty/details in light/dark, no pure-white dark cards; CCS/classic/preferences preserved | Each portal implementer; each portal checked separately | NOT STARTED |
@@ -49,7 +49,7 @@ Vincent executes Administrator AND Faculty checks. Member 2 executes Student che
 ## Definition of Done
 
 ## Definition of Done — required for each portal package
-A package is not done because its page renders. Both Vincent and Member 2 must supply:
+A package is not done because its page renders. Both Vincent and Joshua must supply:
 1. Implemented approved scope on the assigned branch.
 2. Passing portal-specific unit checks.
 3. Passing relevant integration checks under separately authorized isolated targets.
@@ -79,3 +79,11 @@ Run affected cross-portal regressions, PHP lint/JS syntax, whitespace and protec
 ## Current preparation evidence only
 
 The [reference suite](reference/reference-contract.test.mjs) checks identifier-free model validation, blocked cohort, line versus single-value encoding, gaps, precision and lifecycle stubs. Its actual results live in the external report. JS syntax, links, UTF-8/LF and integrity checks also concern documentation/reference only. No database, authenticated browser, production structural regression, screenshot or mobile test runs in this preparation.
+
+## Accepted MVP versus future verification
+
+Rows ADM/SUP/FAC/STU/CH/THEME/ASYNC describe preservation and verification of merged PR64 behavior during later approved refinements. Their future member verification status does not mean those production features are absent. SID collapsed-rail cases concern a proposed desktop improvement, not a shipped collapsible sidebar.
+
+Current documentation evidence reruns only local links/ownership/status/text integrity, inert reference contracts and JS syntax. Historical PR64 reported test categories are not newly executed or combined with these reference results. Database onboarding is source-inspected only; no fresh-import or authenticated UI pass is claimed.
+
+Accepted runtime baseline: PR64 merge bdb4a267f30aa31ea36983304a03b01dc28f0fcd; see the current context and phase plan.

@@ -18,7 +18,7 @@ Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED
 | 6. Support activity | Case/referral statuses and referral → notice → receipt flow. “Average time before the first notice” uses human-readable duration and actual eligible n/small-sample context. MTR-19 is a bounded count; parent-case median remains distinct from blocked MTR-21. Authorized read-only drill-down only; counts do not prove effectiveness. |
 | 7. Complete themes | Light/dark surfaces for cards, controls, tables, canvas, legends, axes, tooltips, badges, empty states and details. Avoid pure-white dark cards; preserve contrast, focus and non-color identifiers. Check each portal independently. |
 | 8. Accessible navigation | Clear tabs/context controls, at most four primary filters where possible, Advanced disclosure and support controls only in Support. One primary page scroll owner; no horizontal page overflow at supported desktop sizes. Future Vincent sidebar is not a current analytics MVP publication blocker. |
-| 9. Portal accountability | Vincent implements, verifies and fixes Administrator/Faculty; Member 2 does the same for Student. Cross-review supplements self-verification; shared files have one assigned custodian. |
+| 9. Portal accountability | Vincent implements, verifies and fixes Administrator/Faculty; Joshua does the same for Student. Cross-review supplements self-verification; shared files have one assigned custodian. |
 | 10. Truth and fairness | No Faculty ranking/quality inference, current-load historical attribution, invented cohort/range, test-count model accuracy, advisory-risk official standing, or unapproved genuine-record/UAT claims. |
 
 ## Adapt existing UDM-RADAR patterns
@@ -31,6 +31,12 @@ Student own-record series is “Your recorded GWA”. Cohort comparison remains 
 
 ## Ownership and non-goals
 
-Vincent adapts Administrator/Faculty sidebars, layouts, filters, charts, themes and accessibility together; Member 2 owns these within Student plus Student calculation/privacy verification. Shared global assets need one named integration custodian and sequential edits. This replaces the former all-UI-versus-verification division.
+Vincent adapts Administrator/Faculty sidebars, layouts, filters, charts, themes and accessibility together; Joshua owns these within Student plus Student calculation/privacy verification. Shared global assets need one named integration custodian and sequential edits. This replaces the former all-UI-versus-verification division.
 
 No production implementation, DB access, migrations, dependencies, model changes or reference imports are authorized now. Do not redesign accepted Antigravity work without a verified finding or approved improvement. See the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md).
+
+## Reconciled PR64 delivery boundary
+
+PR64 is merged and locally deployed at bdb4a267f30aa31ea36983304a03b01dc28f0fcd. The ten goals describe product requirements and regression expectations. The integrated Admin destination/tabs, original Overview, dashboard snapshots, two/three comparisons, overlay/separate cards, growth/details, real academic periods, exact tables, support flow and theme/layout treatment already exist.
+
+Vincent and Joshua receive only approved post-MVP refinements or verified defects. The desktop collapsible sidebar remains NOT STARTED; do not claim references implement it. Existing Student Academic review already plots own recorded history and shows change/prediction explanations; future Student work refines it rather than creating an absent feature. No numeric cohort/range or historical Faculty attribution is enabled by PR64. Migration011 remains BLOCKED.

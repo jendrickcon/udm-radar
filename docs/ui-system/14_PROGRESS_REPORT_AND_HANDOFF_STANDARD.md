@@ -35,11 +35,11 @@ Use the [handoff template](templates/UI_CHANGE_HANDOFF_TEMPLATE.md) after comple
 
 Review committed, unstaged, staged, untracked and combined changes against the approved allowlist. Record protected/model/dependency/auth/DB/migration/Migration 011/genuine-record checks and temporary cleanup. Supply immutable candidate only when an authorized commit exists; otherwise state no candidate and why. Owner retest/defect closure and each push/PR/merge/deployment approval must be separate.
 
-Vincent: `feat/member1-admin-faculty-ui`, Administrator/Faculty implementation plus own testing/fixes. Member 2: `feat/member2-student-portal`, Student implementation/calculations/privacy plus own testing/fixes. One clone each; same-clone AI task branches from own assigned HEAD; additional worktrees only explicit exceptions. One custodian per exact shared file, sequential handoff. After approved merge both update clean main fast-forward; no ZIP/manual-source replacement.
+Vincent: `feat/member1-admin-faculty-ui`, Administrator/Faculty implementation plus own testing/fixes. Joshua: `feat/member2-student-portal`, Student implementation/calculations/privacy plus own testing/fixes. One clone each; same-clone AI task branches from own assigned HEAD; additional worktrees only explicit exceptions. One custodian per exact shared file, sequential handoff. After approved merge both update clean main fast-forward; no ZIP/manual-source replacement.
 
 Implement → self-verify → authorized local immutable candidate → handoff → owner retest/fixes → separately authorized push → one reviewed PR with auto-merge off → authorized merge → authorized deployment. No automatic cleanup or force-push.
 
-The previous readiness commit is `ee4ddf4b5e001328a1beeeea3471d58dd87c1614`. Current portal/goal amendments are uncommitted pending explicit owner approval; do not amend the prior commit or reuse its SHA as the revised package identity.
+Preserved readiness `648207bc563f2bb1aa280d08ab9699f07a4f39c7` is owner-accepted. This final reconciliation is authorized for a local documentation commit only; no push or PR. Record the new final immutable SHA separately; do not amend the preserved commit.
 
 ## Findings and decisions
 
@@ -51,7 +51,7 @@ Use the [decision template](templates/OWNER_DECISION_TEMPLATE.md) for literal fi
 
 Retain “Prototype performance on synthetic academic records”. MTR-07, canonical MTR-21, historical Faculty attribution and numeric Student cohort remain BLOCKED. MTR-19 is a bounded receipt count, limited parent-case median is separate, and MTR-20 is the existing arithmetic mean with “Average time before the first notice”, actual eligible n and human-readable duration. No effectiveness/rank/official-standing inference.
 
-Member 2 owns the Student interface and eleven-item [cohort proposal](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md); final owner approval is mandatory. Keep “Your recorded GWA” and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” No pooled-mean substitution.
+Joshua owns the Student interface and eleven-item [cohort proposal](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md); final owner approval is mandatory. Keep “Your recorded GWA” and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” No pooled-mean substitution.
 
 Include this directive verbatim in carried-forward report artifacts:
 
@@ -63,3 +63,9 @@ Include this directive verbatim in carried-forward report artifacts:
 The usage line is historical, not a current measurement. No mobile tests or screenshots are authorized. Future desktop acceptance covers 1440×900, 1280×600 and 1024×768, light and dark.
 
 Final successful preparation phrase: `FUTURE UI MEMBER AND AGENT READINESS PACKAGE PREPARED FOR OWNER REVIEW`. Explicitly requested blocked handoff phrase: `FUTURE UI READINESS PREPARATION BLOCKED`. Future implementation packages require their own owner-supplied phrases. Do not use preparation completion to imply production delivery.
+
+## Required final reconciliation record
+
+Every later handoff distinguishes accepted PR64 baseline bdb4a267f30aa31ea36983304a03b01dc28f0fcd from its own approved post-MVP changes. Record PR64 merged/local deployment (owner-confirmed), schema-only onboarding bootstrap, separate seed, database/README.md, Vincent/Admin-Faculty, Joshua/Student, own self-verification and all five BLOCKED contracts including Migration011.
+
+The final reconciliation report must include current main, PR63 recommendation/overlap, corrected readiness files, actual corrections, updated starting/onboarding instructions, documentation/reference validation, final full SHA, clean status and publication order. PR63 is not merged/closed by this package. Local commit is authorized; no push or PR.
