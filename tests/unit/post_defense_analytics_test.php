@@ -65,4 +65,22 @@ require_once __DIR__.'/../../includes/analytics/service.php';
 $supportOnly=['grades'=>[],'faculty'=>[11=>'Assigned Faculty'],'cases'=>[['school_year'=>'2023-2024','semester'=>2]],'referrals'=>[['subject_id'=>102,'code'=>'OLD102','title'=>'Historical referral','section'=>'OLD-A','faculty_id'=>11,'curriculum_year'=>2]]];
 $options=analyticsOptions($supportOnly,['id'=>1,'role'=>'admin']);
 foreach(['school_year'=>'2023-2024','semester'=>'2','section'=>'OLD-A','subject'=>'102','faculty'=>'11'] as $key=>$value){check(in_array($value,array_column($options[$key],'value'),true),'Support-only records remain selectable: '.$key);}
+
+require_once __DIR__.'/../../includes/analytics/presentation.php';
+check(formatAnalyticsDurationHours(2.5)==='2.5 hours','MTR-20 hours formatting < 24');
+check(formatAnalyticsDurationHours(2.0)==='2 hours','MTR-20 integer hours formatting < 24');
+check(formatAnalyticsDurationHours(30.0)==='1 day 6 hours','MTR-20 days and hours formatting');
+check(formatAnalyticsDurationHours(1151.62)==='48 days','MTR-20 days rounding for large duration');
+check(formatAnalyticsDurationHours(null)==='Unavailable','MTR-20 null is Unavailable');
+check(formatAnalyticsDurationHours(-5.0)==='Unavailable','MTR-20 negative is Unavailable');
+check(formatAnalyticsSampleSize(1)==='Based on 1 referral with a recorded notice','MTR-20 singular sample text');
+check(formatAnalyticsSampleSize(3)==='Based on 3 referrals with recorded notices','MTR-20 plural sample text');
+check(formatAnalyticsSampleSize(0)==='No referrals have a recorded first notice for this scope.','MTR-20 zero sample text');
+check(formatAnalyticsSampleSize(null)==='No referrals have a recorded first notice for this scope.','MTR-20 null sample text');
+check(analyticsSampleWarning(1)==='Very limited sample. Interpret cautiously.','MTR-20 sample warning for n=1');
+check(analyticsSampleWarning(2)==='Very limited sample. Interpret cautiously.','MTR-20 sample warning for n=2');
+check(analyticsSampleWarning(3)===null,'MTR-20 no sample warning for n=3');
+check(analyticsSampleWarning(0)===null,'MTR-20 no sample warning for n=0');
+check(analyticsSampleWarning(null)===null,'MTR-20 no sample warning for null');
+
 echo "RESULT $passed passed, $failed failed\n";exit($failed?1:0);

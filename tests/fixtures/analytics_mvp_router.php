@@ -11,7 +11,7 @@ analyticsFixtureConnect($state); // Reject any unowned target before application
 $root=realpath(__DIR__.'/../..');$path=rawurldecode(parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)??'');
 if(!str_starts_with($path,'/capstone/')){http_response_code(404);exit;}
 $relative=substr($path,10);
-$allowed=['login.php','logout.php','student/index.php','faculty/index.php','admin/index.php','student/dashboard.php','admin/analytics.php','faculty/dashboard.php','student/academic_analytics.php','admin/comparative_analytics.php','faculty/assigned_analytics.php','api/academic_analytics.php','admin/activity.php','faculty/feedback.php'];
+$allowed=['login.php','logout.php','student/index.php','faculty/index.php','admin/index.php','admin/dashboard.php','student/dashboard.php','admin/analytics.php','faculty/dashboard.php','student/academic_analytics.php','admin/comparative_analytics.php','faculty/assigned_analytics.php','api/academic_analytics.php','admin/activity.php','faculty/feedback.php'];
 $static=str_starts_with($relative,'assets/')&&preg_match('/\.(css|js|png|svg|jpg|woff2)$/D',$relative);
 $file=realpath($root.'/'.$relative);
 if(!$file||!str_starts_with($file,$root.DIRECTORY_SEPARATOR)||(!in_array($relative,$allowed,true)&&!$static)){http_response_code(404);echo 'Not found';exit;}

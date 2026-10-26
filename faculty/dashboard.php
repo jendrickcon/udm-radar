@@ -171,6 +171,24 @@ function getHonorBadge(float $gwa): array {
     return ['text' => '—', 'bg' => 'var(--bg-color)', 'color' => 'var(--text-gray)'];
 }
 
+// Compact Assigned-Class Analytics Snapshot (WP1)
+require_once __DIR__ . '/../includes/analytics/service.php';
+try {
+    $facAnalytics = analyticsReport($db, $user, []);
+    $facSummary = $facAnalytics['summary'];
+    $facSectionCount = count($facAnalytics['groups']['section'] ?? []);
+    $facReviewCount = $facAnalytics['students_requiring_review'] ?? 0;
+    $facReferrals = $facAnalytics['support']['referrals_created'] ?? 0;
+    $facNotices = $facAnalytics['support']['notices_issued'] ?? 0;
+} catch (Throwable $e) {
+    error_log('Faculty dashboard analytics snapshot unavailable: ' . $e->getMessage());
+    $facSummary = ['gwa' => null, 'student_count' => 0, 'eligible_grade_count' => 0, 'expected_grade_count' => 0, 'numeric_coverage_pct' => null];
+    $facSectionCount = count($section_data ?? []);
+    $facReviewCount = 0;
+    $facReferrals = 0;
+    $facNotices = 0;
+}
+
 $pageTitle = 'Dashboard';
 $navItems = [
     ['Home',               'index.php',     ''],
@@ -241,7 +259,6 @@ require_once '../includes/sidebar.php';
                 Click a section card to open its student roster.
                 <em style="color:var(--text-gray); font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
             </p>
-            <p><a href="assigned_analytics.php" class="btn btn--secondary">Review assigned-class patterns and support</a></p>
         </div>
     </div>
 
@@ -306,6 +323,46 @@ require_once '../includes/sidebar.php';
                 </span>
             </div>
             <h2 style="color: var(--teal);"><?= number_format($overall_avg_gwa, 2) ?></h2>
+        </div>
+    </div>
+
+    <!-- COMPACT ASSIGNED-CLASS ANALYTICS CARD -->
+    <div class="card" style="margin-bottom: 24px; padding: 20px 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">Assigned-Class Academic Analytics</h3>
+                <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem;">Role-scoped recorded grade patterns, active support referrals, and grade coverage.</p>
+            </div>
+            <a href="assigned_analytics.php" class="btn btn--secondary" style="min-height: 40px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600;">
+                View Assigned-Class Analytics
+            </a>
+        </div>
+        <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 16px; margin-bottom: 0;">
+            <div class="stat-card" style="border-left-color: var(--teal) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Assigned Sections</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="assigned-sections"><?= $facSectionCount ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Current teaching load</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Grade Coverage</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="grade-coverage"><?= $facSummary['numeric_coverage_pct'] !== null ? number_format($facSummary['numeric_coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $facSummary['eligible_grade_count'] ?> of <?= $facSummary['expected_grade_count'] ?> recorded</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--gold) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Assigned-Class Mean</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="class-mean"><?= $facSummary['gwa'] !== null ? number_format($facSummary['gwa'], 2) : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Weighted eligible points</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--risk-mod) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Active Referrals</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="active-referrals"><?= $facReferrals ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Within your assignments</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--risk-low) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Notices Issued</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="notices-issued"><?= $facNotices ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Support follow-ups</div>
+            </div>
         </div>
     </div>
 
