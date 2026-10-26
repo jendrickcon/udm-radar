@@ -97,6 +97,22 @@ $riskBadgeClass = fn(?string $risk) => match ($risk !== null ? strtoupper($risk)
     'LOW' => 'low', 'MODERATE' => 'mod', 'HIGH' => 'high', default => 'na',
 };
 
+// Compact Program Analytics Snapshot (WP1)
+require_once __DIR__ . '/../includes/analytics/service.php';
+try {
+    $analyticsReport = analyticsReport($db, $user, []);
+    $analyticsSummary = $analyticsReport['summary'];
+    $analyticsTrend = $analyticsReport['trend'];
+    $analyticsCoverage = $analyticsReport['prediction_coverage'];
+    $analyticsSupport = $analyticsReport['support'];
+} catch (Throwable $e) {
+    error_log('Admin dashboard analytics snapshot unavailable: ' . $e->getMessage());
+    $analyticsSummary = ['gwa' => null, 'student_count' => 0, 'eligible_grade_count' => 0, 'expected_grade_count' => 0, 'numeric_coverage_pct' => null];
+    $analyticsTrend = ['previous' => null, 'change' => ['point_change' => null, 'relative_change_pct' => null, 'direction' => 'Unavailable']];
+    $analyticsCoverage = ['coverage_pct' => null, 'available_count' => 0, 'student_count' => 0];
+    $analyticsSupport = ['open_cases' => 0, 'eligible_cases' => 0, 'mean_first_action_hours' => null, 'first_action_sample' => 0];
+}
+
 $pageTitle = 'Admin Dashboard';
 $navItems = [
     ['Dashboard',          'index.php',     ''],
@@ -244,6 +260,51 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
         <div id="batchPredictStatus" role="status" aria-live="polite" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; line-height: 1.4;"></div>
+    </div>
+
+    <!-- PROGRAM ANALYTICS SNAPSHOT -->
+    <div class="card" style="margin-bottom: 24px; padding: 20px 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">Program Academic Analytics Snapshot</h3>
+                <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem;">College-wide recorded patterns, data coverage, and support timeline metrics.</p>
+            </div>
+            <a href="analytics.php" class="btn btn--secondary" style="min-height: 40px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600;">
+                View Program Analytics
+            </a>
+        </div>
+        <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 16px; margin-bottom: 0;">
+            <div class="stat-card" style="border-left-color: var(--teal) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Recorded Mean GWA</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="mean-gwa"><?= $analyticsSummary['gwa'] !== null ? number_format($analyticsSummary['gwa'], 2) : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Weighted eligible grades</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Point Change</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="point-change"><?= $analyticsTrend['change']['point_change'] !== null ? ($analyticsTrend['change']['point_change'] > 0 ? '+' : '') . number_format($analyticsTrend['change']['point_change'], 2) : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">vs. comparable term</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--gold) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Prediction Coverage</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="prediction-coverage"><?= $analyticsCoverage['coverage_pct'] !== null ? number_format($analyticsCoverage['coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsCoverage['available_count'] ?> of <?= $analyticsCoverage['student_count'] ?> students</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Grade Coverage</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="grade-coverage"><?= $analyticsSummary['numeric_coverage_pct'] !== null ? number_format($analyticsSummary['numeric_coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSummary['eligible_grade_count'] ?> / <?= $analyticsSummary['expected_grade_count'] ?> grades</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--risk-mod) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Open Support Cases</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="open-cases"><?= $analyticsSupport['open_cases'] ?? 0 ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSupport['eligible_cases'] ?? 0 ?> total eligible</div>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--risk-low) !important;">
+                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Mean Time to Action</h4>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="mean-time-action"><?= $analyticsSupport['mean_first_action_hours'] !== null ? number_format($analyticsSupport['mean_first_action_hours'], 2) . 'h' : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">MTR-20<?= !empty($analyticsSupport['first_action_sample']) ? ' (n=' . $analyticsSupport['first_action_sample'] . ')' : '' ?></div>
+            </div>
+        </div>
     </div>
 
     <!-- TIER 2: POPULATION DATA & FILTERS -->
