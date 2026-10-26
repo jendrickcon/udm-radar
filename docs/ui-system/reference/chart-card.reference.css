@@ -1,0 +1,36 @@
+/* REFERENCE ONLY. NOT LOADED BY PRODUCTION PAGES.
+Future implementers must adapt this file to the active UDM-RADAR layout and tests. */
+.ui-ref-chart-card {
+  min-width: 0;
+  max-width: var(--ui-ref-chart-max, 1500px);
+  padding: 24px;
+  margin-block-end: var(--ui-ref-section-gap, 24px);
+  background: var(--ui-ref-card);
+  color: var(--ui-ref-text);
+  border: 1px solid var(--ui-ref-border);
+  border-radius: var(--ui-ref-radius, 12px);
+  box-shadow: var(--ui-ref-shadow);
+  font: inherit;
+}
+.ui-ref-chart-card .ui-ref-chart-title { margin-block: 0 8px; font-size: var(--ui-ref-font-section, 1.2rem); }
+.ui-ref-chart-card .ui-ref-chart-context { color: var(--ui-ref-text-muted); line-height: 1.5; }
+.ui-ref-chart-card .ui-ref-chart-plot { position: relative; min-width: 0; aspect-ratio: 16 / 7; }
+.ui-ref-chart-card .ui-ref-chart-plot canvas { max-width: 100%; }
+.ui-ref-chart-card .ui-ref-chart-legend { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 0; list-style: none; }
+.ui-ref-chart-card .ui-ref-chart-legend li { display: flex; gap: 8px; align-items: baseline; overflow-wrap: anywhere; }
+.ui-ref-chart-card .ui-ref-series-key { width: 28px; flex: 0 0 28px; border-block-start: 3px solid var(--ui-ref-chart-current); }
+.ui-ref-chart-card .ui-ref-series-key--blocked { border-block-start-style: dashed; border-color: var(--ui-ref-chart-insufficient); }
+.ui-ref-chart-card .ui-ref-chart-empty,
+.ui-ref-chart-card .ui-ref-chart-note { line-height: 1.55; overflow-wrap: anywhere; }
+.ui-ref-chart-card .ui-ref-chart-table-scroll { overflow-x: auto; max-width: 100%; }
+.ui-ref-chart-card table { width: 100%; border-collapse: collapse; }
+.ui-ref-chart-card th,
+.ui-ref-chart-card td { padding: 12px; text-align: start; vertical-align: top; border-block-end: 1px solid var(--ui-ref-border); }
+.ui-ref-chart-card caption { padding-block: 8px; text-align: start; color: var(--ui-ref-text-muted); }
+.ui-ref-chart-card :focus-visible { outline: 3px solid var(--ui-ref-focus); outline-offset: 3px; }
+@media (max-width: 1280px) and (min-width: 901px) {
+  .ui-ref-chart-card { padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-ref-chart-card * { scroll-behavior: auto; }
+}

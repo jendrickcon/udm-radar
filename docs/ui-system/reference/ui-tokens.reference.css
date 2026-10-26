@@ -1,0 +1,62 @@
+/* REFERENCE ONLY. NOT LOADED BY PRODUCTION PAGES.
+Future implementers must adapt this file to the active UDM-RADAR layout and tests. */
+:where(.ui-ref-shell, .ui-ref-theme, .ui-ref-chart-card) {
+  --ui-ref-sidebar-expanded: 280px;
+  --ui-ref-sidebar-collapsed: 80px; /* Proposal: 44px target + 18px each side. */
+  --ui-ref-gutter: 40px;
+  --ui-ref-card-gap: 20px;
+  --ui-ref-section-gap: 24px;
+  --ui-ref-chart-max: 1500px;
+  --ui-ref-radius: 12px;
+  --ui-ref-motion-sidebar: 180ms;
+  --ui-ref-motion-disclosure: 150ms;
+  --ui-ref-surface: var(--bg-color, #eaf7f8);
+  --ui-ref-card: var(--card-bg, #ffffff);
+  --ui-ref-border: var(--border-color, #b7dde2);
+  --ui-ref-accent: var(--accent-blue, #1769aa);
+  --ui-ref-accent-secondary: var(--secondary, #0f8b8d);
+  --ui-ref-success: var(--risk-low, #059669);
+  --ui-ref-caution: var(--risk-mod, #d97706);
+  --ui-ref-risk: var(--risk-high, #dc2626);
+  --ui-ref-unavailable: var(--text-gray, #486581);
+  --ui-ref-text: var(--text-dark, #102a43);
+  --ui-ref-text-muted: var(--text-gray, #486581);
+  --ui-ref-focus: var(--accent-blue, #1769aa);
+  --ui-ref-chart-current: var(--ui-ref-accent);
+  --ui-ref-chart-comparison: var(--ui-ref-accent-secondary);
+  --ui-ref-chart-average: var(--ui-ref-accent-secondary);
+  --ui-ref-chart-insufficient: var(--ui-ref-unavailable);
+  --ui-ref-shadow: var(--shadow-sm, 0 4px 15px rgb(16 42 67 / 5%));
+  --ui-ref-font-page: 2rem;
+  --ui-ref-font-section: 1.2rem;
+  --ui-ref-font-card: 1rem;
+  --ui-ref-font-body: 0.95rem;
+  --ui-ref-font-helper: 0.875rem;
+}
+[data-theme="dark"] :where(.ui-ref-shell, .ui-ref-theme, .ui-ref-chart-card),
+:where(.ui-ref-shell, .ui-ref-theme, .ui-ref-chart-card)[data-theme="dark"] {
+  --ui-ref-surface: var(--bg-color, #071526);
+  --ui-ref-card: var(--card-bg, #10243a);
+  --ui-ref-border: var(--border-color, #315670);
+  --ui-ref-accent: var(--accent-blue, #60a5fa);
+  --ui-ref-accent-secondary: var(--secondary, #34d399);
+  --ui-ref-text: var(--text-dark, #f4fafc);
+  --ui-ref-text-muted: var(--text-gray, #b8d4e3);
+  --ui-ref-unavailable: var(--text-gray, #b8d4e3);
+  --ui-ref-focus: var(--accent-blue, #60a5fa);
+  --ui-ref-success: var(--risk-low, #10b981);
+  --ui-ref-caution: var(--risk-mod, #f59e0b);
+  --ui-ref-risk: var(--risk-high, #ef4444);
+  --ui-ref-shadow: var(--shadow-sm, 0 4px 15px rgb(0 0 0 / 35%));
+}
+.ui-ref-shell[data-ui-ref-density="compact"] { --ui-ref-gutter: 20px; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.ui-ref-shell, .ui-ref-theme, .ui-ref-chart-card) {
+    --ui-ref-motion-sidebar: 0ms;
+    --ui-ref-motion-disclosure: 0ms;
+  }
+}
+[data-motion="reduce"] :where(.ui-ref-shell, .ui-ref-theme, .ui-ref-chart-card) {
+  --ui-ref-motion-sidebar: 0ms;
+  --ui-ref-motion-disclosure: 0ms;
+}
