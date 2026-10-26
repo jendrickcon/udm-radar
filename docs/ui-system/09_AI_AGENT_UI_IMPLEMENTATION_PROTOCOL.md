@@ -1,0 +1,61 @@
+# AI agent UI implementation protocol
+
+Status: preparation only; production sidebar and chart redesign are `NOT IMPLEMENTED`. This protocol supports future owner-approved packages and grants no independent permission to implement or publish them.
+
+## Context first
+
+Before editing, read the applicable [AGENTS.md](../../AGENTS.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), canonical [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md), [findings register](../UI_UX_FINDINGS_REGISTER.md), [post-defense context](../post-defense/00_CONTEXT_AND_CURRENT_STATE.md), [status ledger](../post-defense/10_IMPLEMENTATION_STATUS.md), [metric reconciliation](../post-defense/14_METRIC_RECONCILIATION.md), this package's [context](00_UI_SYSTEM_CONTEXT.md), and the exact approved work package. Read the relevant sidebar, tokens, chart/data, accessibility, acceptance, ownership, and reference-usage documents. Discover which repository skills were actually loaded and read relevant skills from this checkout; do not assume another agent's discovery is identical.
+
+The [existing continuation guide](../post-defense/09_AGENT_CONTINUATION_GUIDE.md) and [member workflow](08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md) are context. A general command example cannot authorize a database operation, staging, commit, status-ledger edit, publication, or recovery. Current owner scope and repository protections apply.
+
+## Opening report before changes
+
+Provide a short report containing member name, work package ID/approval, assigned branch, current local branch, actual absolute clone path, starting baseline and current HEAD/origin/main SHAs, and `git status --short --branch`. Restate scope and non-goals, protected files, anticipated literal changed files, shared-file primary owners/custodian, required tests and stop conditions before editing. Do not copy an old SHA or clean-status claim from another agent.
+
+Each human member uses one local clone and one assigned long-lived branch: Vincent uses `feat/member1-ui-ux`; Member 2 uses `feat/member2-analytics-verification`. Before a package, save current work through the approved process, inspect status, fetch, switch to clean main, pull `--ff-only`, return to the assigned branch, and integrate main using the package-approved method. Resolve conflicts and confirm clean status before implementation; record the starting main SHA. Never implement directly on main. Discover each member's absolute clone and served XAMPP paths rather than assuming identical machines.
+
+An AI child branch may be created inside the same clone only from its own assigned branch's verified HEAD, never the other member's branch. Use compatible names such as `feat/member1-ui-ux--sidebar` and `feat/member2-analytics-verification--cohort-contract`. Slash descendants under the actual parent branch, such as `feat/member1-ui-ux/sidebar`, conflict with the existing Git ref's file/directory path; double-hyphen names avoid that conflict. Record the approved integration method back to the assigned branch. Additional worktrees require explicit owner exception approval, for example independent certification, conflict recovery, preserving unique dirty work, or immutable review. No mandatory extra worktrees and no simultaneous agents switching the same clone.
+
+Preserve unknown local work. Unexpected dirty files, conflicting ownership, overlap, missing authorization, or required out-of-scope edits stop the affected work. No automatic reset, forced checkout, restore, stash, recovery commit or cleanup. `git reset --hard`, `git clean -fd`, and `git push --force` require a separate owner-authorized recovery package.
+
+The preparation baseline is `edef1b382b7874af770feb5713c20e9b68979241`. PR #63 is OPEN and UNMERGED at preparation, with head `6d0ece576c74ac4c143719308865aa0c1cacc367`; revalidate before future work. The frozen paths are `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, and `docs/post-defense/10_IMPLEMENTATION_STATUS.md`. Propose their changes in the handoff until the owner authorizes reconciliation and names the status writer. Antigravity's `feat/analytics-ui-integration` worktree is separate; its `7af3c26` checkpoint is not a final immutable handoff and must not be edited by this package.
+
+## Academic and privacy invariants
+
+- Present `Prototype performance on synthetic academic records` in user-facing predictions, analytical summaries, and reports. Use synthetic records only; never include genuine identifiers in evidence.
+- Preserve the configured higher-is-better point scale, canonical GWA/zero treatment, textual outcomes, incomplete-term handling, and dynamic academic periods. Risk triage, subject pass/fail, official standing, pacing, and benefits remain separate. No punitive wording, ranking, or automatic Student notice.
+- MTR-07 prediction bounds remain `BLOCKED` without verified active-model held-out residuals. Do not invent MAE/RMSE margins or confidence intervals. Canonical MTR-21 referral closure is `PLANNED` / `BLOCKED`; the limited parent-case closed-duration median is separate. MTR-19 is a bounded receipt count, not the canonical rate.
+- The Student-facing cohort aggregate/privacy contract is `BLOCKED`, not deferred. Vincent owns its unavailable UI and cannot invent its formula. Member 2 verifies the data/privacy contract before final owner approval. The active Student legend label is `Your recorded GWA`. The unavailable label is exactly `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.` No calculation, placeholder average, invented suppression threshold, pooled-mean relabeling, or Faculty-assignment default is permitted.
+
+Member 2 must verify eleven items before final owner approval: (1) Student-level unit of analysis; (2) comparable cohort definition; (3) eligible records; (4) excluded records; (5) missing/incomplete-term behavior; (6) minimum privacy-safe cohort size; (7) aggregation/unit-weighting rules; (8) school-year/semester comparability; (9) role visibility; (10) synthetic-data test evidence; (11) privacy/fairness review. See the [chart contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md). The owner then approves the complete contract; an approved blocked interface does not approve data access or an average. Vincent may prepare the interface, legend, tooltip, unavailable state, accessible table column and empty-state explanation, but cannot define or simulate the value.
+
+## Execution and progress
+
+Keep work within the approved files. Vincent owns the unified UI/UX, Sidebar, Dashboard and Chart Experience: all sidebar CSS/JS, tokens, Admin/Faculty/Student dashboard presentation/layout/spacing, content expansion, chart/graph presentation including Student GWA and the blocked cohort interface, legends, tooltips, chart cards, filters/advanced controls, themes, keyboard/accessibility, desktop behavior, and visual integration. Member 2, not yet named, owns Analytics Calculations, Verification, Testing and Bug Fixes: formulas, numerators/denominators, missing-data rules, comparison/cohort data and privacy contract, role authorization/backend/API verification, regressions, independent review, bug reports, and separately owner-authorized backend/integration fixes.
+
+Adapt reference assets only after inspecting active code and contracts; they are not production ready. All shared UI/sidebar CSS/JS, chart layout/styles, and tokens remain Vincent's primary ownership; do not divide sidebar and charts between members. Member 2 may propose failing UI tests/findings but may not independently restyle or edit Vincent's files. Coordinate any owner-approved minimal integration fix with Vincent, using an explicit temporary ownership transfer if needed. One primary owner edits a file at a time. Shared production entry-page or fixture integration follows an owner-appointed custodian and sequential handoff without overriding Vincent's UI ownership. No generic UI request authorizes new libraries, dependencies, private PEF/CC access, model/schema/migration changes, or unapproved formula/authentication/API changes.
+
+Share concise progress at meaningful milestones and avoid more than about 60 seconds of silence during ongoing work. State current task, completed work, early findings, blocker if any, and next action; include branch/SHA when changed. Do not repeat the entire plan or print low-level tool activity. Share findings without stopping authorized independent work. Put long instructions in Markdown files and link them. Preserve required owner wording verbatim.
+
+Read test entry points and their includes, handlers, subprocesses, overrides, writes/cleanup, locks, and temporary files before execution. Database access requires separate owner authorization. Automated mutations must be proven scratch-only with no live fallback; rollback alone is not isolation. No database access, Migration 011, migration, rebuild, or seed is authorized by this preparation or a generic template.
+
+Run focused checks before broader relevant checks. Verify the installed repository-pinned Playwright version and authentication/request side effects before an approved desktop run. Shared dashboard layout changes require the Faculty dashboard layout regression and warning-banner containment. Keep generated evidence ignored. Do not weaken tests or hide failures to obtain a passing report.
+
+## Evidence and handoff
+
+Use the [report standard](14_PROGRESS_REPORT_AND_HANDOFF_STANDARD.md). Record actual commands, runtime/version, target, exit code, and passed/failed/skipped totals by category. Distinguish PHP regression checks, JavaScript checks, integration, live authenticated desktop browser, generated static HTML, mocked browser, structural/source inspection, accessibility, and manual owner review. Do not sum them into an accuracy percentage or reuse historic totals as current results. Mark unrun or unavailable checks honestly. Checksums prove the inspected bytes or identity only; they do not prove functionality, accessibility, or end-to-end behavior.
+
+Inspect committed, unstaged, staged, untracked, and combined changes. Within the approved future package's checkpoint authority, stage explicit files, review the complete staged diff, verify focused checks, create small meaningful commits and push verified checkpoints to the assigned branch. Do not re-request already granted checkpoint authority or infer it for unrelated work. At package completion, confirm a clean branch with latest approved main, push the exact reviewed commit and prepare one complete PR after owner review under the approved workflow. Supply immutable head SHA and categorized evidence, request owner/independent review, and keep auto-merge off. Return a final handoff after completion or explicitly requested blocked handoff, with next action and owner-defined completion phrase.
+
+Merge requires owner authorization. No automatic merge, direct main push, deployment, migration, or branch/worktree cleanup follows from checkpoint/PR permission. After approved merge, record the merge SHA, refresh clean main in both member clones with fast-forward-only pulls, and confirm the served checkout uses updated main. Start or integrate latest main for the next approved package; do not develop indefinitely from the merged branch. GitHub main is authoritative; do not exchange copied source folders or ZIP files as development truth.
+
+Current Sol preparation boundary: corrected documentation/reference files may be committed only after owner review. Report its immutable review commit as pending until review/authorization; no push/PR is authorized for this preparation. Missing approval is reported as the concrete remaining owner action, not replaced with a fabricated SHA.
+
+## Owner instruction retained verbatim
+
+> from now on skip all mobile testing and screenshotting and focus on desktops
+> include this message in your report output as well for future references
+> also, 12% remaining usage
+> finish what you can/
+
+Include this instruction in reports. The usage sentence records the historical instruction; do not report it as current measured usage. Mobile tests and screenshots are excluded under the current directive.

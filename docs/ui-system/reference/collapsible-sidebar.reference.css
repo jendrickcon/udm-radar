@@ -1,0 +1,72 @@
+/* REFERENCE ONLY. NOT LOADED BY PRODUCTION PAGES.
+Future implementers must adapt this file to the active UDM-RADAR layout and tests. */
+@media (min-width: 901px) {
+  .ui-ref-shell[data-ui-ref-shell] {
+    display: grid;
+    grid-template-columns: var(--ui-ref-sidebar-expanded) minmax(0, 1fr);
+    align-items: start;
+    transition: grid-template-columns var(--ui-ref-motion-sidebar) ease-out;
+  }
+  .ui-ref-shell.ui-ref-sidebar-collapsed {
+    grid-template-columns: var(--ui-ref-sidebar-collapsed) minmax(0, 1fr);
+  }
+  .ui-ref-shell [data-ui-ref-sidebar] {
+    min-width: 0;
+    color: var(--ui-ref-text);
+    background: var(--ui-ref-card);
+    border-inline-end: 1px solid var(--ui-ref-border);
+  }
+  .ui-ref-shell [data-ui-ref-content] {
+    min-width: 0;
+    padding: var(--ui-ref-gutter);
+  }
+  .ui-ref-shell .ui-ref-nav-link,
+  .ui-ref-shell [data-ui-ref-toggle],
+  .ui-ref-shell .ui-ref-footer-control {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 16px;
+    color: inherit;
+    font: inherit;
+    position: relative;
+    border-radius: 10px;
+  }
+  .ui-ref-shell .ui-ref-nav-icon { flex: 0 0 20px; width: 20px; height: 20px; }
+  .ui-ref-shell .ui-ref-nav-link[aria-current="page"] {
+    box-shadow: inset 4px 0 0 var(--ui-ref-accent);
+    font-weight: 700;
+    text-decoration: underline;
+  }
+  .ui-ref-shell.ui-ref-sidebar-collapsed .ui-ref-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ui-ref-shell .ui-ref-icon-tooltip { display: none; }
+  .ui-ref-shell.ui-ref-sidebar-collapsed .ui-ref-nav-link:is(:hover, :focus-visible) .ui-ref-icon-tooltip,
+  .ui-ref-shell.ui-ref-sidebar-collapsed .ui-ref-footer-control:is(:hover, :focus-visible) .ui-ref-icon-tooltip {
+    display: block;
+    position: absolute;
+    inset-inline-start: calc(100% + 8px);
+    padding: 8px 12px;
+    background: var(--ui-ref-card);
+    color: var(--ui-ref-text);
+    border: 1px solid var(--ui-ref-border);
+    box-shadow: var(--ui-ref-shadow);
+    z-index: 10;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+}
+.ui-ref-shell :focus-visible { outline: 3px solid var(--ui-ref-focus); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .ui-ref-shell [data-ui-ref-toggle] { display: none; }
+  /* No drawer/layout replacement is supplied at this breakpoint. */
+}
