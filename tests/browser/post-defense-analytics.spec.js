@@ -207,6 +207,59 @@ test('Administrator Program Analytics page has single scroll owner at far-right 
  expect(layout.mainOverflowY).toBe('auto');
 });
 
+test('Administrator side-by-side comparison builder compares cohorts with matched scale and neutral summary',async({page})=>{
+ await login(page,'admin');
+ await page.getByRole('tab',{name:'Academic Comparisons'}).click();
+ await expect(page.locator('#comparison-panels-grid')).toBeVisible();
+
+ // Check equal-width side-by-side panels
+ await expect(page.locator('#panel-compare-a')).toBeVisible();
+ await expect(page.locator('#panel-compare-b')).toBeVisible();
+ const panelA=page.locator('#panel-compare-a');
+ const panelB=page.locator('#panel-compare-b');
+ await expect(panelA.getByText('Recorded class average')).toBeVisible();
+ await expect(panelB.getByText('Recorded class average')).toBeVisible();
+ await expect(panelA.getByText('Pooled unit-weighted recorded-grade mean')).toBeVisible();
+
+ // Check same-scale chart rendering and accessible legend
+ await expect(page.locator('#comparison-chart svg')).toBeVisible();
+ await expect(page.locator('#comparison-legend')).toContainText('Compare A');
+ await expect(page.locator('#comparison-legend')).toContainText('Compare B');
+ await expect(page.locator('#comparison-legend')).toContainText('Incomplete or unavailable period');
+
+ // Check comparison summary with neutral wording
+ const summary=page.locator('#comparison-summary-card');
+ await expect(summary).toBeVisible();
+ await expect(summary).toContainText('Comparison Summary');
+ await expect(summary).toContainText('Difference:');
+ await expect(summary.getByText(/does not independently measure teaching performance/)).toBeVisible();
+ await expect(summary).not.toContainText('better');
+ await expect(summary).not.toContainText('worse');
+ await expect(summary).not.toContainText('teaching quality');
+
+ // Check accessible side-by-side table equivalence
+ await expect(page.locator('#side-by-side-table')).toBeVisible();
+ await expect(page.locator('#side-by-side-table th').first()).toHaveText('Comparison subject');
+
+ // Select identical items for A and B -> warning notice
+ const aVal=await page.locator('#compare-a').inputValue();
+ await page.locator('#compare-b').selectOption(aVal);
+ await expect(page.locator('#comparison-validation-notice')).toBeVisible();
+ await expect(page.locator('#comparison-validation-notice')).toHaveText('Select two different groups to compare.');
+
+ // Change Comparison type to Curriculum year
+ await page.locator('#comparison-group').selectOption('year_level');
+ await expect(page.locator('#comparison-group option:checked')).toHaveText('Curriculum year');
+
+ // Select metric: Student count
+ await page.locator('#comparison-metric').selectOption('student_count');
+ await expect(panelA.getByText('Student count')).toBeVisible();
+
+ // Faculty same-subject restriction
+ await page.locator('#comparison-group').selectOption('faculty_subject');
+ await expect(page.locator('#comparison-panels-grid')).toBeVisible();
+});
+
 test('Faculty dashboard features compact role-scoped assigned-class analytics cards',async({page})=>{
  await login(page,'faculty');
  await page.goto(base+'/faculty/dashboard.php');

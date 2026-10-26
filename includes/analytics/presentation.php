@@ -396,22 +396,22 @@ function analyticsPage(string $role): void {
                     <div class="analytics-stat-grid">
                         <div class="stat-card" style="border-left-color: var(--accent-blue);">
                             <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Students Analyzed</h4>
-                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="total-students"><?= $overview['totalStudents'] ?></h2>
+                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="total-students" data-overview-metric="total-students"><?= $overview['totalStudents'] ?></h2>
                             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Across <?= count($overview['sectionData']) ?> active sections</p>
                         </div>
                         <div class="stat-card" style="border-left-color: var(--risk-low);">
                             <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Mean Student GWA</h4>
-                            <h2 style="color: var(--risk-low); font-size: 1.8rem; margin: 0;" data-metric="mean-student-gwa"><?= $overview['meanGwa'] !== null ? number_format($overview['meanGwa'], 2) : 'N/A' ?></h2>
+                            <h2 style="color: var(--risk-low); font-size: 1.8rem; margin: 0;" data-metric="mean-student-gwa" data-overview-metric="mean-student-gwa"><?= $overview['meanGwa'] !== null ? number_format($overview['meanGwa'], 2) : 'N/A' ?></h2>
                             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Enrolled student cohorts</p>
                         </div>
                         <div class="stat-card" style="border-left-color: var(--risk-mod);">
                             <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">At-Risk Proportion</h4>
-                            <h2 style="color: var(--risk-mod); font-size: 1.8rem; margin: 0;" data-metric="at-risk-pct"><?= $overview['coveragePct'] > 0 ? number_format($overview['atRiskPct'], 1) . '%' : 'N/A' ?></h2>
+                            <h2 style="color: var(--risk-mod); font-size: 1.8rem; margin: 0;" data-metric="at-risk-pct" data-overview-metric="at-risk-pct"><?= $overview['coveragePct'] > 0 ? number_format($overview['atRiskPct'], 1) . '%' : 'N/A' ?></h2>
                             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">High &amp; Moderate risk triage</p>
                         </div>
                         <div class="stat-card" style="border-left-color: var(--gold);">
                             <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Prediction Coverage</h4>
-                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="prediction-coverage-pct"><?= number_format($overview['coveragePct'], 1) ?>%</h2>
+                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="prediction-coverage-pct" data-overview-metric="prediction-coverage-pct"><?= number_format($overview['coveragePct'], 1) ?>%</h2>
                             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active student predictions</p>
                         </div>
                     </div>
@@ -556,18 +556,105 @@ function analyticsPage(string $role): void {
                         </div>
                     </section>
 
-                    <section aria-labelledby="analytics-comparison-heading">
+                    <section aria-labelledby="analytics-comparison-heading" class="comparison-builder-section">
                         <h2 id="analytics-comparison-heading">Academic comparisons</h2>
-                        <div style="margin-bottom: 14px;">
-                            <label for="comparison-group" style="font-weight: 600; font-size: 0.9rem;">Comparison view</label>
-                            <select id="comparison-group" class="filter-select" style="max-width: 320px;"></select>
+                        <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 0; margin-bottom: 20px;">
+                            Side-by-side comparison builder evaluating cohorts, subjects, sections, or faculty assignments on shared scales.
+                        </p>
+
+                        <!-- COMPARISON BUILDER CONTROLS -->
+                        <div class="card comparison-controls-card" style="padding: 18px 22px; margin-bottom: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; align-items: flex-end;">
+                                <div>
+                                    <label for="comparison-group" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
+                                        Comparison type
+                                    </label>
+                                    <select id="comparison-group" class="filter-select" aria-label="Comparison view" style="width: 100%;">
+                                        <option value="semester">Semester</option>
+                                        <option value="school_year">School year</option>
+                                        <option value="year_level">Curriculum year</option>
+                                        <option value="subject">Subject</option>
+                                        <option value="section">Section</option>
+                                        <option value="faculty_subject">Faculty assignment</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="comparison-metric" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
+                                        Metric
+                                    </label>
+                                    <select id="comparison-metric" class="filter-select" aria-label="Comparison metric" style="width: 100%;">
+                                        <option value="gwa">Recorded class average</option>
+                                        <option value="student_count">Student count</option>
+                                        <option value="numeric_coverage_pct">Numeric grade coverage</option>
+                                        <option value="final_coverage_pct">Final-outcome coverage</option>
+                                        <option value="prediction_coverage_pct">Prediction coverage</option>
+                                        <option value="risk_distribution">Advisory-risk distribution</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="compare-a" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
+                                        Compare A
+                                    </label>
+                                    <select id="compare-a" class="filter-select" aria-label="Compare group A" style="width: 100%;">
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="compare-b" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
+                                        Compare B
+                                    </label>
+                                    <select id="compare-b" class="filter-select" aria-label="Compare group B" style="width: 100%;">
+                                    </select>
+                                </div>
+                            </div>
+                            <p id="comparison-description" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 0 0;"></p>
                         </div>
-                        <p id="comparison-description"></p>
-                        <div id="comparison-chart" class="analytics-chart"></div>
-                        <div class="data-table-scroll" role="region" aria-label="Comparison data" tabindex="0">
-                            <table id="comparison-table"></table>
+
+                        <!-- VALIDATION / SCOPE NOTICE -->
+                        <div id="comparison-validation-notice" role="alert" style="display: none; margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 500;"></div>
+
+                        <!-- SIDE-BY-SIDE PANELS -->
+                        <div id="comparison-panels-grid" class="comparison-panels-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px; margin-bottom: 24px;">
+                            <div id="panel-compare-a" class="card comparison-panel panel-a" style="padding: 20px 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            </div>
+                            <div id="panel-compare-b" class="card comparison-panel panel-b" style="padding: 20px 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            </div>
                         </div>
-                        <p class="analytics-fairness">
+
+                        <!-- NEUTRAL COMPARISON SUMMARY -->
+                        <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 10px;">
+                        </div>
+
+                        <!-- VISUAL CHART WITH EQUAL AXIS & SCALE -->
+                        <div class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
+                            <p style="margin: 0 0 16px 0; font-size: 0.82rem; color: var(--text-gray);">Side-by-side metric comparison rendered on identical axes and scales.</p>
+                            <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 12px;"></div>
+                            <div id="comparison-legend" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 10px;"></div>
+                        </div>
+
+                        <!-- EXACT VALUES TABLE FOR SELECTED GROUPS -->
+                        <div class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Comparison Evidence</h3>
+                            <p style="margin: 0 0 14px 0; font-size: 0.82rem; color: var(--text-gray);">Exact metrics for the selected comparison subjects.</p>
+                            <div class="data-table-scroll" role="region" aria-label="Two group comparison evidence" tabindex="0">
+                                <table id="side-by-side-table" class="data-table" style="width: 100%;"></table>
+                            </div>
+                        </div>
+
+                        <!-- ALL ELIGIBLE GROUPS DISCLOSURE (Contains full #comparison-table) -->
+                        <details id="all-groups-disclosure" class="card" style="padding: 16px 20px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            <summary style="font-weight: 600; font-size: 0.95rem; color: var(--text-dark); cursor: pointer; outline: none;">
+                                View all eligible groups (<span id="all-groups-count">0</span> total)
+                            </summary>
+                            <div style="margin-top: 16px;">
+                                <p style="font-size: 0.82rem; color: var(--text-gray); margin-bottom: 12px;">Full group breakdown for the active comparison type.</p>
+                                <div class="data-table-scroll" role="region" aria-label="Comparison data" tabindex="0">
+                                    <table id="comparison-table" class="data-table" style="width: 100%;"></table>
+                                </div>
+                            </div>
+                        </details>
+
+                        <p class="analytics-fairness" style="border-left: 3px solid var(--accent-blue); padding: 10px 16px; background: var(--bg-hover, #f8fafc); border-radius: 0 6px 6px 0; font-size: 0.82rem; color: var(--text-gray); line-height: 1.5; margin-top: 16px;">
                             Comparative academic patterns support authorized review and do not independently measure teaching performance. Differences may reflect Student composition, prior achievement, subject difficulty, class size, record completeness, and semester conditions.
                         </p>
                     </section>
