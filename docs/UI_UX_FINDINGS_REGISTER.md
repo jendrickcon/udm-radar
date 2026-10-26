@@ -38,10 +38,17 @@ This register converts qualitative audits, static inspection findings, and usabi
 | **UX-009** | Authenticated mobile-verification gap | Cross-portal | High | Partially resolved | `UI-WP-MOBILE` | Requires verification (Emulation verified; physical hardware pending) |
 | **UX-010** | External Chart.js CDN dependency review | Cross-portal | Low | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
 | **UX-011** | Unreachable calculator targets stay selectable until calculation | Student | Medium | Verified | `GOAL-CALCULATOR-FEASIBLE-GWA-OPTIONS-SOL-WP1` | Generated fixture / deterministic math; local branch, unmerged |
+| **UX-012** | Post-defense prediction meaning, comparison context and support interpretability | Cross-portal | High | In Progress | `POST-DEFENSE-ANALYTICS-MVP` | Disposable actual-handler desktop verification; local branch, unmerged |
 
 ---
 
 ## 3. Finding Detail Records
+
+### UX-012: Post-defense analytics interpretability
+
+The approved v3 guide requested clearer estimated GWA/advisory meaning, comparable academic summaries and support follow-up context. Five local MVPs now share canonical formulas and record scope, native controls, tables and representative line/bar views. Range/deferral/historical-assignment gaps remain explicit. Desktop actual-handler and generated regression evidence is recorded in [implementation status](post-defense/10_IMPLEMENTATION_STATUS.md); final chart redesign and UAT are deferred. The owner now directs **no further mobile testing or screenshotting; focus on desktops**. The completed [independent follow-up](post-defense/16_INDEPENDENT_REVIEW_FOLLOWUP.md) approves the bounded corrected MVP with documented non-blocking limitations; UX-012 remains In Progress for overall publication/UAT, and analytics remain local and unmerged. External Stage B and institutional acceptance are separate.
+
+---
 
 ### UX-011: Mathematically Unreachable Calculator Targets
 * **Observed:** The per-subject Target Final Grade dropdown initially offered every point grade; impossible targets were rejected only after selection.

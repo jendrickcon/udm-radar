@@ -241,6 +241,7 @@ require_once '../includes/sidebar.php';
                 Click a section card to open its student roster.
                 <em style="color:var(--text-gray); font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
             </p>
+            <p><a href="assigned_analytics.php" class="btn btn--secondary">Review assigned-class patterns and support</a></p>
         </div>
     </div>
 

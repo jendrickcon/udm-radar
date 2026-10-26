@@ -376,6 +376,7 @@ require_once '../includes/sidebar.php';
         <div>
             <h1>Analytics Dashboard</h1>
             <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and academic estimation.</p>
+            <p><a href="academic_analytics.php" class="btn btn--secondary">Review GWA trends and estimate details</a></p>
         </div>
         <div>
             <?php if (getPredictionSourceFamily($prediction_source) === 'model'): ?>

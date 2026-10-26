@@ -258,13 +258,22 @@ $pending = $db->query("SELECT pc.*, au.first_name AS a_first, au.last_name AS a_
 $pendingBatches = $db->query("SELECT pgb.*, u.first_name, u.last_name, s.code AS subj_code, s.title AS subj_title FROM pending_grade_batches pgb JOIN users u ON u.id = pgb.faculty_id JOIN subjects s ON s.id = pgb.subject_id WHERE pgb.status = 'pending' ORDER BY pgb.submitted_at ASC")->fetchAll();
 $logs = $db->query("SELECT acl.*, au.first_name AS a_first, au.last_name AS a_last FROM admin_change_log acl JOIN users au ON au.id = acl.admin_id ORDER BY acl.created_at DESC LIMIT 50")->fetchAll();
 
-$supportCases = $db->query("
+$analyticsCase = $_GET['analytics_case'] ?? null;
+if ($analyticsCase !== null && (filter_var($analyticsCase, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]) === false)) {
+    http_response_code(422);
+    exit('Invalid support case filter.');
+}
+$supportCaseFilter = $analyticsCase !== null ? 'WHERE c.id = ?' : '';
+$stmtSupportCases = $db->prepare("
     SELECT c.*, u.first_name, u.last_name, u.user_id AS student_no, sp.course, sp.year_level, sp.section AS student_section
     FROM academic_support_cases c 
     JOIN users u ON c.student_id = u.id 
     JOIN student_profiles sp ON sp.user_id = u.id
+    $supportCaseFilter
     ORDER BY c.status ASC, c.created_at DESC LIMIT 50
-")->fetchAll(PDO::FETCH_ASSOC);
+");
+$stmtSupportCases->execute($analyticsCase !== null ? [(int)$analyticsCase] : []);
+$supportCases = $stmtSupportCases->fetchAll(PDO::FETCH_ASSOC);
 
 $caseIds = array_column($supportCases, 'id');
 $referralsByCase = [];

@@ -5,6 +5,14 @@
 
 ---
 
+## Post-defense analytics MVPs — feature branch, not merged (2026-10-26)
+
+Approved v3 Blue revisions are implemented as five bounded MVPs on `feat/post-defense-analytics-mvp`, accepted base `a79fb4838c5e2bc163cf943cda20afba9946d26b`: prediction meaning/range availability, Student GWA changes, Administrator comparisons, support summaries/drill-down and focused assigned Faculty review. Shared SELECT-only calculations preserve academic rules and record scope. Numerical ranges, historical teaching attribution and explicit notice deferrals remain unavailable where evidence is absent; no final redesign or production acceptance is claimed.
+
+Continuity PR #61 is merged at e8d72a6 and normally integrated into the local feature branch. Independent review identified eight blockers; all are closed in the completed follow-up for correction commit 63c2296f19c5ea0df99860c66f27cc196938d366, with verdict APPROVED WITH DOCUMENTED NON-BLOCKING LIMITATIONS. Corrections and fresh desktop verification are recorded in the status/methods/reconciliation records. Canonical metric equivalents remain incomplete where the pooled/subset formula or unit differs. Analytics remain local and UNMERGED; external Antigravity Stage B is separate. Latest owner instruction: **skip further mobile testing and screenshotting; focus on desktops**. See [durable status](post-defense/10_IMPLEMENTATION_STATUS.md), [methods](post-defense/12_ANALYTICS_METHODS.md), [independent follow-up](post-defense/16_INDEPENDENT_REVIEW_FOLLOWUP.md) and [five work packages](post-defense/work-packages/WP1_PREDICTION_CLARITY.md) for exact scope, evidence and continuation. No canonical main, current/scratch database, Apache, protected model/dump, starter seed, manuscript or recovery/handoff change.
+
+---
+
 ## PEF/CC planning export — owner-accepted continuation, final gate pending
 
 PR #51 (initial WP1) is merged. The PDF/state/UI continuation is **PR #54**, on `feat/student-pef-cc-planning-export`; published commit `0a52b3c` remains intact. It is not merged. The owner manually accepted Normal, Provisional and safely representable Review-required copies on **20 October 2026**. This is not formal UAT or institutional/production approval.
