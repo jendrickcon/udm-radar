@@ -8,7 +8,7 @@ Vincent owns Administrator/Faculty implementation and self-verification; Joshua 
 | Old ownership split persists | Portal map, own tests/fixes, cross-review supplemental | Student assigned to Vincent or all technical testing delegated to Joshua |
 | Shared-file collision | One owner-assigned custodian per literal file, sequential candidates | Simultaneous editor, unknown dirty changes or missing custody |
 | Antigravity overlap | Use immutable merged PR64/current approved main; no need to wait for a superseded implementation handoff | Need to edit its active checkout or repeat accepted scope without finding/approval |
-| PR #63 silent overwrite | Freeze three paths, use separate reconciliation plan after merge/close | Proposed update overlaps unresolved PR63 status/history |
+| PR #63 silent overwrite | Preserve the three accepted PR63 paths exactly as current main | Readiness edit would overwrite merged status/history or a new main change |
 | Main/base drift | Recheck refs/PR/files and approve current base | Unexplained overlapping commit or unapproved base |
 | Sidebar/drawer collision | Separate desktop preference and existing drawer; no mobile tests | Fix needs unauthorized smaller-device behavior |
 | Resize leaks/clipping | Single initializer/observer, settled/coalesced resize and cleanup tests | Duplicate handler or unexplained geometry remains |
@@ -30,7 +30,7 @@ Vincent owns Administrator/Faculty implementation and self-verification; Joshua 
 
 ## Current preparation limits
 
-Only docs/ui-system documentation/reference changes. No access to either database, production/browser handler execution, migrations/Migration 011, genuine records, model/dependency/auth changes, mobile tests or screenshots. PR #63's three files, Antigravity's active worktree and canonical checkout remain untouched.
+Only docs/ui-system documentation/reference changes. No access to either database, production/browser handler execution, migrations/Migration 011, genuine records, model/dependency/auth changes, mobile tests or screenshots. Merged PR63 files match current main without readiness-specific edits; Antigravity's worktree remains untouched. The separate owner-authorized canonical fast-forward changed documentation only.
 
 Future branch names: `feat/member1-admin-faculty-ui` and `feat/member2-student-portal`. They are not created here. Same-clone task suffixes avoid Git parent/child ref conflicts. Both members self-verify before handoff. Cross-review reports defects; original implementer fixes unless explicitly reassigned.
 
@@ -40,4 +40,4 @@ Cohort unavailable-interface preparation is permitted despite the numeric BLOCKE
 
 Stop a proposed member task that reimplements accepted PR64 behavior without a finding or approved refinement. Stop onboarding that would execute bootstrap DROP TABLE statements against an existing populated target, replay migrations000–010, enable Migration011 or import seed implicitly. Current reconciliation performs source inspection only.
 
-PR63's three-file status proposal remains pending; update/merge it first is the recommendation. No owner decision is inferred from mergeability, and no remote action follows. Canonical bdb4a267f30aa31ea36983304a03b01dc28f0fcd is merged and locally deployed; stale “await final UI handoff” assumptions are removed. No production diff beyond that approved main is allowed.
+PR63 is owner-authorized and merged at c29d68a7ef961c0be61ffbf296a10918303d5fea; its canonical documentation fast-forward is complete. Runtime/onboarding remains identical to deployed PR64 bdb4a267f30aa31ea36983304a03b01dc28f0fcd. Readiness push/PR and all further remote actions require separate authorization. No production diff against current main is allowed.

@@ -1,17 +1,18 @@
 # Future UI, member and agent readiness
 
 Reconciled 27 October 2026 against [merged PR #64](https://github.com/jendrickcon/udm-radar/pull/64).
-Canonical main and owner-confirmed local deployment: `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`.
+Accepted PR64 runtime/local-deployment baseline: `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`.
+Current documentation main after PR63: `c29d68a7ef961c0be61ffbf296a10918303d5fea`.
 Preserved owner-accepted readiness commit: `648207bc563f2bb1aa280d08ab9699f07a4f39c7`.
 Existing branch: `docs/future-ui-member-agent-readiness`; no new branch/worktree.
-The approved main was integrated locally at `b85d208d8ca7a2e9a628a401008ab448cb6377a3`, retaining the preserved commit as an ancestor. Reconciliation edits are documentation-only; production and onboarding files match merged main.
+The earlier PR64 integration at `b85d208d8ca7a2e9a628a401008ab448cb6377a3` and accepted reconciliation `afb3bd8cc49abc0d51e49b45367c286f7b24e7a5` are preserved. This publication alignment integrates PR63 main `c29d68a7ef961c0be61ffbf296a10918303d5fea` without rewriting history. Only obsolete PR63 publication-gate wording is corrected; production/onboarding files match current main.
 Documentation: READY FOR OWNER REVIEW. Future post-MVP member implementation: NOT STARTED. Publication remains unauthorized.
 
 ## Product goal and authority
 
 > Deliver a coherent, understandable, role-appropriate academic analytics experience across Administrator, Faculty, and Student portals, where charts and summaries explain current results, comparable periods, growth or change, coverage, sample size, support activity, and unavailable evidence without ranking Faculty, fabricating comparisons, or overwhelming users with technical text and controls.
 
-Read [AGENTS](../../AGENTS.md), [contribution policy](../../CONTRIBUTING.md), [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md) and [findings register](../UI_UX_FINDINGS_REGISTER.md). Repository status prose still predates PR #64; [PR #63](https://github.com/jendrickcon/udm-radar/pull/63) owns three pending status corrections. Use this exact merged baseline for reconciliation facts without silently overwriting those files.
+Read [AGENTS](../../AGENTS.md), [contribution policy](../../CONTRIBUTING.md), [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md) and [findings register](../UI_UX_FINDINGS_REGISTER.md). [PR #63](https://github.com/jendrickcon/udm-radar/pull/63) is merged at `c29d68a7ef961c0be61ffbf296a10918303d5fea`; the repository records now preserve PR62 history and current PR64/UI/bootstrap/local-deployment facts. Keep those three accepted status files identical to main; readiness changes stay under docs/ui-system.
 
 ## Accepted system, not future member reimplementation
 
@@ -53,9 +54,9 @@ MTR-07 empirical prediction range, canonical MTR-21 referral closure, historical
 
 ## Status reconciliation and publication
 
-PR #63 remains OPEN at head `6d0ece576c74ac4c143719308865aa0c1cacc367`, three files, auto-merge off. Recommendation: update it against current main and merge it first after owner review. Preserve its valid PR #62 merge/Stage B/MTR-20/history evidence, replace obsolete pending-deployment continuation, append PR #64/UI/bootstrap/local-deployment facts, and separate delivered UI from still-deferred manuscript work.
+PR #63 was owner-authorized and merged normally at `c29d68a7ef961c0be61ffbf296a10918303d5fea`, parents `bdb4a267f30aa31ea36983304a03b01dc28f0fcd` and reviewed head `96aa4d7a91616c31d38687f2e5851721fa7def82`. The canonical checkout was fast-forwarded cleanly. Only docs/IMPLEMENTATION_HISTORY.md, docs/ROADMAP.md and docs/post-defense/10_IMPLEMENTATION_STATUS.md changed; runtime/onboarding files remain identical to PR64.
 
-Freeze docs/ROADMAP.md, docs/IMPLEMENTATION_HISTORY.md and docs/post-defense/10_IMPLEMENTATION_STATUS.md in this branch. No PR #63 action is performed. Its resolution remains a publication gate; see the [reconciliation plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). This current reconciliation has local commit authority only; no push, PR, merge-to-main or deployment.
+The PR63 gate is COMPLETE; preserve the merged status files rather than copying older versions over them. See the [publication plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). This readiness alignment is local only: no readiness push/PR, further merge-to-main, deployment, branch deletion or database operation is authorized. Member implementation remains NOT STARTED.
 
 ## Package map
 

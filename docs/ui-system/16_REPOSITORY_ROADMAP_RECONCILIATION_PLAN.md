@@ -1,46 +1,49 @@
-# Repository status reconciliation and publication plan
+# Repository status reconciliation and readiness publication
 
-Documentation: READY FOR OWNER REVIEW. PR63 disposition: pending owner decision.
-PR64 runtime/onboarding is already merged and locally deployed at `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`. This plan does not wait for a future Antigravity implementation handoff.
+Documentation: READY FOR OWNER REVIEW. PR63 gate: COMPLETE.
+Current documentation main: `c29d68a7ef961c0be61ffbf296a10918303d5fea`.
+Accepted PR64 runtime/onboarding baseline: `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`; local prototype deployment is owner-confirmed. No new deployment occurred for documentation.
 
-## PR #63 recommendation
+## Completed PR63 merge and canonical update
 
-**Update and merge PR #63 first after owner review.**
-Reviewed head `6d0ece576c74ac4c143719308865aa0c1cacc367`, branch docs/analytics-post-merge-status: OPEN, three documentation files, unmerged, auto-merge disabled. Its valid PR62 merge/Stage B/deployment-verification/history changes are absent from main and should be retained. It was cleanly mergeable at API inspection, but its final deployment-acceptance gate and Phase6 continuation wording are stale after PR64.
+The owner accepted reviewed PR63 head `96aa4d7a91616c31d38687f2e5851721fa7def82`, exact three-file inventory and72 additions/19 deletions. Open/base/head/content/clean mergeability/disabled auto-merge/no successor/no check or review blocker were verified before normal merge. No squash, rebase, automatic branch deletion or branch cleanup.
 
-Do not merge it unchanged merely because Git reports mergeable. Rebase/merge-base-update decisions and edits to its branch require the owner's explicit authorization; none is done here. Do not close it automatically. A consolidated replacement is a fallback only if the owner chooses that publication route and preserves the complete valid PR62 record plus current PR64 facts before closure.
+Merge commit: `c29d68a7ef961c0be61ffbf296a10918303d5fea`.
+Parents, in order:
+1. `bdb4a267f30aa31ea36983304a03b01dc28f0fcd` — accepted PR64 main.
+2. `96aa4d7a91616c31d38687f2e5851721fa7def82` — reviewed PR63 head.
 
-## Exact updates required in PR63's three files
+The canonical checkout was fast-forwarded cleanly to that merge. Only docs/IMPLEMENTATION_HISTORY.md, docs/ROADMAP.md and docs/post-defense/10_IMPLEMENTATION_STATUS.md changed. Application/database/model/dependency/test/configuration trees remain identical to PR64; ignored Apache routing remains unchanged. No runtime/browser/database tests or SQL were executed.
 
-| Frozen target (unchanged by this reconciliation) | Valid PR63 content to preserve | Necessary update before PR63 acceptance |
-| --- | --- | --- |
-| docs/ROADMAP.md | PR62 merge edef1b382b7874af770feb5713c20e9b68979241, certified head 03c3d31efe66d376869d5955fe2e57b48cca7bb0, bounded Phases1–5 and incomplete canonical metrics | Record PR64 merge bdb4a267f30aa31ea36983304a03b01dc28f0fcd, final UI and local deployment; schema-only bootstrap plus separate seed/README. Replace pending acceptance/old no-UI-continuation language. Mark only delivered UI complete; manuscript or broader validation stays separate. Future Vincent/Joshua work is post-MVP refinement and unimplemented sidebar. |
-| docs/IMPLEMENTATION_HISTORY.md | Chronological PR62 certification/merge/local verification, separately categorized historical evidence and original safety boundaries | Retain historical “pending at that time” context, append distinct PR64 implementation/bootstrap merge/local-deployment milestone. Do not rewrite earlier evidence as new testing or silently erase acceptance history. Record future readiness docs as documentation, not shipped sidebar/cohort. |
-| docs/post-defense/10_IMPLEMENTATION_STATUS.md | MERGED bounded Phases1–5, MTR mapping, MTR20 mean and parent-duration distinction, PR62 historical verification | Add current PR64 UI/deployment and onboarding state; supersede obsolete “independent deployment acceptance next” continuation. Separate delivered chart/UI work from still-deferred manuscript/assets. Keep MTR07, canonical MTR21, dated historical Faculty, Student cohort and Migration011 BLOCKED. |
+## Merged repository records to preserve
 
-This branch still leaves all three files byte-identical to merged main. The only overlap is semantic/status sequencing, not a current file conflict: PR63 changes those three paths; readiness changes only docs/ui-system. Original PR63's old statements that the protected dump was unchanged describe its historical PR62 package, not PR64's separately authorized bootstrap refresh.
+| Accepted main file | Preserved and reconciled result |
+| --- | --- |
+| docs/ROADMAP.md | Valid PR62 merge/certification history; PR64 final UI/local deployment; schema-only bootstrap plus separate seed/README; five blockers; remaining manuscript assets separate from delivered UI; future member packages NOT STARTED |
+| docs/IMPLEMENTATION_HISTORY.md | Original dated PR62 evidence/counts retained; separate PR64 UI/bootstrap/deployment milestone; obsolete pending-deployment continuation framed as historical |
+| docs/post-defense/10_IMPLEMENTATION_STATUS.md | Original Phases0–5 and MTR01–21 inventory preserved; PR64 delivery/current local-deployment facts; MTR20 mean versus limited parent-case median; remaining Phase6 assets deferred; future portal work and blocked contracts unchanged |
 
-## Current implementation facts the status writer must preserve
+These files now belong to merged main, not an unresolved PR. Keep them byte-identical to main in this readiness branch. Do not overwrite them from earlier snapshots or reopen the superseded recommendation to update/close PR63.
 
-PR64 merge: `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`; final implementation head `9f6ed109d968c47fe439eecc816f68ec0167694d`. Local prototype deployment at http://localhost/capstone/ is supplied by the owner. No institutional UAT/genuine-record/production certification is implied.
+## Current readiness alignment
 
-Single Admin analytics destination with redirects, preserved Overview, two/three comparison groups, overlay/separate cards, chart/details/exact-table hierarchy, real terms/growth, support visuals and duration/n, Faculty scope and dashboard summaries are shipped. Future members must not rebuild them without an approved refinement or verified defect. The collapsible sidebar remains NOT STARTED.
+Use the existing docs/future-ui-member-agent-readiness branch and existing worktree only. Preserve accepted reconciliation `afb3bd8cc49abc0d51e49b45367c286f7b24e7a5` and earlier `648207bc563f2bb1aa280d08ab9699f07a4f39c7` as ancestors. Integrate accepted main without rewrite/discard. Resolve only genuine documentation conflicts; correct stale PR63-open/pending publication gates.
 
-database/udm_radar.sql is schema-only onboarding (18 CREATE TABLE, zero INSERT, DROP TABLE statements); approved schema through010. database/seeds/001_synthetic_demo.sql is separate. database/README.md contains member onboarding. No import into an existing populated database, migration replay, or Migration011.
+Reverify all31 docs/ui-system files,14 reference-contract tests, JavaScript syntax, local Markdown links, ownership/status, text/whitespace and no-production-import integrity. Those checks are documentation/reference evidence, not application or institutional validation.
 
-## Publication order and conflict handling
+Vincent owns Administrator/Faculty; Joshua owns Student. Both implement, self-verify and fix only approved post-MVP refinements. Existing MVP tabs/cards/growth/periods/tables/support/trends/summaries are preservation/regression scope, not new implementation assignments. The collapsible desktop sidebar remains NOT STARTED. Shared files need one named custodian per exact path.
 
-1. Owner reviews this recommendation and authorizes the PR63 writer to update the existing three-file PR against actual current main.
-2. Preserve valid PR62 changes, add current PR64/SQL/local-deployment facts, correct only stale continuation, and validate links/status/limitations. Recheck PR head, base, inventory, mergeability and auto-merge before an authorized merge.
-3. After owner-approved PR63 merge, fetch main on the existing readiness branch, inspect the exact new commit and overlap. Integrate approved main by the authorized method; preserve accepted readiness 648207bc563f2bb1aa280d08ab9699f07a4f39c7 and this reconciliation history. Do not overwrite the three status files from an older version.
-4. Recheck readiness against final main, run documentation/reference checks, obtain separate owner authorization to push and open one readiness documentation PR. Auto-merge stays off; merge authorization is separate.
-5. After its reviewed merge, Vincent/Joshua clone or update main once; record the resulting full SHA containing PR64 and accepted documentation, then start only approved post-MVP portal packages with shared custodians.
-6. If owner instead consolidates status/readiness into one PR, explicitly transfer the three-file allowlist and preserve all valid PR63 content. Close PR63 only after replacement preservation/acceptance is verified and owner authorizes closure.
+MTR-07 empirical range, canonical MTR-21, historical Faculty attribution without dated evidence, numeric Student cohort and Migration011 remain BLOCKED. MTR19 is bounded receipt count; MTR20 remains arithmetic mean; parent-case median is distinct. No fabricated cohorts/ranges/privacy threshold/closure field. Joshua's eleven-item cohort proposal and final owner approval remain required.
 
-A new conflicting main change stops only the affected integration; preserve local work. No reset/force-push/manual file copying or automatic publication/closure. This reconciliation authorizes only local documentation commits.
+database/udm_radar.sql remains the18-table schema-only fresh onboarding bootstrap, including DROP TABLE statements and zero embedded data inserts. database/seeds/001_synthetic_demo.sql is separate; database/README.md remains authoritative onboarding. No imports, migration replay, existing-DB access or Migration011.
 
-## Remaining contracts
+## Remaining publication order
 
-MTR07 empirical range, canonical MTR21 lifecycle, dated historical Faculty attribution, numeric Student cohort and Migration011 remain BLOCKED. MTR19 remains bounded count; MTR20 is arithmetic mean of distinct eligible referral→first-notice durations; parent-case median is a different measure. Joshua owns Student calculations/privacy/interface and eleven-item cohort proposal; Vincent owns Administrator/Faculty. Both self-verify and fix their own portals, with supplemental cross-review and one shared-file custodian.
+1. Return the final local readiness SHA, actual categorized checks, clean status and no-production diff against c29d68a7ef961c0be61ffbf296a10918303d5fea.
+2. Wait for separate owner authorization before pushing readiness or opening its PR. No such publication occurs in this alignment.
+3. Before an authorized push, fetch/recheck main, inspect any successor commits and revalidate overlap/wording. Report a changed candidate SHA rather than silently rewriting accepted history.
+4. Open one reviewed readiness documentation PR with auto-merge disabled only when authorized. Merge requires separate owner approval.
+5. After its accepted merge, Vincent and Joshua clone/update one main checkout each, record the resulting full SHA containing PR64/PR63/readiness docs, and start only their approved post-MVP packages.
+6. No deployment, Apache/database/migration change, extra worktree, force-push, branch deletion, mobile test, screenshot or cleanup follows automatically.
 
-No database connection, SQL execution, source/model/dependency change, mobile test, screenshot, PR action or deployment occurs in this documentation package.
+The earlier PR63-update-versus-consolidation decision is resolved by its accepted normal merge. There is no remaining PR63 closure or merge action to perform.

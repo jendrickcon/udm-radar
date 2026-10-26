@@ -40,7 +40,7 @@ Preserved readiness `648207bc563f2bb1aa280d08ab9699f07a4f39c7` is owner-accepted
 No production edits, database access, migrations/Migration 011, genuine records, model/dependency/authentication changes, mobile tests or screenshots are authorized by readiness preparation.
 MTR-07 and canonical MTR-21 remain BLOCKED. MTR-19 remains a bounded receipt count; limited parent-case duration is not MTR-21. Historical Faculty attribution remains BLOCKED without dated evidence; no Faculty ranking/teaching-quality inference.
 Student cohort average remains BLOCKED until Joshua's eleven technical/privacy items and owner approval; no fabricated comparison, privacy threshold, pooled Admin-mean substitution or enabling flag.
-Freeze PR #63 files: `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, `docs/post-defense/10_IMPLEMENTATION_STATUS.md`. Reconcile later using the separate plan; no silent overwrite.
+PR63 is merged at c29d68a7ef961c0be61ffbf296a10918303d5fea. Preserve `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md` and `docs/post-defense/10_IMPLEMENTATION_STATUS.md` exactly as merged main; no silent overwrite from older snapshots.
 
 
 ## Execute approved portal work
@@ -80,6 +80,6 @@ The usage line is historical, not a current measurement. No mobile tests or scre
 
 ## Current merged intake for future agents
 
-Use PR64/main bdb4a267f30aa31ea36983304a03b01dc28f0fcd or a later reviewed owner-approved main containing accepted documentation. Do not wait for the superseded moving Antigravity checkpoint or treat completed MVP components as unfinished work. Vincent owns Admin/Faculty; Joshua owns Student. Require an explicit post-MVP refinement or verified defect, with exact files and shared custody.
+Use approved main containing PR63 c29d68a7ef961c0be61ffbf296a10918303d5fea; runtime/onboarding source remains the accepted PR64 bdb4a267f30aa31ea36983304a03b01dc28f0fcd baseline. Later successors require review. Do not wait for the superseded moving Antigravity checkpoint or treat completed MVP components as unfinished work. Vincent owns Admin/Faculty; Joshua owns Student. Require an explicit post-MVP refinement or verified defect, with exact files and shared custody.
 
 Read the merged database/README.md: schema-only database/udm_radar.sql is separate from database/seeds/001_synthetic_demo.sql. No automatic import, schema reset or migration replay. Migration011, MTR07 range, canonical MTR21, historical Faculty attribution and Student cohort remain BLOCKED. The current final documentation reconciliation has local commit authority only, with no push/PR/remote merge/closure.

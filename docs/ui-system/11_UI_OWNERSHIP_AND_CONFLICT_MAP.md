@@ -22,7 +22,7 @@ The future approved package must replace each “unassigned” entry with one na
 | `assets/css/academic-analytics.css`, `assets/js/academic-analytics.js` | Unassigned | Sequential candidate integration; no parallel line/function ownership |
 | `includes/analytics/presentation.php`, `api/academic_analytics.php` | Unassigned | One technical owner per contract/file; approved service formulas and authorization retained |
 | Shared browser fixtures/helpers | Unassigned | Review side effects; integrate tests sequentially and run all affected portal regressions |
-| Shared UI-system/status documentation | Unassigned for future implementation | One status writer; frozen PR #63 paths remain excluded now |
+| Shared UI-system/status documentation | Unassigned for future implementation | One status writer; merged PR63 status paths remain identical to current main |
 | Admin/Faculty-only components | Vincent within approved literal allowlist | Own implementation, tests and fixes |
 | Student-only components and calculation/privacy proposal | Joshua within approved literal allowlist | Own implementation, tests and fixes; cohort numeric release remains BLOCKED |
 
@@ -50,10 +50,10 @@ Before each package, preserve authorized work, inspect status, fetch/update clea
 
 Joshua owns the Student chart interface and eleven-item calculation/privacy proposal; owner approval is the final release gate. Vincent neither owns Student UI nor defines its cohort formula. Keep “Your recorded GWA” active and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” visible. No numeric cohort, privacy threshold, pooled-mean substitution or enable flag.
 
-MTR-07, canonical MTR-21 and historical Faculty attribution remain BLOCKED. MTR-19 is bounded count; limited parent-case median is separate. Current preparation permits no DB/production/model/dependency/migration edits, mobile tests, screenshots or publication. Freeze the three PR #63 files and follow the [reconciliation plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). Current reconciliation has local-commit authorization only; publication remains unauthorized.
+MTR-07, canonical MTR-21 and historical Faculty attribution remain BLOCKED. MTR-19 is bounded count; limited parent-case median is separate. Current preparation permits no DB/production/model/dependency/migration edits, mobile tests, screenshots or publication. Preserve the three merged PR63 files exactly as current main and follow the [publication plan](16_REPOSITORY_ROADMAP_RECONCILIATION_PLAN.md). Current reconciliation has local-commit authorization only; publication remains unauthorized.
 
 ## Post-MVP scope boundary and starting state
 
 PR64 is already merged/deployed at bdb4a267f30aa31ea36983304a03b01dc28f0fcd. Ownership is portal accountability for approved post-MVP changes; it does not assign rebuilding existing Overview/tabs/comparison/growth/support/theme/dashboard/trend features. Vincent's and Joshua's future desktop collapsible navigation remains NOT STARTED.
 
-Joshua is the named Member2 owner; existing assigned branch/package identifiers remain unchanged. Both self-verify their changes and accepted-MVP regressions. Member starting main must include PR64 and later owner-approved docs; use the merged database/README.md for separate schema/seed onboarding. Shared custodians still require assignment. PR63 remains open and its three files are untouched here.
+Joshua is the named Member2 owner; existing assigned branch/package identifiers remain unchanged. Both self-verify their changes and accepted-MVP regressions. Member starting main must include PR64 and later owner-approved docs; use the merged database/README.md for separate schema/seed onboarding. Shared custodians still require assignment. PR63 is merged at c29d68a7ef961c0be61ffbf296a10918303d5fea; its three files match accepted main and receive no readiness-specific edits.
