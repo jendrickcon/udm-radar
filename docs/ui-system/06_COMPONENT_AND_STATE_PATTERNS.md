@@ -1,5 +1,5 @@
 # Component and state patterns
-Status: PLANNED. Vincent owns all presentation components; Member 2 verifies data and test contracts.
+Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED. Vincent owns Administrator/Faculty components and self-verification; Member 2 owns Student UI/calculation/privacy and self-verification. Shared components have one assigned integration custodian.
 Use [tokens](02_DESIGN_TOKENS_AND_THEME_CONTRACT.md), [accessibility](07_ACCESSIBILITY_AND_KEYBOARD_CONTRACT.md) and the canonical shared UI. The table is a contract, not permission to duplicate standard components.
 
 | Component | Purpose; required content | Optional content | Prohibited content | Keyboard behavior | Dark theme | Minimum future evidence |
@@ -23,3 +23,13 @@ Use [tokens](02_DESIGN_TOKENS_AND_THEME_CONTRACT.md), [accessibility](07_ACCESSI
 “Your recorded GWA” means recorded own-term evidence, not estimated GWA. Incomplete current term may be Pending; no numeric value is invented. A recorded-point partial historical series, if separately authorized, needs a different explicit label and semantics.
 “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” is the fixed disabled legend/column explanation in this package.
 A zero **count** is legitimate; null mean/range/duration is unavailable. Receipt counts are not acknowledgment rates. Support durations use mean versus limited median labels accurately.
+
+## Revised composition and controls
+
+Visualizations and compact details precede exact accessible tables below; long formula/policy text uses accessible disclosure while critical warnings/n/coverage/limits stay visible. About two-thirds plot/one-third details is optional on wide desktop.
+
+Comparison controls default to two groups, allow a third and no fourth; overlay/separate cards preserve scope. Mixed context does not authorize direct deltas. Growth is core for comparable evidence, with exact start/end terms, point/supporting relative/coverage/n change; otherwise “Change unavailable” plus reason. One-period scalar bars/dots differ from ≥2-valid-point ordered history lines. Real academic periods replace ordinal-only axes.
+
+Support flow cards show referral → notice → receipt and case/referral states. Label MTR-20 “Average time before the first notice” with duration/n; bounded MTR-19 counts and limited parent median remain distinct from blocked MTR-21. Support counts do not measure effectiveness.
+
+Use one primary page scroll owner, theme every card/control/table/chart/legend/axis/tooltip/badge/state/details surface, and keep no page horizontal overflow at supported desktop sizes.

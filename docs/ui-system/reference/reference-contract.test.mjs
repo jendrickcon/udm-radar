@@ -14,12 +14,16 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 15));
 test('recorded values and accessible table share the same precision and meaning', () => {
   const result = chart.buildGwaChartReference(input([point('2025-2026', 1, 3.125), point('2025-2026', 2, 3.5)]));
   assert.deepEqual(result.chartConfig.data.datasets[0].data, [3.125, 3.5]);
+  assert.equal(result.chartConfig.type, 'line');
   assert.deepEqual(result.tableRows.map(row => row.ownValue), ['3.13', '3.50']);
   assert.equal(result.legend[0].label, 'Your recorded GWA');
   assert.equal(result.emptyMessage, null);
 });
-test('blocked legend remains visible and optional comparison has no numeric points', () => {
+test('single-value encoding keeps the blocked legend visible without cohort points', () => {
   const result = chart.buildGwaChartReference(input([point('2025-2026', 1, 3)]), { includeBlockedSeries: true });
+  assert.equal(result.chartConfig.type, 'bar');
+  const isolated = chart.buildGwaChartReference(input([point('2025-2026', 1, null, 'incomplete'), point('2025-2026', 2, 3)]));
+  assert.equal(isolated.chartConfig.type, 'bar');
   assert.equal(result.legend[1].label, 'Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.');
   assert.equal(result.legend[1].state, 'BLOCKED');
   assert.equal(result.legend[1].interactive, false);

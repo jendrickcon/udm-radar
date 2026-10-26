@@ -1,69 +1,65 @@
 # Progress report and handoff standard
 
-Status: preparation standard only; future UI is `NOT IMPLEMENTED` / `PLANNED`. Completed documentation is not a completed sidebar or chart implementation. The cohort data/privacy gate remains `BLOCKED`.
+Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED.
+Completed documentation/reference checks do not complete a production package.
 
-## Progress updates
+## Progress and status
 
-Use the [progress template](templates/UI_PROGRESS_UPDATE_TEMPLATE.md). During active work, send short, meaningful updates at milestones and avoid more than about 60 seconds of silence. Include the current task, completed items, early findings, blockers, next action, and branch/SHA if changed. Do not repeat the entire plan or expose a stream of low-level tool calls. Report a finding early while continuing independent authorized work. Put long work instructions in Markdown artifacts and link them.
+Use the [progress template](templates/UI_PROGRESS_UPDATE_TEMPLATE.md) for brief milestone updates with actual findings, blockers, next action and current branch/SHA. Keep completed, in-progress, planned, blocked and deferred work distinct. Cohort is BLOCKED, not DEFERRED. Both portal implementers self-verify; cross-review neither transfers files nor supplies missing self-tests.
 
-Keep completed, pending, blocked, and deferred items separate. `BLOCKED` means a required dependency or decision prevents progress; `DEFERRED` means a consciously excluded later item. The cohort aggregate/privacy contract is blocked, not deferred. Vincent owns the complete UI experience; unnamed Member 2 verifies analytics and tests and may report UI findings without independently editing Vincent's UI files. A usage-limit message or time pressure does not permit fabricated evidence or an unsupported completion claim.
+The seven [roadmap statuses](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md) apply to phase/readiness fields. Test outcomes use Passed, Failed, Skipped, Not Run or Unavailable. Never infer an executed result from a source check, inherited class, checksum or an earlier agent's count.
 
-## Evidence categories and result labels
+## Separate evidence categories
 
-Use the [test evidence template](templates/UI_TEST_EVIDENCE_TEMPLATE.md). For every execution, record its exact command, date/time, reviewed SHA or dirty-state identity, runtime/version, environment/target, exit code, actual passed/failed/skipped totals, and evidence location. Preserve failures. Do not reuse historical counts or report discovery/source inspection as test execution.
+For each run, record exact command/time/runtime/version/candidate or dirty-state fingerprint/target/exit code/actual passed-failed-skipped totals and evidence path. Preserve failures and distinguish required blocked evidence.
 
-| Evidence category | What it can establish | Required limit to state |
-|---|---|---|
-| Documentation/path/terminology checks | Links, files, instruction consistency, formatting | No production behavior proven |
-| PHP syntax and standalone PHP regression checks | Syntax or asserted PHP behavior | Not PHPUnit; identify real database effects if any |
-| JavaScript syntax/contract checks | Parseability or asserted module behavior | Reference-only checks do not prove app integration |
-| Integration | Exercised handlers/data interactions | State exact authorized database and side effects |
-| Live authenticated desktop browser | Actual tested role/page/viewport behavior | Name authentication, data, and untested roles/states |
-| Generated static HTML browser | Rendered fixture interaction/layout | No authenticated application or live database claim |
-| Mocked browser | Tested fixture plus mocked network responses | Mocked data is not source-data validation |
-| Structural/source inspection | Inspected code, markup, selectors or contracts | Not end-to-end or executed accessibility coverage |
-| Accessibility/manual review | Specific keyboard, focus, contrast, labels/table evidence | State method and scope; no blanket conformance claim |
-| Owner review | Acceptance of a specified candidate and limitations | Not institutional acceptance, merge, or deployment |
+| Category | Establishes within actual scope | Limit |
+| --- | --- | --- |
+| Documentation/path/wording | Local links and contract consistency | No application behavior |
+| Unit / standalone PHP regression checks | Asserted helper behavior | Not PHPUnit; state side effects |
+| Integration | Exercised handlers/data on an authorized isolated target | Name target, provenance, mutations and cleanup; no implicit live fallback |
+| Authenticated desktop browser | Tested role/page/scope/viewport | List untested roles/states and auth/data boundaries |
+| Structural/source | Inspected markup/selectors/contracts | Not authenticated application coverage |
+| Generated fixture browser | Static fixture interactions/geometry | Not live source-data or auth verification |
+| Mocked transport/error/race | Controlled requests and stale-response behavior | Mock values do not validate database truth |
+| Authorization negatives | Explicit permitted/denied cases | Name role, resource scope and server enforcement |
+| Accessibility | Specific keyboard/focus/labels/contrast/table methods | No blanket conformance claim |
+| Syntax / integrity | Parseability, hashes, change layers and allowed files | No functional accuracy claim |
+| Owner retest | Acceptance of specified visible workflows/candidate/limitations | Not institutional UAT, merge or deployment |
 
-Execution results use `Passed`, `Failed`, `Skipped`, `Not Run`, or `Unavailable`, with reasons. Keep actual totals by category; do not sum assertions, tests, source checks, screenshots, or review comments into an accuracy percentage. A checksum establishes file identity or unchanged bytes; it does not replace functional or accessibility tests.
+Never combine these counts into an accuracy percentage or one quality total. Checksums prove identity only. No genuine records/credentials in evidence.
 
-The [acceptance matrix](10_UI_TEST_AND_ACCEPTANCE_MATRIX.md) uses a separate implementation vocabulary: `NOT IMPLEMENTED`, `PLANNED`, `TEST EXISTS`, `PASSING`, `FAILING`, `BLOCKED`, `NOT APPLICABLE`. `TEST EXISTS` does not imply execution. This preparation must not mark future implementation requirements `PASSING`.
+## Final owner handoff
 
-## Final handoff
+Use the [handoff template](templates/UI_CHANGE_HANDOFF_TEMPLATE.md) after completion, or an explicitly requested blocked handoff. Include product goal/user problem, portal implementer and scope/non-goals, baseline/current-main/HEAD full SHAs, branch and absolute clone path/status, literal files/shared custodians, visual/calculation/growth/empty/unavailable contracts and actual self-verification/cross-portal results.
 
-Use the [handoff template](templates/UI_CHANGE_HANDOFF_TEMPLATE.md). Issue the final handoff after completion, or after the owner explicitly requests a blocked handoff. Ordinary progress updates do not transfer ownership or release unfinished files. Include:
+Review committed, unstaged, staged, untracked and combined changes against the approved allowlist. Record protected/model/dependency/auth/DB/migration/Migration 011/genuine-record checks and temporary cleanup. Supply immutable candidate only when an authorized commit exists; otherwise state no candidate and why. Owner retest/defect closure and each push/PR/merge/deployment approval must be separate.
 
-1. Member, objective, approved scope, non-goals, baseline/current main/HEAD SHAs, assigned/local branches, absolute repository clone path, status, expected files, shared-file owners, required tests, stop conditions and owner approvals. Vincent's assigned branch is `feat/member1-ui-ux`; Member 2's is `feat/member2-analytics-verification`.
-2. Exact changed files, file owners, implementation details, accepted contracts, and any source candidate SHAs used by the integration custodian.
-3. Full change-layer review: committed, unstaged, staged, untracked, and combined contents against the allowlist. State dirty files honestly; do not prefill a clean claim.
-4. Actual commands and results by category, desktop widths/roles/states, accessibility evidence, failed/skipped/unrun checks, and limitations.
-5. Protected-system evidence, with checks and results rather than prechecked confirmations: production changes, protected assets, dependencies, genuine records, database access/writes, migrations/Migration 011, reference asset loading, and publication/cleanup actions.
-6. Exact final immutable SHA when an authorized commit exists, verified checkpoint push state and PR state. Otherwise state the actual reason no commit exists. For this current Sol preparation, state `Review commit pending owner review` until owner review authorizes its commit; do not invent a delivery SHA. A mutable working tree is not an immutable candidate.
-7. Completed, pending, blocked, and deferred items; exact next owner action; decision or publication boundaries; and the package-specific completion phrase.
+Vincent: `feat/member1-admin-faculty-ui`, Administrator/Faculty implementation plus own testing/fixes. Member 2: `feat/member2-student-portal`, Student implementation/calculations/privacy plus own testing/fixes. One clone each; same-clone AI task branches from own assigned HEAD; additional worktrees only explicit exceptions. One custodian per exact shared file, sequential handoff. After approved merge both update clean main fast-forward; no ZIP/manual-source replacement.
 
-Future members use one local clone and their assigned long-lived branch, with regular meaningful commits and verified push checkpoints under the approved package. One complete PR follows owner review under the approved workflow, with exact reviewed head, categorized evidence and auto-merge disabled. Merge needs owner authorization; no deployment, migration, branch/worktree cleanup or force-push follows automatically. This Sol preparation is stricter: commit only after owner review, with no preparation push/PR authorized. Do not end with a completion phrase while required work is incomplete; use the owner-defined blocked phrase only for an explicitly requested blocked handoff.
+Implement → self-verify → authorized local immutable candidate → handoff → owner retest/fixes → separately authorized push → one reviewed PR with auto-merge off → authorized merge → authorized deployment. No automatic cleanup or force-push.
 
-AI child branches stay in the same clone and start at the member's own assigned HEAD. Use compatible names such as `feat/member1-ui-ux--sidebar` or `feat/member2-analytics-verification--ui-review`; slash descendants under an existing assigned branch cause a Git ref file/directory conflict. No branch from the other member, no extra worktree without explicit owner exception approval. After approved merge, record the merge SHA and both members pull clean main fast-forward-only, verify the served repository, and use current main for the next approved package. GitHub main is authoritative; copied folders/ZIP files are not development truth.
+The previous readiness commit is `ee4ddf4b5e001328a1beeeea3471d58dd87c1614`. Current portal/goal amendments are uncommitted pending explicit owner approval; do not amend the prior commit or reuse its SHA as the revised package identity.
 
 ## Findings and decisions
 
-Use the [review findings template](templates/UI_REVIEW_FINDINGS_TEMPLATE.md) for ID, severity, literal file/line or function, expected behavior, actual behavior, impact, required fix, regression test, and publication-blocker status. Distinguish observed defects from untested risks. Cite exact evidence and SHA. A finding is not resolved merely because a fix is proposed.
+Use the [findings template](templates/UI_REVIEW_FINDINGS_TEMPLATE.md) for exact SHA/file/function, expected/actual reproduction, impact, severity, regression, original implementer and blocker. A proposed fix is not resolved evidence. Author fixes stay self-reviewed until independently reviewed; cross-review does not authorize redesign or ownership transfer.
 
-Use the [owner decision template](templates/OWNER_DECISION_TEMPLATE.md) for unresolved cohort semantics, file ownership, scope, and permissions. Record who decided, exact decision text, affected files/contracts, permitted actions, still-prohibited actions, and revalidation trigger. Do not infer approval from silence or from an agent-generated plan.
+Use the [decision template](templates/OWNER_DECISION_TEMPLATE.md) for literal files, current/temporary custodian, scope/order, source SHAs, tests, explicit owner decision, remaining prohibitions and ownership-return conditions. Silence is not approval.
 
-## Required continuity statements
+## Required continuity and limits
 
-Retain the synthetic prototype label: `Prototype performance on synthetic academic records`. Preserve MTR-07 bounds as `BLOCKED` without verified active-model held-out residual evidence; canonical MTR-21 referral closure as `PLANNED` / `BLOCKED`, separate from the limited parent-case closed-duration median; and MTR-19 as bounded receipt count rather than canonical rate.
+Retain “Prototype performance on synthetic academic records”. MTR-07, canonical MTR-21, historical Faculty attribution and numeric Student cohort remain BLOCKED. MTR-19 is a bounded receipt count, limited parent-case median is separate, and MTR-20 is the existing arithmetic mean with “Average time before the first notice”, actual eligible n and human-readable duration. No effectiveness/rank/official-standing inference.
 
-For the Student chart, use `Your recorded GWA`; the unavailable cohort label is `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.` No populated cohort series until Member 2 verifies all eleven [contract items](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md) and the owner gives final approval. Eligible and excluded records are separate items; school-year/semester comparability has its own item. Vincent may prepare the unavailable presentation, not its value.
+Member 2 owns the Student interface and eleven-item [cohort proposal](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md); final owner approval is mandatory. Keep “Your recorded GWA” and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.” No pooled-mean substitution.
 
-Include this owner instruction verbatim in progress/final report artifacts when carrying the instruction forward:
+Include this directive verbatim in carried-forward report artifacts:
 
 > from now on skip all mobile testing and screenshotting and focus on desktops
 > include this message in your report output as well for future references
 > also, 12% remaining usage
 > finish what you can/
 
-The usage line is a historical quote, not a measured current balance. Under the current directive, mobile tests and screenshots are `Not Run` with that reason. Desktop checks remain subject to the work package's authorization; this preparation does not run production browser tests.
+The usage line is historical, not a current measurement. No mobile tests or screenshots are authorized. Future desktop acceptance covers 1440×900, 1280×600 and 1024×768, light and dark.
 
-The readiness preparation's successful final phrase is `FUTURE UI MEMBER AND AGENT READINESS PACKAGE PREPARED FOR OWNER REVIEW`; its blocked phrase is `FUTURE UI READINESS PREPARATION BLOCKED`. These phrases describe preparation only. Future member templates require their own owner-supplied completion and blocked phrases and must not reuse preparation wording to imply production implementation completion.
+Final successful preparation phrase: `FUTURE UI MEMBER AND AGENT READINESS PACKAGE PREPARED FOR OWNER REVIEW`. Explicitly requested blocked handoff phrase: `FUTURE UI READINESS PREPARATION BLOCKED`. Future implementation packages require their own owner-supplied phrases. Do not use preparation completion to imply production delivery.

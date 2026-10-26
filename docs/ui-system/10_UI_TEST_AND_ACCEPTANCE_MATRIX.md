@@ -1,53 +1,81 @@
-# Future UI test and acceptance matrix
-Allowed status vocabulary: **NOT IMPLEMENTED**, **PLANNED**, **TEST EXISTS**, **PASSING**, **FAILING**, **BLOCKED**, **NOT APPLICABLE**.
-All production rows below are NOT IMPLEMENTED, PLANNED or BLOCKED. Preparation syntax/reference checks have a separate actual result log; they do not promote a production row to PASSING.
-Vincent owns unified UI adaptation; Member 2 owns technical validation/independent review. Actual author/reviewer identity and any repair authorship must be disclosed.
+# Portal test and acceptance matrix
 
-| ID | Requirement / exact evidence | Primary work owner | Independent verification | Current production status |
-| --- | --- | --- | --- | --- |
-| SID-01 | Expanded icon+label/active/footer controls retain authorized routes | Vincent | Member 2, actual portal | NOT IMPLEMENTED |
-| SID-02 | Collapsed icon-only names, current state and focus; no clipped footer | Vincent | Member 2 keyboard/AX | NOT IMPLEMENTED |
-| SID-03 | Content expands; plot/table contained1440×900/1024×768/1280×600 | Vincent | Member 2 geometry | NOT IMPLEMENTED |
-| SID-04 | Local preference valid/invalid/denied storage, no academic/private data | Vincent | Member 2 controlled browser storage | NOT IMPLEMENTED |
-| SID-05 | Desktop/drawer crossing preserves desired desktop state; no accidental mobile change | Vincent | Member 2 source/desktop edge; mobile testing excluded | PLANNED |
-| SID-06 | Light/dark,CCS/classic,text scaling,reduced motion | Vincent | Member 2 theme/keyboard | NOT IMPLEMENTED |
-| SID-07 | One initializer, settled event, coalesced resize, destroy/remount/pagehide | Vincent | Member 2 leak/resize checks | NOT IMPLEMENTED |
-| SID-08 | Faculty attention banner closes before all later cards/roster | Vincent | Member 2 Faculty structural suite first | PLANNED |
-| UI-01 | Admin/Faculty/Student presentation preserves distinct user purpose | Vincent | Member 2 workflow checks | NOT IMPLEMENTED |
-| UI-02 | Filter simplification ≤4 primary; advanced/support contextual, active scope visible | Vincent | Member 2 state/role negatives | NOT IMPLEMENTED |
-| UI-03 | Dashboard shared-service summaries match period/denominator | Vincent | Member 2 calculation/API parity | NOT IMPLEMENTED |
-| UI-04 | Navigation/deep routes and PR63 status interaction reconciled | Vincent + owner-designated integration sequence | Member 2 immutable intake | PLANNED |
-| CH-01 | Recorded own GWA supplied through authorized canonical helper contract | Vincent interface; Member 2 data verifier | Member 2 numerical/role negatives | PLANNED |
-| CH-02 | Comparison legend exact unavailable phrase, no numeric series | Vincent | Member 2 DOM/model/response check | NOT IMPLEMENTED |
-| CH-03 | Student-level cohort unit/scope/eligibility/exclusions approved | Member 2 | Owner approval after independent evidence | BLOCKED |
-| CH-04 | Missing/incomplete,distinct Students,weighting rules approved | Member 2 | Owner approval | BLOCKED |
-| CH-05 | Privacy-safe minimum and suppression/differencing review | Member 2 | Owner privacy/fairness approval | BLOCKED |
-| CH-06 | Role-specific server aggregate visibility; no raw peers | Member 2 | Independent auth tests and owner approval | BLOCKED |
-| CH-07 | Synthetic verified cohort data/negative cases and final owner release | Member 2 | Owner approval; Vincent later consumes | BLOCKED |
-| CH-08 | Chronological terms,summer label,missing gaps,scale0–4 ascending | Vincent | Member 2 library-neutral data + rendered checks | NOT IMPLEMENTED |
-| CH-09 | No interpolation/smoothing/fabricated zero/placeholder averages | Vincent | Member 2 null/numeric tests | NOT IMPLEMENTED |
-| CH-10 | Own record/incomplete/empty/single-term/chart-library-missing states | Vincent | Member 2 APP+GEN separate | NOT IMPLEMENTED |
-| CH-11 | Visible non-color legend,table same model,tooltip2decimals | Vincent | Member 2 table/plot parity | NOT IMPLEMENTED |
-| CH-12 | Resize after sidebar/tab/show,one observer,cleanup | Vincent | Member 2 repeated navigation | NOT IMPLEMENTED |
-| A11Y-01 | Native named buttons,aria-expanded/current,tab/disclosure semantics | Vincent | Member 2 keyboard/AX | NOT IMPLEMENTED |
-| A11Y-02 | No hidden focus,clear busy/status,error recovery/focus return | Vincent | Member 2 keyboard/race/mock categories | NOT IMPLEMENTED |
-| A11Y-03 | Text/table equivalent,heading/caption,row headers,essential limitations visible | Vincent | Member 2 non-hover reading | NOT IMPLEMENTED |
-| GOV-01 | Correct verified base,one local clone and assigned long-lived branch,file allowlist | Both separately | Owner intake | PLANNED |
-| GOV-02 | Vincent sole primary for UI CSS/JS/tokens/chart/layout; technical fixes coordinated | Both separately | Owner ownership check | PLANNED |
-| GOV-03 | Tests categorized PHP/SQL/APP/GEN/MOCK/structure/accessibility/syntax/integrity | Member 2; Vincent evidence supplied | Independent reviewer | PLANNED |
-| GOV-04 | Protected dump/model/locks/templates/config untouched without explicit scope | Both | Member 2 diff/hash | PLANNED |
-| GOV-05 | New disposable DB only if separately authorized,provenance+cleanup | Member 2 | Owner + independent lifecycle evidence | BLOCKED pending authorization |
-| GOV-06 | Exact immutable commit,clean status,complete handoff | Both | Owner | PLANNED |
-| GOV-07 | Verified checkpoint pushes within approved member packages; one completed PR for review; merge/deploy/migrate/cleanup separate | Both | Owner | PLANNED |
-| GOV-08 | Mobile/screenshot work excluded; don't select broad mixed suites | Both | Member 2 command/test inventory | NOT APPLICABLE under current desktop-only scope |
+Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED.
+Roadmap statuses use the seven allowed values in the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md). Test outcomes are recorded separately as Passed, Failed, Skipped, Not Run or Unavailable. A test existing does not mean it ran. None of these future production requirements has been executed by this documentation preparation.
 
-## Focused execution order for later production work
-1. Intake exact clean immutable SHA and baseline; check PR #63/current main. Inspect tests/fixtures/includes before runtime.
-2. If Faculty/shared sidebar/layout changed, run safe Faculty structural checks first, excluding screenshot and mixed-mobile branches. Never call a screenshot inside a selected test.
-3. Run data/contract regressions, then authorized isolated integration and authenticated portal workflows, then generated/mocked/keyboard cases. Record real passed/failed/skipped counts, never expected permanent totals.
-4. Run Goal Calculator/Admin Grades focus/Student GWA/Grades-history/PEF navigation regressions if shared shell is affected; do not run export or mutation workflows against existing databases.
-5. PHP lint,JS syntax,diff whitespace,protected-file and all-change-layer integrity,disposable cleanup. No combined accuracy number.
-6. Report findings; owner approves any minimal repairs; independent re-review on corrected immutable SHA before publication decision.
+## Mandatory self-verification
 
-## Preparation-only tests
-[Reference contract tests](reference/reference-contract.test.mjs) exercise data validation, blocked comparison, missing gaps, configuration and lifecycle stubs without a browser or DB. Those tests are preparation evidence only. CSS parsing/JS syntax/Markdown checks are recorded in the external readiness report, not as implementation acceptance.
+Vincent executes Administrator AND Faculty checks. Member 2 executes Student checks. Each also verifies cross-portal seams affected by their work. A cross-reviewer supplements the implementer; do not assign all tests to the other member.
+
+| ID | Requirement and required future evidence | Implementer and self-verifier | Current readiness status |
+| --- | --- | --- | --- |
+| SID-01 | Expanded icon/label, current route, named toggle, collapsed names/badges/footer, focus remains usable | Vincent Admin/Faculty; Member 2 Student; custodian for global files | NOT STARTED |
+| SID-02 | Released width, chart resize, no clipped values/controls; one primary page scroll owner | Each portal implementer | NOT STARTED |
+| SID-03 | Valid/invalid/denied local preference storage; desktop preference separate from existing drawer; no academic identifiers stored | Each portal implementer | NOT STARTED |
+| SID-04 | One initializer, settled event, coalesced ResizeObserver, hidden-panel refresh, cleanup/remount/pagehide | Each portal implementer; one global custodian | NOT STARTED |
+| SID-05 | Faculty warning-banner closes before advisory/KPI/section/roster/performer cards; run faculty-dashboard-layout-regression.spec.js for affected layout | Vincent; Member 2 also runs when its shared changes affect Faculty layout | PLANNED |
+| ADM-01 | Admin login/access; single Program Analytics destination and original Overview; tabs, dashboard summaries and natural drill-down | Vincent | NOT STARTED |
+| ADM-02 | ≤4 primary controls where possible, Advanced, active collapsed scope, parent/child filters, Apply/Reset; support controls only in Support | Vincent | NOT STARTED |
+| ADM-03 | Two comparison groups by default, third optional, no fourth; overlay/separate cards; year/semester/curriculum/subject/section/verified Faculty scope | Vincent | NOT STARTED |
+| ADM-04 | Real ordered histories ≥2 points use line; one-period uses scalar bar/dot. Mixed context cards allow no incompatible delta | Vincent | NOT STARTED |
+| ADM-05 | Growth: approved point/relative, coverage/n changes, exact periods, neutral direction; incompatible scopes show “Change unavailable” + reason | Vincent | NOT STARTED |
+| SUP-01 | Case/referral status and referral→notice→receipt visual/table parity; authorized read-only drill-down; no unnecessary raw Student identity in aggregates | Vincent | NOT STARTED |
+| SUP-02 | MTR-20 “Average time before the first notice”, human-readable mean and actual eligible n; 1,2,9-hour contract mean 4.00h; preserve deduplication, unacted/invalid/reversed exclusions | Vincent consumes approved API; named shared technical custodian if needed | PLANNED |
+| SUP-03 | MTR-19 bounded receipt count, no canonical rate claim; parent-case closed-duration median labeled separately from MTR-21; no effectiveness inference | Vincent | NOT STARTED |
+| FAC-01 | Faculty login/current assignment; assigned subject/section controls; unassigned section denial, cross-Faculty denial, own-referral scope | Vincent | NOT STARTED |
+| FAC-02 | Assigned-Class Analytics/dashboard/support parity, comparable-only trend/change, exact table values and authorized drill-down | Vincent | NOT STARTED |
+| FAC-03 | Historical Faculty attribution unavailable without dated records; no ranking or teaching-quality conclusion | Vincent; shared contract custodian | BLOCKED for historical attribution |
+| STU-01 | Student login/own-record scope, deny another Student identifier across page/API/parameters | Member 2 | NOT STARTED |
+| STU-02 | Current recorded-term GWA, previous comparable term, units/exclusions, point direction, relative change/nonzero baseline, missing/incomplete/summer rules | Member 2 | NOT STARTED |
+| STU-03 | Real school-year/semester labels, chronological gaps, complete/empty/unavailable/incomplete model, no smoothing or fabricated zeros | Member 2 | NOT STARTED |
+| STU-04 | Prediction numerical estimate/source/coverage, advisory risk distinct from official standing; unsupported range remains unavailable | Member 2 | NOT STARTED |
+| STU-05 | Dashboard/Academic Analytics, Goal Calculator navigation and regression, Grades/history, Enrollment Planning links/wording | Member 2 | NOT STARTED |
+| STU-06 | “Your recorded GWA” plus visible blocked cohort explanation; no numeric cohort or enable flag; pooled Admin mean never relabeled | Member 2 | NOT STARTED for unavailable interface |
+| COH-01 | All eleven Student unit/cohort/eligible/excluded/missing/privacy-size/weighting/period/role/synthetic/fairness items and final owner approval | Member 2 proposes and verifies; owner approves | BLOCKED |
+| EVID-01 | MTR-07 range without active-model residual contract; canonical MTR-21 referral closure without lifecycle fields | Separate future approved owners | BLOCKED |
+| CH-01 | Exact accessible table below plot: values/precision/population/unit/period/availability match; fallback without Chart.js; full tooltip period names | Each portal implementer | NOT STARTED |
+| CH-02 | Visible critical n/coverage/limits and non-color legend; extended formulas/policy in accessible disclosure | Each portal implementer | NOT STARTED |
+| THEME-01 | All cards/controls/tables/canvas/axes/legends/tooltips/badges/empty/details in light/dark, no pure-white dark cards; CCS/classic/preferences preserved | Each portal implementer; each portal checked separately | NOT STARTED |
+| A11Y-01 | Native labels, truthful expanded/current/tab semantics, no hidden focus, keyboard/visible focus, enlarged text, reduced motion and focus return | Each portal implementer | NOT STARTED |
+| ASYNC-01 | Scope busy/status/errors, no stale values, abort/latest response wins, filter race/malformed response/retry behavior | Each portal implementer; evidence category explicit | NOT STARTED |
+| DESK-01 | No page horizontal overflow, one main scroll, visible controls/focus at 1440×900,1280×600,1024×768 in both themes | Each portal implementer | NOT STARTED |
+| REG-01 | Shared auth/header/sidebar/API; other portal links; Goal Calculator, PEF/CC, Activity/Inbox, Grades/Admin focus, academic outcome/prediction helper regressions as affected | Both self-verify their impact | PLANNED |
+| GOV-01 | Correct approved branch/base, literal file allowlist, one shared-file custodian and sequential integration | Each member | PLANNED |
+| GOV-02 | Protected dump/models/dependencies/auth/settings/schema unchanged absent explicit scope; no Migration 011, no genuine records | Each member | PLANNED |
+| GOV-03 | Authorized disposable integration target only, no existing-DB access/fallback, provenance and verified cleanup | Each member if future authorization exists | BLOCKED pending separate authorization |
+| GOV-04 | Separate unit/integration/authenticated/structural/mocked/authorization/accessibility/syntax/integrity results; no combined accuracy claim | Each member | PLANNED |
+| GOV-05 | Clean diff, immutable candidate if commit authorized, owner retest, separate push/PR/merge/deployment gates | Each member | PLANNED |
+
+## Definition of Done
+
+## Definition of Done — required for each portal package
+A package is not done because its page renders. Both Vincent and Member 2 must supply:
+1. Implemented approved scope on the assigned branch.
+2. Passing portal-specific unit checks.
+3. Passing relevant integration checks under separately authorized isolated targets.
+4. Passing authenticated desktop workflows.
+5. Passing negative authorization tests.
+6. Passing light and dark themes, including cards, axes, legends, tooltips and details.
+7. Passing keyboard and visible-focus checks.
+8. No page horizontal overflow at 1440×900,1280×600,1024×768; one primary page scroll owner.
+9. Exact accessible tables matching chart values, populations, units and periods.
+10. Complete, empty, provisional, unavailable and noncomparable states tested.
+11. Cross-portal regressions for affected shared contracts and navigation.
+12. Protected-file integrity evidence.
+13. No unauthorized database/schema/migration work.
+14. Clean clone/worktree and complete diff review.
+15. Full immutable candidate SHA and complete evidence handoff, when commit authority exists.
+16. Owner retest of visible workflows, with defects resolved before acceptance.
+17. Separate push, PR, merge and deployment authorization; self-verification grants none automatically.
+Unavailable required evidence keeps the gate BLOCKED; inapplicable tests require a reason and owner acceptance, not an invented pass. Report PHP/SQL/authenticated/generated/mocked/structural/accessibility/syntax/integrity separately. Cross-review does not replace self-verification; fixes return to the portal implementer unless the owner explicitly transfers them.
+
+
+## Safe focused execution order for future approved work
+
+Review exact clean candidate/base and all test side effects first. Verify installed repository-pinned Playwright version; no auto-install. Run safe structural/contract checks, authorized isolated integration, authenticated portal and negative authorization, generated/mocked race/error, keyboard/theme/desktop cases separately. Inspect tests selected by name/project; exclude mobile and all screenshot calls.
+
+Run affected cross-portal regressions, PHP lint/JS syntax, whitespace and protected-file/change-layer checks, then verify temporary cleanup. Run broader relevant checks only where authorization and side effects permit; required unrun evidence blocks acceptance with its reason. Source checks do not establish live auth/layout or accessibility.
+
+## Current preparation evidence only
+
+The [reference suite](reference/reference-contract.test.mjs) checks identifier-free model validation, blocked cohort, line versus single-value encoding, gaps, precision and lifecycle stubs. Its actual results live in the external report. JS syntax, links, UTF-8/LF and integrity checks also concern documentation/reference only. No database, authenticated browser, production structural regression, screenshot or mobile test runs in this preparation.

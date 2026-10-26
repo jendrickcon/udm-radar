@@ -1,27 +1,36 @@
 # Visual direction and boundaries
-Status: PLANNED; no production design approval is implied by reference syntax checks.
 
-## Reference interpretation
-The master's description of two owner-supplied dashboard images inspires compact organized density, a retractable left sidebar, more chart room, summary-first hierarchy, clear comparison legends and coherent light/dark surfaces. The actual image files are not part of this preparation input, so no claim of pixel comparison or visual matching is made.
+Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED.
 
-Adapt those principles to UDM-RADAR:
-- Keep institutional identity, existing logo, semantic colors and role-specific workflows. No copied logos, branding, proprietary artwork or exact reference palette/layout.
-- Use current shared dashboard tokens rather than transplanting an unrelated UI kit.
-- Prefer a compact summary plus deeper integrated detail over a wall of repeated cards and filters.
-- Improve chart prominence by releasing sidebar space, not by hiding labels, limitations or accessible tables.
-- Keep Faculty review queues and Student-safe explanations visible. Administrative oversight, Faculty assigned review and Student self-awareness are distinct roles.
-- Preserve current active navigation, text-size/theme/motion preferences and authorized deep routes.
-- Figures describe synthetic prototype records. Always show “Prototype performance on synthetic academic records”.
-- Comparison provides context, never teaching rank, Student rank, official standing, benefits, pacing or causal intervention effectiveness.
+## Product goal
 
-## Concrete adaptation choices
-The canonical expanded sidebar is 280px, not the 240px legacy stylesheet. A proposed 80px reference rail follows a 44px control plus 18px sides; it is a review proposal rather than a shipped dimension. Existing 40px content gutters may become the audited 20–40px compact/comfortable range under owner-approved implementation.
-Legend identifies a solid own-record line and a disabled comparison explanation using text/dash or shape, not color alone. No unavailable average values are drawn.
-The wider plot keeps the configured 0–4 point axis and chronological term ordering. Dense cards retain readable typography and concise scope. Do not use decorative 3D, fabricated trend area, arbitrary risk colors or a forecast line described as recorded GWA.
+> Deliver a coherent, understandable, role-appropriate academic analytics experience across Administrator, Faculty, and Student portals, where charts and summaries explain current results, comparable periods, growth or change, coverage, sample size, support activity, and unavailable evidence without ranking Faculty, fabricating comparisons, or overwhelming users with technical text and controls.
 
-## Approach and ownership
-The owner chose unified UI ownership: Vincent designs and adapts sidebar, layouts, filters, charts, themes and accessibility as one package. Member 2 owns technical validation/data contracts and independent testing; do not split the shared UI files between people.
-The alternative sidebar/chart member split is superseded and must not be used. The cohort comparison is BLOCKED until Member 2 verifies the contract and owner approves; a live comparison calculated from administrative pooled means is rejected.
+## Ten MVP goals
 
-## Non-goals
-No live sidebar or chart, production CSS/JS import, new library/CDN, chart export, prediction range, Faculty ranking, formula rewrite, privacy threshold invention, migration or DB access. This package is an implementation framework for later review, not production implementation.
+| Goal | Required future behavior |
+| --- | --- |
+| 1. Coherent analytics | Administrator Program Analytics unifies Overview, Academic Comparisons, Support & Interventions. Faculty uses the same component language within assigned scope. Student presents own-record trends, prediction clarity and change. Dashboard summaries lead naturally to deeper analytics; reuse services rather than duplicate formulas. |
+| 2. Visual-first evidence | Charts, compact summaries and details panels precede exact accessible tables below visualizations. Extended formulas/policy use accessible disclosures; critical warnings, sample size, coverage and limitations stay visible. Approximately two-thirds plot and one-third details is an optional wide-desktop arrangement. |
+| 3. Growth and change | Where comparable evidence exists, show point change, supporting relative change, coverage/sample-size change, exact start/end periods and neutral direction. Otherwise show “Change unavailable” and a reason; no incompatible population, formula or unit differences. |
+| 4. Academic periods | Use real school-year and semester labels, full names in tooltips/text/tables; ordinal positions alone are insufficient. Missing terms remain gaps. Active periods remain dynamic. |
+| 5. Controlled comparisons | Two selected groups by default, optional third, no fourth in the MVP. Overlay and separate-card modes. Support school year, semester, curriculum year, subject, section and verified Faculty assignment. Contextual mixed-scope cards may coexist, but direct differences need mathematical comparability. Scalar bars/dots for one period; lines only for real ordered histories with at least two valid points. |
+| 6. Support activity | Case/referral statuses and referral → notice → receipt flow. “Average time before the first notice” uses human-readable duration and actual eligible n/small-sample context. MTR-19 is a bounded count; parent-case median remains distinct from blocked MTR-21. Authorized read-only drill-down only; counts do not prove effectiveness. |
+| 7. Complete themes | Light/dark surfaces for cards, controls, tables, canvas, legends, axes, tooltips, badges, empty states and details. Avoid pure-white dark cards; preserve contrast, focus and non-color identifiers. Check each portal independently. |
+| 8. Accessible navigation | Clear tabs/context controls, at most four primary filters where possible, Advanced disclosure and support controls only in Support. One primary page scroll owner; no horizontal page overflow at supported desktop sizes. Future Vincent sidebar is not a current analytics MVP publication blocker. |
+| 9. Portal accountability | Vincent implements, verifies and fixes Administrator/Faculty; Member 2 does the same for Student. Cross-review supplements self-verification; shared files have one assigned custodian. |
+| 10. Truth and fairness | No Faculty ranking/quality inference, current-load historical attribution, invented cohort/range, test-count model accuracy, advisory-risk official standing, or unapproved genuine-record/UAT claims. |
+
+## Adapt existing UDM-RADAR patterns
+
+The master's two dashboard-image descriptions motivate compact density, stronger plots, clear legends and coherent themes. Actual source images were not supplied to this preparation, so no pixel-match claim is made. Preserve institutional identity, logo, semantic colors, active routes and text-size/theme/motion preferences; do not copy another product's assets or add a UI kit.
+
+The canonical expanded sidebar is 280px. The 80px rail and 20–40px density range are reference proposals subject to owner review. Widen plots without hiding labels, sample size, limitations or accessible tables. Preserve Faculty review and supportive Student explanations. Show “Prototype performance on synthetic academic records”.
+
+Student own-record series is “Your recorded GWA”. Cohort comparison remains BLOCKED with the exact unavailable explanation in the [contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md); no numbers are drawn for it.
+
+## Ownership and non-goals
+
+Vincent adapts Administrator/Faculty sidebars, layouts, filters, charts, themes and accessibility together; Member 2 owns these within Student plus Student calculation/privacy verification. Shared global assets need one named integration custodian and sequential edits. This replaces the former all-UI-versus-verification division.
+
+No production implementation, DB access, migrations, dependencies, model changes or reference imports are authorized now. Do not redesign accepted Antigravity work without a verified finding or approved improvement. See the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md).

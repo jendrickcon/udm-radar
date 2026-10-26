@@ -48,7 +48,8 @@ export function validateRecordedGwaModel(input) {
 export function buildGwaChartReference(input, options = {}) {
   const model = validateRecordedGwaModel(input);
   const color = options.currentColor || '#1769aa';
-  const hasValues = model.points.some(point => point.state === 'recorded');
+  const recordedCount = model.points.filter(point => point.state === 'recorded').length;
+  const hasValues = recordedCount > 0;
   const datasets = [{ label: OWN_SERIES_LABEL, data: model.points.map(point => point.value),
     borderColor: color, backgroundColor: color, borderDash: [], pointRadius: 4, tension: 0, spanGaps: false, fill: false,
     segment: { borderColor: context => model.points[context.p1DataIndex]?.breakBefore ? 'transparent' : color }
@@ -64,7 +65,7 @@ export function buildGwaChartReference(input, options = {}) {
   })));
   return { model, legend, tableRows, emptyMessage: hasValues ? null : EMPTY_GWA_MESSAGE,
     interpretation: 'Higher point values indicate stronger recorded performance under the configured prototype scale. Comparisons provide context, not rank or official standing. Incomplete terms may be unavailable. Prototype performance on synthetic academic records',
-    chartConfig: { type: 'line', data: { labels: model.points.map(point => point.label), datasets }, options: {
+    chartConfig: { type: recordedCount >= 2 ? 'line' : 'bar', data: { labels: model.points.map(point => point.label), datasets }, options: {
       responsive: true, maintainAspectRatio: false, animation: false,
       scales: { y: { min: model.scale.min, max: model.scale.max, title: { display: true, text: 'Recorded GWA (points)' } } },
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => OWN_SERIES_LABEL + ': ' + (typeof context.parsed.y === 'number' ? context.parsed.y.toFixed(2) + ' points' : 'Unavailable') } } }

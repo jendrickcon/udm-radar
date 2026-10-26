@@ -1,61 +1,79 @@
-# AI agent UI implementation protocol
+# AI agent portal implementation protocol
 
-Status: preparation only; production sidebar and chart redesign are `NOT IMPLEMENTED`. This protocol supports future owner-approved packages and grants no independent permission to implement or publish them.
+Documentation: READY FOR OWNER REVIEW. Future implementation: NOT STARTED. This protocol grants no production or publication authority.
 
-## Context first
+## Read before editing
 
-Before editing, read the applicable [AGENTS.md](../../AGENTS.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), canonical [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md), [findings register](../UI_UX_FINDINGS_REGISTER.md), [post-defense context](../post-defense/00_CONTEXT_AND_CURRENT_STATE.md), [status ledger](../post-defense/10_IMPLEMENTATION_STATUS.md), [metric reconciliation](../post-defense/14_METRIC_RECONCILIATION.md), this package's [context](00_UI_SYSTEM_CONTEXT.md), and the exact approved work package. Read the relevant sidebar, tokens, chart/data, accessibility, acceptance, ownership, and reference-usage documents. Discover which repository skills were actually loaded and read relevant skills from this checkout; do not assume another agent's discovery is identical.
+Read applicable [AGENTS](../../AGENTS.md), [contribution policy](../../CONTRIBUTING.md), canonical [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md), [findings](../UI_UX_FINDINGS_REGISTER.md), [metric reconciliation](../post-defense/14_METRIC_RECONCILIATION.md), this [context](00_UI_SYSTEM_CONTEXT.md), the exact approved package and relevant token/sidebar/chart/data/accessibility/acceptance documents. Discover which skills actually loaded; do not assume another host's skill discovery.
 
-The [existing continuation guide](../post-defense/09_AGENT_CONTINUATION_GUIDE.md) and [member workflow](08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md) are context. A general command example cannot authorize a database operation, staging, commit, status-ledger edit, publication, or recovery. Current owner scope and repository protections apply.
+## Required startup report
 
-## Opening report before changes
+Before editing, report all twelve items:
+1. Member name.
+2. Assigned portal scope and package approval.
+3. Assigned long-lived branch.
+4. Actual local branch, absolute clone/served paths and full HEAD.
+5. Full current origin/main SHA.
+6. Actual Git status and dirty-state disclosure.
+7. Expected literal changed files.
+8. Shared files and one named integration custodian per file.
+9. Protected systems and non-goals.
+10. Required self-verification tests.
+11. Cross-portal regression tests.
+12. Stop conditions.
 
-Provide a short report containing member name, work package ID/approval, assigned branch, current local branch, actual absolute clone path, starting baseline and current HEAD/origin/main SHAs, and `git status --short --branch`. Restate scope and non-goals, protected files, anticipated literal changed files, shared-file primary owners/custodian, required tests and stop conditions before editing. Do not copy an old SHA or clean-status claim from another agent.
+Confirm correct branch and shared ownership before editing. Unknown dirty work, conflicting ownership, out-of-scope fixes or an unaccepted base stops the affected work. Preserve changes; no automatic destructive recovery. See [member workflow](08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md) for clean-main update and same-clone task branches.
 
-Each human member uses one local clone and one assigned long-lived branch: Vincent uses `feat/member1-ui-ux`; Member 2 uses `feat/member2-analytics-verification`. Before a package, save current work through the approved process, inspect status, fetch, switch to clean main, pull `--ff-only`, return to the assigned branch, and integrate main using the package-approved method. Resolve conflicts and confirm clean status before implementation; record the starting main SHA. Never implement directly on main. Discover each member's absolute clone and served XAMPP paths rather than assuming identical machines.
+## Portal ownership and self-verification
+Vincent owns Administrator and Faculty revisions on `feat/member1-admin-faculty-ui`, package `ADMIN-AND-FACULTY-PORTAL-UI-ANALYTICS-AND-SELF-VERIFICATION`.
+Member 2 owns Student revisions on `feat/member2-student-portal`, package `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION`.
+Both implement, test, verify, fix and document their own portals before handoff. Cross-review supplements self-verification. Neither member is the universal UI owner, universal backend owner or sole tester.
+Shared cross-portal CSS/JS, header/sidebar, analytics contracts, fixtures and status files require one owner-assigned integration custodian per exact file, sequential edits and cross-portal regressions. A review finding does not transfer ownership.
 
-An AI child branch may be created inside the same clone only from its own assigned branch's verified HEAD, never the other member's branch. Use compatible names such as `feat/member1-ui-ux--sidebar` and `feat/member2-analytics-verification--cohort-contract`. Slash descendants under the actual parent branch, such as `feat/member1-ui-ux/sidebar`, conflict with the existing Git ref's file/directory path; double-hyphen names avoid that conflict. Record the approved integration method back to the assigned branch. Additional worktrees require explicit owner exception approval, for example independent certification, conflict recovery, preserving unique dirty work, or immutable review. No mandatory extra worktrees and no simultaneous agents switching the same clone.
+## Workflow and authorization
+One local clone and assigned long-lived branch per human member. Optional AI task branches start from that member's own assigned branch in the same clone; compatible task-suffixed names avoid Git ref file/directory conflicts. Extra worktrees require explicit owner-authorized exceptions.
+Save approved local work, inspect status, fetch, update clean main fast-forward, return assigned branch, integrate latest approved main by the package-approved method, resolve conflicts and record the starting SHA before editing.
+After self-verification, an approved local immutable candidate and complete handoff precede owner retest. Push only after separate owner authorization, then one reviewed PR against verified current main with auto-merge off; merge and deployment require their own authorization. Both members update main after approved merges. No broad staging, destructive recovery, branch deletion or cleanup by default.
+The existing local readiness commit `ee4ddf4b5e001328a1beeeea3471d58dd87c1614` records the earlier package. These portal/roadmap amendments are a new uncommitted revision awaiting owner review and explicit local-commit authorization.
 
-Preserve unknown local work. Unexpected dirty files, conflicting ownership, overlap, missing authorization, or required out-of-scope edits stop the affected work. No automatic reset, forced checkout, restore, stash, recovery commit or cleanup. `git reset --hard`, `git clean -fd`, and `git push --force` require a separate owner-authorized recovery package.
+## Protected boundaries
+No production edits, database access, migrations/Migration 011, genuine records, model/dependency/authentication changes, mobile tests or screenshots are authorized by readiness preparation.
+MTR-07 and canonical MTR-21 remain BLOCKED. MTR-19 remains a bounded receipt count; limited parent-case duration is not MTR-21. Historical Faculty attribution remains BLOCKED without dated evidence; no Faculty ranking/teaching-quality inference.
+Student cohort average remains BLOCKED until Member 2's eleven technical/privacy items and owner approval; no fabricated comparison, privacy threshold, pooled Admin-mean substitution or enabling flag.
+Freeze PR #63 files: `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, `docs/post-defense/10_IMPLEMENTATION_STATUS.md`. Reconcile later using the separate plan; no silent overwrite.
 
-The preparation baseline is `edef1b382b7874af770feb5713c20e9b68979241`. PR #63 is OPEN and UNMERGED at preparation, with head `6d0ece576c74ac4c143719308865aa0c1cacc367`; revalidate before future work. The frozen paths are `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, and `docs/post-defense/10_IMPLEMENTATION_STATUS.md`. Propose their changes in the handoff until the owner authorizes reconciliation and names the status writer. Antigravity's `feat/analytics-ui-integration` worktree is separate; its `7af3c26` checkpoint is not a final immutable handoff and must not be edited by this package.
 
-## Academic and privacy invariants
+## Execute approved portal work
 
-- Present `Prototype performance on synthetic academic records` in user-facing predictions, analytical summaries, and reports. Use synthetic records only; never include genuine identifiers in evidence.
-- Preserve the configured higher-is-better point scale, canonical GWA/zero treatment, textual outcomes, incomplete-term handling, and dynamic academic periods. Risk triage, subject pass/fail, official standing, pacing, and benefits remain separate. No punitive wording, ranking, or automatic Student notice.
-- MTR-07 prediction bounds remain `BLOCKED` without verified active-model held-out residuals. Do not invent MAE/RMSE margins or confidence intervals. Canonical MTR-21 referral closure is `PLANNED` / `BLOCKED`; the limited parent-case closed-duration median is separate. MTR-19 is a bounded receipt count, not the canonical rate.
-- The Student-facing cohort aggregate/privacy contract is `BLOCKED`, not deferred. Vincent owns its unavailable UI and cannot invent its formula. Member 2 verifies the data/privacy contract before final owner approval. The active Student legend label is `Your recorded GWA`. The unavailable label is exactly `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.` No calculation, placeholder average, invented suppression threshold, pooled-mean relabeling, or Faculty-assignment default is permitted.
+Vincent implements Administrator/Faculty visual analytics, dashboard summaries, support visuals, sidebar, filters, themes and accessibility, and tests calculations as displayed plus authorization. Member 2 implements Student UI and verifies own-record GWA/change/coverage/missing/summer behavior, prediction clarity and privacy. Reuse approved helpers/services; no duplicate calculation engines.
 
-Member 2 must verify eleven items before final owner approval: (1) Student-level unit of analysis; (2) comparable cohort definition; (3) eligible records; (4) excluded records; (5) missing/incomplete-term behavior; (6) minimum privacy-safe cohort size; (7) aggregation/unit-weighting rules; (8) school-year/semester comparability; (9) role visibility; (10) synthetic-data test evidence; (11) privacy/fairness review. See the [chart contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md). The owner then approves the complete contract; an approved blocked interface does not approve data access or an average. Vincent may prepare the interface, legend, tooltip, unavailable state, accessible table column and empty-state explanation, but cannot define or simulate the value.
+Agree metric unit, scope, denominator, exclusions, periods and availability before a new display. Point change needs comparable start/end periods; relative change is supporting context only with an approved nonzero baseline. Incompatible evidence shows “Change unavailable” and a reason. One-period values use scalar bars/dots; lines require at least two valid ordered historical values. Preserve exact tables below charts.
 
-## Execution and progress
+Critical synthetic label, coverage/n, limitations and unavailable explanations remain visible; long mechanics may use accessible disclosures. Two comparison groups default, optional third, no fourth; context cards do not automatically authorize direct deltas. Keep one primary page scroll owner and themes across every surface.
 
-Keep work within the approved files. Vincent owns the unified UI/UX, Sidebar, Dashboard and Chart Experience: all sidebar CSS/JS, tokens, Admin/Faculty/Student dashboard presentation/layout/spacing, content expansion, chart/graph presentation including Student GWA and the blocked cohort interface, legends, tooltips, chart cards, filters/advanced controls, themes, keyboard/accessibility, desktop behavior, and visual integration. Member 2, not yet named, owns Analytics Calculations, Verification, Testing and Bug Fixes: formulas, numerators/denominators, missing-data rules, comparison/cohort data and privacy contract, role authorization/backend/API verification, regressions, independent review, bug reports, and separately owner-authorized backend/integration fixes.
+## Academic and blocked invariants
 
-Adapt reference assets only after inspecting active code and contracts; they are not production ready. All shared UI/sidebar CSS/JS, chart layout/styles, and tokens remain Vincent's primary ownership; do not divide sidebar and charts between members. Member 2 may propose failing UI tests/findings but may not independently restyle or edit Vincent's files. Coordinate any owner-approved minimal integration fix with Vincent, using an explicit temporary ownership transfer if needed. One primary owner edits a file at a time. Shared production entry-page or fixture integration follows an owner-appointed custodian and sequential handoff without overriding Vincent's UI ownership. No generic UI request authorizes new libraries, dependencies, private PEF/CC access, model/schema/migration changes, or unapproved formula/authentication/API changes.
+Use “Prototype performance on synthetic academic records”. Preserve higher-is-better 0–4 point direction, canonical GWA zero/status exclusions, incomplete handling, honors predicate and dynamic academic periods. Subject passing, advisory risk, official standing, program pacing and benefits are separate. No punitive copy or automatic Student notice.
 
-Share concise progress at meaningful milestones and avoid more than about 60 seconds of silence during ongoing work. State current task, completed work, early findings, blocker if any, and next action; include branch/SHA when changed. Do not repeat the entire plan or print low-level tool activity. Share findings without stopping authorized independent work. Put long instructions in Markdown files and link them. Preserve required owner wording verbatim.
+MTR-20 remains the arithmetic mean of eligible distinct-referral durations from creation to first valid notice; display “Average time before the first notice” with actual n and human-readable duration. Exclude unacted, invalid/reversed timestamps; avoid duplicate joins. Do not change its formula. MTR-19 is a bounded receipt count. Parent closed-case median is limited parent duration, not canonical MTR-21.
 
-Read test entry points and their includes, handlers, subprocesses, overrides, writes/cleanup, locks, and temporary files before execution. Database access requires separate owner authorization. Automated mutations must be proven scratch-only with no live fallback; rollback alone is not isolation. No database access, Migration 011, migration, rebuild, or seed is authorized by this preparation or a generic template.
+MTR-07 requires verified active-model residual evidence. Historical Faculty attribution needs dated evidence; no rankings/teaching-quality claims. Cohort is BLOCKED: Member 2 owns its Student unavailable UI and eleven-item proposal in the [chart contract](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md), then owner approval. Never invent numbers/privacy thresholds or substitute pooled administrative means.
 
-Run focused checks before broader relevant checks. Verify the installed repository-pinned Playwright version and authentication/request side effects before an approved desktop run. Shared dashboard layout changes require the Faculty dashboard layout regression and warning-banner containment. Keep generated evidence ignored. Do not weaken tests or hide failures to obtain a passing report.
+## Verification and handoff
 
-## Evidence and handoff
+Both members run their own focused unit, authorized integration, authenticated desktop, negative authorization, structural, mocked race/error, theme and keyboard checks as relevant. Classify each separately. Review runner versions and all test side effects before execution. No broad suite may override no-DB/no-mobile/no-screenshot scope. Report required unrun evidence as BLOCKED with reason, never a pass.
 
-Use the [report standard](14_PROGRESS_REPORT_AND_HANDOFF_STANDARD.md). Record actual commands, runtime/version, target, exit code, and passed/failed/skipped totals by category. Distinguish PHP regression checks, JavaScript checks, integration, live authenticated desktop browser, generated static HTML, mocked browser, structural/source inspection, accessibility, and manual owner review. Do not sum them into an accuracy percentage or reuse historic totals as current results. Mark unrun or unavailable checks honestly. Checksums prove the inspected bytes or identity only; they do not prove functionality, accessibility, or end-to-end behavior.
+For future faculty/dashboard.php or shared dashboard CSS edits, run `tests/browser/faculty-dashboard-layout-regression.spec.js`; preserve warning-banner containment. Run Goal Calculator, Grades/history, Enrollment Planning, PEF/CC, Activity/Inbox, Admin modal-focus and shared-auth/navigation regressions when affected.
 
-Inspect committed, unstaged, staged, untracked, and combined changes. Within the approved future package's checkpoint authority, stage explicit files, review the complete staged diff, verify focused checks, create small meaningful commits and push verified checkpoints to the assigned branch. Do not re-request already granted checkpoint authority or infer it for unrelated work. At package completion, confirm a clean branch with latest approved main, push the exact reviewed commit and prepare one complete PR after owner review under the approved workflow. Supply immutable head SHA and categorized evidence, request owner/independent review, and keep auto-merge off. Return a final handoff after completion or explicitly requested blocked handoff, with next action and owner-defined completion phrase.
+Use the [Definition of Done](10_UI_TEST_AND_ACCEPTANCE_MATRIX.md). Self-verification precedes cross-review; disclose authorship and never call self-review independent acceptance. Fix only verified in-scope defects, with no design expansion. Original implementer fixes portal defects; shared-contract exceptions require an assigned owner or explicit transfer.
 
-Merge requires owner authorization. No automatic merge, direct main push, deployment, migration, or branch/worktree cleanup follows from checkpoint/PR permission. After approved merge, record the merge SHA, refresh clean main in both member clones with fast-forward-only pulls, and confirm the served checkout uses updated main. Start or integrate latest main for the next approved package; do not develop indefinitely from the merged branch. GitHub main is authoritative; do not exchange copied source folders or ZIP files as development truth.
+A final handoff follows completed scope or an explicitly requested blocked handoff. Include exact SHA/status/files, actual categorized results, cleanup/integrity, limitations, owner retest and separate publication gates. Do not commit these new readiness amendments without owner approval.
 
-Current Sol preparation boundary: corrected documentation/reference files may be committed only after owner review. Report its immutable review commit as pending until review/authorization; no push/PR is authorized for this preparation. Missing approval is reported as the concrete remaining owner action, not replaced with a fabricated SHA.
-
-## Owner instruction retained verbatim
+## Desktop-only instruction
 
 > from now on skip all mobile testing and screenshotting and focus on desktops
 > include this message in your report output as well for future references
 > also, 12% remaining usage
 > finish what you can/
 
-Include this instruction in reports. The usage sentence records the historical instruction; do not report it as current measured usage. Mobile tests and screenshots are excluded under the current directive.
+The usage line is historical, not a current measurement. No mobile tests or screenshots are authorized. Future desktop acceptance covers 1440×900, 1280×600 and 1024×768, light and dark.

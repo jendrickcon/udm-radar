@@ -1,32 +1,37 @@
 # Risks and stop conditions
-Vincent owns unified UI changes; Member 2 owns technical validation and independent review. Every future permission must identify scope, paths and systems.
 
-| Risk | Prevention / evidence | Stop condition |
+Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED.
+Vincent owns Administrator/Faculty implementation and self-verification; Member 2 owns Student implementation, calculations/privacy and self-verification. No universal UI/backend owner or tester-only role.
+
+| Risk | Prevention / evidence | Stop affected work when |
 | --- | --- | --- |
-| Desktop preference conflicts with drawer | Separate desktop key/state and breakpoint; test crossing without changing existing drawer | Reference cannot be adapted without altering unauthorized mobile behavior |
-| Resize clipping or duplicate listeners | One initializer/observer, settled event, debounced resize, destroy/remount checks | Plot stale dimensions, leaks, or duplicate handlers remain unexplained |
-| Icon-only inaccessible links | Retain names, visible focus and accessible footer controls | Primary route/theme/logout unusable by keyboard |
-| Legend ambiguity | Exact active label and blocked explanation; line/dash + text; table parity | Unavailable comparison looks like measured data |
-| Wrong unit/denominator | Member 2 verifies per-Student comparable term definition; no pooled-grade substitution | Formula meaning, eligibility, weighting or denominator unsupported |
-| Cohort privacy unresolved | BLOCKED; no numeric comparison series, threshold or identifiers | Any average would require inventing/assuming data/privacy contract |
-| Missing values hidden by smoothing | null gaps, no interpolation/tension, explicit incomplete state | Plot implies unrecorded values or partial value called complete GWA |
-| Dark-mode contrast | Semantic tokens, both-theme keyboard/text checks | Essential controls/limits unreadable |
-| Excessively dense layout | Compact logical groups, readable labels, three desktop sizes | Focus/value clipped or page-level overflow breaks primary workflow |
-| Student-safe meaning drift | Separate passing/risk/honors/standing/pacing/benefits | UI implies official punitive determination |
-| Role/GET mutation surprise | Trace handlers/includes and test only separately approved isolated fixture | Existing DB access needed or report could write |
-| Shared file collision | Vincent primary on all UI CSS/JS/tokens; one integration custodian for shared fixtures/docs | Simultaneous ownership or unexpected dirty/conflicting work |
-| Extra-worktree default or invalid child refs | One member clone and assigned branch; extra worktrees exceptional; compatible task-suffixed child names from own assigned HEAD | Agent needs another worktree without explicit exception or tries another member's base |
-| Reviewer authors own fix | Disclose authorship; independent check on corrected SHA | Self-review represented as independent acceptance |
-| PR #63 conflict | Freeze three paths, record state and reconcile only with owner decision | PR merge or new status update causes unresolved overlap |
-| Antigravity integration changes | Wait immutable handoff and independent gate; source audit based on fixed main | Need to edit active worktree or treat checkpoint as final |
-| Main advances | Fetch/read metadata and inspect later changed paths | Overlapping UI documentation or unapproved base change |
-| Dependency/CDN temptation | Reuse host constructor, no import/download; table fallback | New library appears necessary |
-| Genuine records | Identifier-free fixtures only, no production DB | Actual records/credentials/template contents enter tests/evidence |
-| Evidence overclaim | Categories/actual counts, no checksum-as-functionality claim | Passing syntax/checksum presented as complete UI behavior |
-| Cleanup/publication without authority | Preserve worktrees and immutable evidence; stage explicit paths | Push/PR/merge/deploy/migrate/cleanup lacks specific authorization |
+| Old ownership split persists | Portal map, own tests/fixes, cross-review supplemental | Student assigned to Vincent or all technical testing delegated to Member 2 |
+| Shared-file collision | One owner-assigned custodian per literal file, sequential candidates | Simultaneous editor, unknown dirty changes or missing custody |
+| Antigravity overlap | Wait immutable accepted handoff and actual main; no moving-source certification | Need to edit its active checkout or repeat accepted scope without finding/approval |
+| PR #63 silent overwrite | Freeze three paths, use separate reconciliation plan after merge/close | Proposed update overlaps unresolved PR63 status/history |
+| Main/base drift | Recheck refs/PR/files and approve current base | Unexplained overlapping commit or unapproved base |
+| Sidebar/drawer collision | Separate desktop preference and existing drawer; no mobile tests | Fix needs unauthorized smaller-device behavior |
+| Resize leaks/clipping | Single initializer/observer, settled/coalesced resize and cleanup tests | Duplicate handler or unexplained geometry remains |
+| Inaccessible rail/tab/filter | Names/focus/current/expanded, keyboard, three desktop sizes | Route or primary control cannot be used |
+| Scroll/filter overload | One primary scroll; context tabs, ≤4 primary filters, Advanced | Page horizontal overflow or hidden active scope |
+| Theme gaps | Check every chart/control/table/details surface in each portal | White dark cards, unreadable labels/limits or hidden focus |
+| False line/trend | Scalar for one period; chronological ≥2-valid-point line, real labels, gaps | Ordinal-only history, interpolation or invented point |
+| Invalid comparison/growth | Approved unit/population/period/denominator, exact tables/n/coverage | Incompatible delta, zero baseline relative change, hidden missingness |
+| Wrong average | Preserve canonical own Student GWA versus pooled recorded-grade mean | Relabeling or unsupported weighting/eligibility |
+| Cohort privacy | BLOCKED until eleven Member 2 gates and owner approval | Any fabricated average/threshold/enable flag or peer detail |
+| Support overclaim | MTR19 bounded count, MTR20 mean with n, parent median distinct | Count treated as effectiveness/rate or parent duration as MTR21 |
+| Unsupported evidence | MTR07 range and historical Faculty attribution BLOCKED | Invented residual bounds, current-assignment historical inference/ranking |
+| Academic meaning drift | Separate pass/fail, risk, standing, pacing, benefits; supportive copy | Punitive/official conclusion or formula change outside scope |
+| DB/test side effects | Review full connection/include/subprocess/mutation paths before separately approved isolated tests | Existing DB access/fallback, genuine records, migration011 or unapproved resources |
+| Reviewer fixes bypass implementer | Original owner repairs; explicit shared-contract/owner transfer exception | Unapproved redesign/transfer or self-review called independent |
+| Evidence overclaim | Categorized actual counts, unrun checks block required gates | Syntax/hash/mock/source described as live production acceptance |
+| Delivery without authority | Explicit commit/push/PR/merge/deploy/cleanup gates | Missing separate authorization |
+| Mandatory-worktree drift | One human clone/assigned branch; same-clone AI child refs | Extra worktree without owner exception or branch from other member |
 
-## Present boundaries
-Neither existing database is accessed, even read-only, by this package. No migration/Migration 011, dependency/model change, browser test, mobile test or screenshot. PR #63 files and Antigravity worktree remain untouched.
-Human members use feat/member1-ui-ux (Vincent) and feat/member2-analytics-verification (Member 2), with regular verified checkpoint commits/pushes under their future approved packages and one completed PR for review. GitHub main is authoritative after approved merges; no source-folder/ZIP copying. This Sol readiness package specifically remains uncommitted until owner review and has no push/PR authority. Additional member worktrees require explicit exceptional authorization.
-Cohort interface preparation is explicitly owner-authorized despite the unresolved comparison contract: record that series as BLOCKED and do not fabricate/compute/simulate any average. This supersedes the master's stop condition only for preparation of the unavailable interface, not actual data enablement.
-Stop and preserve all work if preparation would require production edits, database access, new libraries, policy inventions, or ownership overlap that cannot be resolved within the owner's Vincent/Member 2 plan.
+## Current preparation limits
+
+Only docs/ui-system documentation/reference changes. No access to either database, production/browser handler execution, migrations/Migration 011, genuine records, model/dependency/auth changes, mobile tests or screenshots. PR #63's three files, Antigravity's active worktree and canonical checkout remain untouched.
+
+Future branch names: `feat/member1-admin-faculty-ui` and `feat/member2-student-portal`. They are not created here. Same-clone task suffixes avoid Git parent/child ref conflicts. Both members self-verify before handoff. Cross-review reports defects; original implementer fixes unless explicitly reassigned.
+
+Cohort unavailable-interface preparation is permitted despite the numeric BLOCKED contract; this does not authorize data access or release. Current amendments await local documentation commit approval; no push/PR/merge/deploy or cleanup. Preserve work on stopping, report exact blocker and safe continuation, and do not manufacture completion.

@@ -18,4 +18,6 @@ Status: PLANNED; reference-only tests do not establish portal accessibility or W
 15. Review desktop 1440×900, 1024×768 and 1280×600 in light/dark; enlarged text and reduced motion for affected controls. No mobile tests or screenshots under current owner direction.
 
 ## Required future evidence
-Vincent records actual keyboard walkthrough and geometry observations against his immutable UI commit. Member 2 independently verifies focus/state/negative scope using identifier-free tests and classifies authenticated, generated, mocked, source and accessibility evidence separately. An inherited class name or syntax-valid reference is not a pass.
+Vincent records actual Administrator/Faculty keyboard, focus, geometry, role-negative and theme checks against his immutable candidate; Member 2 does the same for Student. Both run affected cross-portal regressions. Cross-review supplements this self-verification. Classify authenticated, generated, mocked, source and accessibility evidence separately. An inherited class name or syntax-valid reference is not a pass.
+
+All theme surfaces must be checked separately for each owned portal, including chart axes/tooltips/legends and details. Keep exact accessible tables below plots and one primary page scroll owner; extended mechanics may use keyboard-accessible disclosures while critical limits and sample size stay visible.

@@ -2,11 +2,11 @@ REFERENCE ONLY. NOT LOADED BY PRODUCTION PAGES.
 Future implementers must adapt this file to the active UDM-RADAR layout and tests.
 
 # Reference-only assets
-These examples require explicit host adaptation. They are not an application, production import or permission to enable a cohort average. All shared presentation adaptation belongs to Vincent; Member 2 verifies technical/data/privacy contracts.
+These examples require explicit host adaptation. They are not an application, production import or permission to enable a cohort average. Vincent owns Administrator/Faculty adaptation and self-verification; Member 2 owns Student adaptation, Student technical/data/privacy contracts and self-verification. Global presentation assets require one assigned integration custodian and sequential handoff.
 
 - [Tokens](ui-tokens.reference.css): scoped semantic aliases and proposed dimensions.
 - [Sidebar CSS](collapsible-sidebar.reference.css), [controller](collapsible-sidebar.reference.js): explicit desktop root lifecycle.
-- [Chart card CSS](chart-card.reference.css), [chart model/configuration](gwa-trend-chart.reference.js): own-recorded line, blocked optional comparison and table-equivalent model.
+- [Chart card CSS](chart-card.reference.css), [chart model/configuration](gwa-trend-chart.reference.js): own-recorded scalar bar (one valid term) or line (at least two valid ordered terms), blocked optional comparison and table-equivalent model.
 - [Node contract tests](reference-contract.test.mjs): identifier-free reference validation only.
 
 ## Explicit APIs
@@ -28,7 +28,7 @@ The repository does not declare type:module; tests load each standalone referenc
 CSS syntax validation may use an already installed parser; don't install a library merely to validate this prep. Static parsing cannot prove actual contrast/layout/keyboard rendering.
 
 ## Markup contract illustration
-This is documentation, not a live component. Vincent adapts the markup to the accepted portal; Member 2 verifies the supplied data. Fill no numeric cohort cells.
+This is documentation, not a live component. Member 2 adapts this Student chart markup and verifies the supplied data and own-record authorization; Vincent adapts only approved Administrator/Faculty equivalents, with shared files assigned separately. Fill no numeric cohort cells.
 
 ```html
 <section class="ui-ref-chart-card" aria-labelledby="own-gwa-heading">
@@ -50,3 +50,7 @@ This is documentation, not a live component. Vincent adapts the markup to the ac
 ```
 
 When authorized own records exist, table term cells become row headers and values come only from tableRows; create the plot after the visible equivalent. Do not hide the entire table if Chart.js is absent. For supplemental rail tooltips, implement Escape dismissal in the eventual host; the CSS illustration alone is not a keyboard-tooltip implementation.
+
+## Readiness boundary
+
+Exact accessible tables follow the visualization. One-period scalar encoding never claims a trend; missing periods remain gaps with real academic labels. Keep both-theme surfaces and one primary page scroll owner during future adaptation. Two/three-group comparison controls, growth/details and support visuals are future contracts, not features implemented by these assets. Numeric cohort remains BLOCKED; no flag enables it. No production page imports these files.

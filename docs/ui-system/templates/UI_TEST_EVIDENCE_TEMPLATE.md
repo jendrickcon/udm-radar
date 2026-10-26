@@ -1,69 +1,73 @@
-# UI test evidence — [WP-ID / candidate]
+# Portal self-verification evidence template
 
-Template only. Leave unexecuted claims unconfirmed. Use Passed, Failed, Skipped, Not Run, or Unavailable; actual counts are discovered during execution, never copied from a prior report.
+Member/portal/package:
+Tested full candidate SHA or honest dirty-state fingerprint:
+Date/runtime/pinned runner version:
+Implementation and documentation statuses:
+Do not prefill passing totals.
 
-## Execution identity and safety preflight
+## Required package context
 
-- Date/time / executor / approved scope: [Actual values].
-- Baseline / candidate SHA / branch / absolute repository clone path: [Full values].
-- Dirty files or untracked evidence affecting execution: [Actual status].
-- Runtime versions / installed Playwright pin and actual version / browser availability: [Evidence; no auto-install/download].
-- Selected exact tests and why: [Focused before broader relevant checks].
-- Inspected connections/includes/handlers/subprocesses/overrides/setup/writes/cleanup/locks/temp files: [Evidence].
-- Database authority / target: [Default no access; separately authorized scratch mutation paths only, no live fallback].
-- Authentication/request/audit side effects: [Observed and authorized; rollback is not isolation proof].
-- Generated artifacts and ignored locations: [Actual paths].
+- Product goal: coherent, understandable, role-appropriate analytics across Administrator, Faculty and Student; cite the [ten goals](../01_VISUAL_DIRECTION_AND_BOUNDARIES.md).
+- User problem and visible outcome:
+- Portal owner: Vincent = Administrator/Faculty; Member 2 = Student. Record actual name.
+- Assigned branch: `feat/member1-admin-faculty-ui` or `feat/member2-student-portal`.
+- Exact scope, literal files and non-goals:
+- Visual contract: chart/details hierarchy, exact table below, real periods, scalar versus history, two groups/optional third/no fourth, visible coverage/n/limits:
+- Calculation contract: approved source/API/helper, unit/population/eligibility/exclusions/denominator/weighting/comparability:
+- Growth/change: exact start/end periods, point and supporting relative change, coverage/sample-size change; “Change unavailable” + reason when noncomparable:
+- Complete/empty/provisional/unavailable/error states and table fallback:
+- Shared-file integration owner per exact path, editing order and API impacts:
+- Self-verification matrix and cross-portal regressions, with actual results or required BLOCKED evidence:
+- Baseline/current main/HEAD full SHAs, clone path, branch and actual status:
+- Immutable candidate when explicitly authorized; otherwise state no candidate and reason:
+- Owner visible retest, unresolved findings and acceptance decision:
+- Separate commit, push, PR, merge and deployment approvals; auto-merge off:
 
-## Results by category
+Neither member is universal UI/backend owner or tester-only. Each implements, tests, verifies and fixes its own portals. Cross-review supplements self-verification; original implementer retains fixes unless shared-contract ownership or explicit owner transfer applies. One clone and assigned long-lived branch per human; same-clone AI task branches start from own assigned HEAD; extra worktrees require owner exceptions.
 
-| Category | Exact command / test selection | Environment, target and runtime | Exit code | Passed | Failed | Skipped | Result and evidence location |
-|---|---|---|---|---|---|---|---|
-| Markdown/path/terminology/format | [Command] | [Environment] | [Actual] | [Actual/N/A] | [Actual/N/A] | [Actual/N/A] | [Status] |
-| PHP syntax / PHP regression checks | [Command; not PHPUnit] | [Target] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| JavaScript syntax/contract | [Command] | [Reference-only or app] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| Integration | [Command] | [Authorized database and effects] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| Live authenticated desktop browser | [Command] | [Role, page, widths, data] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| Generated static HTML browser | [Command] | [Fixture] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| Mocked browser | [Command] | [Mocks/fixture] | [Actual] | [Actual] | [Actual] | [Actual] | [Status] |
-| Structural/source inspection | [Method] | [Files/SHA] | [Actual/N/A] | [N/A if no assertions] | [N/A] | [N/A] | [No end-to-end claim] |
-| Accessibility/manual | [Method] | [Keyboard/focus/contrast/labels/table/reduced motion] | [Actual/N/A] | [Actual/N/A] | [Actual/N/A] | [Actual/N/A] | [Scoped observation] |
 
-Do not total different categories into accuracy. A hash proves identity, not behavior. Unavailable credentials are an authentication limit, not a passing role check. Failing tests remain visible. Source inspection is separate from browser execution and data correctness.
+## Executions — keep categories separate
 
-## Requirement coverage
+| Category | Exact command/method | Runtime/target/side effects | Actual passed | Actual failed | Actual skipped | Result / exit | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Unit / PHP regression checks | | | | | | Not Run | |
+| Isolated SQL/API integration | | | | | | Not Run | |
+| Authenticated desktop | | | | | | Not Run | |
+| Structural/source | | | | | | Not Run | |
+| Generated fixture browser | | | | | | Not Run | |
+| Mocked transport/error/race | | | | | | Not Run | |
+| Authorization negatives | | | | | | Not Run | |
+| Accessibility/keyboard/themes | | | | | | Not Run | |
+| Cross-portal regressions | | | | | | Not Run | |
+| Lint/syntax | | | | | | Not Run | |
+| Git/protected/temporary cleanup | | | | | | Not Run | |
 
-| Requirement / acceptance row | Exact test or inspection | Actual observed behavior | Implementation status | Limits / next action |
-|---|---|---|---|---|
-| [ID] | [Evidence] | [Observed] | [NOT IMPLEMENTED / PLANNED / TEST EXISTS / PASSING / FAILING / BLOCKED / NOT APPLICABLE] | [Specific] |
+Result vocabulary: Passed, Failed, Skipped, Not Run, Unavailable. Explain every required unrun category and mark its acceptance gate BLOCKED. Static source, fixture, mock and checksums cannot establish authenticated runtime behavior. Never combine categories into model accuracy or a single quality count.
 
-If Faculty dashboard or shared dashboard layout CSS changes, record `tests/browser/faculty-dashboard-layout-regression.spec.js` and warning-banner containment evidence. Future implementation remains `NOT IMPLEMENTED` / `PLANNED` in this readiness preparation; reference-only Node checks cannot establish production UI passing status.
+## Desktop and state matrix
 
-## Data, ownership, and scope limits
+For each owned portal, document actual results at 1440×900,1280×600,1024×768 in light and dark. Check cards/controls/tables/canvas/axes/legend/tooltips/badges/empty/details, keyboard and visible focus, enlarged text/reduced motion, no page horizontal overflow, one main scroll owner, chart/table values, genuine period labels, ≤4 primary filters where possible, two/three group limits and unavailable/noncomparable states.
 
-Vincent owns unified presentation/sidebar/dashboard/chart/styles/tokens. Member 2 verifies calculations/privacy/auth/backend/API and tests, may propose failing UI checks, and cannot independently restyle Vincent's files. Minimal cross-owner fixes need owner approval, coordination, and explicit temporary transfer if needed.
+Vincent: Admin/Faculty scopes, unassigned/cross-Faculty denial, own-referrals, support count/mean/parent-median labels. Member 2: own Student/other-Student denial, canonical GWA/comparable change/coverage/missing/summer, prediction clarity, Goal Calculator/Grades/history/Enrollment regressions. Each runs affected other-portal/shared-auth/header/sidebar/API/PEF/CC/Activity/Inbox/focus regressions. Faculty shared layout requires its structural regression.
 
-Cohort gate remains `BLOCKED`: `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.` No calculation/placeholder average or invented threshold. Member 2 must verify eleven contract items; final owner approval follows those eleven items. MTR-07 bounds remain blocked; canonical MTR-21 planned/blocked separate from limited parent-case median; MTR-19 count is not canonical rate.
+## Target and integrity
 
-- Failed/skipped/unrun checks and reasons: [Actual].
-- Protected file / dependency / migration / database effects: [Evidence, not prechecked claims].
-- Mobile tests and screenshots: [Not Run under retained owner directive unless later revised].
-- Remaining acceptance blockers and exact next action: [Actual].
+Pre-execution connection/include/subprocess/auth/mutation/lock/cleanup review:
+Exact separately authorized isolated target and provenance:
+No existing-DB fallback or genuine records:
+Temporary cleanup verified:
+Protected dump/models/dependencies/schema/Migration 011 diff:
+Git committed/unstaged/staged/untracked/combined inspection:
+Required failure/blocker and retest candidate:
+Owner visible retest and publication decisions:
 
-Owner instruction retained verbatim:
+## Retained limits
 
-> from now on skip all mobile testing and screenshotting and focus on desktops
-> include this message in your report output as well for future references
-> also, 12% remaining usage
-> finish what you can/
+Cohort numeric series, MTR-07 bounds, canonical MTR-21 and historical Faculty attribution remain BLOCKED without their approved evidence/contracts. Member 2 owns Student UI and its eleven-item cohort proposal; no pooled Admin mean, fabricated number or invented privacy threshold. Keep “Your recorded GWA” and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.”
 
-The usage line is a historical quote, not a current measurement. No production browser execution is authorized by this preparation template.
+MTR-19 is a bounded receipt count; limited parent-case median is not MTR-21. MTR-20 remains approved arithmetic mean, displayed “Average time before the first notice” with human-readable duration and actual eligible n. No ranking/teaching-quality/effectiveness or official-standing inference. Use “Prototype performance on synthetic academic records”.
 
-## Member branch and checkpoint contract
+Current readiness preparation authorizes no production/DB/migration/Migration 011/model/dependency/auth edits, mobile tests, screenshots or publication. Frozen PR #63 files remain unchanged. Future runtime targets/tests require their own explicit scope and side-effect review. These amendments await local-commit approval; earlier `ee4ddf4b5e001328a1beeeea3471d58dd87c1614` does not include them.
 
-Use one existing local clone per human member and one assigned long-lived branch: Vincent `feat/member1-ui-ux`; Member 2 `feat/member2-analytics-verification`. Before editing, report member, assigned/local branches, clone path, baseline/HEAD/main SHAs, status, scope, protected files, expected files, shared owners, tests and stop conditions. Save current work through the approved process, fetch, fast-forward clean main, return to assigned branch, integrate main by the approved method, resolve conflicts and confirm clean status.
-
-Optional AI child branches stay within the same clone and start from the member's own assigned HEAD, never the other member's branch. Compatible examples are `feat/member1-ui-ux--sidebar` and `feat/member2-analytics-verification--cohort-contract`. Slash descendants under an existing assigned branch cause a Git ref file/directory conflict; double-hyphen refs avoid it. No additional worktree unless explicitly owner-authorized for an exception.
-
-Under the approved future package, stage explicit files, review the full staged diff, make small meaningful verified commits and push checkpoints to the assigned branch. At completion, prepare one complete PR after owner review with the exact reviewed head and categorized evidence. Keep auto-merge off; merge needs owner authorization. After approved merge, both clones update clean main fast-forward-only and verify the served repository uses updated main; use current main for the next approved package. GitHub main is authoritative, not copied source folders or ZIP files. No destructive recovery, deployment, migration, branch reset/deletion or cleanup follows automatically.
-
-Current Sol preparation: no existing database access, production changes, or Antigravity/PR #63 edits. Future database access requires separate owner authority; generic scratch advice grants none. Commit corrected readiness files only after owner review; until then state `Review commit pending owner review`, with no preparation push/PR. Future checkpoint authority does not override that current preparation gate.
+See [ownership](../11_UI_OWNERSHIP_AND_CONFLICT_MAP.md), [Definition of Done and matrix](../10_UI_TEST_AND_ACCEPTANCE_MATRIX.md), [workflow](../08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md), [roadmap](../12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md) and [handoff standard](../14_PROGRESS_REPORT_AND_HANDOFF_STANDARD.md).

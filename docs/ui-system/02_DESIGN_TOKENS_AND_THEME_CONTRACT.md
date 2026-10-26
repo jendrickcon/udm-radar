@@ -45,7 +45,7 @@ Classic/CCS overrides and html data-theme/data-font-size/data-motion are owned b
 
 ## Motion
 Some current shared transitions are200–300ms legacy variation; governance requires brief150–200ms transitions. Reference proposal: sidebar180ms ease-out capped at200ms, disclosure/tab150ms, busy indicator immediate. On reduced motion use0ms, no decorative chart animation, still emit one settled resize notification. Timing values are engineering proposals within the governance limit, not approval for new production motion.
-Vincent alone owns UI token adaptation/sidebar and chart styling. Member 2 checks semantics, invariants and behavior; no simultaneous token edits.
+Vincent adapts Administrator/Faculty presentation and self-verifies it; Member 2 does the same for Student. Global design tokens/sidebar/chart assets require one owner-assigned integration custodian per exact shared file and sequential edits. Each checks the other portals affected by shared changes.
 
 ## Preparation verification boundary
-Reference syntax can be checked; production contrast/layout/keyboard remain NOT IMPLEMENTED until authorized adaptation and actual desktop evidence. Existing typography/token overlap is a future consolidation candidate, not a task to rewrite production CSS now.
+Reference syntax can be checked; future production contrast/layout/keyboard verification remains NOT STARTED until authorized adaptation and actual desktop evidence. Existing typography/token overlap is a future consolidation candidate, not a task to rewrite production CSS now.

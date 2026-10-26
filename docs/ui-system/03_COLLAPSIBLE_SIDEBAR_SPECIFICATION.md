@@ -1,6 +1,6 @@
 # Collapsible desktop sidebar specification
-Status: PLANNED / NOT IMPLEMENTED in production.
-UI owner: Vincent, unified sidebar/dashboard/chart package. Member 2 independently verifies behavior and role boundaries.
+Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED.
+Vincent owns Administrator/Faculty sidebars and charts; Member 2 owns Student sidebar and charts. Both self-verify their portal changes. A global sidebar file needs one assigned integration custodian and sequential handoff. Vincent's future collapsible sidebar does not block current analytics MVP publication.
 
 ## State and structure
 - Expanded: current280px rail with icon+visible label, brand, badges, theme/preferences/logout.
@@ -26,4 +26,4 @@ The host chart calls an explicit resize hook after transition settles. A root-ow
 No window resize handler per chart on every mount. See [reference guide](13_REFERENCE_ASSET_USAGE_GUIDE.md) and the reference adapter. Reference tests cover lifecycle separately; actual geometry/hidden-panel chart resizing remains future acceptance.
 
 ## Required future cases
-Expanded/collapsed, repeat toggle, keyboard focus, route/theme persistence, denied storage, invalid storage, cross-breakpoint restore, active/badge/footer names, enlarged text, reduced motion, remount/destroy, all three desktop widths and both themes across Admin/Faculty/Student. Faculty warning-banner structural contract stays intact. No production check is marked passing now.
+Expanded/collapsed, repeat toggle, keyboard focus, route/theme persistence, denied storage, invalid storage, cross-breakpoint restore, active/badge/footer names, enlarged text, reduced motion, remount/destroy, all three desktop widths and both themes across each assigned portal, with affected cross-portal regressions. Vincent tests Admin/Faculty; Member 2 tests Student; neither delegates all verification. One primary page scroll owner and no horizontal page overflow. Faculty warning-banner structural contract stays intact. No production check is marked passing now.

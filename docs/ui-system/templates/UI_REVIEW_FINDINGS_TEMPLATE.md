@@ -1,42 +1,52 @@
-# UI review findings — [WP-ID / exact candidate SHA]
+# Portal review findings template
 
-Template only. Report observed failures separately from risks and untested behavior. A proposed fix is not a resolved finding.
+Review candidate SHA/date/reviewer:
+Implementer authorship and any reviewer-authored repairs:
+Self-verification evidence received:
+Cross-review scope (does not replace implementer's own tests):
 
-- Reviewer / member / date: [Name, time].
-- Baseline / reviewed immutable SHA / branch / absolute clone path: [Actual values].
-- Scope / inspected files / evidence category: [Exact boundary; source review is not end-to-end].
-- Authorization / data target: [Default none; no database activity implied].
+## Required package context
 
-| ID | Severity | File and line / function | Expected | Actual | Impact | Required fix | Regression test / evidence | Publication blocker? | State |
-|---|---|---|---|---|---|---|---|---|---|
-| [UI-001] | [Critical / High / Medium / Low with reason] | [Exact location] | [Contract] | [Observed evidence] | [User/data effect] | [Small concrete correction] | [Existing or proposed check; actual result] | [Yes/No; reason] | [Open / proposed / reverified] |
+- Product goal: coherent, understandable, role-appropriate analytics across Administrator, Faculty and Student; cite the [ten goals](../01_VISUAL_DIRECTION_AND_BOUNDARIES.md).
+- User problem and visible outcome:
+- Portal owner: Vincent = Administrator/Faculty; Member 2 = Student. Record actual name.
+- Assigned branch: `feat/member1-admin-faculty-ui` or `feat/member2-student-portal`.
+- Exact scope, literal files and non-goals:
+- Visual contract: chart/details hierarchy, exact table below, real periods, scalar versus history, two groups/optional third/no fourth, visible coverage/n/limits:
+- Calculation contract: approved source/API/helper, unit/population/eligibility/exclusions/denominator/weighting/comparability:
+- Growth/change: exact start/end periods, point and supporting relative change, coverage/sample-size change; “Change unavailable” + reason when noncomparable:
+- Complete/empty/provisional/unavailable/error states and table fallback:
+- Shared-file integration owner per exact path, editing order and API impacts:
+- Self-verification matrix and cross-portal regressions, with actual results or required BLOCKED evidence:
+- Baseline/current main/HEAD full SHAs, clone path, branch and actual status:
+- Immutable candidate when explicitly authorized; otherwise state no candidate and reason:
+- Owner visible retest, unresolved findings and acceptance decision:
+- Separate commit, push, PR, merge and deployment approvals; auto-merge off:
 
-For each finding include reproduction conditions, role, desktop width, exact command or review method, exit/result, and supporting evidence location. Do not invent screenshots or authenticated coverage. Preserve actual failures and distinguish a failing assertion from an unavailable environment.
+Neither member is universal UI/backend owner or tester-only. Each implements, tests, verifies and fixes its own portals. Cross-review supplements self-verification; original implementer retains fixes unless shared-contract ownership or explicit owner transfer applies. One clone and assigned long-lived branch per human; same-clone AI task branches start from own assigned HEAD; extra worktrees require owner exceptions.
 
-## Routing and ownership
 
-- Vincent owns all UI/UX, sidebar, dashboard and chart presentation/layout/styles/tokens, legends/tooltips/cards/filters/themes/accessibility/desktop integration. Send UI fixes to Vincent through the approved handoff.
-- Member 2 owns analytics calculations/verification/testing/independent review/bugs and separately approved backend fixes. Member 2 may propose failing UI tests/findings but cannot independently restyle or edit Vincent's files. Any owner-approved minimal integration fix is coordinated with Vincent; record an explicit temporary transfer if another writer must edit his file.
-- Shared entry pages/fixtures use one owner-appointed custodian and sequential handoff. No simultaneous file primary owners.
+## Verified findings
 
-Cohort data/privacy is `BLOCKED`. Check exact unavailable label `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.`; no numeric/placeholder average, invented privacy threshold or pooled-mean relabeling. Member 2 verifies eleven contract items and the owner gives final approval after those eleven items. Vincent cannot invent that formula.
+| ID / severity | Exact SHA/file/line or function | Expected approved behavior | Actual reproduction/evidence | Impact | Original implementer or shared custodian | Required minimal fix and regression | Publication blocker / disposition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
-Preserve MTR-07 blocked bounds, canonical MTR-21 planned/blocked versus limited parent-case median, and MTR-19 count versus canonical rate. Academic semantics, privacy, role authorization, and missing-data defects are not cosmetic fixes.
+Distinguish observed defects from untested risks. No redesign, silent formula change or weakened test to hide a failure. Proposed correction is not resolution; retest exact corrected candidate. Member 2 may cross-review Vincent's calculation/privacy/authorization assumptions; Vincent may cross-review Member 2's Student visual consistency/themes/accessibility. Original portal implementer fixes unless the defect belongs to another assigned shared contract or owner explicitly transfers the work.
 
-## Resolution evidence
+## Review conclusion
 
-| Finding | Fix owner / approved files | New exact candidate SHA | Reverification command and category | Actual result | Remaining limits / owner decision |
-|---|---|---|---|---|---|
-| [ID] | [Name, paths] | [SHA] | [Execution] | [Passed/Failed/Skipped/Not Run/Unavailable] | [Specific] |
+Required evidence missing and gate blocked:
+Owner visible retest:
+Protected systems and current-main overlap:
+Accepted limitations:
+Exact next owner decision; no implied merge/push/deploy approval:
 
-No automatic staging, commit, push, PR, merge, migration, cleanup or recovery follows from this report. Revalidation must target the actual final candidate; do not carry a prior passing result over new changes.
+## Retained limits
 
-## Member branch and checkpoint contract
+Cohort numeric series, MTR-07 bounds, canonical MTR-21 and historical Faculty attribution remain BLOCKED without their approved evidence/contracts. Member 2 owns Student UI and its eleven-item cohort proposal; no pooled Admin mean, fabricated number or invented privacy threshold. Keep “Your recorded GWA” and “Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.”
 
-Use one existing local clone per human member and one assigned long-lived branch: Vincent `feat/member1-ui-ux`; Member 2 `feat/member2-analytics-verification`. Before editing, report member, assigned/local branches, clone path, baseline/HEAD/main SHAs, status, scope, protected files, expected files, shared owners, tests and stop conditions. Save current work through the approved process, fetch, fast-forward clean main, return to assigned branch, integrate main by the approved method, resolve conflicts and confirm clean status.
+MTR-19 is a bounded receipt count; limited parent-case median is not MTR-21. MTR-20 remains approved arithmetic mean, displayed “Average time before the first notice” with human-readable duration and actual eligible n. No ranking/teaching-quality/effectiveness or official-standing inference. Use “Prototype performance on synthetic academic records”.
 
-Optional AI child branches stay within the same clone and start from the member's own assigned HEAD, never the other member's branch. Compatible examples are `feat/member1-ui-ux--sidebar` and `feat/member2-analytics-verification--cohort-contract`. Slash descendants under an existing assigned branch cause a Git ref file/directory conflict; double-hyphen refs avoid it. No additional worktree unless explicitly owner-authorized for an exception.
+Current readiness preparation authorizes no production/DB/migration/Migration 011/model/dependency/auth edits, mobile tests, screenshots or publication. Frozen PR #63 files remain unchanged. Future runtime targets/tests require their own explicit scope and side-effect review. These amendments await local-commit approval; earlier `ee4ddf4b5e001328a1beeeea3471d58dd87c1614` does not include them.
 
-Under the approved future package, stage explicit files, review the full staged diff, make small meaningful verified commits and push checkpoints to the assigned branch. At completion, prepare one complete PR after owner review with the exact reviewed head and categorized evidence. Keep auto-merge off; merge needs owner authorization. After approved merge, both clones update clean main fast-forward-only and verify the served repository uses updated main; use current main for the next approved package. GitHub main is authoritative, not copied source folders or ZIP files. No destructive recovery, deployment, migration, branch reset/deletion or cleanup follows automatically.
-
-Current Sol preparation: no existing database access, production changes, or Antigravity/PR #63 edits. Future database access requires separate owner authority; generic scratch advice grants none. Commit corrected readiness files only after owner review; until then state `Review commit pending owner review`, with no preparation push/PR. Future checkpoint authority does not override that current preparation gate.
+See [ownership](../11_UI_OWNERSHIP_AND_CONFLICT_MAP.md), [Definition of Done and matrix](../10_UI_TEST_AND_ACCEPTANCE_MATRIX.md), [workflow](../08_MEMBER_UI_CONTRIBUTION_WORKFLOW.md), [roadmap](../12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md) and [handoff standard](../14_PROGRESS_REPORT_AND_HANDOFF_STANDARD.md).

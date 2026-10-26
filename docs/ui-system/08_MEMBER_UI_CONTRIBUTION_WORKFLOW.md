@@ -1,94 +1,81 @@
-# Member UI contribution workflow
+# Member portal contribution workflow
 
-Status: preparation only. Future UI is `NOT IMPLEMENTED` / `PLANNED`; the cohort calculation/privacy gate is `BLOCKED`. Vincent owns the unified UI experience. Unnamed Member 2 owns analytics calculations, verification, testing and approved technical bug fixes. Exact files, tests, and delivery authority still require an approved package.
+Documentation: READY FOR OWNER REVIEW. Member implementation: NOT STARTED.
 
-## Context and authority
+## Authority and assigned work
 
-Read [AGENTS.md](../../AGENTS.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), the canonical [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md), [findings register](../UI_UX_FINDINGS_REGISTER.md), [post-defense context](../post-defense/00_CONTEXT_AND_CURRENT_STATE.md), [status ledger](../post-defense/10_IMPLEMENTATION_STATUS.md), this package's [context](00_UI_SYSTEM_CONTEXT.md), [ownership map](11_UI_OWNERSHIP_AND_CONFLICT_MAP.md), approved work package, and applicable repository skills.
+Read [AGENTS](../../AGENTS.md), [contribution policy](../../CONTRIBUTING.md), [roadmap](../ROADMAP.md), [history](../IMPLEMENTATION_HISTORY.md), [UI governance](../UI_UX_GOVERNANCE.md), [context](00_UI_SYSTEM_CONTEXT.md), [ownership](11_UI_OWNERSHIP_AND_CONFLICT_MAP.md), [acceptance](10_UI_TEST_AND_ACCEPTANCE_MATRIX.md) and the approved package. Older guides' mandatory-worktree and general checkpoint-push examples are superseded by current owner direction.
 
-The [existing member workflow](../post-defense/08_MEMBER_CONTRIBUTION_WORKFLOW.md), [Git update guide](../MEMBER_GIT_UPDATE_GUIDE.md), and [continuation guide](../post-defense/09_AGENT_CONTINUATION_GUIDE.md) are background. Current owner instructions supersede their mandatory-worktree assumption and broad examples. They do not authorize stage-all, migrations, dependency installation, destructive recovery, publication outside the approved package, or cleanup.
+| Member | Assigned long-lived branch | Package |
+| --- | --- | --- |
+| Vincent | `feat/member1-admin-faculty-ui` | `ADMIN-AND-FACULTY-PORTAL-UI-ANALYTICS-AND-SELF-VERIFICATION` |
+| Member 2, name pending | `feat/member2-student-portal` | `STUDENT-PORTAL-ANALYTICS-UI-CALCULATIONS-AND-SELF-VERIFICATION` |
 
-## One clone and one assigned branch
+Each human uses one local clone and one assigned branch. These new branches were not present in the checked local/remote refs; this document does not create them. Creation needs an approved current-main base. Additional worktrees are owner-authorized exceptions, never routine member setup.
 
-Each human member uses one local repository clone on their laptop and one assigned long-lived feature branch:
+## Start an approved package
 
-| Member | Assigned branch | Package |
-|---|---|---|
-| Vincent | `feat/member1-ui-ux` | UI/UX, Sidebar, Dashboard and Chart Experience |
-| Member 2 — name pending | `feat/member2-analytics-verification` | Analytics Calculations, Verification, Testing and Bug Fixes |
+1. Confirm member, portal, assigned branch, approved literal files, shared custodians, scope, tests, stop conditions and delivery authority.
+2. Preserve existing work through the authorized process. Unexpected dirty work stops switching; no automatic stash, reset, restore, forced checkout or cleanup.
+3. Inspect status, fetch, switch to clean main and pull fast-forward only. Return to the assigned branch and integrate approved main using the package-approved method; resolve and verify conflicts.
+4. Record full main/HEAD SHAs, absolute clone/served paths, clean status and current PR overlap before editing. Discover each laptop's XAMPP mapping; no assumed paths/server changes.
+5. Both members implement, self-verify, fix and document their own portals. Cross-review never substitutes for their unit/integration/auth/browser/theme/accessibility checks.
 
-Use small meaningful commits and verified push checkpoints on the assigned branch within the approved package. Do not request another clone or worktree as routine setup. An extra worktree needs explicit owner authorization for an exception such as independent certification, conflict recovery, preservation of unique dirty work, or immutable review without changing the active checkout.
-
-GitHub `main` is authoritative after approved merges. Synchronize through Git, not copied laptop folders, emailed source folders, or ZIP files. Discover the actual absolute clone path and XAMPP/Apache mapping on each laptop; do not assume paths match the owner's machine. Server configuration and database access are outside this workflow unless separately approved.
-
-## Start each approved package
-
-1. Confirm member, assigned branch, approved scope, literal file allowlist, sole owners, shared-file custodian, tests, stop conditions, and checkpoint/PR authority using the [work package template](templates/MEMBER_WORK_PACKAGE_TEMPLATE.md).
-2. Save current work through the approved preservation/checkpoint process before switching branches. Unknown dirty work stops the switch; do not automatically stash, commit another member's work, reset, force checkout, or delete files.
-3. Run `git status --short --branch`, fetch remote state, switch to clean main, and pull fast-forward only.
-4. Return to the assigned branch and integrate main through the package's approved method. Resolve and verify conflicts before implementation; no blind selection of one side. Confirm clean status and record the starting full `origin/main` SHA and assigned-branch HEAD.
-5. Report member, assigned/local branches, clone path, base/HEAD/main SHAs, status, authorized scope, protected files, anticipated changed files, shared-file ownership, required tests, and stop conditions before editing. Revalidate open PRs and overlap.
-
-Preparation baseline: `edef1b382b7874af770feb5713c20e9b68979241`. It is historical, not a permanent future implementation base. At preparation PR #63 is OPEN and UNMERGED. `docs/ROADMAP.md`, `docs/IMPLEMENTATION_HISTORY.md`, and `docs/post-defense/10_IMPLEMENTATION_STATUS.md` are frozen for this preparation. Propose changes in handoff; do not edit Antigravity's branch/worktree or treat a checkpoint as its final handoff.
-
-## Windows/XAMPP-aware update example
-
-These are future-package instructions, not commands executed by this preparation. Start within the member's discovered clone. The example assumes the assigned branch exists, the checkout is clean, and merging main is the approved integration method. Stop on any command failure; do not continue automatically.
+Example for an already authorized clean package; stop on any failed command:
 
 ```powershell
 $uiRepo = (git rev-parse --show-toplevel).Trim()
-$uiAssigned = 'feat/member1-ui-ux' # Member 2 uses feat/member2-analytics-verification.
+$uiAssigned = 'feat/member1-admin-faculty-ui' # Member 2: feat/member2-student-portal.
 git -C $uiRepo status --short --branch
 git -C $uiRepo fetch origin
 git -C $uiRepo switch main
 git -C $uiRepo pull --ff-only origin main
 git -C $uiRepo switch $uiAssigned
-git -C $uiRepo merge main
+git -C $uiRepo merge main # Only if merge is the package-approved integration method.
 git -C $uiRepo status --short --branch
-$uiBase = (git -C $uiRepo rev-parse 'origin/main^{commit}').Trim()
+git -C $uiRepo rev-parse 'origin/main^{commit}'
 git -C $uiRepo rev-parse HEAD
 ```
 
-Quote revision expressions with braces in PowerShell. If the assigned branch is missing, obtain its approved creation/base instructions rather than starting from whichever branch is active. No database operation is implied by a pull. Preserve local work; `git reset --hard`, `git clean -fd`, and `git push --force` are prohibited outside a separately authorized recovery package.
+Optional AI task branches start from the member's own assigned HEAD in the same clone. Compatible examples: `feat/member1-admin-faculty-ui--sidebar`, `feat/member2-student-portal--gwa-chart`. Slash children beneath an existing parent ref cannot coexist because of Git's ref file/directory conflict. No branch from the other member and no concurrent agents switching one checkout.
 
-## Optional AI child branch within the same clone
+## Shared contracts and verification
 
-An agent may use a temporary child branch from its own assigned branch's verified HEAD within that same clone. It must never branch from the other member's branch or create another worktree without explicit exception approval. Record the child base SHA and approved method for returning the tested change to the assigned branch. Avoid simultaneous agents switching the same checkout.
+Assign one integration custodian per exact shared file before editing. Prefer portal-specific hooks; never two simultaneous editors on shared CSS/JS, header/sidebar, API, fixtures or documentation. Agree contracts first, implement portal work independently, self-verify independently, then review the package with fewer shared edits first. The second member updates main and reconciles before the next PR.
 
-Use compatible names such as `feat/member1-ui-ux--sidebar`, `feat/member1-ui-ux--dashboard-layout`, `feat/member1-ui-ux--gwa-chart`, `feat/member2-analytics-verification--cohort-contract`, `feat/member2-analytics-verification--ui-review`, or `feat/member2-analytics-verification--bugfix`. These are logical child branches, not slash descendants. Git cannot normally store both an existing branch ref `feat/member1-ui-ux` and `feat/member1-ui-ux/sidebar`: the parent ref occupies the path needed for the child directory. The double hyphen avoids that ref file/directory conflict; the same applies to Member 2.
+Vincent consumes approved backend values; a new shared field requires a documented presentation request and named technical owner. Member 2 documents any Student field's API effects and Administrator/Faculty regressions. A finding returns to the original portal implementer unless shared ownership or explicit owner transfer applies.
 
-```powershell
-# Only for a member's approved AI subtask; start from the clean assigned branch.
-git -C $uiRepo switch $uiAssigned
-$uiChildBase = (git -C $uiRepo rev-parse HEAD).Trim()
-git -C $uiRepo switch -c 'feat/member1-ui-ux--sidebar' $uiChildBase
-```
+Inspect test connections, handlers, subprocesses, writes, cleanup and auth effects before running them. No DB access is authorized by this preparation. Future isolated tests require separate target approval with no existing-DB fallback, provenance and cleanup evidence. Migration 011 remains excluded. Use the pinned installed desktop runner; do not install dependencies or select mixed mobile/screenshot suites. Faculty dashboard/shared layout changes require the Faculty structural regression.
 
-Member 2 substitutes its assigned branch and compatible child name. No example authorizes merging into main, cross-member branch creation, or destructive branch cleanup.
+## Definition of Done — required for each portal package
+A package is not done because its page renders. Both Vincent and Member 2 must supply:
+1. Implemented approved scope on the assigned branch.
+2. Passing portal-specific unit checks.
+3. Passing relevant integration checks under separately authorized isolated targets.
+4. Passing authenticated desktop workflows.
+5. Passing negative authorization tests.
+6. Passing light and dark themes, including cards, axes, legends, tooltips and details.
+7. Passing keyboard and visible-focus checks.
+8. No page horizontal overflow at 1440×900,1280×600,1024×768; one primary page scroll owner.
+9. Exact accessible tables matching chart values, populations, units and periods.
+10. Complete, empty, provisional, unavailable and noncomparable states tested.
+11. Cross-portal regressions for affected shared contracts and navigation.
+12. Protected-file integrity evidence.
+13. No unauthorized database/schema/migration work.
+14. Clean clone/worktree and complete diff review.
+15. Full immutable candidate SHA and complete evidence handoff, when commit authority exists.
+16. Owner retest of visible workflows, with defects resolved before acceptance.
+17. Separate push, PR, merge and deployment authorization; self-verification grants none automatically.
+Unavailable required evidence keeps the gate BLOCKED; inapplicable tests require a reason and owner acceptance, not an invented pass. Report PHP/SQL/authenticated/generated/mocked/structural/accessibility/syntax/integrity separately. Cross-review does not replace self-verification; fixes return to the portal implementer unless the owner explicitly transfers them.
 
-## Ownership, data and verification
 
-Vincent owns sidebar CSS/JS, tokens, all Admin/Faculty/Student dashboard presentation/layout/spacing, content expansion, chart presentation including Student GWA and unavailable cohort UI, legends/tooltips/cards/filters/advanced controls/themes/keyboard/accessibility/desktop integration. Do not divide sidebar and charts. Member 2 verifies formulas, numerators/denominators, periods, missing data, cohort/privacy, authorization/backend/API, regressions, independent review and bugs, and implements only owner-authorized backend/integration fixes. A UI finding goes to Vincent for correction and back to Member 2 for verification. A calculation/backend finding needs owner authorization for Member 2's fix and Vincent's display verification.
+## Candidate, owner review and publication
 
-No shared file has simultaneous primary editors. Shared entry pages/fixtures have one integration custodian and sequential handoff. Minimal cross-owner fixes are coordinated with Vincent and require explicit transfer if another writer must edit his UI files.
+Review committed, unstaged, staged, untracked and combined changes. Stage only literal approved paths; inspect the staged diff and whitespace. Commit authority must be explicit. Implement → self-verify → authorized immutable candidate → complete owner handoff → owner visible retest and verified fixes → separately authorized push → one reviewed PR against verified current main, auto-merge off → separately authorized merge → separately authorized deployment.
 
-Cohort calculations remain `BLOCKED`. Vincent may prepare the second-series interface, legend, tooltip, unavailable state, accessible table column and empty-state explanation, but cannot invent or simulate its value. Use `Your recorded GWA` and exactly `Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.` Member 2 must verify all eleven [contract items](05_GWA_TREND_COMPARISON_CHART_CONTRACT.md), followed by final owner approval. No placeholder average, invented privacy threshold, or Administrator pooled recorded-grade mean substitution.
+No push before separate owner authorization. After an approved merge, record merge SHA; both members pull updated clean main fast-forward-only before further work. GitHub main is authoritative; no ZIP/manual source copying. Preserve worktrees/branches unless cleanup is separately authorized.
 
-Use the [acceptance matrix](10_UI_TEST_AND_ACCEPTANCE_MATRIX.md) and [evidence template](templates/UI_TEST_EVIDENCE_TEMPLATE.md). Inspect test side effects, auth/requests, connections, includes, subprocesses, overrides, writes/cleanup/locks/temp files before execution. Focused checks precede broad relevant checks. Use installed repository-pinned Playwright and record the version; no automatic download. Faculty dashboard/shared dashboard CSS changes require `tests/browser/faculty-dashboard-layout-regression.spec.js` and warning-banner containment.
-
-Reference assets are not production ready. Preserve canonical academic formulas, scale/GWA/zero/status rules and dynamic academic periods. MTR-07 bounds remain `BLOCKED`; canonical MTR-21 referral closure remains `PLANNED` / `BLOCKED`, distinct from limited parent-case median; MTR-19 remains count, not canonical rate. Include `Prototype performance on synthetic academic records` in analytical user-facing output.
-
-No database was accessed in this preparation. Future database access requires separate approval and proven scratch-only mutation paths with no live fallback. Generic scratch advice is not permission to seed, rebuild, migrate, or clean up. No Migration 011, schema/model/dependency/private-template change is authorized here.
-
-## Verified checkpoints, one complete PR, and synchronization
-
-Review committed, unstaged, staged, untracked and combined changes against the explicit allowlist. Stage literal approved files only, inspect the complete staged diff and whitespace check, run required focused verification, make a specific small commit, and push a verified checkpoint to the assigned branch within the package's approved commit/push authority. Existing checkpoint authorization persists; no blanket authority for unrelated files or packages is implied. Preserve evidence outside Git unless repository policy requires tracked evidence.
-
-When the assigned package is complete, confirm a clean branch including the latest approved main, run the required tests, push the exact reviewed commit, and prepare one PR to main after owner review under the approved publication workflow. Supply immutable head SHA, files, categorized tests, accessibility/auth results, protected/database confirmations, limitations and next action. Request owner and independent review; keep auto-merge disabled. Merge requires owner authorization. Do not label branch work merged or a merge deployed.
-
-After an approved merge, record the merge SHA and both members update clean main with `git pull --ff-only origin main`. Confirm the local served repository uses that updated main. Before the next approved package, start from or integrate current main through its approved method; do not keep working indefinitely from a merged feature branch or reset/recreate it without package authority.
-
-This Sol readiness preparation has a stricter current boundary: commit only corrected documentation/reference files after owner review. Until that review/authorization, report the review commit as pending; do not invent an immutable delivery SHA. No push, PR, merge, deployment, migration, or cleanup is authorized for this preparation. Future final [handoffs](templates/UI_CHANGE_HANDOFF_TEMPLATE.md) follow completion or an explicitly requested blocked handoff.
+The earlier readiness commit is `ee4ddf4b5e001328a1beeeea3471d58dd87c1614`. The current amendments remain uncommitted for owner review, without push/PR authority.
 
 ## Owner instruction retained verbatim
 
@@ -97,4 +84,4 @@ This Sol readiness preparation has a stricter current boundary: commit only corr
 > also, 12% remaining usage
 > finish what you can/
 
-Retain this in report output. The usage line is historical, not a current measurement. No mobile tests or screenshots under the directive.
+The usage line is historical, not a current measurement. No mobile tests or screenshots are authorized. Future desktop acceptance covers 1440×900, 1280×600 and 1024×768, light and dark.
