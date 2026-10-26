@@ -1,3 +1,20 @@
+/* Base Theme Tokens for Analytics Workspace */
+:root {
+  --bg-card: var(--card-bg, #ffffff);
+  --bg-hover: var(--surface-muted, #f8fafc);
+  --bg-input: var(--bg-color, #ffffff);
+  --chart-grid-stroke: rgba(0, 0, 0, 0.08);
+  --chart-axis-stroke: var(--border-color, #cbd5e1);
+}
+
+[data-theme="dark"] {
+  --bg-card: var(--card-bg, #1E293B);
+  --bg-hover: var(--surface-muted, #334155);
+  --bg-input: #0f172a;
+  --chart-grid-stroke: rgba(255, 255, 255, 0.08);
+  --chart-axis-stroke: #475569;
+}
+
 .analytics-page{padding-bottom:110px;width:100%;max-width:none;min-width:0;box-sizing:border-box}
 .analytics-page .analytics-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:16px;margin-bottom:20px}
 .analytics-page .analytics-chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr));gap:20px;margin-bottom:24px}
@@ -81,6 +98,101 @@
 .comparison-summary-card .diff-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;font-size:0.82rem;font-weight:600;background:var(--bg-card,#fff);border:1px solid var(--border-color);margin-right:8px;margin-bottom:8px}
 .comparison-summary-card .neutral-copy{font-size:0.88rem;color:var(--text-dark);line-height:1.5;margin:8px 0}
 .comparison-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-dark)}
+
+/* Mode toggle & Segmented Control */
+.comparison-mode-segmented-control{display:inline-flex;align-items:center;background:var(--bg-hover,#f1f5f9);border:1px solid var(--border-color,#cbd5e1);border-radius:8px;padding:3px;gap:2px}
+.segmented-btn{background:transparent;border:none;border-radius:6px;padding:6px 14px;font-size:0.84rem;font-weight:600;color:var(--text-dark,#334155);cursor:pointer;display:inline-flex;align-items:center;gap:4px;min-height:34px;font-family:inherit;transition:background-color 0.15s ease,color 0.15s ease}
+.segmented-btn:hover:not(.active){background:rgba(0,0,0,0.06);color:var(--text-dark,#0f172a)}
+.segmented-btn.active{background:var(--accent-blue,#1e4db7)!important;color:#ffffff!important;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+.segmented-btn:focus-visible{outline:3px solid var(--accent-blue,#1e4db7);outline-offset:2px;box-shadow:0 0 0 4px rgba(30,77,183,0.25);position:relative;z-index:2}
+.comparison-mode-helper{font-size:0.78rem;color:var(--text-gray,#64748b);margin:0;line-height:1.35}
+
+/* Compact Add Button */
+.compact-add-btn{min-height:38px;height:38px;padding:6px 14px;font-size:0.84rem;font-weight:600;border-radius:6px;transition:background-color 0.15s ease,border-color 0.15s ease;display:inline-flex;align-items:center;gap:6px}
+.compact-add-btn:focus-visible{outline:3px solid var(--accent-blue,#1e4db7);outline-offset:2px}
+
+/* Compact Comparison Chart Container & Height Bounds */
+#comparison-chart{width:100%;padding:4px 0 0 0;display:flex;justify-content:center}
+#comparison-chart svg{width:100%;max-width:100%;display:block;height:270px;max-height:310px}
+@media(min-width:1350px){
+ #comparison-chart svg{height:320px;max-height:350px}
+}
+@media(max-width:1349px) and (min-width:900px){
+ #comparison-chart svg{height:270px;max-height:310px}
+}
+@media(max-width:899px){
+ #comparison-chart svg{height:auto;max-height:290px}
+}
+
+/* Card Status Badges */
+.card-status-badge{font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:12px}
+.card-status-badge.badge-provisional{background:#fef3c7;color:#b45309}
+.card-status-badge.badge-complete{background:#dcfce7;color:#15803d}
+
+/* Support sample warning */
+.support-sample-warning{margin-top:6px;padding:4px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;font-size:0.75rem;color:#b45309;font-weight:600}
+
+/* Comparison Notice Types */
+.comparison-notice{margin-bottom:20px;padding:12px 16px;border-radius:8px;font-size:0.88rem;font-weight:500}
+.comparison-notice.notice-warning{background:#fffbeb;border:1px solid #fef3c7;color:#b45309}
+.comparison-notice.notice-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+.comparison-notice.notice-neutral{background:var(--bg-hover,#f8fafc);border:1px solid var(--border-color,#cbd5e1);color:var(--text-gray)}
+
+/* Complete Dark Mode Overrides */
+[data-theme="dark"] .analytics-page .card,
+[data-theme="dark"] #comparison-chart-card,
+[data-theme="dark"] .comparison-evidence-card,
+[data-theme="dark"] #all-groups-disclosure,
+[data-theme="dark"] #other-comparisons-disclosure,
+[data-theme="dark"] .comparison-panel,
+[data-theme="dark"] .comparison-card{background:var(--card-bg,#1E293B)!important;border-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .comparison-summary-card,
+[data-theme="dark"] #comparison-summary-card{background:var(--surface-muted,#334155)!important;border-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .comparison-panel .panel-metric-box,
+[data-theme="dark"] .comparison-card .card-metric-box{background:var(--surface-muted,#334155)!important}
+
+[data-theme="dark"] .comparison-summary-card .diff-pill{background:var(--card-bg,#1E293B)!important;border-color:var(--border-color,#334155);color:var(--text-dark,#F8FAFC)}
+
+[data-theme="dark"] .analytics-page select,
+[data-theme="dark"] select.filter-select{background:#0f172a!important;color:var(--text-dark,#F8FAFC)!important;border-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .analytics-page .data-table-scroll{border-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .analytics-page table{background:var(--card-bg,#1E293B);color:var(--text-dark,#F8FAFC)}
+
+[data-theme="dark"] .analytics-page th{background:var(--table-header-bg,rgba(108,142,239,0.15))!important;color:var(--text-dark,#F8FAFC);border-bottom-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .analytics-page td{border-bottom-color:var(--border-color,#334155);color:var(--text-dark,#F8FAFC)}
+
+[data-theme="dark"] .analytics-page svg text{fill:var(--text-dark,#F8FAFC)}
+
+[data-theme="dark"] .analytics-page svg .analytics-axis{stroke:var(--border-color,#475569)}
+
+[data-theme="dark"] .chart-grid-line{stroke:rgba(255,255,255,0.08)!important}
+
+[data-theme="dark"] .btn--secondary{background:var(--surface-muted,#334155);color:var(--text-dark,#F8FAFC);border-color:var(--border-color,#334155)}
+
+[data-theme="dark"] .comparison-mode-segmented-control{background:var(--surface-muted,#1e293b);border-color:#334155}
+
+[data-theme="dark"] .segmented-btn{color:var(--text-gray,#94a3b8)}
+
+[data-theme="dark"] .segmented-btn:hover:not(.active){background:rgba(255,255,255,0.08);color:#f1f5f9}
+
+[data-theme="dark"] .segmented-btn:focus-visible{outline:3px solid #60a5fa;box-shadow:0 0 0 4px rgba(96,165,250,0.35)}
+
+[data-theme="dark"] .comparison-legend-item{color:var(--text-dark,#f8fafc)}
+
+[data-theme="dark"] .card-status-badge.badge-provisional{background:rgba(245,158,11,0.2);color:#fcd34d}
+
+[data-theme="dark"] .card-status-badge.badge-complete{background:rgba(16,185,129,0.2);color:#6ee7b7}
+
+[data-theme="dark"] .support-sample-warning{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.3);color:#fcd34d}
+
+[data-theme="dark"] .comparison-notice.notice-warning{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.3);color:#fcd34d}
+
+[data-theme="dark"] .comparison-notice.notice-info{background:rgba(96,165,250,0.15);border-color:rgba(96,165,250,0.3);color:#93c5fd}
 
 /* Mode toggle & flex layout */
 .mode-toggle-btn{transition:background-color 0.15s ease,color 0.15s ease}

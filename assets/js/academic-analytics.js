@@ -181,12 +181,18 @@
   const btnOverlay=document.getElementById('btn-mode-overlay');
   const btnCards=document.getElementById('btn-mode-cards');
   const wrapper=document.getElementById('comparisons-content-wrapper');
+  const helper=document.getElementById('comparison-mode-helper');
   if(btnOverlay&&btnCards){
+   const checkOverlay=btnOverlay.querySelector('.mode-check');
+   const checkCards=btnCards.querySelector('.mode-check');
    if(mode==='overlay'){
     btnOverlay.classList.add('active');
     btnOverlay.setAttribute('aria-pressed','true');
     btnCards.classList.remove('active');
     btnCards.setAttribute('aria-pressed','false');
+    if(checkOverlay)checkOverlay.style.display='inline';
+    if(checkCards)checkCards.style.display='none';
+    if(helper)helper.textContent='Show selected groups together on one shared scale.';
     if(wrapper){
      wrapper.classList.add('mode-overlay');
      wrapper.classList.remove('mode-cards');
@@ -196,6 +202,9 @@
     btnCards.setAttribute('aria-pressed','true');
     btnOverlay.classList.remove('active');
     btnOverlay.setAttribute('aria-pressed','false');
+    if(checkCards)checkCards.style.display='inline';
+    if(checkOverlay)checkOverlay.style.display='none';
+    if(helper)helper.textContent='Show complete details for each selected group.';
     if(wrapper){
      wrapper.classList.add('mode-cards');
      wrapper.classList.remove('mode-overlay');
@@ -252,39 +261,39 @@
    return;
   }
 
-  const svg=svgEl('svg',{viewBox:'0 0 680 250',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'max-width:100%;height:auto;'});
+  const svg=svgEl('svg',{viewBox:'0 0 600 200',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'width:100%;max-width:100%;height:auto;display:block;'});
   svg.append(svgEl('title',{},title),svgEl('desc',{},'Side-by-side visual comparison with matched axis and scale. Exact values appear in the tables below.'));
 
-  const yBottom=190, hPlot=140;
-  svg.append(svgEl('line',{x1:60,x2:640,y1:yBottom,y2:yBottom,class:'analytics-axis'}));
+  const yBottom=145, hPlot=95;
+  svg.append(svgEl('line',{x1:55,x2:565,y1:yBottom,y2:yBottom,class:'analytics-axis',stroke:'var(--chart-axis-stroke)'}));
 
   if(metric==='gwa'){
    [1.0, 2.0, 3.0, 4.0].forEach(val=>{
     const y=yBottom-(val-1.0)/3.0*hPlot;
-    svg.append(svgEl('line',{x1:60,x2:640,y1:y,y2:y,stroke:'var(--border-color)','stroke-dasharray':'3 3','stroke-width':1}));
-    svg.append(svgEl('text',{x:52,y:y+4,'text-anchor':'end','font-size':'11px'},val.toFixed(2)));
+    svg.append(svgEl('line',{x1:55,x2:565,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke)','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:48,y:y+4,'text-anchor':'end','font-size':'11px',fill:'currentColor'},val.toFixed(2)));
    });
   }else if(metric==='numeric_coverage_pct'||metric==='final_coverage_pct'||metric==='prediction_coverage_pct'){
    [0, 25, 50, 75, 100].forEach(val=>{
     const y=yBottom-val/100*hPlot;
-    svg.append(svgEl('line',{x1:60,x2:640,y1:y,y2:y,stroke:'var(--border-color)','stroke-dasharray':'3 3','stroke-width':1}));
-    svg.append(svgEl('text',{x:52,y:y+4,'text-anchor':'end','font-size':'11px'},val+'%'));
+    svg.append(svgEl('line',{x1:55,x2:565,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke)','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:48,y:y+4,'text-anchor':'end','font-size':'11px',fill:'currentColor'},val+'%'));
    });
   }else{
    const maxCount=Math.max(10,...activeItems.map(item=>item.group?.student_count||0));
    const step=Math.ceil(maxCount/4);
    for(let val=0;val<=step*4;val+=step){
     const y=yBottom-(val/(step*4))*hPlot;
-    svg.append(svgEl('line',{x1:60,x2:640,y1:y,y2:y,stroke:'var(--border-color)','stroke-dasharray':'3 3','stroke-width':1}));
-    svg.append(svgEl('text',{x:52,y:y+4,'text-anchor':'end','font-size':'11px'},String(val)));
+    svg.append(svgEl('line',{x1:55,x2:565,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke)','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:48,y:y+4,'text-anchor':'end','font-size':'11px',fill:'currentColor'},String(val)));
    }
   }
 
-  let centers=[340];
-  if(activeItems.length===2)centers=[220, 460];
-  else if(activeItems.length===3)centers=[160, 340, 520];
+  let centers=[300];
+  if(activeItems.length===2)centers=[200, 420];
+  else if(activeItems.length===3)centers=[150, 310, 470];
 
-  const colWidth=activeItems.length===3?80:110;
+  const colWidth=activeItems.length===3?70:95;
   const colStyles=[
    {col:'var(--teal, #008080)',shape:'circle',dash:''},
    {col:'var(--accent-blue, #1e4db7)',shape:'square',dash:'4 2'},
@@ -323,30 +332,55 @@
     valText=(metric==='gwa'?num(rawVal):(metric==='student_count'?rawVal:pct(rawVal)))+(isProv?' (provisional)':'');
 
     // Horizontal dashed reference guideline across to Y axis for overlay comparison
-    svg.append(svgEl('line',{x1:60,x2:xCenter,y1:barY,y2:barY,stroke:color,'stroke-dasharray':'2 2','stroke-width':1,opacity:'0.5'}));
+    svg.append(svgEl('line',{x1:55,x2:xCenter,y1:barY,y2:barY,stroke:color,'stroke-dasharray':'2 2','stroke-width':1,opacity:'0.5'}));
 
     const barAttrs={x,y:barY,width:colWidth,height:barH,fill:color,rx:4};
     if(styleInfo.dash)barAttrs['stroke-dasharray']=styleInfo.dash;
     g.append(svgEl('rect',barAttrs));
 
     if(styleInfo.shape==='square'){
-     g.append(svgEl('rect',{x:xCenter-5,y:barY-18,width:10,height:10,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
+     g.append(svgEl('rect',{x:xCenter-5,y:barY-14,width:10,height:10,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
     }else if(styleInfo.shape==='triangle'){
-     g.append(svgEl('polygon',{points:`${xCenter},${barY-18} ${xCenter+6},${barY-8} ${xCenter-6},${barY-8}`,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
+     g.append(svgEl('polygon',{points:`${xCenter},${barY-15} ${xCenter+5},${barY-6} ${xCenter-5},${barY-6}`,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
     }else{
-     g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
+     g.append(svgEl('circle',{cx:xCenter,cy:barY-10,r:5,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
     }
-    g.append(svgEl('text',{x:xCenter,y:barY-24,'text-anchor':'middle','font-weight':'700','font-size':'13px'},metric==='gwa'?num(rawVal):(metric==='student_count'?String(rawVal):pct(rawVal))));
+    g.append(svgEl('text',{x:xCenter,y:barY-20,'text-anchor':'middle','font-weight':'700','font-size':'12px',fill:'currentColor'},metric==='gwa'?num(rawVal):(metric==='student_count'?String(rawVal):pct(rawVal))));
    }else{
     const barH=hPlot*0.25;
     const barY=yBottom-barH;
     g.append(svgEl('rect',{x,y:barY,width:colWidth,height:barH,fill:'none',stroke:color,'stroke-dasharray':'4 4','stroke-width':1.5,rx:4}));
-    g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:'none',stroke:color,'stroke-width':1.5}));
-    g.append(svgEl('text',{x:xCenter,y:barY-24,'text-anchor':'middle','font-size':'11px',fill:'var(--text-gray)'},'Unavailable'));
+    g.append(svgEl('circle',{cx:xCenter,cy:barY-10,r:5,fill:'none',stroke:color,'stroke-width':1.5}));
+    g.append(svgEl('text',{x:xCenter,y:barY-18,'text-anchor':'middle','font-size':'11px',fill:'var(--text-gray)'},'Unavailable'));
    }
 
-   const labelText=group?(group.label.length>18?group.label.slice(0,16)+'…':group.label):colName;
-   g.append(svgEl('text',{x:xCenter,y:yBottom+20,'text-anchor':'middle','font-weight':'600','font-size':'12px'},colName+': '+labelText));
+   const tagLetter=['A','B','C'][i]||String(i+1);
+   let line1=`${tagLetter} · `;
+   let line2='';
+   const fullLabel=group?group.label:colName;
+   if(fullLabel.includes(' · ')){
+    const parts=fullLabel.split(' · ');
+    line1+=parts[0].slice(0,14);
+    line2=parts[1].slice(0,18);
+   }else if(fullLabel.includes(' (')){
+    const parts=fullLabel.split(' (');
+    line1+=parts[0].slice(0,14);
+    line2='('+parts[1].replace(')','').slice(0,16)+')';
+   }else if(fullLabel.includes(' - ')){
+    const parts=fullLabel.split(' - ');
+    line1+=parts[0].slice(0,12);
+    line2=parts[1].slice(0,18);
+   }else if(fullLabel.length>16){
+    line1+=fullLabel.slice(0,14);
+    line2=fullLabel.slice(14,30);
+   }else{
+    line1+=fullLabel;
+   }
+
+   g.append(svgEl('text',{x:xCenter,y:yBottom+16,'text-anchor':'middle','font-weight':'700','font-size':'11px',fill:'currentColor'},line1));
+   if(line2){
+    g.append(svgEl('text',{x:xCenter,y:yBottom+28,'text-anchor':'middle','font-weight':'500','font-size':'10px',fill:'var(--text-gray)'},line2));
+   }
    g.append(svgEl('title',{},`${colName}: ${group?.label||'None'} - ${valText}`));
    svg.append(g);
   });
@@ -376,6 +410,7 @@
   const allGroupsCount=document.getElementById('all-groups-count');
   const descEl=document.getElementById('comparison-description');
   const addBtn=document.getElementById('add-comparison-card-btn');
+  const limitNotice=document.getElementById('add-comparison-limit-notice');
 
   const description=`${dimensions[dimension]} · ${groups.length} groups · n=${report.summary.student_count}. Numeric coverage: ${pct(report.summary.numeric_coverage_pct)}. Pooled unit-weighted recorded grades; this is not an arithmetic mean of Student GWAs. `+(['section','faculty_subject'].includes(dimension)&&!report.filters.subject?'Select one subject for a same-subject comparison. ':'')+'Group order is identifier/period order, not a best/worst ranking.';
   if(descEl)descEl.textContent=description;
@@ -400,15 +435,17 @@
    if(comparisonCards.length>=3){
     addBtn.disabled=true;
     addBtn.setAttribute('aria-disabled','true');
-    addBtn.style.opacity='0.5';
+    addBtn.style.opacity='0.55';
     addBtn.style.cursor='not-allowed';
-    addBtn.title='Maximum of 3 comparison cards reached';
+    addBtn.title='Maximum of 3 comparisons reached';
+    if(limitNotice)limitNotice.style.display='inline';
    }else{
     addBtn.disabled=false;
     addBtn.removeAttribute('aria-disabled');
     addBtn.style.opacity='1';
     addBtn.style.cursor='pointer';
-    addBtn.title='';
+    addBtn.title='Add a third comparison card';
+    if(limitNotice)limitNotice.style.display='none';
    }
   }
 
@@ -468,34 +505,27 @@
   // Notice Handling
   if(noticeEl){
    noticeEl.style.display='none';
+   noticeEl.className='comparison-notice';
    if(valA===valB&&activeItems.length>1){
     noticeEl.textContent='Select two different groups to compare.';
     noticeEl.style.display='block';
-    noticeEl.style.background='#fffbeb';
-    noticeEl.style.border='1px solid #fef3c7';
-    noticeEl.style.color='#b45309';
+    noticeEl.classList.add('notice-warning');
    }else if(comparisonCards[0]?.dimension==='faculty_subject'&&comparisonCards[1]?.dimension==='faculty_subject'){
     const subA=valA.split('|')[1];
     const subB=valB.split('|')[1];
     if(subA&&subB&&subA!==subB){
      noticeEl.textContent='Faculty comparisons must use the same subject, school year, and semester to ensure fair and meaningful comparison. Please select faculty assigned to the same subject.';
      noticeEl.style.display='block';
-     noticeEl.style.background='#eff6ff';
-     noticeEl.style.border='1px solid #bfdbfe';
-     noticeEl.style.color='#1e40af';
+     noticeEl.classList.add('notice-info');
     }
    }else if(comparisonCards[0]?.dimension!==comparisonCards[1]?.dimension){
     noticeEl.textContent='Context views use different scopes. A direct difference is not calculated.';
     noticeEl.style.display='block';
-    noticeEl.style.background='var(--bg-hover, #f8fafc)';
-    noticeEl.style.border='1px solid var(--border-color)';
-    noticeEl.style.color='var(--text-gray)';
+    noticeEl.classList.add('notice-neutral');
    }else if(dimension==='subject'){
     noticeEl.textContent='Note: Comparing different subjects provides curricular context. Subject difficulty, credit units, and prior preparation may vary.';
     noticeEl.style.display='block';
-    noticeEl.style.background='var(--bg-hover, #f8fafc)';
-    noticeEl.style.border='1px solid var(--border-color)';
-    noticeEl.style.color='var(--text-gray)';
+    noticeEl.classList.add('notice-neutral');
    }
   }
 
@@ -530,7 +560,7 @@
     actionsBox.append(removeBtn);
    }
    const statusBadge=el('span',group.provisional?'Provisional data':'Verified complete',{
-    style:`font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:12px;${group.provisional?'background:#fef3c7;color:#b45309;':'background:#dcfce7;color:#15803d;'}`
+    class:`card-status-badge ${group.provisional?'badge-provisional':'badge-complete'}`
    });
    actionsBox.append(statusBadge);
    topRow.append(titleBox,actionsBox);
@@ -664,10 +694,10 @@
      el('span',`Student count difference: ${nDiff} students`,{class:'diff-pill'})
     );
    }else{
-    pillsRow.append(el('span','Context views use different scopes. A direct difference is not calculated.',{class:'diff-pill',style:'background:#eff6ff;color:#1e40af;border-color:#bfdbfe;'}));
+    pillsRow.append(el('span','Context views use different scopes. A direct difference is not calculated.',{class:'diff-pill diff-pill-info'}));
     activeItems.forEach(it=>{
      if(it.group){
-      pillsRow.append(el('span',`${it.tag}: ${it.group.gwa!==null?num(it.group.gwa):'Unavailable'} (n=${it.group.student_count})`,{class:'diff-pill'}));
+      pillsRow.append(el('span',`${it.tag}: ${it.group.gwa!==null?num(it.group.gwa):'Unavailable'} (n=${it.group.student_count})`,{class:'diff-pill diff-pill-neutral'}));
      }
     });
     neutralCopy='Context views use different scopes. A direct difference is not calculated.';
@@ -681,32 +711,32 @@
   // Chart Rendering
   renderComparisonChart(chartContainer, activeItems, selectedMetric, `${dimensions[dimension]} side-by-side comparison`);
 
-  // Accessible Legend
+  // Accessible Compact Legend / Key
   if(legendContainer){
    legendContainer.replaceChildren();
    const legA=el('div',undefined,{class:'comparison-legend-item'});
-   const svgA=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
-   svgA.append(svgEl('circle',{cx:7,cy:7,r:6,fill:'var(--teal, #008080)'}));
+   const svgA=svgEl('svg',{width:12,height:12,viewBox:'0 0 12 12','aria-hidden':'true'});
+   svgA.append(svgEl('circle',{cx:6,cy:6,r:5,fill:'var(--teal, #008080)'}));
    legA.append(svgA,el('span',`● Compare A: ${activeItems[0]?.group?.label||'None'}`));
 
    const legB=el('div',undefined,{class:'comparison-legend-item'});
-   const svgB=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
-   svgB.append(svgEl('rect',{x:1,y:1,width:12,height:12,fill:'var(--accent-blue, #1e4db7)'}));
+   const svgB=svgEl('svg',{width:12,height:12,viewBox:'0 0 12 12','aria-hidden':'true'});
+   svgB.append(svgEl('rect',{x:1,y:1,width:10,height:10,fill:'var(--accent-blue, #1e4db7)'}));
    legB.append(svgB,el('span',`■ Compare B: ${activeItems[1]?.group?.label||'None'}`));
 
    legendContainer.append(legA,legB);
 
    if(activeItems.length>=3){
     const legC=el('div',undefined,{class:'comparison-legend-item'});
-    const svgC=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
-    svgC.append(svgEl('polygon',{points:'7,1 13,13 1,13',fill:'var(--gold, #e8b923)'}));
+    const svgC=svgEl('svg',{width:12,height:12,viewBox:'0 0 12 12','aria-hidden':'true'});
+    svgC.append(svgEl('polygon',{points:'6,1 11,11 1,11',fill:'var(--gold, #e8b923)'}));
     legC.append(svgC,el('span',`▲ Compare C: ${activeItems[2]?.group?.label||'None'}`));
     legendContainer.append(legC);
    }
 
    const legInc=el('div',undefined,{class:'comparison-legend-item'});
-   const svgInc=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
-   svgInc.append(svgEl('circle',{cx:7,cy:7,r:5,fill:'none',stroke:'var(--text-gray)','stroke-dasharray':'2 2','stroke-width':1.5}));
+   const svgInc=svgEl('svg',{width:12,height:12,viewBox:'0 0 12 12','aria-hidden':'true'});
+   svgInc.append(svgEl('circle',{cx:6,cy:6,r:4.5,fill:'none',stroke:'var(--text-gray)','stroke-dasharray':'2 2','stroke-width':1.5}));
    legInc.append(svgInc,el('span','○ Incomplete or unavailable period'));
    legendContainer.append(legInc);
   }
@@ -823,7 +853,7 @@
    if(s.first_action_sample>0&&s.first_action_sample<3){
     timingBox.append(el('div',`Very limited sample (n=${s.first_action_sample}). Interpret cautiously.`,{
      role:'status',
-     style:'margin-top:6px;padding:4px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;font-size:0.75rem;color:#b45309;font-weight:600;'
+     class:'support-sample-warning'
     }));
    }
    const divider=el('hr',undefined,{style:'margin:10px 0;border:0;border-top:1px dashed var(--border-color);'});

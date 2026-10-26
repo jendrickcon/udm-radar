@@ -47,6 +47,9 @@ test('Administrator filters refresh actual comparisons and retain coverage and f
  await page.getByLabel('Subject',{exact:true}).selectOption('101');await page.getByRole('button',{name:'Apply filters'}).click();
  await expect(page.locator('[data-metric="average-gwa"]')).toHaveText('2.75');
  await expect(page.locator('[data-metric="student-count"]')).toHaveText('3');
+ if(!await page.locator('#other-comparisons-disclosure').getAttribute('open')){
+  await page.locator('#other-comparisons-disclosure summary').click();
+ }
  await page.getByLabel('Comparison view').selectOption('faculty_subject');
  await expect(page.locator('#comparison-chart svg')).toBeVisible();
  await expect(page.locator('#comparison-table')).toContainText('Synthetic analytics_faculty_a');
@@ -242,6 +245,9 @@ test('Administrator side-by-side comparison builder compares cohorts with matche
  await expect(page.locator('#side-by-side-table th').first()).toHaveText('Comparison subject');
 
  // Select identical items for A and B -> warning notice
+ if(!await page.locator('#other-comparisons-disclosure').getAttribute('open')){
+  await page.locator('#other-comparisons-disclosure summary').click();
+ }
  const aVal=await page.locator('#compare-a').inputValue();
  await page.locator('#compare-b').selectOption(aVal);
  await expect(page.locator('#comparison-validation-notice')).toBeVisible();
@@ -290,53 +296,75 @@ test('Academic comparisons supports overlay mode, cards mode, 3-card lifecycle, 
  await login(page,'admin');
  await page.getByRole('tab',{name:'Academic Comparisons'}).click();
 
- // 1. Two cards by default
+ // 1. Other comparisons disclosure collapsed by default
+ await expect(page.locator('#other-comparisons-disclosure')).not.toHaveAttribute('open','');
+
+ // 2. Two cards by default
  await expect(page.locator('#panel-compare-a')).toBeVisible();
  await expect(page.locator('#panel-compare-b')).toBeVisible();
  await expect(page.locator('#panel-compare-c')).toBeHidden();
 
- // 2. Default mode is Overlay chart
+ // 3. Default mode is Overlay chart with segmented control semantics & helper text
  const btnOverlay=page.locator('#btn-mode-overlay');
  const btnCards=page.locator('#btn-mode-cards');
+ const helperText=page.locator('#comparison-mode-helper');
  await expect(btnOverlay).toHaveClass(/active/);
  await expect(btnOverlay).toHaveAttribute('aria-pressed','true');
- await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-overlay/);
+ await expect(btnCards).toHaveAttribute('aria-pressed','false');
+ await expect(helperText).toHaveText('Show selected groups together on one shared scale.');
 
- // 3. Add 3rd card
+ // Keyboard focus distinctness
+ await btnOverlay.focus();
+ await expect(btnOverlay).toBeFocused();
+ await page.keyboard.press('Tab');
+ await expect(btnCards).toBeFocused();
+
+ // Scalar chart uses bars/markers without fake lines
+ expect(await page.locator('#comparison-chart svg .analytics-line').count()).toBe(0);
+ await expect(page.locator('#comparison-chart svg rect').first()).toBeVisible();
+
+ // 4. Add 3rd card via compact button
  const addBtn=page.locator('#add-comparison-card-btn');
+ const limitNotice=page.locator('#add-comparison-limit-notice');
  await expect(addBtn).toBeEnabled();
+ await expect(limitNotice).toBeHidden();
  await addBtn.click();
  await expect(page.locator('#panel-compare-c')).toBeVisible();
  await expect(page.locator('#comparison-legend')).toContainText('Compare C');
  await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(3);
 
- // 4. 4th card prohibited (button disabled)
+ // 5. 4th card prohibited (button disabled with visible limit notice)
  await expect(addBtn).toBeDisabled();
  await expect(addBtn).toHaveAttribute('aria-disabled','true');
+ await expect(limitNotice).toBeVisible();
+ await expect(limitNotice).toHaveText('Maximum of 3 comparisons');
 
- // 5. Switch to Separate cards mode and verify state preserved
+ // 6. Switch to Separate cards mode and verify state preserved & helper updated
  await btnCards.click();
  await expect(btnCards).toHaveClass(/active/);
  await expect(btnCards).toHaveAttribute('aria-pressed','true');
  await expect(btnOverlay).not.toHaveClass(/active/);
+ await expect(helperText).toHaveText('Show complete details for each selected group.');
  await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-cards/);
  await expect(page.locator('#panel-compare-c')).toBeVisible();
  await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(3);
 
- // 6. Remove 3rd card
+ // 7. Remove 3rd card
  const removeBtn=page.locator('#remove-card-c');
  await expect(removeBtn).toBeVisible();
  await removeBtn.click();
  await expect(page.locator('#panel-compare-c')).toBeHidden();
  await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(2);
  await expect(addBtn).toBeEnabled();
+ await expect(limitNotice).toBeHidden();
 
- // 7. Switch back to Overlay mode
+ // 8. Switch back to Overlay mode
  await btnOverlay.click();
  await expect(btnOverlay).toHaveClass(/active/);
+ await expect(helperText).toHaveText('Show selected groups together on one shared scale.');
  await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-overlay/);
 
- // 8. Contextual scope notice when comparing different scopes
+ // 9. Contextual scope notice when comparing different scopes
  const cardADim=page.locator('#panel-compare-a .card-dimension-select');
  const cardBDim=page.locator('#panel-compare-b .card-dimension-select');
  await cardADim.selectOption('subject');
@@ -380,6 +408,29 @@ for(const role of ['student','admin','faculty'])for(const [width,height] of [[14
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await expect(page.getByLabel('School year',{exact:true})).toBeVisible();
+
+  if(role==='admin'){
+   await page.getByRole('tab',{name:'Academic Comparisons'}).click();
+   const svgBox=await page.locator('#comparison-chart svg').boundingBox();
+   if(svgBox){
+    if(width===1440){
+     expect(svgBox.height).toBeGreaterThanOrEqual(280);
+     expect(svgBox.height).toBeLessThanOrEqual(360);
+    }else{
+     expect(svgBox.height).toBeGreaterThanOrEqual(240);
+     expect(svgBox.height).toBeLessThanOrEqual(320);
+    }
+   }
+   if(theme==='dark'){
+    const cardBgs=await page.evaluate(()=>{
+     return Array.from(document.querySelectorAll('.analytics-page .card, .comparison-panel, .comparison-summary-card'))
+      .map(el=>window.getComputedStyle(el).backgroundColor);
+    });
+    for(const bg of cardBgs){
+     expect(bg).not.toBe('rgb(255, 255, 255)');
+    }
+   }
+  }
   expect(errors).toEqual([]);
  });
 }

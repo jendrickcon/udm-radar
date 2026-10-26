@@ -564,14 +564,23 @@ function analyticsPage(string $role): void {
                                     Side-by-side comparison cards evaluating cohorts, sections, subjects, or verified faculty assignments.
                                 </p>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                <div class="comparison-mode-toggle" role="group" aria-label="Comparison display mode" style="display: inline-flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-hover);">
-                                    <button type="button" id="btn-mode-overlay" class="mode-toggle-btn active" aria-pressed="true" style="padding: 8px 14px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: var(--accent-blue); color: #fff; font-family: inherit;">Overlay chart</button>
-                                    <button type="button" id="btn-mode-cards" class="mode-toggle-btn" aria-pressed="false" style="padding: 8px 14px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-dark); font-family: inherit;">Separate cards</button>
+                            <div class="comparison-toolbar-controls" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div class="comparison-mode-segmented-control" role="group" aria-label="Comparison display mode">
+                                        <button type="button" id="btn-mode-overlay" class="segmented-btn active" aria-pressed="true">
+                                            <span class="mode-check" aria-hidden="true">✓ </span>Overlay chart
+                                        </button>
+                                        <button type="button" id="btn-mode-cards" class="segmented-btn" aria-pressed="false">
+                                            <span class="mode-check" aria-hidden="true" style="display: none;">✓ </span>Separate cards
+                                        </button>
+                                    </div>
+                                    <p id="comparison-mode-helper" class="comparison-mode-helper">
+                                        Show selected groups together on one shared scale.
+                                    </p>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <label for="comparison-metric" style="font-weight: 600; font-size: 0.85rem; color: var(--text-dark); margin: 0;">Metric:</label>
-                                    <select id="comparison-metric" class="filter-select" aria-label="Comparison metric" style="min-width: 200px;">
+                                    <select id="comparison-metric" class="filter-select" aria-label="Comparison metric" style="min-width: 190px;">
                                         <option value="gwa">Recorded-grade average</option>
                                         <option value="student_count">Student count</option>
                                         <option value="numeric_coverage_pct">Numeric grade coverage</option>
@@ -580,15 +589,20 @@ function analyticsPage(string $role): void {
                                         <option value="risk_distribution">Advisory-risk distribution</option>
                                     </select>
                                 </div>
-                                <button type="button" id="add-comparison-card-btn" class="btn btn--secondary" style="font-size: 0.85rem; font-weight: 600; min-height: 40px; display: inline-flex; align-items: center; gap: 6px;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                    Add comparison
-                                </button>
+                                <div class="add-comparison-container" style="display: flex; align-items: center; gap: 8px;">
+                                    <button type="button" id="add-comparison-card-btn" class="btn btn--secondary compact-add-btn">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                        + Add comparison
+                                    </button>
+                                    <span id="add-comparison-limit-notice" role="status" style="display: none; font-size: 0.78rem; color: var(--text-gray); font-style: italic;">
+                                        Maximum of 3 comparisons
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
                         <!-- OTHER COMPARISON OPTIONS DISCLOSURE (Advanced options & backward compatibility) -->
-                        <details id="other-comparisons-disclosure" class="card" open style="padding: 12px 18px; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card);">
+                        <details id="other-comparisons-disclosure" class="card" style="padding: 12px 18px; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
                             <summary style="font-weight: 600; font-size: 0.85rem; color: var(--accent-blue); cursor: pointer; outline: none; user-select: none;">
                                 Other comparison options &amp; global view
                             </summary>
@@ -627,15 +641,15 @@ function analyticsPage(string $role): void {
 
                         <div id="comparisons-content-wrapper" class="mode-overlay">
                             <!-- OVERLAID VISUAL CHART CARD (Prominent in overlay mode) -->
-                            <div id="comparison-chart-card" class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            <div id="comparison-chart-card" class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
                                 <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
                                 <p style="margin: 0 0 16px 0; font-size: 0.82rem; color: var(--text-gray);">Overlay comparison rendered on identical axes and scale.</p>
                                 <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 12px;"></div>
-                                <div id="comparison-legend" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 10px;"></div>
+                                <div id="comparison-legend" style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 8px; justify-content: center;"></div>
                             </div>
 
                             <!-- NEUTRAL COMPARISON SUMMARY -->
-                            <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 10px;">
+                            <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
                             </div>
 
                             <!-- COMPARISON PANELS / CARDS GRID (2 default, 3 max) -->
@@ -646,7 +660,7 @@ function analyticsPage(string $role): void {
                             </div>
 
                             <!-- EXACT VALUES TABLE FOR SELECTED GROUPS -->
-                            <div class="card comparison-evidence-card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                            <div class="card comparison-evidence-card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
                                 <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Comparison Evidence</h3>
                                 <p style="margin: 0 0 14px 0; font-size: 0.82rem; color: var(--text-gray);">Exact metrics for the selected comparison cards.</p>
                                 <div class="data-table-scroll" role="region" aria-label="Two group comparison evidence" tabindex="0">
@@ -656,7 +670,7 @@ function analyticsPage(string $role): void {
                         </div>
 
                         <!-- ALL ELIGIBLE GROUPS DISCLOSURE (Contains full #comparison-table) -->
-                        <details id="all-groups-disclosure" class="card" style="padding: 16px 20px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                        <details id="all-groups-disclosure" class="card" style="padding: 16px 20px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
                             <summary style="font-weight: 600; font-size: 0.95rem; color: var(--text-dark); cursor: pointer; outline: none;">
                                 View all eligible groups (<span id="all-groups-count">0</span> total)
                             </summary>
@@ -689,7 +703,7 @@ function analyticsPage(string $role): void {
                         <!-- VISUAL SUPPORT CHARTS (Part 7) -->
                         <div class="support-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; margin-bottom: 24px;">
                             <!-- Chart 1: Case & Referral Status -->
-                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
                                     <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">Case &amp; Referral Status</h3>
                                     <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">Parent cases and referrals represent separate record units.</p>
@@ -698,7 +712,7 @@ function analyticsPage(string $role): void {
                             </div>
 
                             <!-- Chart 2: Notice & Acknowledgment Flow -->
-                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
                                     <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">Notice &amp; Acknowledgment Flow</h3>
                                     <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">Bounded count of recorded receipt acknowledgments.</p>
@@ -707,7 +721,7 @@ function analyticsPage(string $role): void {
                             </div>
 
                             <!-- Chart 3: First-Notice Timing -->
-                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between;">
                                 <div>
                                     <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">First-Notice Timing</h3>
                                     <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">From referral creation to the first recorded notice.</p>
