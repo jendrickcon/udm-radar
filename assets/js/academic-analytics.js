@@ -135,19 +135,51 @@
     svg.append(group);
    });
   }else{
-   svg.append(svgEl('line',{x1:40,x2:620,y1:200,y2:200,class:'analytics-axis'}));
+   // Horizontal reference grid lines for the active GWA scale (1.00 to 4.00)
+   [1.0, 2.0, 3.0, 4.0].forEach(val=>{
+    const y=195-(val-1.0)/3.0*160;
+    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.08))','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:40,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'600',fill:'currentColor'},val.toFixed(2)));
+   });
+
+   // Subtle vertical guides for term alignment
+   data.forEach((p,i)=>{
+    const x=50+(data.length===1?0:i/(data.length-1)*550);
+    svg.append(svgEl('line',{x1:x,x2:x,y1:35,y2:195,class:'chart-grid-vertical',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'2 4','stroke-width':0.75,opacity:0.5}));
+   });
+
+   // Primary axis line
+   svg.append(svgEl('line',{x1:45,x2:615,y1:195,y2:195,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
+
+   // Compact two-line period labels and primary points/lines
    let segment=[];
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
     const x=50+(data.length===1?0:i/(data.length-1)*550);
-    const termLabel=p.label?p.label.replace(' · Semester ',' S').replace(' · Sem ',' S'):String(i+1);
-    svg.append(svgEl('text',{x,y:220,'text-anchor':'middle','font-size':'10px','font-weight':'600',fill:'currentColor'},termLabel));
+    let sy='', sem='';
+    if(p.label){
+     const match=p.label.match(/^(\d{4}-\d{4})\s*[\u00B7\u00C2·]?\s*Sem(?:ester)?\s*([1-2])/i);
+     if(match){
+      sy=match[1];
+      sem='S'+match[2];
+     }else{
+      sy=p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,' S').replace(/\s*Sem\s*/i,' S');
+     }
+    }else{
+     sy=String(i+1);
+    }
+    const termText=svgEl('text',{x,y:213,'text-anchor':'middle','font-size':'9px','font-weight':'600',fill:'currentColor'});
+    termText.append(svgEl('tspan',{x,dy:0},sy));
+    if(sem)termText.append(svgEl('tspan',{x,dy:11},' '+sem));
+    svg.append(termText);
+
     if(p.gwa===null){flush();return;}
     const y=195-(p.gwa-1)/3*160;
     segment.push(`${x},${y}`);
     const dot=svgEl('circle',{cx:x,cy:y,r:5,class:'analytics-dot',tabindex:0});
-    dot.append(svgEl('title',{},`School Year ${p.label.replace(' · Semester ',', Semester ')}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle',fill:'currentColor'},num(p.gwa)));
+    const fullLabel=p.label?p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,', Semester '):'';
+    dot.append(svgEl('title',{},`School Year ${fullLabel}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
+    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle',fill:'currentColor','font-size':'11px','font-weight':'700'},num(p.gwa)));
    });
    flush();
   }
@@ -849,56 +881,10 @@
    if(panelsGrid)panelsGrid.classList.remove('has-3-cards');
   }
 
-  // Summary Card
+  // Summary Card - removed duplicate lower block when comparison-details-pane is present
   if(summaryCard){
    summaryCard.replaceChildren();
-   const sumTitle=el('h3','Comparison Summary');
-   const pillsRow=el('div',undefined,{style:'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;'});
-
-   const isComparable=(()=>{
-    if(activeItems.length<2)return false;
-    const firstDim=activeItems[0].card.dimension||dimension;
-    if(!activeItems.every(it=>(it.card.dimension||dimension)===firstDim))return false;
-    if(firstDim==='faculty_subject'){
-     const firstSub=activeItems[0].group?.key?.split('|')[1];
-     if(!activeItems.every(it=>it.group?.key?.split('|')[1]===firstSub))return false;
-    }
-    return true;
-   })();
-
-   let neutralCopy='';
-   if(isComparable){
-    const groupA=activeItems[0]?.group;
-    const groupB=activeItems[1]?.group;
-    let gwaDiffText='Unavailable';
-    if(groupA&&groupB&&groupA.gwa!==null&&groupB.gwa!==null){
-     const diff=Math.abs(groupA.gwa-groupB.gwa).toFixed(2);
-     gwaDiffText=`Difference: ${diff} grade points`;
-     neutralCopy=`The recorded-grade averages differ by ${diff} points for the selected common scope.`;
-    }else{
-     neutralCopy='Grade point difference is unavailable because one or both selected groups have pending or provisional grade records.';
-    }
-    const covDiff=Math.abs((groupA?.numeric_coverage_pct||0)-(groupB?.numeric_coverage_pct||0)).toFixed(1);
-    const nDiff=Math.abs((groupA?.student_count||0)-(groupB?.student_count||0));
-
-    pillsRow.append(
-     el('span',gwaDiffText,{class:'diff-pill'}),
-     el('span',`Coverage difference: ${covDiff} percentage points`,{class:'diff-pill'}),
-     el('span',`Student count difference: ${nDiff} students`,{class:'diff-pill'})
-    );
-   }else{
-    pillsRow.append(el('span','Context views use different scopes. A direct difference is not calculated.',{class:'diff-pill diff-pill-info'}));
-    activeItems.forEach(it=>{
-     if(it.group){
-      pillsRow.append(el('span',`${it.tag}: ${it.group.gwa!==null?num(it.group.gwa):'Unavailable'} (n=${it.group.student_count})`,{class:'diff-pill diff-pill-neutral'}));
-     }
-    });
-    neutralCopy='Context views use different scopes. A direct difference is not calculated.';
-   }
-
-   const copyP=el('p',neutralCopy,{class:'neutral-copy'});
-   const disclaimer=el('p','This comparison provides academic context and does not independently measure teaching performance. Differences may reflect student composition, prior achievement, subject difficulty, class size, record completeness, and semester conditions.',{style:'font-size:0.8rem;color:var(--text-gray);margin:0;line-height:1.45;'});
-   summaryCard.append(sumTitle,pillsRow,copyP,disclaimer);
+   summaryCard.style.display='none';
   }
 
   // Chart Rendering
@@ -1013,37 +999,38 @@
   const flowContainer=document.getElementById('chart-notice-flow');
   if(flowContainer){
    flowContainer.replaceChildren();
-   const svg=svgEl('svg',{viewBox:'0 0 420 160',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:170px;'});
+   const svg=svgEl('svg',{viewBox:'0 0 460 170',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:175px;'});
    svg.append(svgEl('title',{},'Notice and Receipt Flow'),svgEl('desc',{},'Progression from created referrals to issued notices and recorded receipt acknowledgments.'));
-   const nodeW=110, nodeH=58;
+   const nodeW=115, nodeH=64;
 
    // Node 1: Referrals
-   svg.append(svgEl('rect',{x:10,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
-   svg.append(svgEl('text',{x:10+nodeW/2,y:33,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'REFERRALS'));
-   svg.append(svgEl('text',{x:10+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700'},String(s.referrals_created||0)));
-   svg.append(svgEl('text',{x:10+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--text-gray)'},'Created'));
+   svg.append(svgEl('rect',{x:12,y:14,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
+   svg.append(svgEl('text',{x:12+nodeW/2,y:32,'text-anchor':'middle','font-size':'11px','font-weight':'700',fill:'var(--text-gray)'},'REFERRALS'));
+   svg.append(svgEl('text',{x:12+nodeW/2,y:52,'text-anchor':'middle','font-size':'18px','font-weight':'700'},String(s.referrals_created||0)));
+   svg.append(svgEl('text',{x:12+nodeW/2,y:67,'text-anchor':'middle','font-size':'9.5px',fill:'var(--text-gray)'},'Created'));
 
    // Arrow 1
-   svg.append(svgEl('path',{d:'M128 44 L147 44 M143 39 L149 44 L143 49',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+   svg.append(svgEl('path',{d:'M137 46 L163 46 M157 41 L164 46 L157 51',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
 
    // Node 2: Notices Issued
-   svg.append(svgEl('rect',{x:155,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
-   svg.append(svgEl('text',{x:155+nodeW/2,y:33,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'NOTICES ISSUED'));
-   svg.append(svgEl('text',{x:155+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700'},String(s.notices_issued||0)));
-   svg.append(svgEl('text',{x:155+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--text-gray)'},'Action recorded'));
+   svg.append(svgEl('rect',{x:173,y:14,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
+   svg.append(svgEl('text',{x:173+nodeW/2,y:32,'text-anchor':'middle','font-size':'11px','font-weight':'700',fill:'var(--text-gray)'},'NOTICES'));
+   svg.append(svgEl('text',{x:173+nodeW/2,y:52,'text-anchor':'middle','font-size':'18px','font-weight':'700'},String(s.notices_issued||0)));
+   svg.append(svgEl('text',{x:173+nodeW/2,y:67,'text-anchor':'middle','font-size':'9.5px',fill:'var(--text-gray)'},'Issued'));
 
    // Arrow 2
-   svg.append(svgEl('path',{d:'M273 44 L292 44 M288 39 L294 44 L288 49',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+   svg.append(svgEl('path',{d:'M298 46 L324 46 M318 41 L325 46 L318 51',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
 
    // Node 3: Receipt Acknowledged
-   svg.append(svgEl('rect',{x:300,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--teal, #008080)',rx:8}));
-   svg.append(svgEl('text',{x:300+nodeW/2,y:33,'text-anchor':'middle','font-size':'9.5px','font-weight':'700',fill:'var(--teal, #008080)'},'RECEIPT ACKNOWLEDGED'));
-   svg.append(svgEl('text',{x:300+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
-   svg.append(svgEl('text',{x:300+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--teal, #008080)'},'Confirmed count'));
+   svg.append(svgEl('rect',{x:334,y:14,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--teal, #008080)',rx:8}));
+   svg.append(svgEl('text',{x:334+nodeW/2,y:32,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--teal, #008080)'},'ACKNOWLEDGED'));
+   svg.append(svgEl('text',{x:334+nodeW/2,y:52,'text-anchor':'middle','font-size':'18px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
+   svg.append(svgEl('text',{x:334+nodeW/2,y:67,'text-anchor':'middle','font-size':'9.5px',fill:'var(--teal, #008080)'},'Receipt confirmed'));
 
-   // Subtitles below nodes
-   svg.append(svgEl('text',{x:10,y:105,'font-size':'10.5px',fill:'var(--text-gray)'},'MTR-19 is a bounded count of recorded student receipts.'));
-   svg.append(svgEl('text',{x:10,y:122,'font-size':'10.5px',fill:'var(--text-gray)'},'Recorded student receipt acknowledgments are shown as a count, not the canonical acknowledgment rate.'));
+   // Subtitles below nodes (wrapped, fully legible)
+   svg.append(svgEl('text',{x:12,y:105,'font-size':'11px','font-weight':'600',fill:'currentColor'},'MTR-19 is a bounded count of recorded student receipts.'));
+   svg.append(svgEl('text',{x:12,y:124,'font-size':'10px',fill:'var(--text-gray)'},'Acknowledgments are recorded receipt counts, not the canonical acknowledgment rate.'));
+   svg.append(svgEl('text',{x:12,y:141,'font-size':'9.5px',fill:'var(--text-gray)'},'Action progression records receipt only; does not imply fault, agreement, or punitive action.'));
    flowContainer.append(svg);
   }
 

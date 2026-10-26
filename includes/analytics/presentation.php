@@ -660,10 +660,6 @@ function analyticsPage(string $role): void {
                                 </div>
                             </div>
 
-                            <!-- NEUTRAL COMPARISON SUMMARY -->
-                            <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
-                            </div>
-
                             <!-- COMPARISON PANELS / CARDS GRID (2 default, 3 max) -->
                             <div id="comparison-panels-grid" class="comparison-cards-grid" style="margin-bottom: 24px;">
                                 <div id="panel-compare-a" class="comparison-panel comparison-card panel-a card-a"></div>

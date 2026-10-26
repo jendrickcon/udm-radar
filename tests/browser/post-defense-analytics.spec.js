@@ -230,15 +230,17 @@ test('Administrator side-by-side comparison builder compares cohorts with matche
  await expect(page.locator('#comparison-legend')).toContainText('Compare B');
  await expect(page.locator('#comparison-legend')).toContainText('Incomplete or unavailable period');
 
- // Check comparison summary with neutral wording
- const summary=page.locator('#comparison-summary-card');
- await expect(summary).toBeVisible();
- await expect(summary).toContainText('Comparison Summary');
- await expect(summary).toContainText('Difference:');
- await expect(summary.getByText(/does not independently measure teaching performance/)).toBeVisible();
- await expect(summary).not.toContainText('better');
- await expect(summary).not.toContainText('worse');
- await expect(summary).not.toContainText('teaching quality');
+ // Verify no duplicate lower summary block exists beneath the chart
+ await expect(page.locator('#comparison-summary-card')).toHaveCount(0);
+
+ // Check comparison details panel on the right with neutral wording
+ const details=page.locator('#comparison-details-pane');
+ await expect(details).toBeVisible();
+ await expect(details).toContainText('Comparison Details');
+ await expect(details).toContainText('Change or difference');
+ await expect(details).not.toContainText('better');
+ await expect(details).not.toContainText('worse');
+ await expect(details).not.toContainText('teaching quality');
 
  // Check accessible side-by-side table equivalence
  await expect(page.locator('#side-by-side-table')).toBeVisible();
@@ -369,7 +371,7 @@ test('Academic comparisons supports overlay mode, cards mode, 3-card lifecycle, 
  const cardBDim=page.locator('#panel-compare-b .card-dimension-select');
  await cardADim.selectOption('subject');
  await cardBDim.selectOption('faculty_subject');
- await expect(page.locator('#comparison-summary-card')).toContainText('Context views use different scopes. A direct difference is not calculated.');
+ await expect(page.locator('#comparison-details-pane')).toContainText('Context views use different scopes. A direct difference is not calculated.');
 });
 
 test('Support and Interventions tab renders visual status, notice flow, timing cards, and disclaimers',async({page})=>{
@@ -385,9 +387,10 @@ test('Support and Interventions tab renders visual status, notice flow, timing c
  await expect(page.locator('#chart-support-status')).toContainText('Parent Cases');
  await expect(page.locator('#chart-support-status')).toContainText('Referrals');
  await expect(page.locator('#chart-notice-flow')).toContainText('REFERRALS');
- await expect(page.locator('#chart-notice-flow')).toContainText('NOTICES ISSUED');
- await expect(page.locator('#chart-notice-flow')).toContainText('RECEIPT ACKNOWLEDGED');
+ await expect(page.locator('#chart-notice-flow')).toContainText('NOTICES');
+ await expect(page.locator('#chart-notice-flow')).toContainText('ACKNOWLEDGED');
  await expect(page.locator('#chart-notice-flow')).toContainText('MTR-19 is a bounded count of recorded student receipts');
+ await expect(page.locator('#chart-notice-flow')).toContainText('Acknowledgments are recorded receipt counts, not the canonical acknowledgment rate.');
 
  // Timing card
  await expect(page.locator('#chart-first-notice')).toContainText('AVERAGE TIME BEFORE FIRST NOTICE');
@@ -450,10 +453,16 @@ test('Historical semester trend displays exact academic-period labels, tooltip f
  await login(page,'admin');
  await page.getByRole('tab',{name:'Academic Comparisons'}).click();
 
- // Verify exact academic-period labels on SVG x-axis
+ // Verify exact academic-period labels on SVG x-axis and readable grid lines
  await expect(page.locator('#trend-chart svg')).toBeVisible();
+ expect(await page.locator('#trend-chart svg line.chart-grid-line').count()).toBe(4);
+ expect(await page.locator('#trend-chart svg line.chart-grid-vertical').count()).toBeGreaterThan(0);
  const tickTexts=await page.locator('#trend-chart svg text').allTextContents();
  expect(tickTexts.some(t=>/\b\d{4}-\d{4}\s+S[1-2]\b/.test(t))).toBe(true);
+ expect(tickTexts).toContain('1.00');
+ expect(tickTexts).toContain('2.00');
+ expect(tickTexts).toContain('3.00');
+ expect(tickTexts).toContain('4.00');
 
  // Tooltips contain full academic period context
  const titles=await page.locator('#trend-chart svg circle title').allTextContents();
@@ -557,7 +566,7 @@ for(const role of ['student','admin','faculty'])for(const [width,height] of [[14
    }
    if(theme==='dark'){
     const cardBgs=await page.evaluate(()=>{
-     return Array.from(document.querySelectorAll('.analytics-page .card, .comparison-panel, .comparison-summary-card'))
+     return Array.from(document.querySelectorAll('.analytics-page .card, .comparison-panel'))
       .map(el=>window.getComputedStyle(el).backgroundColor);
     });
     for(const bg of cardBgs){
