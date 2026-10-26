@@ -60,8 +60,9 @@ test('Administrator intervention counts and drill-down use actual existing recor
  await page.getByRole('tab',{name:'Support & Interventions'}).click();
  await expect(page.locator('[data-support="eligible_cases"]')).toHaveText('4');
  await expect(page.locator('[data-support="notices_deferred"]')).toHaveText('Unavailable');
- await expect(page.locator('[data-support="mean_first_action_hours"]')).toHaveText('2.50 hours (n=2)');
- await expect(page.getByText('Mean referral time to first evidenced notice (MTR-20)',{exact:true})).toBeVisible();
+ await expect(page.locator('[data-support="mean_first_action_hours"]')).toContainText('2.5 hours');
+ await expect(page.locator('[data-support="mean_first_action_hours"]')).toContainText('Based on 2 referrals with recorded notices');
+ await expect(page.getByText('Average time before the first notice')).toBeVisible();
  await expect(page.getByText('Median recorded parent-case closed duration (limited indicator)',{exact:true})).toBeVisible();
  await page.getByLabel('Case status').selectOption('closed');await page.getByRole('button',{name:'Apply filters'}).click();
  await expect(page.locator('[data-support="eligible_cases"]')).toHaveText('1');
@@ -169,6 +170,41 @@ test('Administrator dashboard features compact analytics snapshot cards',async({
  await expect(page.locator('[data-dashboard-metric="grade-coverage"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="open-cases"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="mean-time-action"]')).toBeVisible();
+ await expect(page.locator('[data-dashboard-metric="mean-time-action"]')).toContainText('2.5 hours');
+ await expect(page.getByText('Average time before the first notice')).toBeVisible();
+ await expect(page.getByText('Based on 2 referrals with recorded notices')).toBeVisible();
+ await expect(page.getByText('Very limited sample. Interpret cautiously.')).toBeVisible();
+});
+
+test('Administrator Program Analytics Overview tab restores visual charts, section comparison table, and primary KPIs',async({page})=>{
+ await login(page,'admin');
+ await expect(page.locator('#tab-panel-overview')).toBeVisible();
+ await expect(page.locator('[data-overview-metric="total-students"]')).toBeVisible();
+ await expect(page.locator('[data-overview-metric="mean-student-gwa"]')).toBeVisible();
+ await expect(page.locator('[data-overview-metric="at-risk-pct"]')).toBeVisible();
+ await expect(page.locator('[data-overview-metric="prediction-coverage-pct"]')).toBeVisible();
+ await expect(page.locator('#sectionRiskChart')).toBeVisible();
+ await expect(page.locator('#honorChart')).toBeVisible();
+ await expect(page.getByRole('region',{name:'Section Comparison Table'})).toBeVisible();
+});
+
+test('Administrator Program Analytics page has single scroll owner at far-right edge and no blank strip',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await login(page,'admin');
+ const layout=await page.evaluate(()=>{
+  const docScrolls=document.documentElement.scrollHeight>document.documentElement.clientHeight;
+  const main=document.querySelector('.main-content');
+  const mainRect=main.getBoundingClientRect();
+  const rightGap=window.innerWidth-mainRect.right;
+  return {
+   docScrolls,
+   rightGap,
+   mainOverflowY:window.getComputedStyle(main).overflowY
+  };
+ });
+ expect(layout.docScrolls).toBe(false);
+ expect(layout.rightGap).toBeLessThanOrEqual(1);
+ expect(layout.mainOverflowY).toBe('auto');
 });
 
 test('Faculty dashboard features compact role-scoped assigned-class analytics cards',async({page})=>{

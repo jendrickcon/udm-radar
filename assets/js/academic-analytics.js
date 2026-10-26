@@ -10,6 +10,25 @@
  const change=(v,suffix='')=>v===null||v===undefined?'Unavailable':(Number(v)>0?'+':'')+Number(v).toFixed(2)+suffix;
  const pct=v=>v===null?'Unavailable':num(v)+'%';
 
+ const formatDurationHours=hours=>{
+  if(hours===null||hours===undefined||hours<0)return 'Unavailable';
+  if(hours<24){
+   const rounded=Math.round(hours*10)/10;
+   return (rounded===Math.floor(hours)?Math.floor(hours):rounded.toFixed(1))+' hours';
+  }
+  let days=Math.floor(hours/24);
+  let remHours=Math.round(hours%24);
+  if(remHours>=24){days++;remHours=0;}
+  if(remHours===0)return days+(days===1?' day':' days');
+  return days+(days===1?' day ':' days ')+remHours+(remHours===1?' hour':' hours');
+ };
+
+ const formatSampleSize=n=>{
+  if(n===null||n===undefined||n<=0)return 'No referrals have a recorded first notice for this scope.';
+  if(n===1)return 'Based on 1 referral with a recorded notice';
+  return `Based on ${n} referrals with recorded notices`;
+ };
+
  function metrics(parent,items){
   const dl=el('dl',undefined,{class:'analytics-metrics'});
   for(const[label,value,key]of items){
@@ -116,10 +135,19 @@
  function renderSupport(){
   if(!report.support)return;
   const s=report.support;
-  const names={eligible_cases:'Recorded eligible cases',referrals_created:'Referrals created',referrals_reviewed:'Referrals with recorded review status',notices_issued:'Notices issued',notices_deferred:'Notices deferred',student_acknowledgments:'Recorded Student receipt acknowledgments (count)',open_cases:'Open cases',closed_cases:'Closed cases',mean_first_action_hours:'Mean referral time to first evidenced notice (MTR-20)',median_closure_hours:'Median recorded parent-case closed duration (limited indicator)'};
+  const names={eligible_cases:'Recorded eligible cases',referrals_created:'Referrals created',referrals_reviewed:'Referrals with recorded review status',notices_issued:'Notices issued',notices_deferred:'Notices deferred',student_acknowledgments:'Recorded Student receipt acknowledgments (count)',open_cases:'Open cases',closed_cases:'Closed cases',mean_first_action_hours:'Average time before the first notice',median_closure_hours:'Median recorded parent-case closed duration (limited indicator)'};
   const rows=Object.entries(names).map(([key,label])=>{
    let value=s[key]===null?'Unavailable':String(s[key]);
-   if(key==='mean_first_action_hours'&&s[key]!==null)value=num(s[key])+` hours (n=${s.first_action_sample})`;
+   if(key==='mean_first_action_hours'){
+    if(s[key]===null){
+     value='Unavailable';
+    }else{
+     const dur=formatDurationHours(s[key]);
+     const sampleText=formatSampleSize(s.first_action_sample);
+     const caution=(s.first_action_sample>0&&s.first_action_sample<3)?' · Very limited sample. Interpret cautiously.':'';
+     value=`${dur} (${sampleText}${caution})`;
+    }
+   }
    if(key==='median_closure_hours'&&s[key]!==null)value=num(s[key])+` hours (n=${s.closure_sample})`;
    return[label,el('span',value,{'data-support':key})];
   });

@@ -99,6 +99,7 @@ $riskBadgeClass = fn(?string $risk) => match ($risk !== null ? strtoupper($risk)
 
 // Compact Program Analytics Snapshot (WP1)
 require_once __DIR__ . '/../includes/analytics/service.php';
+require_once __DIR__ . '/../includes/analytics/presentation.php';
 try {
     $analyticsReport = analyticsReport($db, $user, []);
     $analyticsSummary = $analyticsReport['summary'];
@@ -112,6 +113,11 @@ try {
     $analyticsCoverage = ['coverage_pct' => null, 'available_count' => 0, 'student_count' => 0];
     $analyticsSupport = ['open_cases' => 0, 'eligible_cases' => 0, 'mean_first_action_hours' => null, 'first_action_sample' => 0];
 }
+$mtr20Hours = $analyticsSupport['mean_first_action_hours'] ?? null;
+$mtr20Sample = $analyticsSupport['first_action_sample'] ?? 0;
+$mtr20Formatted = formatAnalyticsDurationHours($mtr20Hours);
+$mtr20SampleText = formatAnalyticsSampleSize($mtr20Sample);
+$mtr20Warning = analyticsSampleWarning($mtr20Sample);
 
 $pageTitle = 'Admin Dashboard';
 $navItems = [
@@ -299,10 +305,31 @@ require_once '../includes/sidebar.php';
                 <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="open-cases"><?= $analyticsSupport['open_cases'] ?? 0 ?></h2>
                 <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSupport['eligible_cases'] ?? 0 ?> total eligible</div>
             </div>
-            <div class="stat-card" style="border-left-color: var(--risk-low) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Mean Time to Action</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="mean-time-action"><?= $analyticsSupport['mean_first_action_hours'] !== null ? number_format($analyticsSupport['mean_first_action_hours'], 2) . 'h' : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">MTR-20<?= !empty($analyticsSupport['first_action_sample']) ? ' (n=' . $analyticsSupport['first_action_sample'] . ')' : '' ?></div>
+        </div>
+        <div style="margin-top: 16px; padding: 14px 18px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.02em;">Average time before the first notice</span>
+                        <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border-radius: 4px;">MTR-20</span>
+                    </div>
+                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">From referral creation to the first recorded notice.</p>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div style="text-align: right;">
+                    <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-dark); line-height: 1.2;" data-dashboard-metric="mean-time-action"><?= htmlspecialchars($mtr20Formatted) ?></div>
+                    <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;"><?= htmlspecialchars($mtr20SampleText) ?></div>
+                </div>
+                <?php if ($mtr20Warning): ?>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; border-radius: 6px; font-size: 0.75rem; font-weight: 600;" role="status">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        <?= htmlspecialchars($mtr20Warning) ?>
+                    </span>
+                <?php endif; ?>
+                <div style="cursor: help; color: var(--text-gray); display: flex; align-items: center;" title="Measures the elapsed time from when an academic-support referral was created to when the first notice was recorded. Referrals without a recorded notice are not included. A smaller value generally means earlier documented outreach, but the result should be interpreted with the number of eligible referrals." aria-label="Help explanation for first notice timing">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
             </div>
         </div>
     </div>

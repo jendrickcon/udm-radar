@@ -211,6 +211,11 @@ html[data-color-style="classic"][data-theme="dark"] {
     background-color: var(--accent-blue); 
 }
 
+html {
+    height: 100%;
+    overflow: hidden;
+}
+
 body { 
     display: flex; 
     height: 100vh; 
@@ -246,7 +251,7 @@ body {
 .logout-btn .sidebar-icon { opacity: 1; }
 .logout-btn:hover { background-color: rgba(220, 38, 38, 0.1); color: var(--risk-high); text-decoration: none; }
 
-.main-content { flex: 1; padding: 40px; padding-bottom: 84px; overflow-y: auto; }
+.main-content { flex: 1; min-width: 0; width: 100%; max-width: none; padding: 40px; padding-bottom: 84px; overflow-y: auto; overflow-x: hidden; }
 
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
 .header h1 { color: var(--text-dark); font-size: 2rem; font-weight: 700; }
@@ -443,6 +448,11 @@ tr:last-child td { border-bottom: none; }
 
 /* ── Responsive Mobile Navigation Media Query (<= 900px) ───── */
 @media (max-width: 900px) {
+    html {
+        height: auto;
+        overflow-y: auto;
+    }
+
     body {
         flex-direction: column;
         height: auto;

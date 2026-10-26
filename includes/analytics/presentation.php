@@ -1,11 +1,166 @@
 <?php
 declare(strict_types=1);
 
+function formatAnalyticsDurationHours(?float $hours): string {
+    if ($hours === null || $hours < 0) {
+        return 'Unavailable';
+    }
+    if ($hours < 24) {
+        return (round($hours, 1) == (int)$hours ? (int)$hours : number_format($hours, 1)) . ' hours';
+    }
+    $days = (int) floor($hours / 24);
+    $remHours = (int) round(fmod($hours, 24));
+    if ($remHours >= 24) {
+        $days++;
+        $remHours = 0;
+    }
+    if ($remHours === 0) {
+        return $days . ' ' . ($days === 1 ? 'day' : 'days');
+    }
+    return $days . ' ' . ($days === 1 ? 'day' : 'days') . ' ' . $remHours . ' ' . ($remHours === 1 ? 'hour' : 'hours');
+}
+
+function formatAnalyticsSampleSize(?int $n): string {
+    if ($n === null || $n <= 0) {
+        return 'No referrals have a recorded first notice for this scope.';
+    }
+    if ($n === 1) {
+        return 'Based on 1 referral with a recorded notice';
+    }
+    return "Based on {$n} referrals with recorded notices";
+}
+
+function analyticsSampleWarning(?int $n): ?string {
+    if ($n !== null && $n > 0 && $n < 3) {
+        return 'Very limited sample. Interpret cautiously.';
+    }
+    return null;
+}
+
+function getLegacyProgramOverviewData(PDO $db, string $yearFilter = '', string $sectionFilter = ''): array {
+    $sqlStudents = "
+        SELECT sp.user_id, sp.section, sp.current_gwa, sp.status, sp.year_level,
+               p.predicted_gwa, p.risk_level, p.latin_honor, p.prediction_source
+        FROM student_profiles sp
+        LEFT JOIN predictions p ON p.id = (
+            SELECT id FROM predictions p2
+            WHERE p2.student_id = sp.user_id
+            ORDER BY p2.generated_at DESC, p2.id DESC LIMIT 1
+        )
+        WHERE sp.section IS NOT NULL AND sp.record_status = 'Active'
+    ";
+    $params = [];
+    if ($yearFilter !== '') {
+        $sqlStudents .= " AND sp.year_level = ?";
+        $params[] = (int) $yearFilter;
+    }
+    if ($sectionFilter !== '') {
+        $sqlStudents .= " AND sp.section = ?";
+        $params[] = $sectionFilter;
+    }
+
+    $stmt = $db->prepare($sqlStudents);
+    $stmt->execute($params);
+    $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $totalStudents = count($students);
+    $sectionData = [];
+    $gwaSum = 0;
+    $gwaCount = 0;
+    $riskTotals = ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0];
+    $distinctions = [
+        'Summa-level threshold' => 0,
+        'Magna-level threshold' => 0,
+        'Cum Laude-level threshold' => 0,
+        'Not currently within a distinction threshold' => 0,
+        'Insufficient Data' => 0
+    ];
+
+    foreach ($students as $s) {
+        $sec = $s['section'];
+        if (!isset($sectionData[$sec])) {
+            $sectionData[$sec] = [
+                'total' => 0,
+                'gwa_sum' => 0,
+                'gwa_count' => 0,
+                'irregular' => 0,
+                'risks' => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
+                'coverage_count' => 0
+            ];
+        }
+
+        $sectionData[$sec]['total']++;
+        if ($s['status'] === 'Irregular') $sectionData[$sec]['irregular']++;
+
+        if ($s['current_gwa'] !== null && (float)$s['current_gwa'] > 0) {
+            $gwaSum += (float)$s['current_gwa'];
+            $gwaCount++;
+            $sectionData[$sec]['gwa_sum'] += (float)$s['current_gwa'];
+            $sectionData[$sec]['gwa_count']++;
+        }
+
+        $risk = $s['risk_level'] !== null ? strtoupper($s['risk_level']) : 'NONE';
+        $riskTotals[$risk]++;
+        $sectionData[$sec]['risks'][$risk]++;
+        if ($risk !== 'NONE') $sectionData[$sec]['coverage_count']++;
+
+        if ($s['risk_level'] === null || $s['predicted_gwa'] === null) {
+            $distinctions['Insufficient Data']++;
+        } else {
+            $honorRaw = $s['latin_honor'] ?? 'Not Eligible';
+            if ($honorRaw === 'Summa Cum Laude') $distinctions['Summa-level threshold']++;
+            elseif ($honorRaw === 'Magna Cum Laude') $distinctions['Magna-level threshold']++;
+            elseif ($honorRaw === 'Cum Laude') $distinctions['Cum Laude-level threshold']++;
+            else $distinctions['Not currently within a distinction threshold']++;
+        }
+    }
+    ksort($sectionData);
+
+    $meanGwa = $gwaCount > 0 ? $gwaSum / $gwaCount : null;
+    $coverageCount = $totalStudents - $riskTotals['NONE'];
+    $coveragePct = $totalStudents > 0 ? ($coverageCount / $totalStudents) * 100 : 0.0;
+    $atRiskCount = $riskTotals['HIGH'] + $riskTotals['MODERATE'];
+    $atRiskPct = $coverageCount > 0 ? ($atRiskCount / $coverageCount) * 100 : 0.0;
+
+    $chartSecLabels = array_keys($sectionData);
+    $chartSecHigh = [];
+    $chartSecMod = [];
+    $chartSecLow = [];
+    $chartSecNone = [];
+    foreach ($chartSecLabels as $sec) {
+        $t = $sectionData[$sec]['total'];
+        $chartSecHigh[] = $t > 0 ? round(($sectionData[$sec]['risks']['HIGH'] / $t) * 100, 1) : 0;
+        $chartSecMod[]  = $t > 0 ? round(($sectionData[$sec]['risks']['MODERATE'] / $t) * 100, 1) : 0;
+        $chartSecLow[]  = $t > 0 ? round(($sectionData[$sec]['risks']['LOW'] / $t) * 100, 1) : 0;
+        $chartSecNone[] = $t > 0 ? round(($sectionData[$sec]['risks']['NONE'] / $t) * 100, 1) : 0;
+    }
+
+    return [
+        'totalStudents' => $totalStudents,
+        'meanGwa' => $meanGwa,
+        'atRiskPct' => $atRiskPct,
+        'coveragePct' => $coveragePct,
+        'sectionData' => $sectionData,
+        'chartSecLabels' => $chartSecLabels,
+        'chartSecHigh' => $chartSecHigh,
+        'chartSecMod' => $chartSecMod,
+        'chartSecLow' => $chartSecLow,
+        'chartSecNone' => $chartSecNone,
+        'distinctions' => $distinctions
+    ];
+}
+
 function analyticsPage(string $role): void {
     require_once __DIR__ . '/../../config/constants.php';
+    require_once __DIR__ . '/../../config/db.php';
     require_once __DIR__ . '/../auth.php';
     requireRole($role);
     $user = currentUser();
+    $db = getDB();
+
+    $overview = ($role === 'admin')
+        ? getLegacyProgramOverviewData($db, (string)($_GET['year_level'] ?? ''), (string)($_GET['section'] ?? ''))
+        : null;
 
     $pageTitle = match ($role) {
         'student' => 'Academic review',
@@ -235,22 +390,140 @@ function analyticsPage(string $role): void {
                      id="tab-panel-overview"
                      aria-labelledby="tab-btn-overview"
                      class="analytics-tab-panel">
+
+                    <?php if ($role === 'admin' && $overview !== null): ?>
+                    <!-- RESTORED: Program Overview Primary 4-Card Analytical KPI Grid -->
+                    <div class="analytics-stat-grid">
+                        <div class="stat-card" style="border-left-color: var(--accent-blue);">
+                            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Students Analyzed</h4>
+                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="total-students"><?= $overview['totalStudents'] ?></h2>
+                            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Across <?= count($overview['sectionData']) ?> active sections</p>
+                        </div>
+                        <div class="stat-card" style="border-left-color: var(--risk-low);">
+                            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Mean Student GWA</h4>
+                            <h2 style="color: var(--risk-low); font-size: 1.8rem; margin: 0;" data-metric="mean-student-gwa"><?= $overview['meanGwa'] !== null ? number_format($overview['meanGwa'], 2) : 'N/A' ?></h2>
+                            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Enrolled student cohorts</p>
+                        </div>
+                        <div class="stat-card" style="border-left-color: var(--risk-mod);">
+                            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">At-Risk Proportion</h4>
+                            <h2 style="color: var(--risk-mod); font-size: 1.8rem; margin: 0;" data-metric="at-risk-pct"><?= $overview['coveragePct'] > 0 ? number_format($overview['atRiskPct'], 1) . '%' : 'N/A' ?></h2>
+                            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">High &amp; Moderate risk triage</p>
+                        </div>
+                        <div class="stat-card" style="border-left-color: var(--gold);">
+                            <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Prediction Coverage</h4>
+                            <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-metric="prediction-coverage-pct"><?= number_format($overview['coveragePct'], 1) ?>%</h2>
+                            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active student predictions</p>
+                        </div>
+                    </div>
+
+                    <!-- Secondary Comparative Progress & Coverage Row -->
+                    <div class="card" style="margin-bottom: 24px; padding: 18px 20px;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 0.85rem; font-weight: 700; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.5px;">Comparative Progress &amp; Coverage Context</h4>
+                        <div id="analytics-secondary-summary" class="analytics-secondary-metrics" style="margin-top: 0; padding-top: 0; border-top: none;"></div>
+                    </div>
+
+                    <!-- RESTORED: Visual Analytics Charts Grid -->
+                    <div class="analytics-chart-grid">
+                        <div class="card" style="position: relative; min-height: 380px;">
+                            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 6px; font-size: 1.05rem;">Risk Distribution by Section</div>
+                            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Percentage-based risk comparison enabling section-to-section analysis.</p>
+                            <?php if (empty($overview['sectionData'])): ?>
+                                <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
+                            <?php else: ?>
+                                <div style="position: relative; height: 280px; width: 100%;">
+                                    <canvas id="sectionRiskChart"></canvas>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="card" style="position: relative; min-height: 380px;">
+                            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 6px; font-size: 1.05rem;">Academic Distinction Readiness</div>
+                            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Based on each student's latest available estimate or prediction. Does not represent official eligibility.</p>
+                            <?php if (empty($overview['sectionData'])): ?>
+                                <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
+                            <?php else: ?>
+                                <div style="position: relative; height: 210px; width: 100%;">
+                                    <canvas id="honorChart" role="img" aria-label="Academic Distinction Readiness Chart"></canvas>
+                                </div>
+                                <ul id="honorChartLegend" class="honor-chart-legend" role="list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 14px; padding: 0; list-style: none;">
+                                    <?php foreach ($overview['distinctions'] as $label => $count):
+                                        $dotColor = match(true) {
+                                            str_contains($label, 'Summa') => 'var(--gold, #E8B923)',
+                                            str_contains($label, 'Magna') => 'var(--honor-magna, #265597)',
+                                            str_contains($label, 'Cum Laude') => 'var(--primary-light, #2D9CDB)',
+                                            str_contains($label, 'Insufficient') => 'var(--text-gray, #64748B)',
+                                            default => 'var(--border-color, #94A3B8)',
+                                        };
+                                    ?>
+                                    <li style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-dark);">
+                                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: <?= $dotColor ?>;"></span>
+                                        <span><?= $escape($label) ?>: <strong><?= (int)$count ?></strong></span>
+                                    </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                                <div class="sr-only">
+                                    <table id="honor-chart-summary">
+                                        <caption>Academic Distinction Readiness Summary</caption>
+                                        <thead><tr><th>Category</th><th>Count</th></tr></thead>
+                                        <tbody>
+                                            <?php foreach ($overview['distinctions'] as $label => $count): ?>
+                                                <tr><td><?= $escape($label) ?></td><td><?= (int)$count ?></td></tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- RESTORED: Section Comparison Table -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="table-title" style="margin-bottom: 8px; font-size: 1.1rem; font-weight: 700; color: var(--text-dark);">Section Comparison Table</div>
+                        <p style="font-size: 0.82rem; color: var(--text-gray); margin-bottom: 14px;">Cross-sectional comparison enabling load and academic distribution analysis.</p>
+                        <?php if (empty($overview['sectionData'])): ?>
+                            <p class="empty-state">No section data matches your current filter.</p>
+                        <?php else: ?>
+                        <div class="data-table-scroll table-matrix-wrapper" role="region" aria-label="Section Comparison Table" tabindex="0">
+                            <table class="table-matrix data-table" style="width: 100%; border-collapse: collapse; min-width: 800px;">
+                                <thead>
+                                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                                        <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Section</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Students</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Mean GWA</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--risk-low); white-space: nowrap;">Low</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--risk-mod); white-space: nowrap;">Moderate</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--risk-high); white-space: nowrap;">High</th>
+                                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Coverage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($overview['sectionData'] as $sec => $d):
+                                        $secMean = $d['gwa_count'] > 0 ? number_format($d['gwa_sum'] / $d['gwa_count'], 2) : 'N/A';
+                                        $secCov = $d['total'] > 0 ? number_format(($d['coverage_count'] / $d['total']) * 100, 1) . '%' : '0%';
+                                    ?>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 12px; font-weight: 700; color: var(--accent-blue); white-space: nowrap;"><?= $escape($sec) ?></td>
+                                        <td style="padding: 12px; text-align: center; font-weight: 600;"><?= $d['total'] ?></td>
+                                        <td style="padding: 12px; text-align: center; font-weight: 600;"><?= $secMean ?></td>
+                                        <td style="padding: 12px; text-align: center; color: var(--risk-low); font-weight: 600;"><?= $d['risks']['LOW'] ?></td>
+                                        <td style="padding: 12px; text-align: center; color: var(--risk-mod); font-weight: 600;"><?= $d['risks']['MODERATE'] ?></td>
+                                        <td style="padding: 12px; text-align: center; color: var(--risk-high); font-weight: 600;"><?= $d['risks']['HIGH'] ?></td>
+                                        <td style="padding: 12px; text-align: center;"><?= $secCov ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php else: ?>
+                    <!-- Faculty Overview Workspace -->
                     <section aria-labelledby="analytics-summary-heading">
                         <h2 id="analytics-summary-heading">Recorded academic results</h2>
                         <div id="analytics-summary"></div>
                         <div id="analytics-secondary-summary" class="analytics-secondary-metrics"></div>
                     </section>
-
                     <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
-
-                    <?php if ($role === 'admin'): ?>
-                    <section aria-labelledby="analytics-section-summary-heading">
-                        <h2 id="analytics-section-summary-heading">Section comparison summary</h2>
-                        <p id="section-summary-description" style="color: var(--text-gray); font-size: 0.875rem; margin-bottom: 12px;"></p>
-                        <div class="data-table-scroll" role="region" aria-label="Section comparison data" tabindex="0">
-                            <table id="section-summary-table"></table>
-                        </div>
-                    </section>
                     <?php endif; ?>
 
                     <section aria-labelledby="analytics-method-heading">
@@ -265,6 +538,15 @@ function analyticsPage(string $role): void {
                      aria-labelledby="tab-btn-<?= $role === 'admin' ? 'comparisons' : 'trends' ?>"
                      class="analytics-tab-panel"
                      hidden>
+
+                    <?php if ($role === 'admin'): ?>
+                    <section aria-labelledby="analytics-summary-heading">
+                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
+                        <div id="analytics-summary"></div>
+                    </section>
+                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
+                    <?php endif; ?>
+
                     <section aria-labelledby="analytics-trend-heading">
                         <h2 id="analytics-trend-heading">Historical semester trend</h2>
                         <p id="trend-description"></p>
@@ -314,6 +596,79 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </div>
     </main>
+    <?php if ($role === 'admin' && !empty($overview['sectionData'])): ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Chart === 'undefined') return;
+        function getChartTheme() {
+            const root = getComputedStyle(document.documentElement);
+            return {
+                text: root.getPropertyValue('--text-dark').trim() || '#1e293b',
+                high: root.getPropertyValue('--risk-high').trim() || '#ef4444',
+                mod: root.getPropertyValue('--risk-mod').trim() || '#f59e0b',
+                low: root.getPropertyValue('--risk-low').trim() || '#10b981',
+                none: root.getPropertyValue('--border-color').trim() || '#94a3b8',
+                summa: root.getPropertyValue('--gold').trim() || '#e8b923',
+                magna: '#265597',
+                cumLaude: '#2d9cdb',
+                insufficient: '#64748b'
+            };
+        }
+        const theme = getChartTheme();
+        const secEl = document.getElementById('sectionRiskChart');
+        if (secEl) {
+            new Chart(secEl.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: <?= json_encode($overview['chartSecLabels']) ?>,
+                    datasets: [
+                        { label: 'High Risk', data: <?= json_encode($overview['chartSecHigh']) ?>, backgroundColor: theme.high, stack: 'Stack 0' },
+                        { label: 'Moderate Risk', data: <?= json_encode($overview['chartSecMod']) ?>, backgroundColor: theme.mod, stack: 'Stack 0' },
+                        { label: 'Low Risk', data: <?= json_encode($overview['chartSecLow']) ?>, backgroundColor: theme.low, stack: 'Stack 0' },
+                        { label: 'No Prediction', data: <?= json_encode($overview['chartSecNone']) ?>, backgroundColor: theme.none, stack: 'Stack 0' }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: theme.text } } },
+                    scales: {
+                        x: { stacked: true, max: 100, ticks: { callback: v => v + '%', color: theme.text } },
+                        y: { stacked: true, ticks: { color: theme.text } }
+                    }
+                }
+            });
+        }
+        const honorEl = document.getElementById('honorChart');
+        if (honorEl) {
+            const hLabels = <?= json_encode(array_keys($overview['distinctions'])) ?>;
+            const hCounts = <?= json_encode(array_values($overview['distinctions'])) ?>;
+            const hColors = hLabels.map(l => {
+                if (l.includes('Summa')) return theme.summa;
+                if (l.includes('Magna')) return theme.magna;
+                if (l.includes('Cum Laude')) return theme.cumLaude;
+                if (l.includes('Insufficient')) return theme.insufficient;
+                return theme.none;
+            });
+            new Chart(honorEl.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: hLabels,
+                    datasets: [{ data: hCounts, backgroundColor: hColors, borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    });
+    </script>
+    <?php endif; ?>
     <script src="<?= $escape(BASE_URL) ?>assets/js/academic-analytics.js" defer></script>
     <?php
     require __DIR__ . '/../footer.php';
