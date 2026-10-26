@@ -164,16 +164,98 @@
   box.append(el('p',p.source_label),el('p',`${p.is_provisional?'Provisional · ':''}Completeness: ${p.completeness.replaceAll('_',' ')} · Generated: ${p.generated_at||'Unavailable'}`),el('p',p.range_reason));
  }
 
- function renderComparisonChart(target, groupA, groupB, metric, title){
+ let comparisonMode='overlay';
+ let comparisonCards=[
+  {id:'card-a',dimension:'faculty_subject',key:''},
+  {id:'card-b',dimension:'faculty_subject',key:''}
+ ];
+
+ function getVerifiedFaculty(groups){
+  return (groups['faculty_subject']||[]).filter(g=>
+   !g.key.startsWith('unknown|')&&!g.label.includes('Assignment unavailable')&&!g.label.includes('Historical')
+  );
+ }
+
+ function setComparisonMode(mode){
+  comparisonMode=mode;
+  const btnOverlay=document.getElementById('btn-mode-overlay');
+  const btnCards=document.getElementById('btn-mode-cards');
+  const wrapper=document.getElementById('comparisons-content-wrapper');
+  if(btnOverlay&&btnCards){
+   if(mode==='overlay'){
+    btnOverlay.classList.add('active');
+    btnOverlay.setAttribute('aria-pressed','true');
+    btnCards.classList.remove('active');
+    btnCards.setAttribute('aria-pressed','false');
+    if(wrapper){
+     wrapper.classList.add('mode-overlay');
+     wrapper.classList.remove('mode-cards');
+    }
+   }else{
+    btnCards.classList.add('active');
+    btnCards.setAttribute('aria-pressed','true');
+    btnOverlay.classList.remove('active');
+    btnOverlay.setAttribute('aria-pressed','false');
+    if(wrapper){
+     wrapper.classList.add('mode-cards');
+     wrapper.classList.remove('mode-overlay');
+    }
+   }
+  }
+  renderComparisons();
+ }
+
+ function addComparisonCard(){
+  if(comparisonCards.length>=3)return;
+  const currentDim=comparisonCards[0]?.dimension||document.getElementById('comparison-group')?.value||'faculty_subject';
+  const availableGroups=currentDim==='faculty_subject'?getVerifiedFaculty(report?.groups||{}):(report?.groups[currentDim]||[]);
+  const usedKeys=new Set(comparisonCards.map(c=>c.key));
+  const candidate=availableGroups.find(g=>!usedKeys.has(g.key))||availableGroups[0];
+  comparisonCards.push({
+   id:'card-c',
+   dimension:currentDim,
+   key:candidate?candidate.key:''
+  });
+  renderComparisons();
+  const removeBtn=document.getElementById('remove-card-c');
+  if(removeBtn)removeBtn.focus();
+ }
+
+ function removeComparisonCard(id){
+  comparisonCards=comparisonCards.filter(c=>c.id!==id);
+  renderComparisons();
+  const addBtn=document.getElementById('add-comparison-card-btn');
+  if(addBtn)addBtn.focus();
+ }
+
+ function renderComparisonChart(target, activeItemsOrGroupA, maybeGroupBOrMetric, maybeMetricOrTitle, maybeTitle){
   target.replaceChildren();
-  if(!groupA && !groupB){
+  let activeItems=[];
+  let metric='gwa';
+  let title='Visual Comparison';
+
+  if(Array.isArray(activeItemsOrGroupA)){
+   activeItems=activeItemsOrGroupA;
+   metric=maybeGroupBOrMetric||'gwa';
+   title=maybeMetricOrTitle||'Visual Comparison';
+  }else{
+   const gA=activeItemsOrGroupA;
+   const gB=maybeGroupBOrMetric;
+   if(gA)activeItems.push({card:{dimension:''},group:gA,tag:'Compare A'});
+   if(gB)activeItems.push({card:{dimension:''},group:gB,tag:'Compare B'});
+   metric=maybeMetricOrTitle||'gwa';
+   title=maybeTitle||'Visual Comparison';
+  }
+
+  if(!activeItems.length||activeItems.every(it=>!it.group)){
    target.append(el('p','No comparison records match these filters.'));
    return;
   }
-  const svg=svgEl('svg',{viewBox:'0 0 680 240',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'max-width:100%;height:auto;'});
+
+  const svg=svgEl('svg',{viewBox:'0 0 680 250',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'max-width:100%;height:auto;'});
   svg.append(svgEl('title',{},title),svgEl('desc',{},'Side-by-side visual comparison with matched axis and scale. Exact values appear in the tables below.'));
 
-  const yBottom=190, hPlot=150;
+  const yBottom=190, hPlot=140;
   svg.append(svgEl('line',{x1:60,x2:640,y1:yBottom,y2:yBottom,class:'analytics-axis'}));
 
   if(metric==='gwa'){
@@ -189,7 +271,7 @@
     svg.append(svgEl('text',{x:52,y:y+4,'text-anchor':'end','font-size':'11px'},val+'%'));
    });
   }else{
-   const maxCount=Math.max(10,(groupA?.student_count||0),(groupB?.student_count||0));
+   const maxCount=Math.max(10,...activeItems.map(item=>item.group?.student_count||0));
    const step=Math.ceil(maxCount/4);
    for(let val=0;val<=step*4;val+=step){
     const y=yBottom-(val/(step*4))*hPlot;
@@ -198,9 +280,26 @@
    }
   }
 
-  const renderCol=(group, xCenter, colName, color, isSquare)=>{
+  let centers=[340];
+  if(activeItems.length===2)centers=[220, 460];
+  else if(activeItems.length===3)centers=[160, 340, 520];
+
+  const colWidth=activeItems.length===3?80:110;
+  const colStyles=[
+   {col:'var(--teal, #008080)',shape:'circle',dash:''},
+   {col:'var(--accent-blue, #1e4db7)',shape:'square',dash:'4 2'},
+   {col:'var(--gold, #e8b923)',shape:'triangle',dash:'2 2'}
+  ];
+
+  activeItems.forEach((item, i)=>{
+   const group=item.group;
+   const xCenter=centers[i];
+   const x=xCenter-colWidth/2;
+   const styleInfo=colStyles[i]||colStyles[0];
+   const color=styleInfo.col;
+   const colName=item.tag||('Compare '+['A','B','C'][i]);
    const g=svgEl('g',{tabindex:0});
-   const x=xCenter-55, width=110;
+
    let rawVal=null, valText='Unavailable', isProv=false;
    if(group){
     isProv=group.provisional;
@@ -208,13 +307,13 @@
     else if(metric==='student_count')rawVal=group.student_count;
     else if(metric==='numeric_coverage_pct')rawVal=group.numeric_coverage_pct;
     else if(metric==='final_coverage_pct')rawVal=group.final_coverage_pct;
-    else rawVal=null;
    }
+
    if(rawVal!==null&&rawVal!==undefined){
     let barH=0;
     if(metric==='gwa')barH=Math.max(0,(rawVal-1.0)/3.0*hPlot);
     else if(metric==='student_count'){
-     const maxCount=Math.max(10,(groupA?.student_count||0),(groupB?.student_count||0));
+     const maxCount=Math.max(10,...activeItems.map(it=>it.group?.student_count||0));
      const step=Math.ceil(maxCount/4);
      barH=Math.max(0,(rawVal/(step*4))*hPlot);
     }else{
@@ -222,32 +321,36 @@
     }
     const barY=yBottom-barH;
     valText=(metric==='gwa'?num(rawVal):(metric==='student_count'?rawVal:pct(rawVal)))+(isProv?' (provisional)':'');
-    g.append(svgEl('rect',{x,y:barY,width,height:barH,fill:color,rx:4}));
-    if(isSquare){
-     g.append(svgEl('rect',{x:xCenter-5,y:barY-18,width:10,height:10,fill:color}));
+
+    // Horizontal dashed reference guideline across to Y axis for overlay comparison
+    svg.append(svgEl('line',{x1:60,x2:xCenter,y1:barY,y2:barY,stroke:color,'stroke-dasharray':'2 2','stroke-width':1,opacity:'0.5'}));
+
+    const barAttrs={x,y:barY,width:colWidth,height:barH,fill:color,rx:4};
+    if(styleInfo.dash)barAttrs['stroke-dasharray']=styleInfo.dash;
+    g.append(svgEl('rect',barAttrs));
+
+    if(styleInfo.shape==='square'){
+     g.append(svgEl('rect',{x:xCenter-5,y:barY-18,width:10,height:10,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
+    }else if(styleInfo.shape==='triangle'){
+     g.append(svgEl('polygon',{points:`${xCenter},${barY-18} ${xCenter+6},${barY-8} ${xCenter-6},${barY-8}`,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
     }else{
-     g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:color}));
+     g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:isProv?'none':color,stroke:color,'stroke-width':isProv?1.5:0}));
     }
     g.append(svgEl('text',{x:xCenter,y:barY-24,'text-anchor':'middle','font-weight':'700','font-size':'13px'},metric==='gwa'?num(rawVal):(metric==='student_count'?String(rawVal):pct(rawVal))));
    }else{
     const barH=hPlot*0.25;
     const barY=yBottom-barH;
-    g.append(svgEl('rect',{x,y:barY,width,height:barH,fill:'none',stroke:color,'stroke-dasharray':'4 4','stroke-width':1.5,rx:4}));
-    if(isSquare){
-     g.append(svgEl('rect',{x:xCenter-5,y:barY-18,width:10,height:10,fill:'none',stroke:color,'stroke-width':1.5}));
-    }else{
-     g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:'none',stroke:color,'stroke-width':1.5}));
-    }
+    g.append(svgEl('rect',{x,y:barY,width:colWidth,height:barH,fill:'none',stroke:color,'stroke-dasharray':'4 4','stroke-width':1.5,rx:4}));
+    g.append(svgEl('circle',{cx:xCenter,cy:barY-13,r:5,fill:'none',stroke:color,'stroke-width':1.5}));
     g.append(svgEl('text',{x:xCenter,y:barY-24,'text-anchor':'middle','font-size':'11px',fill:'var(--text-gray)'},'Unavailable'));
    }
+
    const labelText=group?(group.label.length>18?group.label.slice(0,16)+'…':group.label):colName;
    g.append(svgEl('text',{x:xCenter,y:yBottom+20,'text-anchor':'middle','font-weight':'600','font-size':'12px'},colName+': '+labelText));
    g.append(svgEl('title',{},`${colName}: ${group?.label||'None'} - ${valText}`));
    svg.append(g);
-  };
+  });
 
-  renderCol(groupA, 220, 'Compare A', 'var(--teal, #008080)', false);
-  renderCol(groupB, 480, 'Compare B', 'var(--accent-blue, #1e4db7)', true);
   target.append(svg);
  }
 
@@ -264,6 +367,7 @@
   const noticeEl=document.getElementById('comparison-validation-notice');
   const panelA=document.getElementById('panel-compare-a');
   const panelB=document.getElementById('panel-compare-b');
+  const panelC=document.getElementById('panel-compare-c');
   const summaryCard=document.getElementById('comparison-summary-card');
   const chartContainer=document.getElementById('comparison-chart');
   const legendContainer=document.getElementById('comparison-legend');
@@ -271,6 +375,7 @@
   const allGroupsTable=document.getElementById('comparison-table');
   const allGroupsCount=document.getElementById('all-groups-count');
   const descEl=document.getElementById('comparison-description');
+  const addBtn=document.getElementById('add-comparison-card-btn');
 
   const description=`${dimensions[dimension]} · ${groups.length} groups · n=${report.summary.student_count}. Numeric coverage: ${pct(report.summary.numeric_coverage_pct)}. Pooled unit-weighted recorded grades; this is not an arithmetic mean of Student GWAs. `+(['section','faculty_subject'].includes(dimension)&&!report.filters.subject?'Select one subject for a same-subject comparison. ':'')+'Group order is identifier/period order, not a best/worst ranking.';
   if(descEl)descEl.textContent=description;
@@ -291,9 +396,44 @@
   }
   const selectedMetric=metricSelector?.value||'gwa';
 
+  if(addBtn){
+   if(comparisonCards.length>=3){
+    addBtn.disabled=true;
+    addBtn.setAttribute('aria-disabled','true');
+    addBtn.style.opacity='0.5';
+    addBtn.style.cursor='not-allowed';
+    addBtn.title='Maximum of 3 comparison cards reached';
+   }else{
+    addBtn.disabled=false;
+    addBtn.removeAttribute('aria-disabled');
+    addBtn.style.opacity='1';
+    addBtn.style.cursor='pointer';
+    addBtn.title='';
+   }
+  }
+
+  // Resolve groups for each card
+  const activeItems=comparisonCards.map((card, idx)=>{
+   const cardDim=card.dimension||dimension;
+   const candidateGroups=cardDim==='faculty_subject'?getVerifiedFaculty(report.groups):(report.groups[cardDim]||[]);
+   let g=candidateGroups.find(x=>x.key===card.key);
+   if(!g&&candidateGroups.length>0){
+    const pickIdx=Math.min(idx,candidateGroups.length-1);
+    g=candidateGroups[pickIdx];
+    card.key=g.key;
+   }
+   return {
+    card,
+    group:g,
+    tag:'Compare '+['A','B','C'][idx],
+    colClass:['panel-a','panel-b','panel-c'][idx]
+   };
+  });
+
+  // Sync with test compatibility selectA and selectB
   if(selectA&&selectB){
-   const curA=selectA.value;
-   const curB=selectB.value;
+   const curA=comparisonCards[0]?.key||selectA.value;
+   const curB=comparisonCards[1]?.key||selectB.value;
    selectA.replaceChildren();
    selectB.replaceChildren();
    groups.forEach(g=>{
@@ -309,33 +449,32 @@
    }
   }
 
-  const valA=selectA?.value||'';
-  const valB=selectB?.value||'';
+  const valA=comparisonCards[0]?.key||'';
+  const valB=comparisonCards[1]?.key||'';
 
   if(!groups.length){
    if(panelA)panelA.replaceChildren(el('p','No records match these filters.'));
    if(panelB)panelB.replaceChildren(el('p','No records match these filters.'));
+   if(panelC)panelC.replaceChildren(el('p','No records match these filters.'));
    if(summaryCard)summaryCard.replaceChildren(el('p','No comparison records match these filters.'));
    if(chartContainer)chartContainer.replaceChildren(el('p','No comparison records match these filters.'));
    if(legendContainer)legendContainer.replaceChildren();
-   if(sideBySideTable)table(sideBySideTable,['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'],[],'No records match these filters.','Direct metrics for the two selected comparison subjects.');
+   if(sideBySideTable)table(sideBySideTable,['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'],[],'No records match these filters.','Direct metrics for the selected comparison cards.');
    if(allGroupsTable)table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],[],'No records match these filters.',description);
    if(noticeEl)noticeEl.style.display='none';
    return;
   }
 
-  const groupA=groups.find(g=>g.key===valA)||groups[0];
-  const groupB=groups.find(g=>g.key===valB)||(groups.length>1?groups[1]:groups[0]);
-
+  // Notice Handling
   if(noticeEl){
    noticeEl.style.display='none';
-   if(valA===valB&&groups.length>1){
+   if(valA===valB&&activeItems.length>1){
     noticeEl.textContent='Select two different groups to compare.';
     noticeEl.style.display='block';
     noticeEl.style.background='#fffbeb';
     noticeEl.style.border='1px solid #fef3c7';
     noticeEl.style.color='#b45309';
-   }else if(dimension==='faculty_subject'){
+   }else if(comparisonCards[0]?.dimension==='faculty_subject'&&comparisonCards[1]?.dimension==='faculty_subject'){
     const subA=valA.split('|')[1];
     const subB=valB.split('|')[1];
     if(subA&&subB&&subA!==subB){
@@ -345,6 +484,12 @@
      noticeEl.style.border='1px solid #bfdbfe';
      noticeEl.style.color='#1e40af';
     }
+   }else if(comparisonCards[0]?.dimension!==comparisonCards[1]?.dimension){
+    noticeEl.textContent='Context views use different scopes. A direct difference is not calculated.';
+    noticeEl.style.display='block';
+    noticeEl.style.background='var(--bg-hover, #f8fafc)';
+    noticeEl.style.border='1px solid var(--border-color)';
+    noticeEl.style.color='var(--text-gray)';
    }else if(dimension==='subject'){
     noticeEl.textContent='Note: Comparing different subjects provides curricular context. Subject difficulty, credit units, and prior preparation may vary.';
     noticeEl.style.display='block';
@@ -363,7 +508,7 @@
    risk_distribution:'Advisory-risk distribution'
   };
 
-  const renderPanel=(panel, group, tag, colClass)=>{
+  const renderPanel=(panel, card, group, tag, colClass, index)=>{
    if(!panel)return;
    panel.replaceChildren();
    if(!group){
@@ -371,20 +516,66 @@
     return;
    }
    const header=el('div',undefined,{class:'panel-header'});
-   const topRow=el('div',undefined,{style:'display:flex;justify-content:space-between;align-items:flex-start;gap:8px;'});
+   const topRow=el('div',undefined,{style:'display:flex;justify-content:space-between;align-items:center;gap:8px;'});
    const titleBox=el('div');
+   const tagColor=index===0?'var(--teal, #008080)':(index===1?'var(--accent-blue, #1e4db7)':'var(--gold, #e8b923)');
    titleBox.append(
-    el('span',tag,{style:`font-size:0.75rem;font-weight:700;text-transform:uppercase;color:${colClass==='panel-a'?'var(--teal, #008080)':'var(--accent-blue, #1e4db7)'};letter-spacing:0.5px;`}),
-    el('h4',group.label,{class:'panel-title',style:'margin:2px 0 0 0;'})
+    el('span',tag,{style:`font-size:0.75rem;font-weight:700;text-transform:uppercase;color:${tagColor};letter-spacing:0.5px;`})
    );
+
+   const actionsBox=el('div',undefined,{style:'display:flex;align-items:center;gap:6px;'});
+   if(index===2){
+    const removeBtn=el('button','Remove',{type:'button',id:'remove-card-c',class:'btn btn--secondary btn-remove-card',style:'font-size:0.75rem;padding:2px 8px;min-height:28px;line-height:1;','aria-label':'Remove comparison card C'});
+    removeBtn.addEventListener('click',()=>removeComparisonCard('card-c'));
+    actionsBox.append(removeBtn);
+   }
    const statusBadge=el('span',group.provisional?'Provisional data':'Verified complete',{
     style:`font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:12px;${group.provisional?'background:#fef3c7;color:#b45309;':'background:#dcfce7;color:#15803d;'}`
    });
-   topRow.append(titleBox,statusBadge);
-   const periodContext=dimensions[dimension]+(report.filters.school_year?' · S.Y. '+report.filters.school_year:'')+(report.filters.semester?' · Sem '+report.filters.semester:'');
-   header.append(topRow,el('p',periodContext,{class:'panel-sub'}));
+   actionsBox.append(statusBadge);
+   topRow.append(titleBox,actionsBox);
 
-   const metricBox=el('div',undefined,{class:'panel-metric-box'});
+   let cardTitleText=group.label;
+   if(card.dimension==='faculty_subject'&&group.label.includes(' · ')){
+    const [fname,scode]=group.label.split(' · ');
+    cardTitleText=`${fname}'s verified ${scode} assignment`;
+   }else if(card.dimension==='section'){
+    cardTitleText=`Section ${group.label}`;
+   }else if(card.dimension==='year_level'){
+    cardTitleText=`${group.label} cohort`;
+   }
+   const titleEl=el('h4',cardTitleText,{class:'panel-title',style:'margin:6px 0 2px 0;'});
+   const periodContext=dimensions[card.dimension||dimension]+(report.filters.school_year?' · S.Y. '+report.filters.school_year:'')+(report.filters.semester?' · Sem '+report.filters.semester:'');
+   header.append(topRow,titleEl,el('p',periodContext,{class:'panel-sub'}));
+
+   // Card scope selectors
+   const controlsRow=el('div',undefined,{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;'});
+   const dimSelect=el('select',undefined,{class:'filter-select card-dimension-select','aria-label':`${tag} Group by`,style:'font-size:0.8rem;min-height:36px;padding:4px 6px;'});
+   Object.entries(dimensions).forEach(([k,lbl])=>{
+    const opt=el('option',lbl,{value:k});
+    if(k===(card.dimension||dimension))opt.selected=true;
+    dimSelect.append(opt);
+   });
+   dimSelect.addEventListener('change',e=>{
+    card.dimension=e.target.value;
+    card.key='';
+    renderComparisons();
+   });
+
+   const valSelect=el('select',undefined,{class:'filter-select card-group-select','aria-label':`${tag} Select value`,style:'font-size:0.8rem;min-height:36px;padding:4px 6px;'});
+   const availableGroups=card.dimension==='faculty_subject'?getVerifiedFaculty(report.groups):(report.groups[card.dimension]||[]);
+   availableGroups.forEach(g=>{
+    const opt=el('option',g.label,{value:g.key});
+    if(g.key===group.key)opt.selected=true;
+    valSelect.append(opt);
+   });
+   valSelect.addEventListener('change',e=>{
+    card.key=e.target.value;
+    renderComparisons();
+   });
+   controlsRow.append(dimSelect,valSelect);
+
+   const metricBox=el('div',undefined,{class:'panel-metric-box card-metric-box'});
    const metricName=metricLabels[selectedMetric]||'Metric';
    let valStr='Unavailable', subStr='';
    if(selectedMetric==='gwa'){
@@ -407,89 +598,135 @@
     subStr='Advisory-risk distribution is not available in the current group dataset.';
    }
    metricBox.append(
-    el('div',metricName,{class:'panel-metric-label'}),
-    el('div',valStr,{class:'panel-metric-value'}),
-    el('div',subStr,{class:'panel-metric-sub'})
+    el('div',metricName,{class:'panel-metric-label card-metric-label'}),
+    el('div',valStr,{class:'panel-metric-value card-metric-value'}),
+    el('div',subStr,{class:'panel-metric-sub card-metric-sub'})
    );
 
-   const statsDl=el('dl',undefined,{class:'panel-stats'});
+   const statsDl=el('dl',undefined,{class:'panel-stats card-stats'});
    const d1=el('div');d1.append(el('dt','Students (n)'),el('dd',String(group.student_count)));
    const d2=el('div');d2.append(el('dt','Numeric coverage'),el('dd',pct(group.numeric_coverage_pct)));
    const d3=el('div');d3.append(el('dt','Final coverage'),el('dd',pct(group.final_coverage_pct)));
    statsDl.append(d1,d2,d3);
 
    const note=el('p',`Eligible credit units: ${group.eligible_units}. Recorded outcomes: ${group.recorded_outcome_count}.`,{style:'font-size:0.78rem;color:var(--text-gray);margin:0;'});
-   panel.append(header,metricBox,statsDl,note);
+   panel.append(header,controlsRow,metricBox,statsDl,note);
   };
 
-  renderPanel(panelA, groupA, 'Compare A', 'panel-a');
-  renderPanel(panelB, groupB, 'Compare B', 'panel-b');
+  const panelsGrid=document.getElementById('comparison-panels-grid');
+  renderPanel(panelA, activeItems[0]?.card, activeItems[0]?.group, 'Compare A', 'panel-a', 0);
+  renderPanel(panelB, activeItems[1]?.card, activeItems[1]?.group, 'Compare B', 'panel-b', 1);
 
+  if(activeItems.length>=3&&panelC){
+   panelC.style.display='block';
+   if(panelsGrid)panelsGrid.classList.add('has-3-cards');
+   renderPanel(panelC, activeItems[2]?.card, activeItems[2]?.group, 'Compare C', 'panel-c', 2);
+  }else if(panelC){
+   panelC.style.display='none';
+   if(panelsGrid)panelsGrid.classList.remove('has-3-cards');
+  }
+
+  // Summary Card
   if(summaryCard){
    summaryCard.replaceChildren();
    const sumTitle=el('h3','Comparison Summary');
    const pillsRow=el('div',undefined,{style:'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;'});
 
-   let gwaDiffText='Unavailable', neutralCopy='';
-   if(groupA.gwa!==null&&groupB.gwa!==null){
-    const diff=Math.abs(groupA.gwa-groupB.gwa).toFixed(2);
-    gwaDiffText=`Difference: ${diff} grade points`;
-    if(groupA.gwa>groupB.gwa){
-     neutralCopy=`${groupA.label} has a ${diff}-point higher recorded class average for this selected scope.`;
-    }else if(groupB.gwa>groupA.gwa){
-     neutralCopy=`${groupB.label} has a ${diff}-point higher recorded class average for this selected scope.`;
-    }else{
-     neutralCopy=`Both groups have an identical recorded class average (${num(groupA.gwa)}).`;
+   const isComparable=(()=>{
+    if(activeItems.length<2)return false;
+    const firstDim=activeItems[0].card.dimension||dimension;
+    if(!activeItems.every(it=>(it.card.dimension||dimension)===firstDim))return false;
+    if(firstDim==='faculty_subject'){
+     const firstSub=activeItems[0].group?.key?.split('|')[1];
+     if(!activeItems.every(it=>it.group?.key?.split('|')[1]===firstSub))return false;
     }
+    return true;
+   })();
+
+   let neutralCopy='';
+   if(isComparable){
+    const groupA=activeItems[0]?.group;
+    const groupB=activeItems[1]?.group;
+    let gwaDiffText='Unavailable';
+    if(groupA&&groupB&&groupA.gwa!==null&&groupB.gwa!==null){
+     const diff=Math.abs(groupA.gwa-groupB.gwa).toFixed(2);
+     gwaDiffText=`Difference: ${diff} grade points`;
+     neutralCopy=`The recorded-grade averages differ by ${diff} points for the selected common scope.`;
+    }else{
+     neutralCopy='Grade point difference is unavailable because one or both selected groups have pending or provisional grade records.';
+    }
+    const covDiff=Math.abs((groupA?.numeric_coverage_pct||0)-(groupB?.numeric_coverage_pct||0)).toFixed(1);
+    const nDiff=Math.abs((groupA?.student_count||0)-(groupB?.student_count||0));
+
+    pillsRow.append(
+     el('span',gwaDiffText,{class:'diff-pill'}),
+     el('span',`Coverage difference: ${covDiff} percentage points`,{class:'diff-pill'}),
+     el('span',`Student count difference: ${nDiff} students`,{class:'diff-pill'})
+    );
    }else{
-    neutralCopy='Grade point difference is unavailable because one or both selected groups have pending or provisional grade records.';
+    pillsRow.append(el('span','Context views use different scopes. A direct difference is not calculated.',{class:'diff-pill',style:'background:#eff6ff;color:#1e40af;border-color:#bfdbfe;'}));
+    activeItems.forEach(it=>{
+     if(it.group){
+      pillsRow.append(el('span',`${it.tag}: ${it.group.gwa!==null?num(it.group.gwa):'Unavailable'} (n=${it.group.student_count})`,{class:'diff-pill'}));
+     }
+    });
+    neutralCopy='Context views use different scopes. A direct difference is not calculated.';
    }
-
-   const covDiff=Math.abs((groupA.numeric_coverage_pct||0)-(groupB.numeric_coverage_pct||0)).toFixed(1);
-   const nDiff=Math.abs(groupA.student_count-groupB.student_count);
-
-   pillsRow.append(
-    el('span',gwaDiffText,{class:'diff-pill'}),
-    el('span',`Coverage difference: ${covDiff} percentage points`,{class:'diff-pill'}),
-    el('span',`Student count difference: ${nDiff} students`,{class:'diff-pill'})
-   );
 
    const copyP=el('p',neutralCopy,{class:'neutral-copy'});
    const disclaimer=el('p','This comparison provides academic context and does not independently measure teaching performance. Differences may reflect student composition, prior achievement, subject difficulty, class size, record completeness, and semester conditions.',{style:'font-size:0.8rem;color:var(--text-gray);margin:0;line-height:1.45;'});
    summaryCard.append(sumTitle,pillsRow,copyP,disclaimer);
   }
 
-  renderComparisonChart(chartContainer, groupA, groupB, selectedMetric, `${dimensions[dimension]} side-by-side comparison`);
+  // Chart Rendering
+  renderComparisonChart(chartContainer, activeItems, selectedMetric, `${dimensions[dimension]} side-by-side comparison`);
 
+  // Accessible Legend
   if(legendContainer){
    legendContainer.replaceChildren();
    const legA=el('div',undefined,{class:'comparison-legend-item'});
    const svgA=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
    svgA.append(svgEl('circle',{cx:7,cy:7,r:6,fill:'var(--teal, #008080)'}));
-   legA.append(svgA,el('span',`● Compare A: ${groupA.label}`));
+   legA.append(svgA,el('span',`● Compare A: ${activeItems[0]?.group?.label||'None'}`));
 
    const legB=el('div',undefined,{class:'comparison-legend-item'});
    const svgB=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
    svgB.append(svgEl('rect',{x:1,y:1,width:12,height:12,fill:'var(--accent-blue, #1e4db7)'}));
-   legB.append(svgB,el('span',`■ Compare B: ${groupB.label}`));
+   legB.append(svgB,el('span',`■ Compare B: ${activeItems[1]?.group?.label||'None'}`));
 
-   const legC=el('div',undefined,{class:'comparison-legend-item'});
-   const svgC=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
-   svgC.append(svgEl('circle',{cx:7,cy:7,r:5,fill:'none',stroke:'var(--text-gray)','stroke-dasharray':'2 2','stroke-width':1.5}));
-   legC.append(svgC,el('span','○ Incomplete or unavailable period'));
+   legendContainer.append(legA,legB);
 
-   legendContainer.append(legA,legB,legC);
+   if(activeItems.length>=3){
+    const legC=el('div',undefined,{class:'comparison-legend-item'});
+    const svgC=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
+    svgC.append(svgEl('polygon',{points:'7,1 13,13 1,13',fill:'var(--gold, #e8b923)'}));
+    legC.append(svgC,el('span',`▲ Compare C: ${activeItems[2]?.group?.label||'None'}`));
+    legendContainer.append(legC);
+   }
+
+   const legInc=el('div',undefined,{class:'comparison-legend-item'});
+   const svgInc=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'});
+   svgInc.append(svgEl('circle',{cx:7,cy:7,r:5,fill:'none',stroke:'var(--text-gray)','stroke-dasharray':'2 2','stroke-width':1.5}));
+   legInc.append(svgInc,el('span','○ Incomplete or unavailable period'));
+   legendContainer.append(legInc);
   }
 
+  // Exact side-by-side evidence table
   if(sideBySideTable){
    const sbsHeaders=['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'];
-   const sbsRows=[
-    [groupA.label, num(groupA.gwa)+(groupA.provisional?' (provisional)':''), groupA.student_count, `${groupA.eligible_grade_count} / ${groupA.expected_grade_count}`, pct(groupA.numeric_coverage_pct), pct(groupA.final_coverage_pct), groupA.provisional?'Provisional':'Verified complete'],
-    [groupB.label, num(groupB.gwa)+(groupB.provisional?' (provisional)':''), groupB.student_count, `${groupB.eligible_grade_count} / ${groupB.expected_grade_count}`, pct(groupB.numeric_coverage_pct), pct(groupB.final_coverage_pct), groupB.provisional?'Provisional':'Verified complete']
-   ];
-   table(sideBySideTable,sbsHeaders,sbsRows,'No records match these filters.','Direct metrics for the two selected comparison subjects.');
+   const sbsRows=activeItems.filter(it=>it.group).map(it=>[
+    it.group.label,
+    num(it.group.gwa)+(it.group.provisional?' (provisional)':''),
+    it.group.student_count,
+    `${it.group.eligible_grade_count} / ${it.group.expected_grade_count}`,
+    pct(it.group.numeric_coverage_pct),
+    pct(it.group.final_coverage_pct),
+    it.group.provisional?'Provisional':'Verified complete'
+   ]);
+   table(sideBySideTable,sbsHeaders,sbsRows,'No records match these filters.','Direct metrics for the selected comparison cards.');
   }
 
+  // All groups disclosure table
   if(allGroupsTable){
    table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],groups.map(g=>[g.label,num(g.gwa)+(g.provisional?' (provisional)':''),g.student_count,`${g.eligible_grade_count} / ${g.expected_grade_count}`,pct(g.numeric_coverage_pct),pct(g.final_coverage_pct)]),'No records match these filters.',description);
   }
@@ -498,6 +735,106 @@
  function renderSupport(){
   if(!report.support)return;
   const s=report.support;
+
+  // Chart 1: Case & Referral Status
+  const statusContainer=document.getElementById('chart-support-status');
+  if(statusContainer){
+   statusContainer.replaceChildren();
+   const totalCases=(s.open_cases||0)+(s.closed_cases||0);
+   const totalRefs=s.referrals_created||0;
+   const reviewed=s.referrals_reviewed||0;
+   const awaiting=Math.max(0,totalRefs-reviewed);
+   if(totalCases===0&&totalRefs===0){
+    statusContainer.append(el('p','No recorded support cases or referrals match these filters.',{style:'font-size:0.82rem;color:var(--text-gray);padding:10px 0;'}));
+   }else{
+    const svg=svgEl('svg',{viewBox:'0 0 380 150',role:'img','aria-label':'Case and referral status chart',style:'width:100%;height:auto;max-height:160px;'});
+    svg.append(svgEl('title',{},'Support Case and Referral Status'),svgEl('desc',{},'Horizontal comparison showing cases and referrals as separate record units.'));
+    const barW=260;
+    const casesOpenW=totalCases>0?Math.round((s.open_cases/totalCases)*barW):0;
+    const casesClosedW=totalCases>0?barW-casesOpenW:0;
+    svg.append(svgEl('text',{x:10,y:20,'font-size':'12px','font-weight':'600'},`Parent Cases (n=${totalCases})`));
+    if(totalCases>0){
+     if(casesOpenW>0)svg.append(svgEl('rect',{x:10,y:28,width:casesOpenW,height:20,fill:'var(--teal, #008080)',rx:casesClosedW===0?4:0}));
+     if(casesClosedW>0)svg.append(svgEl('rect',{x:10+casesOpenW,y:28,width:casesClosedW,height:20,fill:'var(--accent-blue, #1e4db7)',rx:casesOpenW===0?4:0}));
+     svg.append(svgEl('text',{x:280,y:43,'font-size':'11px','font-weight':'500'},`${s.open_cases} Open · ${s.closed_cases} Closed`));
+    }else{
+     svg.append(svgEl('rect',{x:10,y:28,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
+     svg.append(svgEl('text',{x:15,y:42,'font-size':'11px',fill:'var(--text-gray)'},'No recorded cases'));
+    }
+    const refsRevW=totalRefs>0?Math.round((reviewed/totalRefs)*barW):0;
+    const refsAwtW=totalRefs>0?barW-refsRevW:0;
+    svg.append(svgEl('text',{x:10,y:80,'font-size':'12px','font-weight':'600'},`Referrals (n=${totalRefs})`));
+    if(totalRefs>0){
+     if(refsRevW>0)svg.append(svgEl('rect',{x:10,y:88,width:refsRevW,height:20,fill:'var(--teal, #008080)',rx:refsAwtW===0?4:0}));
+     if(refsAwtW>0)svg.append(svgEl('rect',{x:10+refsRevW,y:88,width:refsAwtW,height:20,fill:'#f59e0b',rx:refsRevW===0?4:0}));
+     svg.append(svgEl('text',{x:280,y:103,'font-size':'11px','font-weight':'500'},`${reviewed} Rev · ${awaiting} Awaiting`));
+    }else{
+     svg.append(svgEl('rect',{x:10,y:88,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
+     svg.append(svgEl('text',{x:15,y:102,'font-size':'11px',fill:'var(--text-gray)'},'No recorded referrals'));
+    }
+    svg.append(
+     svgEl('circle',{cx:16,cy:132,r:4,fill:'var(--teal, #008080)'}),
+     svgEl('text',{x:26,y:136,'font-size':'10px'},'Open / Reviewed'),
+     svgEl('circle',{cx:125,cy:132,r:4,fill:'var(--accent-blue, #1e4db7)'}),
+     svgEl('text',{x:135,y:136,'font-size':'10px'},'Closed Case'),
+     svgEl('circle',{cx:215,cy:132,r:4,fill:'#f59e0b'}),
+     svgEl('text',{x:225,y:136,'font-size':'10px'},'Awaiting Review')
+    );
+    statusContainer.append(svg);
+   }
+  }
+
+  // Chart 2: Notice & Acknowledgment Flow
+  const flowContainer=document.getElementById('chart-notice-flow');
+  if(flowContainer){
+   flowContainer.replaceChildren();
+   const svg=svgEl('svg',{viewBox:'0 0 380 150',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:160px;'});
+   svg.append(svgEl('title',{},'Notice and Receipt Flow'),svgEl('desc',{},'Progression from created referrals to issued notices and recorded receipt acknowledgments.'));
+   const nodeW=95, nodeH=54;
+   svg.append(svgEl('rect',{x:10,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:6}));
+   svg.append(svgEl('text',{x:10+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'REFERRALS'));
+   svg.append(svgEl('text',{x:10+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700'},String(s.referrals_created||0)));
+   svg.append(svgEl('path',{d:'M115 47 L132 47 M128 42 L134 47 L128 52',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+   svg.append(svgEl('rect',{x:142,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:6}));
+   svg.append(svgEl('text',{x:142+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'NOTICES ISSUED'));
+   svg.append(svgEl('text',{x:142+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700'},String(s.notices_issued||0)));
+   svg.append(svgEl('path',{d:'M247 47 L264 47 M260 42 L266 47 L260 52',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+   svg.append(svgEl('rect',{x:274,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--teal, #008080)',rx:6}));
+   svg.append(svgEl('text',{x:274+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--teal, #008080)'},'RECEIPT ACKNOWLEDGED'));
+   svg.append(svgEl('text',{x:274+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
+   svg.append(svgEl('text',{x:10,y:105,'font-size':'10.5px',fill:'var(--text-gray)'},'MTR-19 is a bounded count of recorded student receipts.'));
+   svg.append(svgEl('text',{x:10,y:122,'font-size':'10.5px',fill:'var(--text-gray)'},'Does not prove causal impact on subsequent academic outcomes.'));
+   flowContainer.append(svg);
+  }
+
+  // Chart 3: First-Notice Timing
+  const timingContainer=document.getElementById('chart-first-notice');
+  if(timingContainer){
+   timingContainer.replaceChildren();
+   const timingBox=el('div');
+   const titleMtr20=el('div','AVERAGE TIME BEFORE FIRST NOTICE (MTR-20)',{style:'font-size:0.75rem;font-weight:700;color:var(--text-gray);letter-spacing:0.4px;margin-bottom:4px;'});
+   let valStr='Unavailable', sampleStr=formatSampleSize(s.first_action_sample);
+   if(s.mean_first_action_hours!==null){
+    valStr=formatDurationHours(s.mean_first_action_hours);
+   }
+   const valEl=el('div',valStr,{style:'font-size:1.6rem;font-weight:700;color:var(--text-dark);line-height:1.2;'});
+   const sampleEl=el('div',sampleStr,{style:'font-size:0.78rem;color:var(--text-gray);margin-top:2px;'});
+   timingBox.append(titleMtr20,valEl,sampleEl);
+   if(s.first_action_sample>0&&s.first_action_sample<3){
+    timingBox.append(el('div',`Very limited sample (n=${s.first_action_sample}). Interpret cautiously.`,{
+     role:'status',
+     style:'margin-top:6px;padding:4px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;font-size:0.75rem;color:#b45309;font-weight:600;'
+    }));
+   }
+   const divider=el('hr',undefined,{style:'margin:10px 0;border:0;border-top:1px dashed var(--border-color);'});
+   const titleParent=el('div','MEDIAN PARENT-CASE DURATION',{style:'font-size:0.75rem;font-weight:700;color:var(--text-gray);letter-spacing:0.4px;margin-bottom:4px;'});
+   const valParentStr=s.median_closure_hours!==null?`${num(s.median_closure_hours)} hours (n=${s.closure_sample})`:'Unavailable';
+   const valParentEl=el('div',valParentStr,{style:'font-size:1.15rem;font-weight:700;color:var(--text-dark);'});
+   const subParentEl=el('div','Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:2px;line-height:1.35;'});
+   timingBox.append(divider,titleParent,valParentEl,subParentEl);
+   timingContainer.append(timingBox);
+  }
+
   const names={eligible_cases:'Recorded eligible cases',referrals_created:'Referrals created',referrals_reviewed:'Referrals with recorded review status',notices_issued:'Notices issued',notices_deferred:'Notices deferred',student_acknowledgments:'Recorded Student receipt acknowledgments (count)',open_cases:'Open cases',closed_cases:'Closed cases',mean_first_action_hours:'Average time before the first notice',median_closure_hours:'Median recorded parent-case closed duration (limited indicator)'};
   const rows=Object.entries(names).map(([key,label])=>{
    let value=s[key]===null?'Unavailable':String(s[key]);
@@ -735,10 +1072,29 @@
  });
 
  form.addEventListener('change',()=>updateAdvancedFiltersBadge());
- document.getElementById('comparison-group')?.addEventListener('change',renderComparisons);
+ document.getElementById('btn-mode-overlay')?.addEventListener('click',()=>setComparisonMode('overlay'));
+ document.getElementById('btn-mode-cards')?.addEventListener('click',()=>setComparisonMode('cards'));
+ document.getElementById('add-comparison-card-btn')?.addEventListener('click',addComparisonCard);
+ document.getElementById('comparison-group')?.addEventListener('change',e=>{
+  const newDim=e.target.value;
+  comparisonCards.forEach(c=>{c.dimension=newDim;c.key='';});
+  renderComparisons();
+ });
  document.getElementById('comparison-metric')?.addEventListener('change',renderComparisons);
- document.getElementById('compare-a')?.addEventListener('change',renderComparisons);
- document.getElementById('compare-b')?.addEventListener('change',renderComparisons);
+ document.getElementById('compare-a')?.addEventListener('change',e=>{
+  if(comparisonCards[0]){
+   comparisonCards[0].key=e.target.value;
+   comparisonCards[0].dimension=document.getElementById('comparison-group')?.value||'faculty_subject';
+  }
+  renderComparisons();
+ });
+ document.getElementById('compare-b')?.addEventListener('change',e=>{
+  if(comparisonCards[1]){
+   comparisonCards[1].key=e.target.value;
+   comparisonCards[1].dimension=document.getElementById('comparison-group')?.value||'faculty_subject';
+  }
+  renderComparisons();
+ });
 
  setupTabs();
  load(new URLSearchParams(location.search));

@@ -557,33 +557,22 @@ function analyticsPage(string $role): void {
                     </section>
 
                     <section aria-labelledby="analytics-comparison-heading" class="comparison-builder-section">
-                        <h2 id="analytics-comparison-heading">Academic comparisons</h2>
-                        <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 0; margin-bottom: 20px;">
-                            Side-by-side comparison builder evaluating cohorts, subjects, sections, or faculty assignments on shared scales.
-                        </p>
-
-                        <!-- COMPARISON BUILDER CONTROLS -->
-                        <div class="card comparison-controls-card" style="padding: 18px 22px; margin-bottom: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px;">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; align-items: flex-end;">
-                                <div>
-                                    <label for="comparison-group" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
-                                        Comparison type
-                                    </label>
-                                    <select id="comparison-group" class="filter-select" aria-label="Comparison view" style="width: 100%;">
-                                        <option value="semester">Semester</option>
-                                        <option value="school_year">School year</option>
-                                        <option value="year_level">Curriculum year</option>
-                                        <option value="subject">Subject</option>
-                                        <option value="section">Section</option>
-                                        <option value="faculty_subject">Faculty assignment</option>
-                                    </select>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+                            <div>
+                                <h2 id="analytics-comparison-heading" style="margin: 0 0 4px 0;">Academic comparisons</h2>
+                                <p style="color: var(--text-gray); font-size: 0.9rem; margin: 0;">
+                                    Side-by-side comparison cards evaluating cohorts, sections, subjects, or verified faculty assignments.
+                                </p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div class="comparison-mode-toggle" role="group" aria-label="Comparison display mode" style="display: inline-flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: var(--bg-hover);">
+                                    <button type="button" id="btn-mode-overlay" class="mode-toggle-btn active" aria-pressed="true" style="padding: 8px 14px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: var(--accent-blue); color: #fff; font-family: inherit;">Overlay chart</button>
+                                    <button type="button" id="btn-mode-cards" class="mode-toggle-btn" aria-pressed="false" style="padding: 8px 14px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-dark); font-family: inherit;">Separate cards</button>
                                 </div>
-                                <div>
-                                    <label for="comparison-metric" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
-                                        Metric
-                                    </label>
-                                    <select id="comparison-metric" class="filter-select" aria-label="Comparison metric" style="width: 100%;">
-                                        <option value="gwa">Recorded class average</option>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label for="comparison-metric" style="font-weight: 600; font-size: 0.85rem; color: var(--text-dark); margin: 0;">Metric:</label>
+                                    <select id="comparison-metric" class="filter-select" aria-label="Comparison metric" style="min-width: 200px;">
+                                        <option value="gwa">Recorded-grade average</option>
                                         <option value="student_count">Student count</option>
                                         <option value="numeric_coverage_pct">Numeric grade coverage</option>
                                         <option value="final_coverage_pct">Final-outcome coverage</option>
@@ -591,53 +580,78 @@ function analyticsPage(string $role): void {
                                         <option value="risk_distribution">Advisory-risk distribution</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="compare-a" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
-                                        Compare A
-                                    </label>
-                                    <select id="compare-a" class="filter-select" aria-label="Compare group A" style="width: 100%;">
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="compare-b" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-dark);">
-                                        Compare B
-                                    </label>
-                                    <select id="compare-b" class="filter-select" aria-label="Compare group B" style="width: 100%;">
-                                    </select>
-                                </div>
+                                <button type="button" id="add-comparison-card-btn" class="btn btn--secondary" style="font-size: 0.85rem; font-weight: 600; min-height: 40px; display: inline-flex; align-items: center; gap: 6px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    Add comparison
+                                </button>
                             </div>
-                            <p id="comparison-description" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 0 0;"></p>
                         </div>
 
-                        <!-- VALIDATION / SCOPE NOTICE -->
+                        <!-- OTHER COMPARISON OPTIONS DISCLOSURE (Advanced options & backward compatibility) -->
+                        <details id="other-comparisons-disclosure" class="card" open style="padding: 12px 18px; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card);">
+                            <summary style="font-weight: 600; font-size: 0.85rem; color: var(--accent-blue); cursor: pointer; outline: none; user-select: none;">
+                                Other comparison options &amp; global view
+                            </summary>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; margin-top: 14px; align-items: flex-end;">
+                                <div>
+                                    <label for="comparison-group" style="display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-dark);">
+                                        Quick comparison preset
+                                    </label>
+                                    <select id="comparison-group" class="filter-select" aria-label="Comparison view" style="width: 100%;">
+                                        <option value="faculty_subject">Faculty assignment</option>
+                                        <option value="subject">Subject</option>
+                                        <option value="section">Section</option>
+                                        <option value="year_level">Curriculum year</option>
+                                        <option value="semester">Semester</option>
+                                        <option value="school_year">School year</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="compare-a" style="display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-dark);">
+                                        Compare group A
+                                    </label>
+                                    <select id="compare-a" class="filter-select" aria-label="Compare group A" style="width: 100%;"></select>
+                                </div>
+                                <div>
+                                    <label for="compare-b" style="display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-dark);">
+                                        Compare group B
+                                    </label>
+                                    <select id="compare-b" class="filter-select" aria-label="Compare group B" style="width: 100%;"></select>
+                                </div>
+                            </div>
+                            <p id="comparison-description" style="font-size: 0.8rem; color: var(--text-gray); margin: 10px 0 0 0;"></p>
+                        </details>
+
+                        <!-- VALIDATION / NOTICE BANNER -->
                         <div id="comparison-validation-notice" role="alert" style="display: none; margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 500;"></div>
 
-                        <!-- SIDE-BY-SIDE PANELS -->
-                        <div id="comparison-panels-grid" class="comparison-panels-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px; margin-bottom: 24px;">
-                            <div id="panel-compare-a" class="card comparison-panel panel-a" style="padding: 20px 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                        <div id="comparisons-content-wrapper" class="mode-overlay">
+                            <!-- OVERLAID VISUAL CHART CARD (Prominent in overlay mode) -->
+                            <div id="comparison-chart-card" class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                                <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
+                                <p style="margin: 0 0 16px 0; font-size: 0.82rem; color: var(--text-gray);">Overlay comparison rendered on identical axes and scale.</p>
+                                <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 12px;"></div>
+                                <div id="comparison-legend" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 10px;"></div>
                             </div>
-                            <div id="panel-compare-b" class="card comparison-panel panel-b" style="padding: 20px 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+
+                            <!-- NEUTRAL COMPARISON SUMMARY -->
+                            <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 10px;">
                             </div>
-                        </div>
 
-                        <!-- NEUTRAL COMPARISON SUMMARY -->
-                        <div id="comparison-summary-card" class="comparison-summary-card" style="padding: 18px 24px; margin-bottom: 24px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 10px;">
-                        </div>
+                            <!-- COMPARISON PANELS / CARDS GRID (2 default, 3 max) -->
+                            <div id="comparison-panels-grid" class="comparison-cards-grid" style="margin-bottom: 24px;">
+                                <div id="panel-compare-a" class="comparison-panel comparison-card panel-a card-a"></div>
+                                <div id="panel-compare-b" class="comparison-panel comparison-card panel-b card-b"></div>
+                                <div id="panel-compare-c" class="comparison-panel comparison-card panel-c card-c" style="display: none;"></div>
+                            </div>
 
-                        <!-- VISUAL CHART WITH EQUAL AXIS & SCALE -->
-                        <div class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
-                            <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
-                            <p style="margin: 0 0 16px 0; font-size: 0.82rem; color: var(--text-gray);">Side-by-side metric comparison rendered on identical axes and scales.</p>
-                            <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 12px;"></div>
-                            <div id="comparison-legend" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 10px;"></div>
-                        </div>
-
-                        <!-- EXACT VALUES TABLE FOR SELECTED GROUPS -->
-                        <div class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
-                            <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Comparison Evidence</h3>
-                            <p style="margin: 0 0 14px 0; font-size: 0.82rem; color: var(--text-gray);">Exact metrics for the selected comparison subjects.</p>
-                            <div class="data-table-scroll" role="region" aria-label="Two group comparison evidence" tabindex="0">
-                                <table id="side-by-side-table" class="data-table" style="width: 100%;"></table>
+                            <!-- EXACT VALUES TABLE FOR SELECTED GROUPS -->
+                            <div class="card comparison-evidence-card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card);">
+                                <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Comparison Evidence</h3>
+                                <p style="margin: 0 0 14px 0; font-size: 0.82rem; color: var(--text-gray);">Exact metrics for the selected comparison cards.</p>
+                                <div class="data-table-scroll" role="region" aria-label="Two group comparison evidence" tabindex="0">
+                                    <table id="side-by-side-table" class="data-table" style="width: 100%;"></table>
+                                </div>
                             </div>
                         </div>
 
@@ -667,8 +681,41 @@ function analyticsPage(string $role): void {
                      class="analytics-tab-panel"
                      hidden>
                     <section aria-labelledby="analytics-support-heading">
-                        <h2 id="analytics-support-heading">Support review summary</h2>
-                        <p>Recorded cases and referrals support follow-up. Counts do not prove that an intervention caused a grade change.</p>
+                        <h2 id="analytics-support-heading" style="margin-bottom: 4px;">Support review summary</h2>
+                        <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 0; margin-bottom: 20px;">
+                            Recorded cases and referrals support follow-up. Counts do not prove that an intervention caused a grade change.
+                        </p>
+
+                        <!-- VISUAL SUPPORT CHARTS (Part 7) -->
+                        <div class="support-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; margin-bottom: 24px;">
+                            <!-- Chart 1: Case & Referral Status -->
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">Case &amp; Referral Status</h3>
+                                    <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">Parent cases and referrals represent separate record units.</p>
+                                </div>
+                                <div id="chart-support-status" class="analytics-chart" style="padding: 0;"></div>
+                            </div>
+
+                            <!-- Chart 2: Notice & Acknowledgment Flow -->
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">Notice &amp; Acknowledgment Flow</h3>
+                                    <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">Bounded count of recorded receipt acknowledgments.</p>
+                                </div>
+                                <div id="chart-notice-flow" class="analytics-chart" style="padding: 0;"></div>
+                            </div>
+
+                            <!-- Chart 3: First-Notice Timing -->
+                            <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-card); display: flex; flex-direction: column; justify-content: space-between;">
+                                <div>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">First-Notice Timing</h3>
+                                    <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: var(--text-gray);">From referral creation to the first recorded notice.</p>
+                                </div>
+                                <div id="chart-first-notice" style="padding: 0;"></div>
+                            </div>
+                        </div>
+
                         <div class="data-table-scroll" role="region" aria-label="Support summary data" tabindex="0">
                             <table id="support-table"></table>
                         </div>

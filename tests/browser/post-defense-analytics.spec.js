@@ -286,6 +286,92 @@ test('Advanced filters progressive disclosure exposes curriculum year and facult
  await expect(page.locator('#analytics-advanced-badge')).toBeVisible();
 });
 
+test('Academic comparisons supports overlay mode, cards mode, 3-card lifecycle, and contextual scope notice',async({page})=>{
+ await login(page,'admin');
+ await page.getByRole('tab',{name:'Academic Comparisons'}).click();
+
+ // 1. Two cards by default
+ await expect(page.locator('#panel-compare-a')).toBeVisible();
+ await expect(page.locator('#panel-compare-b')).toBeVisible();
+ await expect(page.locator('#panel-compare-c')).toBeHidden();
+
+ // 2. Default mode is Overlay chart
+ const btnOverlay=page.locator('#btn-mode-overlay');
+ const btnCards=page.locator('#btn-mode-cards');
+ await expect(btnOverlay).toHaveClass(/active/);
+ await expect(btnOverlay).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-overlay/);
+
+ // 3. Add 3rd card
+ const addBtn=page.locator('#add-comparison-card-btn');
+ await expect(addBtn).toBeEnabled();
+ await addBtn.click();
+ await expect(page.locator('#panel-compare-c')).toBeVisible();
+ await expect(page.locator('#comparison-legend')).toContainText('Compare C');
+ await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(3);
+
+ // 4. 4th card prohibited (button disabled)
+ await expect(addBtn).toBeDisabled();
+ await expect(addBtn).toHaveAttribute('aria-disabled','true');
+
+ // 5. Switch to Separate cards mode and verify state preserved
+ await btnCards.click();
+ await expect(btnCards).toHaveClass(/active/);
+ await expect(btnCards).toHaveAttribute('aria-pressed','true');
+ await expect(btnOverlay).not.toHaveClass(/active/);
+ await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-cards/);
+ await expect(page.locator('#panel-compare-c')).toBeVisible();
+ await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(3);
+
+ // 6. Remove 3rd card
+ const removeBtn=page.locator('#remove-card-c');
+ await expect(removeBtn).toBeVisible();
+ await removeBtn.click();
+ await expect(page.locator('#panel-compare-c')).toBeHidden();
+ await expect(page.locator('#side-by-side-table tbody tr')).toHaveCount(2);
+ await expect(addBtn).toBeEnabled();
+
+ // 7. Switch back to Overlay mode
+ await btnOverlay.click();
+ await expect(btnOverlay).toHaveClass(/active/);
+ await expect(page.locator('#comparisons-content-wrapper')).toHaveClass(/mode-overlay/);
+
+ // 8. Contextual scope notice when comparing different scopes
+ const cardADim=page.locator('#panel-compare-a .card-dimension-select');
+ const cardBDim=page.locator('#panel-compare-b .card-dimension-select');
+ await cardADim.selectOption('subject');
+ await cardBDim.selectOption('faculty_subject');
+ await expect(page.locator('#comparison-summary-card')).toContainText('Context views use different scopes. A direct difference is not calculated.');
+});
+
+test('Support and Interventions tab renders visual status, notice flow, timing cards, and disclaimers',async({page})=>{
+ await login(page,'admin');
+ await page.getByRole('tab',{name:'Support & Interventions'}).click();
+
+ // Visual charts exist
+ await expect(page.locator('#chart-support-status svg')).toBeVisible();
+ await expect(page.locator('#chart-notice-flow svg')).toBeVisible();
+ await expect(page.locator('#chart-first-notice')).toBeVisible();
+
+ // Chart contents and truthful metrics
+ await expect(page.locator('#chart-support-status')).toContainText('Parent Cases');
+ await expect(page.locator('#chart-support-status')).toContainText('Referrals');
+ await expect(page.locator('#chart-notice-flow')).toContainText('REFERRALS');
+ await expect(page.locator('#chart-notice-flow')).toContainText('NOTICES ISSUED');
+ await expect(page.locator('#chart-notice-flow')).toContainText('RECEIPT ACKNOWLEDGED');
+ await expect(page.locator('#chart-notice-flow')).toContainText('MTR-19 is a bounded count of recorded student receipts');
+
+ // Timing card
+ await expect(page.locator('#chart-first-notice')).toContainText('AVERAGE TIME BEFORE FIRST NOTICE');
+ await expect(page.locator('#chart-first-notice')).toContainText('MEDIAN PARENT-CASE DURATION');
+ await expect(page.locator('#chart-first-notice')).toContainText('Limited indicator for currently closed parent support cases');
+
+ // Preserved evidence tables below
+ await expect(page.locator('#support-table')).toBeVisible();
+ await expect(page.locator('#support-limits')).toBeVisible();
+ await expect(page.locator('#drilldown-table')).toBeVisible();
+});
+
 // Owner instruction, 26 October 2026: desktop only; no further mobile tests or screenshots.
 for(const role of ['student','admin','faculty'])for(const [width,height] of [[1440,900],[1024,768],[1280,600]])for(const theme of ['light','dark']){
  test(`${role} ${width}x${height} ${theme} remains readable and contained`,async({page})=>{
