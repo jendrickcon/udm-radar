@@ -1,6 +1,6 @@
 # Post-Defense Implementation Status Ledger — UDM-RADAR
 
-**Document version:** 1.2 final reconciliation and independent-review record, 26 October 2026
+**Document version:** 1.3 post-merge deployment record, 26 October 2026
 **Accepted implementation base:** `a79fb4838c5e2bc163cf943cda20afba9946d26b`
 **Integrated continuity baseline:** `e8d72a6d487444dcc6b5d11b1e0824376d7e8015` (PR #61, MERGED)
 **Active implementation owner / single writer:** Sol
@@ -8,6 +8,9 @@
 **Feature branch:** `feat/post-defense-analytics-mvp`
 **Original checkpoint:** `554312cbef2efab9c0b574cef18f518be2b3b6d6`
 **Safety reference:** `backup/post-defense-analytics-mvp-pre-continuity` at the original checkpoint.
+**Certified feature head:** `03c3d31efe66d376869d5955fe2e57b48cca7bb0`
+**Merged analytics:** [PR #62](https://github.com/jendrickcon/udm-radar/pull/62), merge commit `edef1b382b7874af770feb5713c20e9b68979241`
+**External Stage B verdict:** APPROVED FOR OWNER MERGE REVIEW; post-merge gate: MERGED TREE MATCHES CERTIFIED IMPLEMENTATION.
 
 ## Ledger purpose and governance
 
@@ -20,14 +23,14 @@ The canonical vocabulary is NOT STARTED → IN PROGRESS → MVP COMPLETE → VER
 | Phase | Scope / metric IDs | Status | Local evidence | Independent review | Publication |
 |---|---|---|---|---|---|
 | 0 | Continuity knowledge package, 18 files | MERGED | PR #61 at e8d72a6 | Canonical history | MERGED |
-| 1 | Prediction clarity, MTR-06–08 | MVP COMPLETE | UI/source/risk contract tested; MTR-07 BLOCKED | APPROVED WITH LIMITATIONS | UNMERGED |
-| 2 | Student progression, MTR-01–05 | MVP COMPLETE | Recorded-term representative tested; canonical differences in matrix | APPROVED WITH LIMITATIONS | UNMERGED |
-| 3 | Administrator aggregates/coverage, MTR-09–16 | MVP COMPLETE | Scoped weighted recorded-grade comparisons tested; limited canonical equivalence | APPROVED WITH LIMITATIONS | UNMERGED |
-| 4 | Support counts/durations, MTR-17–21 | MVP COMPLETE | Count/drill-down and canonical MTR-20 mean tested; MTR-21 PLANNED / BLOCKED | APPROVED WITH LIMITATIONS | UNMERGED |
-| 5 | Focused assigned Faculty view, MTR-12–14,17–20 | MVP COMPLETE | Current assigned scope and own referral tests | APPROVED WITH LIMITATIONS | UNMERGED |
+| 1 | Prediction clarity, MTR-06–08 | MERGED | UI/source/risk contract tested; MTR-07 BLOCKED | Stage B approved with documented limitations | MERGED, PR #62 |
+| 2 | Student progression, MTR-01–05 | MERGED | Recorded-term representative tested; canonical differences in matrix | Stage B approved with documented limitations | MERGED, PR #62 |
+| 3 | Administrator aggregates/coverage, MTR-09–16 | MERGED | Scoped weighted recorded-grade comparisons tested; limited canonical equivalence | Stage B approved with documented limitations | MERGED, PR #62 |
+| 4 | Support counts/durations, MTR-17–21 | MERGED | Count/drill-down and canonical MTR-20 mean tested; MTR-21 PLANNED / BLOCKED | Stage B approved with documented limitations | MERGED, PR #62 |
+| 5 | Focused assigned Faculty view, MTR-12–14,17–20 | MERGED | Current assigned scope and own referral tests | Stage B approved with documented limitations | MERGED, PR #62 |
 | 6 | Final chart/manuscript assets | DEFERRED | No final refinement/publication package | NOT RUN | UNMERGED |
 
-MVP COMPLETE refers only to the bounded five-package request, not fulfillment of every later canonical FR or MTR. No analytics phase is MERGED or VERIFIED. Actual metric-level status and differences are in [14_METRIC_RECONCILIATION.md](14_METRIC_RECONCILIATION.md).
+MERGED refers only to the bounded five-package implementation accepted in PR #62, not fulfillment of every later canonical FR or MTR. Phase 6 remains DEFERRED. Actual metric-level status and differences are in [14_METRIC_RECONCILIATION.md](14_METRIC_RECONCILIATION.md); the merge does not promote blocked metrics or remove documented limitations.
 
 ## Metric inventory and authority
 
@@ -56,11 +59,17 @@ Evidence: `logs/post-defense-mvp/{post_defense_analytics_test.log,integration-fi
 
 Fresh reconciliation results: 85 analytics unit + seven DDL-contract + seven timestamp regressions; 44 SQL checks; 512 existing PHP checks; 29 feature desktop cases (27 real application, two controlled mocked error/race); six Faculty generated/source cases; 20 generated desktop calculator/GWA cases. Canonical-equivalent isolated-copy baseline: three Admin focus cases and ten Student fixture cases passed. All completed acceptance runs: zero failures/skips. PHP lint 21 files, JS syntax three files, whitespace/protected diffs passed. Controlled failure-path runs intentionally exited 1 and proved cleanup after state-write and early-server-exit failure. Actual independent initial review found two HIGH/six MEDIUM; all eight corrections are closed by the separate reviewer's follow-up at correction commit 63c2296f19c5ea0df99860c66f27cc196938d366. Final verdict: APPROVED WITH DOCUMENTED NON-BLOCKING LIMITATIONS. See 15_RECONCILIATION_VERIFICATION.md, 16_INDEPENDENT_REVIEW_FOLLOWUP.md and ignored logs/analytics-reconciliation. This is internal reconciliation review; external Antigravity Stage B remains separate.
 
-## Data and publication boundary
+## Reconciliation boundary and subsequent publication
 
-Only newly generated provenance-guarded disposable analytics databases may be created/removed; neither udm_radar nor udm_radar_scratch is an authorized connection target, even read-only. No existing temporary schema may be reused. Canonical checkout, Apache, protected model/dump, migrations/seeds, authentication policy, private templates, manuscripts, recovery/member archives and dependencies remain outside scope. The owner subsequently authorized read-only database/udm_radar.sql access solely for accepted CREATE TABLE definitions into a newly owned temporary schema. Record exact DDL sections/hash, provenance, synthetic-only imports, byte-identical source and verified cleanup. No existing database connection is permitted.
+During reconciliation, only newly generated provenance-guarded disposable analytics databases were authorized; neither udm_radar nor udm_radar_scratch was an authorized connection target, even read-only. The owner authorized read-only database/udm_radar.sql access solely for accepted CREATE TABLE definitions into a newly owned temporary schema. Exact DDL sections/hash, provenance, synthetic-only imports, byte-identical source and verified cleanup remain recorded. Protected model/dump, migrations/seeds, authentication policy, private templates, manuscripts, recovery/member archives and dependencies were preserved.
 
-No push, PR, merge to main or deployment. A normal merge of origin/main into this feature branch is authorized and does not publish the implementation. Integration method: --no-commit --no-ff; the only conflict is this status ledger, reconciled by preserving governance, all phases/metrics and truthful local evidence.
+The reconciliation package did not authorize publication. Its continuity integration used --no-commit --no-ff and reconciled this status ledger without discarding either side's evidence. Subsequent explicit owner authorization permitted feature publication and the normal merge of PR #62. Antigravity accepted the merged tree as identical to the certified implementation.
+
+## Canonical local deployment verification
+
+The separately authorized deployment package fast-forwarded canonical local main to `edef1b382b7874af770feb5713c20e9b68979241`. Read-only served checks at `http://localhost/capstone/` passed for existing approved synthetic/demo Student, Faculty and Administrator accounts, including record scope, filters, safe unavailable states and authorized drill-down. The existing Apache database target was preserved: manual served checks read udm_radar_scratch; they performed no database writes. Automated checks used only a newly owned disposable analytics database, verified deleted afterward, and accessed neither existing database. This is local prototype verification, not institutional UAT, genuine-record validation or production acceptance.
+
+Focused desktop, PHP regression, SQL integration and syntax checks passed from merged canonical source. The only separately authorized routing adjustment appended `DirectoryIndex login.php` to the existing ignored local .htaccess, preserving all prior directives and database settings; both root and direct login URLs returned 200. No global Apache change/restart, migration, model/dependency change, mobile test or screenshot occurred. Independent deployment acceptance remains pending. The feature branch/worktree remains preserved; this documentation update is a separate reviewable PR and must not be merged automatically.
 
 ## Owner instruction retained verbatim
 
@@ -75,4 +84,4 @@ Desktop verification only: 1440×900, 1024×768, 1280×600, both supported theme
 
 No accepted residual set; no dated historical Faculty loads/section membership; no explicit notice-deferral decision; recorded-slot coverage cannot infer absent enrollment opportunities; existing case closure is not canonical MTR-21. Pooled record means and current subject curriculum year do not silently become canonical Student-mean/cumulative-year metrics. MTR-19 currently exposes count rather than canonical rate. MTR-20 is corrected to the canonical mean of distinct referral creation-to-valid-notice durations; no parent-case action substitution.
 
-Metric reconciliation, verified defect corrections, fresh desktop/disposable checks and independent follow-up are complete. The final documentation commit records the received verdict without changing reviewed runtime/test files. The external owner report at C:\Users\Alexa Mhae Tala\Documents\UDM-RADAR-Analytics-Reconciliation-20261026\SOL_RECONCILIATION_REPORT.md supplies the exact immutable final HEAD and clean-state evidence for Antigravity Stage B. Stage B must use a fresh detached worktree at that SHA, preserving the separate Stage A worktree/evidence. Do not certify the earlier checkpoint or merge commit as final. Make no further commits after that handoff unless Antigravity reports findings requiring correction. No publication is authorized.
+Reconciliation, Stage B certification, owner-authorized publication and the post-merge acceptance gate are complete. Canonical local deployment and focused verification are complete; Antigravity's independent deployment acceptance is the next gate. The separately published documentation-only status PR remains unmerged pending owner review. No new MVP improvements, Phase 6 work, migration, cleanup or feature-worktree removal is authorized by this status update.

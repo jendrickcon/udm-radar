@@ -7,6 +7,15 @@
 
 ---
 
+## Post-defense analytics MVPs — PR #62 merged; local deployment verified (2026-10-26)
+
+- **Package:** `PR62-CANONICAL-DEPLOYMENT-AND-STATUS-UPDATE-WP1`. Owner-authorized [PR #62](https://github.com/jendrickcon/udm-radar/pull/62) merge: `edef1b382b7874af770feb5713c20e9b68979241`; certified feature head: `03c3d31efe66d376869d5955fe2e57b48cca7bb0`. Antigravity Stage B returned APPROVED FOR OWNER MERGE REVIEW; the post-merge gate confirmed MERGED TREE MATCHES CERTIFIED IMPLEMENTATION. Canonical local main was updated by fast-forward only.
+- **Merged scope:** Bounded Phases 1–5: prediction explanation, Student progression, Administrator comparisons, support summaries/drill-down, and currently assigned Faculty review. Phase 6 remains DEFERRED. MTR-07 and canonical MTR-21 remain BLOCKED; MTR-19 is a bounded receipt count, not the canonical rate. MTR-20 uses the arithmetic mean of distinct referral-to-first-valid-notice durations; the separately labeled parent-case closed-duration median is not referral-level closure. Historical Faculty attribution remains unavailable without dated evidence.
+- **Deployment evidence:** Read-only approved synthetic/demo role checks passed at `http://localhost/capstone/`, covering scope, comparable terms, safe unavailable states, filters, drill-down, existing Grades/history, a temporary Goal Calculator scenario, and Enrollment Planning navigation. Focused merged-source checks passed separately: analytics PHP 85; fixture contract 7; timestamp regressions 7; SQL integration 44; existing academic/prediction PHP 512; PEF/CC pure view-model 126; authenticated application desktop 27; mocked transport/error/race 2; Faculty generated/source desktop 6; generated calculator/GWA desktop 20; generated Admin focus 3; PHP lint 21 files; JavaScript syntax 3 files; whitespace and protected-file integrity. These evidence categories are not an accuracy score. The new provenance-owned disposable database was verified deleted; automated tests accessed neither existing database.
+- **Safety and acceptance boundary:** Manual served checks read the unchanged existing scratch target and made no database writes. A separately approved append-only `DirectoryIndex login.php` in ignored .htaccess repaired the root login route while preserving prior directives and settings. No global Apache edit/restart, migration or Migration 011, model/dependency change, mobile test or screenshot occurred. Private templates and the feature worktree remain preserved. Independent deployment acceptance is pending; no institutional UAT, genuine-record validation or production acceptance is claimed. This three-file status update is published separately for review and must not be merged automatically. See [current status](post-defense/10_IMPLEMENTATION_STATUS.md).
+
+---
+
 ## Admin Grades Student Modal with Read-Only Academic History — Implementation Ready for Review (2026-10-22)
 
 - **Package:** `ADMIN-GRADES-STUDENT-MODAL-HISTORY`, base `8e43e6ebbee41d3f86bf4412b8a31873f0e4edda`, branch `fix/admin-grades-modal-history`.
