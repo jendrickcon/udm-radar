@@ -400,6 +400,140 @@ test('Support and Interventions tab renders visual status, notice flow, timing c
  await expect(page.locator('#drilldown-table')).toBeVisible();
 });
 
+test('Administrator visual comparison layout uses two-thirds chart and one-third details with growth chips and neutral direction',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await login(page,'admin');
+ await page.getByRole('tab',{name:'Academic Comparisons'}).click();
+
+ const layout=page.locator('.visual-comparison-layout');
+ const chartPane=page.locator('.visual-comparison-chart-pane');
+ const detailsPane=page.locator('#comparison-details-pane');
+
+ await expect(layout).toBeVisible();
+ await expect(chartPane).toBeVisible();
+ await expect(detailsPane).toBeVisible();
+
+ // Check desktop 2/3 chart and 1/3 details ratio
+ const chartBox=await chartPane.boundingBox();
+ const detailsBox=await detailsPane.boundingBox();
+ expect(chartBox).not.toBeNull();
+ expect(detailsBox).not.toBeNull();
+ const totalWidth=chartBox.width+detailsBox.width;
+ const chartRatio=chartBox.width/totalWidth;
+ expect(chartRatio).toBeGreaterThanOrEqual(0.58);
+ expect(chartRatio).toBeLessThanOrEqual(0.72);
+ expect(detailsBox.width).toBeGreaterThanOrEqual(260);
+
+ // Test responsive stacking on narrower viewport
+ await page.setViewportSize({width:1024,height:768});
+ const chartBoxNarrow=await chartPane.boundingBox();
+ const detailsBoxNarrow=await detailsPane.boundingBox();
+ expect(detailsBoxNarrow.y).toBeGreaterThanOrEqual(chartBoxNarrow.y+chartBoxNarrow.height-10);
+
+ // Reset viewport
+ await page.setViewportSize({width:1440,height:900});
+
+ // Check the 5 required sections in Comparison Details
+ await expect(detailsPane).toContainText('Selected groups');
+ await expect(detailsPane).toContainText('Current values');
+ await expect(detailsPane).toContainText('Change or difference');
+ await expect(detailsPane).toContainText('Coverage and sample');
+ await expect(detailsPane).toContainText('How to interpret');
+
+ // Check delta chip and neutral growth wording
+ await expect(detailsPane.locator('.delta-chip').first()).toBeVisible();
+ const detailsText=await detailsPane.innerText();
+ expect(detailsText).not.toMatch(/\b(better|worse|superior|inferior|weakest|strongest)\b/i);
+});
+
+test('Historical semester trend displays exact academic-period labels, tooltip full-text, and Trend Details panel',async({page})=>{
+ await login(page,'admin');
+ await page.getByRole('tab',{name:'Academic Comparisons'}).click();
+
+ // Verify exact academic-period labels on SVG x-axis
+ await expect(page.locator('#trend-chart svg')).toBeVisible();
+ const tickTexts=await page.locator('#trend-chart svg text').allTextContents();
+ expect(tickTexts.some(t=>/\b\d{4}-\d{4}\s+S[1-2]\b/.test(t))).toBe(true);
+
+ // Tooltips contain full academic period context
+ const titles=await page.locator('#trend-chart svg circle title').allTextContents();
+ expect(titles.some(t=>/School Year \d{4}-\d{4}, Semester [1-2]/.test(t))).toBe(true);
+
+ // Historical Trend Details card verification
+ const trendCard=page.locator('#trend-details-card');
+ await expect(trendCard).toBeVisible();
+ await expect(trendCard).toContainText('Terms recorded');
+ await expect(trendCard).toContainText('Observed range');
+ await expect(trendCard).toContainText('Point change');
+ await expect(trendCard).toContainText('Relative change');
+ await expect(trendCard.locator('.delta-chip')).toBeVisible();
+
+ // Table evidence preserved
+ await expect(page.locator('#trend-table')).toBeVisible();
+ await expect(page.locator('#trend-table tbody tr').first()).toBeVisible();
+});
+
+test('Overview tab presents reduced prose with calculations and limitations in accessible disclosures',async({page})=>{
+ await login(page,'admin');
+
+ // Status line simplified
+ await expect(page.locator('#analytics-state')).toHaveText('Showing all authorized recorded values.');
+
+ // Accessible disclosures
+ const disclosures=page.locator('details.analytics-method-disclosure');
+ await expect(disclosures).toHaveCount(2);
+
+ const calcDisclosure=disclosures.first();
+ await expect(calcDisclosure.locator('summary')).toHaveText('How this is calculated');
+ await expect(calcDisclosure).not.toHaveAttribute('open','');
+
+ const limitsDisclosure=disclosures.nth(1);
+ await expect(limitsDisclosure.locator('summary')).toHaveText('Data limitations & caveats');
+ await expect(limitsDisclosure).not.toHaveAttribute('open','');
+
+ // Expand calculation disclosure
+ await calcDisclosure.locator('summary').click();
+ await expect(calcDisclosure).toHaveAttribute('open','');
+ await expect(calcDisclosure).toContainText('Unit-weighted calculations exclude incomplete (INC), dropped (DRP)');
+
+ // Prototype disclaimer presence
+ await expect(page.locator('.prototype-performance-label, .analytics-banner, main')).toContainText('Prototype performance on synthetic academic records');
+});
+
+test('Faculty portal Assigned-Class Analytics achieves complete visual, trend, and referral parity within role scope',async({page})=>{
+ await login(page,'faculty');
+ await page.goto(base+'/faculty/assigned_analytics.php');
+
+ // Title and subtitle
+ await expect(page.getByRole('heading',{name:'Assigned-class review',exact:true})).toBeVisible();
+ await expect(page.locator('.main-content')).toContainText('Understand recorded academic patterns, data coverage, and support referrals for your assigned classes.');
+
+ // Overview tab results and state
+ await expect(page.locator('#analytics-state')).toHaveText('Showing all authorized recorded values.');
+ await expect(page.locator('#analytics-summary')).toBeVisible();
+
+ // Academic Trends tab parity
+ await page.getByRole('tab',{name:'Academic Trends'}).click();
+ await expect(page.locator('#trend-chart svg')).toBeVisible();
+ const tickTexts=await page.locator('#trend-chart svg text').allTextContents();
+ expect(tickTexts.some(t=>/\b\d{4}-\d{4}\s+S[1-2]\b/.test(t))).toBe(true);
+ await expect(page.locator('#trend-details-card')).toBeVisible();
+ await expect(page.locator('#trend-details-card')).toContainText('Terms recorded');
+
+ // Referrals & Interventions tab parity
+ await page.getByRole('tab',{name:'Referrals & Interventions'}).click();
+ await expect(page.locator('#chart-support-status svg')).toBeVisible();
+ await expect(page.locator('#chart-notice-flow svg')).toBeVisible();
+ await expect(page.locator('#chart-first-notice')).toBeVisible();
+ await expect(page.locator('#chart-notice-flow')).toContainText('MTR-19 is a bounded count of recorded student receipts');
+
+ // Faculty scope enforcement (no foreign faculty selector or unauthorized leakage)
+ await expect(page.locator('#analytics-faculty')).toBeHidden();
+ await page.goto(base+'/faculty/assigned_analytics.php?faculty=999');
+ await expect(page.locator('#analytics-faculty')).toBeHidden();
+ await expect(page.getByRole('heading',{name:'Assigned-class review',exact:true})).toBeVisible();
+});
+
 // Owner instruction, 26 October 2026: desktop only; no further mobile tests or screenshots.
 for(const role of ['student','admin','faculty'])for(const [width,height] of [[1440,900],[1024,768],[1280,600]])for(const theme of ['light','dark']){
  test(`${role} ${width}x${height} ${theme} remains readable and contained`,async({page})=>{

@@ -111,6 +111,42 @@
 .compact-add-btn{min-height:38px;height:38px;padding:6px 14px;font-size:0.84rem;font-weight:600;border-radius:6px;transition:background-color 0.15s ease,border-color 0.15s ease;display:inline-flex;align-items:center;gap:6px}
 .compact-add-btn:focus-visible{outline:3px solid var(--accent-blue,#1e4db7);outline-offset:2px}
 
+/* Delta Chips & Growth Indicators */
+.delta-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:0.8rem;font-weight:700;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-dark)}
+.delta-chip.delta-higher{color:var(--teal,#0d9488);border-color:rgba(13,148,136,0.3);background:rgba(13,148,136,0.08)}
+[data-theme="dark"] .delta-chip.delta-higher{color:#34d399;border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.12)}
+.delta-chip.delta-lower{color:#b45309;border-color:rgba(180,83,9,0.3);background:rgba(180,83,9,0.08)}
+[data-theme="dark"] .delta-chip.delta-lower{color:#fbbf24;border-color:rgba(251,191,36,0.3);background:rgba(251,191,36,0.12)}
+.delta-chip.delta-neutral{color:var(--text-gray);border-color:var(--border-color);background:var(--bg-hover)}
+
+/* Responsive Two-Thirds / One-Third Visual Comparison Layout */
+.visual-comparison-layout{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(280px,1fr);gap:24px;align-items:start}
+.visual-comparison-chart-pane{min-width:0}
+.visual-comparison-details-pane{min-width:0;border-left:1px solid var(--border-color);padding-left:20px}
+[data-theme="dark"] .visual-comparison-details-pane{border-left-color:var(--border-color,#334155)}
+@media(max-width:1080px){
+ .visual-comparison-layout{grid-template-columns:1fr;gap:20px}
+ .visual-comparison-details-pane{border-left:none;border-top:1px solid var(--border-color);padding-left:0;padding-top:18px}
+}
+.comparison-details-title{margin:0 0 12px 0;font-size:0.92rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dark)}
+.comparison-details-section{margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--border-color)}
+.comparison-details-section:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.comparison-details-section h5{font-size:0.74rem;text-transform:uppercase;font-weight:700;letter-spacing:0.4px;color:var(--text-gray);margin:0 0 6px 0}
+.comparison-details-section p,.comparison-details-section div{font-size:0.82rem;color:var(--text-dark);margin:0;line-height:1.45}
+
+/* Trend Details Card */
+.trend-details-card{background:var(--bg-hover,#f8fafc);border:1px solid var(--border-color);border-radius:8px;padding:14px 18px;margin-top:14px;margin-bottom:18px}
+[data-theme="dark"] .trend-details-card{background:var(--surface-muted,#334155);border-color:var(--border-color,#334155)}
+.trend-detail-item h5{font-size:0.72rem;text-transform:uppercase;font-weight:700;color:var(--text-gray);margin:0 0 4px 0;letter-spacing:0.4px}
+.trend-detail-item .detail-val{font-size:1.1rem;font-weight:700;color:var(--text-dark);margin:0}
+.trend-detail-item .detail-sub{font-size:0.75rem;color:var(--text-gray);margin-top:2px}
+
+/* Reading & Method Disclosures */
+.analytics-method-disclosure{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:12px 16px;margin-bottom:12px}
+.analytics-method-disclosure summary{font-weight:600;font-size:0.85rem;color:var(--accent-blue);cursor:pointer;outline:none;user-select:none}
+.analytics-method-disclosure p{font-size:0.82rem;color:var(--text-gray);margin:8px 0 0 0;line-height:1.5}
+[data-theme="dark"] .analytics-method-disclosure{background:var(--card-bg,#1E293B);border-color:var(--border-color,#334155)}
+
 /* Compact Comparison Chart Container & Height Bounds */
 #comparison-chart{width:100%;padding:4px 0 0 0;display:flex;justify-content:center}
 #comparison-chart svg{width:100%;max-width:100%;display:block;height:270px;max-height:310px}

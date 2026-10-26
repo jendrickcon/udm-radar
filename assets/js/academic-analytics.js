@@ -140,13 +140,14 @@
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
     const x=50+(data.length===1?0:i/(data.length-1)*550);
-    svg.append(svgEl('text',{x,y:225,'text-anchor':'middle'},String(i+1)));
+    const termLabel=p.label?p.label.replace(' · Semester ',' S').replace(' · Sem ',' S'):String(i+1);
+    svg.append(svgEl('text',{x,y:220,'text-anchor':'middle','font-size':'10px','font-weight':'600',fill:'currentColor'},termLabel));
     if(p.gwa===null){flush();return;}
     const y=195-(p.gwa-1)/3*160;
     segment.push(`${x},${y}`);
     const dot=svgEl('circle',{cx:x,cy:y,r:5,class:'analytics-dot',tabindex:0});
-    dot.append(svgEl('title',{},`${p.label}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle'},num(p.gwa)));
+    dot.append(svgEl('title',{},`School Year ${p.label.replace(' · Semester ',', Semester ')}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
+    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle',fill:'currentColor'},num(p.gwa)));
    });
    flush();
   }
@@ -261,7 +262,7 @@
    return;
   }
 
-  const svg=svgEl('svg',{viewBox:'0 0 600 200',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'width:100%;max-width:100%;height:auto;display:block;'});
+  const svg=svgEl('svg',{viewBox:'0 0 600 200',role:'img','aria-label':title,'aria-describedby':'active-filters',style:'width:100%;max-width:100%;display:block;'});
   svg.append(svgEl('title',{},title),svgEl('desc',{},'Side-by-side visual comparison with matched axis and scale. Exact values appear in the tables below.'));
 
   const yBottom=145, hPlot=95;
@@ -388,6 +389,196 @@
   target.append(svg);
  }
 
+ function formatDeltaChipHtml(diff, unit='points'){
+  if(diff===null||diff===undefined||isNaN(diff)){
+   return '<span class="delta-chip delta-neutral" aria-label="Change unavailable"><span aria-hidden="true">N/A</span> Change unavailable</span>';
+  }
+  if(Math.abs(diff)<0.0001){
+   return '<span class="delta-chip delta-neutral" aria-label="No recorded change"><span aria-hidden="true">—</span> No change</span>';
+  }
+  const sign=diff>0?'+':'';
+  const arrow=diff>0?'↑':'↓';
+  const cls=diff>0?'delta-higher':'delta-lower';
+  const valStr=(typeof diff==='number'&&!Number.isInteger(diff))?diff.toFixed(2):String(diff);
+  const dirLabel=diff>0?'Higher than the selected comparison':'Lower than the selected comparison';
+  return `<span class="delta-chip ${cls}" aria-label="${dirLabel}"><span aria-hidden="true">${arrow}</span> ${sign}${valStr} ${unit}</span>`;
+ }
+
+ function renderTrendDetails(t){
+  const container=document.getElementById('trend-details-content');
+  if(!container||!t||!t.series)return;
+  container.replaceChildren();
+
+  const validSeries=t.series.filter(s=>s.gwa!==null);
+  const earliest=validSeries[0];
+  const latest=validSeries[validSeries.length-1];
+  const count=validSeries.length;
+
+  let maxPt=null, minPt=null;
+  if(validSeries.length>0){
+   maxPt=validSeries.reduce((max,p)=>p.gwa>max.gwa?p:max,validSeries[0]);
+   minPt=validSeries.reduce((min,p)=>p.gwa<min.gwa?p:min,validSeries[0]);
+  }
+
+  const pointChange=t.change?.point_change;
+  const relChange=t.change?.relative_change_pct;
+  const dir=t.change?.direction||'No change';
+
+  const itemTerms=el('div',undefined,{class:'trend-detail-item'});
+  itemTerms.append(el('h5','Terms recorded'),el('p',String(count)+' semesters',{class:'detail-val'}),el('p',`Total terms in series: ${t.series.length}`,{class:'detail-sub'}));
+
+  const itemSpan=el('div',undefined,{class:'trend-detail-item'});
+  itemSpan.append(el('h5','Observed range'),el('p',`${earliest?earliest.label.replace(' · Semester ',' S'):'None'} to ${latest?latest.label.replace(' · Semester ',' S'):'None'}`,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','Ordered historical sequence',{class:'detail-sub'}));
+
+  const itemChange=el('div',undefined,{class:'trend-detail-item'});
+  const chipSpan=document.createElement('div');
+  chipSpan.innerHTML=formatDeltaChipHtml(pointChange,'grade points');
+  itemChange.append(el('h5','Point change'),chipSpan,el('p',`Direction: ${dir}`,{class:'detail-sub'}));
+
+  const itemRel=el('div',undefined,{class:'trend-detail-item'});
+  const relStr=relChange!==null&&relChange!==undefined?`${relChange>0?'+':''}${relChange.toFixed(1)}%`:'Unavailable';
+  itemRel.append(el('h5','Relative change'),el('p',relStr,{class:'detail-val'}),el('p','(latest − previous) / previous',{class:'detail-sub'}));
+
+  const itemHighLow=el('div',undefined,{class:'trend-detail-item'});
+  const hlText=maxPt&&minPt?`High: ${num(maxPt.gwa)} · Low: ${num(minPt.gwa)}`:'Unavailable';
+  itemHighLow.append(el('h5','Highest & Lowest recorded'),el('p',hlText,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','On active prototype 4.00–0.00 scale',{class:'detail-sub'}));
+
+  container.append(itemTerms,itemSpan,itemChange,itemRel,itemHighLow);
+
+  if(t.series.some(s=>s.provisional)){
+   const provWarn=el('div',undefined,{class:'trend-detail-item',style:'grid-column: 1 / -1; margin-top: 4px; padding: 6px 10px; background: rgba(245, 158, 11, 0.1); border-radius: 6px; font-size: 0.78rem; color: var(--risk-mod);'});
+   provWarn.textContent='Note: One or more historical periods contain provisional or incomplete grade data. Interpret trend progression cautiously.';
+   container.append(provWarn);
+  }
+ }
+
+ function renderComparisonDetails(activeItems, selectedMetric, dimension){
+  const detailsContent=document.getElementById('comparison-details-content');
+  if(!detailsContent)return;
+  detailsContent.replaceChildren();
+
+  const groupA=activeItems[0]?.group;
+  const groupB=activeItems[1]?.group;
+  const groupC=activeItems[2]?.group;
+
+  if(!groupA&&!groupB){
+   detailsContent.append(el('p','Select comparison groups to view details.'));
+   return;
+  }
+
+  // Section 1: Selected groups
+  const secGroups=el('div',undefined,{class:'comparison-details-section'});
+  secGroups.append(el('h5','Selected groups'));
+  activeItems.forEach((it,i)=>{
+   if(it.group){
+    const marker=['●','■','▲'][i];
+    const col=['var(--teal,#008080)','var(--accent-blue,#1e4db7)','var(--gold,#e8b923)'][i];
+    const p=el('p');
+    p.innerHTML=`<span style="color:${col};font-weight:700;">${marker} ${it.tag}:</span> ${it.group.label}`;
+    secGroups.append(p);
+   }
+  });
+
+  // Section 2: Current values
+  const secValues=el('div',undefined,{class:'comparison-details-section'});
+  secValues.append(el('h5','Current values'));
+  activeItems.forEach(it=>{
+   if(it.group){
+    let raw=it.group[selectedMetric];
+    let valStr='Unavailable';
+    if(raw!==null&&raw!==undefined){
+     valStr=selectedMetric==='gwa'?num(raw):(selectedMetric==='student_count'?String(raw):pct(raw));
+    }
+    const p=el('p');
+    p.innerHTML=`<strong>${it.tag}:</strong> ${valStr}${it.group.provisional?' <span class="card-status-badge badge-provisional">Provisional</span>':''}`;
+    secValues.append(p);
+   }
+  });
+
+  // Section 3: Change or difference
+  const secChange=el('div',undefined,{class:'comparison-details-section'});
+  secChange.append(el('h5','Change or difference'));
+
+  const valA=activeItems[0]?.card?.key;
+  const valB=activeItems[1]?.card?.key;
+  const dimA=activeItems[0]?.card?.dimension||dimension;
+  const dimB=activeItems[1]?.card?.dimension||dimension;
+
+  const isComparable=(dimA===dimB)&&(valA!==valB)&&groupA&&groupB;
+
+  if(isComparable){
+   let diff=null;
+   let unit='points';
+   let relChange=null;
+   let rawA=groupA[selectedMetric];
+   let rawB=groupB[selectedMetric];
+
+   if(rawA!==null&&rawB!==null&&rawA!==undefined&&rawB!==undefined){
+    diff=rawA-rawB;
+    if(selectedMetric==='gwa'){
+     unit='grade points';
+     if(rawB>0) relChange=((rawA-rawB)/rawB)*100;
+    }else if(selectedMetric==='student_count'){
+     unit='students';
+     if(rawB>0) relChange=((rawA-rawB)/rawB)*100;
+    }else{
+     unit='percentage points';
+    }
+   }
+
+   const chipDiv=document.createElement('div');
+   chipDiv.innerHTML=formatDeltaChipHtml(diff, unit);
+   secChange.append(chipDiv);
+
+   if(diff!==null){
+    const dirText=diff>0?'Higher than the selected comparison':(diff<0?'Lower than the selected comparison':'No recorded change');
+    const descP=el('p',`Difference: ${diff>0?'+':''}${selectedMetric==='gwa'?num(diff):(selectedMetric==='student_count'?diff:pct(diff))} (${dirText}).`,{style:'margin-top:6px;'});
+    if(relChange!==null){
+     descP.textContent+=` Relative change: ${relChange>0?'+':''}${relChange.toFixed(1)}%.`;
+    }
+    secChange.append(descP);
+    secChange.append(el('p',`Calculated from ${groupB.label} to ${groupA.label}.`,{style:'font-size:0.75rem;color:var(--text-gray);margin-top:4px;'}));
+   }else{
+    secChange.append(el('p','Direct difference unavailable: one or both values are unrecorded.',{style:'margin-top:6px;color:var(--text-gray);'}));
+   }
+  }else{
+   const chipDiv=document.createElement('div');
+   chipDiv.innerHTML=formatDeltaChipHtml(null);
+   secChange.append(chipDiv);
+
+   let reason='Context views use different scopes. A direct difference is not calculated.';
+   if(valA===valB&&groupA&&groupB){
+    reason='Select two different groups to compare.';
+   }else if(dimA==='faculty_subject'&&dimB==='faculty_subject'&&valA.split('|')[1]!==valB.split('|')[1]){
+    reason='Faculty comparisons must use the same subject, school year, and semester.';
+   }else if(dimension==='subject'){
+    reason='Note: Comparing different subjects provides curricular context.';
+   }
+   secChange.append(el('p',reason,{style:'margin-top:6px;color:var(--text-gray);'}));
+  }
+
+  // Section 4: Coverage and sample
+  const secSample=el('div',undefined,{class:'comparison-details-section'});
+  secSample.append(el('h5','Coverage and sample'));
+  if(groupA&&groupB){
+   const nDiff=groupA.student_count-groupB.student_count;
+   const covDiff=groupA.numeric_coverage_pct!==null&&groupB.numeric_coverage_pct!==null?(groupA.numeric_coverage_pct-groupB.numeric_coverage_pct).toFixed(1):null;
+   secSample.append(
+    el('p',`Students: Compare A has ${groupA.student_count}, Compare B has ${groupB.student_count} (${nDiff>0?'+':''}${nDiff} difference).`),
+    el('p',`Coverage: Compare A has ${pct(groupA.numeric_coverage_pct)}, Compare B has ${pct(groupB.numeric_coverage_pct)}${covDiff!==null?` (${covDiff>0?'+':''}${covDiff} pp)`:''}.`,{style:'margin-top:4px;'})
+   );
+  }
+
+  // Section 5: How to interpret
+  const secInterpret=el('div',undefined,{class:'comparison-details-section'});
+  secInterpret.append(
+   el('h5','How to interpret'),
+   el('p','Different sample sizes, prior achievement, subject difficulty, and semester conditions affect these results. This comparison provides academic context and does not independently measure teaching performance.',{style:'font-size:0.78rem;color:var(--text-gray);line-height:1.4;'})
+  );
+
+  detailsContent.append(secGroups,secValues,secChange,secSample,secInterpret);
+ }
+
  function renderComparisons(){
   if(role==='student')return;
   const selector=document.getElementById('comparison-group');
@@ -498,6 +689,8 @@
    if(legendContainer)legendContainer.replaceChildren();
    if(sideBySideTable)table(sideBySideTable,['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'],[],'No records match these filters.','Direct metrics for the selected comparison cards.');
    if(allGroupsTable)table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],[],'No records match these filters.',description);
+   const detailsContent=document.getElementById('comparison-details-content');
+   if(detailsContent)detailsContent.replaceChildren(el('p','No comparison records match these filters.'));
    if(noticeEl)noticeEl.style.display='none';
    return;
   }
@@ -760,6 +953,8 @@
   if(allGroupsTable){
    table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],groups.map(g=>[g.label,num(g.gwa)+(g.provisional?' (provisional)':''),g.student_count,`${g.eligible_grade_count} / ${g.expected_grade_count}`,pct(g.numeric_coverage_pct),pct(g.final_coverage_pct)]),'No records match these filters.',description);
   }
+
+  renderComparisonDetails(activeItems, selectedMetric, dimension);
  }
 
  function renderSupport(){
@@ -818,22 +1013,37 @@
   const flowContainer=document.getElementById('chart-notice-flow');
   if(flowContainer){
    flowContainer.replaceChildren();
-   const svg=svgEl('svg',{viewBox:'0 0 380 150',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:160px;'});
+   const svg=svgEl('svg',{viewBox:'0 0 420 160',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:170px;'});
    svg.append(svgEl('title',{},'Notice and Receipt Flow'),svgEl('desc',{},'Progression from created referrals to issued notices and recorded receipt acknowledgments.'));
-   const nodeW=95, nodeH=54;
-   svg.append(svgEl('rect',{x:10,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:6}));
-   svg.append(svgEl('text',{x:10+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'REFERRALS'));
-   svg.append(svgEl('text',{x:10+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700'},String(s.referrals_created||0)));
-   svg.append(svgEl('path',{d:'M115 47 L132 47 M128 42 L134 47 L128 52',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
-   svg.append(svgEl('rect',{x:142,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:6}));
-   svg.append(svgEl('text',{x:142+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'NOTICES ISSUED'));
-   svg.append(svgEl('text',{x:142+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700'},String(s.notices_issued||0)));
-   svg.append(svgEl('path',{d:'M247 47 L264 47 M260 42 L266 47 L260 52',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
-   svg.append(svgEl('rect',{x:274,y:20,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--teal, #008080)',rx:6}));
-   svg.append(svgEl('text',{x:274+nodeW/2,y:40,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--teal, #008080)'},'RECEIPT ACKNOWLEDGED'));
-   svg.append(svgEl('text',{x:274+nodeW/2,y:62,'text-anchor':'middle','font-size':'16px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
+   const nodeW=110, nodeH=58;
+
+   // Node 1: Referrals
+   svg.append(svgEl('rect',{x:10,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
+   svg.append(svgEl('text',{x:10+nodeW/2,y:33,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'REFERRALS'));
+   svg.append(svgEl('text',{x:10+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700'},String(s.referrals_created||0)));
+   svg.append(svgEl('text',{x:10+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--text-gray)'},'Created'));
+
+   // Arrow 1
+   svg.append(svgEl('path',{d:'M128 44 L147 44 M143 39 L149 44 L143 49',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+
+   // Node 2: Notices Issued
+   svg.append(svgEl('rect',{x:155,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--border-color)',rx:8}));
+   svg.append(svgEl('text',{x:155+nodeW/2,y:33,'text-anchor':'middle','font-size':'10px','font-weight':'700',fill:'var(--text-gray)'},'NOTICES ISSUED'));
+   svg.append(svgEl('text',{x:155+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700'},String(s.notices_issued||0)));
+   svg.append(svgEl('text',{x:155+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--text-gray)'},'Action recorded'));
+
+   // Arrow 2
+   svg.append(svgEl('path',{d:'M273 44 L292 44 M288 39 L294 44 L288 49',stroke:'var(--accent-blue, #1e4db7)','stroke-width':2,fill:'none'}));
+
+   // Node 3: Receipt Acknowledged
+   svg.append(svgEl('rect',{x:300,y:15,width:nodeW,height:nodeH,fill:'var(--bg-hover, #f8fafc)',stroke:'var(--teal, #008080)',rx:8}));
+   svg.append(svgEl('text',{x:300+nodeW/2,y:33,'text-anchor':'middle','font-size':'9.5px','font-weight':'700',fill:'var(--teal, #008080)'},'RECEIPT ACKNOWLEDGED'));
+   svg.append(svgEl('text',{x:300+nodeW/2,y:54,'text-anchor':'middle','font-size':'17px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
+   svg.append(svgEl('text',{x:300+nodeW/2,y:67,'text-anchor':'middle','font-size':'9px',fill:'var(--teal, #008080)'},'Confirmed count'));
+
+   // Subtitles below nodes
    svg.append(svgEl('text',{x:10,y:105,'font-size':'10.5px',fill:'var(--text-gray)'},'MTR-19 is a bounded count of recorded student receipts.'));
-   svg.append(svgEl('text',{x:10,y:122,'font-size':'10.5px',fill:'var(--text-gray)'},'Does not prove causal impact on subsequent academic outcomes.'));
+   svg.append(svgEl('text',{x:10,y:122,'font-size':'10.5px',fill:'var(--text-gray)'},'Recorded student receipt acknowledgments are shown as a count, not the canonical acknowledgment rate.'));
    flowContainer.append(svg);
   }
 
@@ -1035,6 +1245,7 @@
   const trendDesc=document.getElementById('trend-description');
   if(trendDesc)trendDesc.textContent=`${t.series.length} recorded terms · n=${data.summary.student_count}. Points follow term order; gaps mean unavailable values. Refer to the table for periods and coverage.`;
   chart(document.getElementById('trend-chart'),t.series,'line','Historical semester GWA');
+  renderTrendDetails(t);
   table(document.getElementById('trend-table'),['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');
 
   if(role!=='student'){
@@ -1052,11 +1263,25 @@
   const methods=document.getElementById('analytics-method');
   if(methods){
    methods.replaceChildren();
-   methods.append(el('p','Average GWA is the sum of eligible final points × credit units divided by eligible credit units. It is not a sum of Student GWAs. Relative change is (current − previous) / previous × 100; it is not the prediction.'));
-   (role==='student'?[data.warnings[0],data.warnings[2]]:data.warnings).forEach(w=>methods.append(el('p',w)));
+   const introP=el('p','Recorded academic metrics provide decision-support context. Use the disclosures below to inspect specific calculation formulas, pooled-mean weighting, and analytical limitations.',{style:'font-size:0.85rem;color:var(--text-gray);margin-bottom:12px;line-height:1.45;'});
+
+   const d1=el('details',undefined,{class:'analytics-method-disclosure'});
+   const s1=el('summary','How this is calculated');
+   const p1a=el('p','Average GWA is the sum of eligible final points × credit units divided by eligible credit units. It is not an arithmetic sum of Student GWAs.');
+   const p1b=el('p','Relative change is (current − previous) / previous × 100; it indicates observed percentage change and is not a predictive forecast.');
+   const p1c=el('p','Unit-weighted calculations exclude incomplete (INC), dropped (DRP), and missing grades from grade sums and unit totals.');
+   d1.append(s1,p1a,p1b,p1c);
+
+   const d2=el('details',undefined,{class:'analytics-method-disclosure'});
+   const s2=el('summary','Data limitations & caveats');
+   d2.append(s2);
+   (role==='student'?[data.warnings[0],data.warnings[2]]:data.warnings).forEach(w=>d2.append(el('p',w)));
    if(role!=='student'){
-    methods.append(el('p',`Latest stored prediction coverage: ${data.prediction_coverage.available_count} of ${data.prediction_coverage.student_count} represented Students; model ${data.prediction_coverage.model_count}, calculation ${data.prediction_coverage.calculation_count}, provisional/unknown-completeness ${data.prediction_coverage.provisional_count}. Provisional status overlaps the model/calculation counts; these are not additive categories. Complete versus provisional fallback cross-tabs are not provided. These snapshots are separate from historical comparison periods and do not measure prediction accuracy or full active-population coverage.`));
+    d2.append(el('p',`Latest stored prediction coverage: ${data.prediction_coverage.available_count} of ${data.prediction_coverage.student_count} represented Students; model ${data.prediction_coverage.model_count}, calculation ${data.prediction_coverage.calculation_count}, provisional/unknown-completeness ${data.prediction_coverage.provisional_count}. Provisional status overlaps the model/calculation counts; these are not additive categories. Complete versus provisional fallback cross-tabs are not provided. These snapshots are separate from historical comparison periods and do not measure prediction accuracy or full active-population coverage.`));
    }
+   d2.append(el('p','Prototype performance on synthetic academic records. Predictions and triage categories provide non-punitive decision support and do not constitute official registrar evaluations.'));
+
+   methods.append(introP,d1,d2);
   }
  }
 
@@ -1080,7 +1305,7 @@
    render(data);
    results.hidden=false;
    results.setAttribute('aria-busy','false');
-   state.textContent='Academic review updated.';
+   state.textContent='Showing all authorized recorded values.';
   }catch(error){
    if(error.name==='AbortError'||ticket!==generation)return;
    state.setAttribute('role','alert');

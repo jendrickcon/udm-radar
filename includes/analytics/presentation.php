@@ -357,7 +357,7 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </form>
 
-        <p id="analytics-state" role="status" aria-live="polite">Loading academic review…</p>
+        <p id="analytics-state" role="status" aria-live="polite" style="font-size: 0.82rem; color: var(--text-gray); margin: 6px 0 16px 0;">Showing all authorized recorded values.</p>
 
         <div id="analytics-results" hidden aria-busy="true">
             <p id="active-filters" class="analytics-context"></p>
@@ -551,6 +551,10 @@ function analyticsPage(string $role): void {
                         <h2 id="analytics-trend-heading">Historical semester trend</h2>
                         <p id="trend-description"></p>
                         <div id="trend-chart" class="analytics-chart"></div>
+                        <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Historical Trend Details</h4>
+                            <div id="trend-details-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px; font-size: 0.82rem;"></div>
+                        </div>
                         <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
                             <table id="trend-table"></table>
                         </div>
@@ -641,11 +645,19 @@ function analyticsPage(string $role): void {
 
                         <div id="comparisons-content-wrapper" class="mode-overlay">
                             <!-- OVERLAID VISUAL CHART CARD (Prominent in overlay mode) -->
-                            <div id="comparison-chart-card" class="card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
-                                <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
-                                <p style="margin: 0 0 16px 0; font-size: 0.82rem; color: var(--text-gray);">Overlay comparison rendered on identical axes and scale.</p>
-                                <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 12px;"></div>
-                                <div id="comparison-legend" style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 8px; justify-content: center;"></div>
+                            <div id="comparison-chart-card" class="card visual-comparison-card" style="padding: 20px 24px; margin-bottom: 24px; border: 1px solid var(--border-color); border-radius: 10px;">
+                                <div class="visual-comparison-layout">
+                                    <div class="visual-comparison-chart-pane">
+                                        <h3 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">Visual Comparison</h3>
+                                        <p style="margin: 0 0 14px 0; font-size: 0.82rem; color: var(--text-gray);">Overlay comparison rendered on identical axes and scale.</p>
+                                        <div id="comparison-chart" class="analytics-chart" style="margin-bottom: 8px;"></div>
+                                        <div id="comparison-legend" class="comparison-legend-container" style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-gray); margin-top: 6px; justify-content: center;"></div>
+                                    </div>
+                                    <aside id="comparison-details-pane" class="visual-comparison-details-pane" aria-labelledby="comparison-details-heading">
+                                        <h4 id="comparison-details-heading" class="comparison-details-title">Comparison Details</h4>
+                                        <div id="comparison-details-content" class="comparison-details-body"></div>
+                                    </aside>
+                                </div>
                             </div>
 
                             <!-- NEUTRAL COMPARISON SUMMARY -->
