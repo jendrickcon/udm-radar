@@ -10,6 +10,7 @@
 - Final independent source review found one Important CLI false-success path and one missing handoff command block. The unavailable-DB failure was observed RED, guarded, then two failure probes and the healthy 31-check run passed; safe reproduction commands are now included. No production regression was reported.
 - Updated canonical roadmap/history, current phase/acceptance status and findings. Exact production/test/documentation files and final Git SHA/remote state are returned with the verified delivery, rather than embedding this commit's own hash in its contents.
 - **Joshua's latest-branch integration DEFERRED at explicit owner request.** Existing approved-main/shared Student regressions remain verified. No teammate merge or wider Student work.
+- **Checklist status update — 29 October 2026:** implementation checkpoint `85155d37a011db922285ef76a067a29166cfe717` is committed and remotely verified. The retest checklist now marks completed implementation, verification, documentation and checkpoint delivery separately from pending manual acceptance; all nine human retest items remain unchecked. This follow-up changes documentation only and does not claim new implementation-test execution.
 - Next human action: team leader follows [the visible retest checklist](VINCENT_TEAM_LEADER_RETEST.md) on the verified branch and reports acceptance/defects. Broader academic contracts and Migration 011 remain blocked.
 
 Current handoff: [VINCENT_PHASE_C_ACCEPTANCE.md](VINCENT_PHASE_C_ACCEPTANCE.md).

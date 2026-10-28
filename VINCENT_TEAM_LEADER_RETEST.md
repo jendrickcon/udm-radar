@@ -1,6 +1,31 @@
 # Vincent checkpoint: team-leader retest
 
-Use branch `feat/member1-admin-faculty-ui`; the delivery message supplies its full verified SHA. Review the diff before running the checkout. Preserve any existing checkout changes and database. For a fresh local clone, follow [database onboarding](database/README.md): schema and synthetic seed are separate; do not overwrite a populated database, replay migrations or import Migration 011.
+Updated 29 October 2026, Asia/Manila. **Implementation/self-verification complete; team-leader/owner acceptance pending.**
+
+Use branch `feat/member1-admin-faculty-ui`. The verified implementation checkpoint is [85155d37a011db922285ef76a067a29166cfe717](https://github.com/jendrickcon/udm-radar/commit/85155d37a011db922285ef76a067a29166cfe717); subsequent checklist/documentation updates do not represent new implementation tests. Review the diff before running the checkout. Preserve any existing checkout changes and database. For a fresh local clone, follow [database onboarding](database/README.md): schema and synthetic seed are separate; do not overwrite a populated database, replay migrations or import Migration 011.
+
+## Completed roadmap work
+
+- [x] Implement the approved Admin/Faculty refinements and explicitly authorized shared sidebar/icon changes on the assigned branch.
+- [x] Verify assigned-class restrictions, own-referral access, support drill-downs and denial of foreign/unassigned records.
+- [x] Verify chart/table equality, comparable change, support metrics and complete/partial/provisional/empty/unavailable/gap states.
+- [x] Fix discovered product and verification-runner defects and verify their reproductions.
+- [x] Complete categorized checks: 100 Playwright cases, 385 PHP checks, 21 JavaScript checks and 31 read-only integration checks; database contents and protected assets unchanged.
+- [x] Update the canonical roadmap, implementation history, findings and acceptance/handoff reports.
+- [x] Commit and push implementation checkpoint `85155d37a011db922285ef76a067a29166cfe717`; confirm matching local/remote SHA and clean Git status at delivery.
+- [x] Prepare the team-leader retest instructions and remaining acceptance gates.
+
+## Remaining owner acceptance
+
+- [ ] Team leader/owner performs the manual checks below and records acceptance or defects.
+- [ ] Resolve and retest any new defects reported during that review; no outstanding product blocker was identified in the completed automated/source review.
+- [ ] Owner grants final visible acceptance before Phase C is marked complete.
+
+**On hold at owner request:** integration with Joshua's latest Student branch. Existing approved-main/shared Student regressions have passed; the held integration is not marked complete.
+
+**Separate owner decisions:** PR creation, merge and deployment. Migration 011 and the blocked academic contracts remain on hold.
+
+## Team-leader manual checks
 
 Use the documented synthetic Admin, Faculty01, Faculty02 and Student demo accounts from the onboarding/seed documentation. Do not use genuine records. This guide does not contain credentials.
 
