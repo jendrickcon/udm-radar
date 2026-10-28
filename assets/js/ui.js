@@ -255,10 +255,107 @@
         }
     };
 
+    /** Desktop hover rail; the existing small-screen drawer remains independent. */
+    window.UDM.initDesktopNav = function() {
+        var sidebar = document.querySelector('.sidebar--collapsible');
+        var toggle = document.getElementById('sidebar-collapse-toggle');
+        if (!sidebar || !toggle || sidebar._udmDesktopNavBound) return;
+        sidebar._udmDesktopNavBound = true;
+
+        var desktop = window.matchMedia('(min-width: 901px)');
+        var hover = window.matchMedia('(hover: hover)');
+        var pointerInside = false;
+        var keyboardInside = false;
+        var keyboardInput = false;
+        var manualOpen = false;
+        var dismissed = false;
+        var expanded = false;
+        var resizeTimer;
+
+        function apply() {
+            var next = desktop.matches && !dismissed && (pointerInside || keyboardInside || manualOpen);
+            if (next === expanded) return;
+            expanded = next;
+            sidebar.classList.toggle('sidebar--desktop-expanded', expanded);
+            toggle.setAttribute('aria-expanded', String(expanded));
+            toggle.setAttribute('aria-label', expanded ? 'Collapse navigation' : 'Expand navigation');
+            toggle.querySelector('.sidebar-label').textContent = expanded ? 'Collapse navigation' : 'Expand navigation';
+            window.clearTimeout(resizeTimer);
+            var reduced = document.documentElement.getAttribute('data-motion') === 'reduce'
+                || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            resizeTimer = window.setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, reduced ? 0 : 210);
+        }
+        function reset(event) {
+            pointerInside = Boolean(event && event.type === 'change' && desktop.matches
+                && hover.matches && sidebar.matches(':hover'));
+            keyboardInside = manualOpen = dismissed = false;
+            apply();
+        }
+        function close() {
+            pointerInside = keyboardInside = manualOpen = false;
+            dismissed = true;
+            apply();
+        }
+        document.addEventListener('keydown', function() { keyboardInput = true; });
+        document.addEventListener('pointerdown', function(e) {
+            keyboardInput = false;
+            keyboardInside = false;
+            if (!sidebar.contains(e.target)) manualOpen = false;
+            apply();
+        }, true);
+        sidebar.addEventListener('mouseenter', function() {
+            if (!desktop.matches || !hover.matches) return;
+            pointerInside = true;
+            dismissed = false;
+            apply();
+        });
+        sidebar.addEventListener('mouseleave', function() {
+            pointerInside = manualOpen = false;
+            dismissed = false;
+            apply();
+        });
+        sidebar.addEventListener('focusin', function() {
+            if (!desktop.matches || !keyboardInput) return;
+            keyboardInside = true;
+            dismissed = false;
+            apply();
+        });
+        sidebar.addEventListener('focusout', function() {
+            window.setTimeout(function() {
+                if (sidebar.contains(document.activeElement)) return;
+                keyboardInside = manualOpen = false;
+                apply();
+            }, 0);
+        });
+        sidebar.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape' || !desktop.matches || !expanded) return;
+            e.preventDefault();
+            toggle.focus({ preventScroll: true });
+            close();
+        });
+        toggle.addEventListener('click', function() {
+            if (expanded) { close(); return; }
+            dismissed = false;
+            manualOpen = true;
+            apply();
+        });
+        sidebar.addEventListener('click', function(e) {
+            if (desktop.matches && e.target.closest('a[href]') && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) close();
+        });
+        desktop.addEventListener('change', reset);
+        hover.addEventListener('change', reset);
+        window.addEventListener('pageshow', reset);
+        window.addEventListener('pagehide', function() { window.clearTimeout(resizeTimer); });
+    };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', window.UDM.initMobileNav);
+        document.addEventListener('DOMContentLoaded', window.UDM.initDesktopNav);
     } else {
         window.UDM.initMobileNav();
+        window.UDM.initDesktopNav();
     }
 })(window);
 

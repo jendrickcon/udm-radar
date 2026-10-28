@@ -3,6 +3,7 @@
 
 /** @var array<int, array{0:string, 1:string, 2:string}> $navItems */
 $navItems = $navItems ?? [];
+$collapsibleSidebar = in_array($user['role'] ?? '', ['admin', 'faculty', 'student'], true);
 
 // Student pages share this navigation without copying the new item into every page.
 if (($user['role'] ?? '') === 'student'
@@ -74,7 +75,7 @@ if (isset($user) && isset($user['role'])) {
 <!-- Mobile Navigation Drawer Overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
-<nav id="sidebar" class="sidebar" aria-label="Main Navigation">
+<nav id="sidebar" class="sidebar<?= $collapsibleSidebar ? ' sidebar--collapsible' : '' ?>" aria-label="Main Navigation">
   <div class="sidebar-drawer-header">
     <button type="button" class="sidebar-drawer-close-btn" id="sidebar-drawer-close-btn" aria-label="Close navigation menu">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -87,15 +88,33 @@ if (isset($user) && isset($user['role'])) {
     <img src="<?= BASE_URL ?>assets/img/logo_sidebar.png" alt="Logo" class="sidebar-logo" onerror="this.style.display='none'">
   </div>
   <ul class="sidebar-nav">
-    <?php foreach ($navItems as [$label, $href, $icon]): 
-        $badgeHtml = isset($navBadges[$label]) ? '<span class="nav-badge">' . $navBadges[$label] . '</span>' : '';
+    <?php foreach ($navItems as $navIndex => [$label, $href, $icon]):
+        $badgeId = 'sidebar-badge-' . $navIndex;
+        $badgeHtml = isset($navBadges[$label]) ? '<span class="nav-badge" id="' . $badgeId . '">' . $navBadges[$label] . '</span>' : '';
         $isActive = basename($_SERVER['PHP_SELF']) === basename($href);
     ?>
     <?php
+        /*
+         * Faculty glyph: adapted Lucide person with a teaching-board detail (ISC).
+         * Copyright (c) 2026 Lucide Icons and Contributors
+         *
+         * Permission to use, copy, modify, and/or distribute this software for any
+         * purpose with or without fee is hereby granted, provided that the above
+         * copyright notice and this permission notice appear in all copies.
+         *
+         * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+         * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+         * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+         * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+         * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+         * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+         * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+         */
         $svg = match($label) {
             'Home' => '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
             'Dashboard' => '<rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect>',
-            'Students', 'Faculty' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+            'Students' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+            'Faculty' => '<path d="M1.5 21v-2a4.5 4.5 0 0 1 9 0v2"></path><circle cx="6" cy="9.5" r="3.5"></circle><path d="M7 5V4a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-9"></path><path d="m14 21 3-7 3 7"></path>',
             'Grades', 'Term Grade Submission' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>',
             'Academic History' => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
             'Enrollment Planning' => '<rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 3v4h6V3M8 11h8M8 15h5"></path>',
@@ -107,28 +126,34 @@ if (isset($user) && isset($user['role'])) {
         };
     ?>
     <li>
-      <a href="<?= htmlspecialchars($href) ?>" class="sidebar-link <?= $isActive ? 'active' : '' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon">
+      <a href="<?= htmlspecialchars($href) ?>" class="sidebar-link <?= $isActive ? 'active' : '' ?>" aria-label="<?= htmlspecialchars($label) ?>"<?= isset($navBadges[$label]) ? ' aria-describedby="' . $badgeId . '"' : '' ?><?= $isActive ? ' aria-current="page"' : '' ?>>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon" aria-hidden="true">
             <?= $svg ?>
         </svg>
-        <span><?= htmlspecialchars($label) ?></span> <?= $badgeHtml ?>
+        <span class="sidebar-label"><?= htmlspecialchars($label) ?></span> <?= $badgeHtml ?>
       </a>
     </li>
     <?php endforeach; ?>
   </ul>
   <div class="sidebar-footer">
+    <?php if ($collapsibleSidebar): ?>
+    <button type="button" class="theme-toggle-btn sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Expand navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+      <span class="sidebar-label">Expand navigation</span>
+    </button>
+    <?php endif; ?>
     <button type="button" onclick="toggleTheme()" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark mode">
       <div class="theme-icon-wrapper">
           <svg id="sidebar-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           <svg id="sidebar-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </div>
-      <span id="theme-toggle-text">Dark Mode</span>
+      <span id="theme-toggle-text" class="sidebar-label">Dark Mode</span>
     </button>
-    <a href="<?= BASE_URL ?>logout.php" class="logout-btn" id="logout-btn">
+    <a href="<?= BASE_URL ?>logout.php" class="logout-btn" id="logout-btn" aria-label="Logout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        <span>Logout</span>
+        <span class="sidebar-label">Logout</span>
     </a>
-    <div style="padding: 8px 12px; font-size: 0.68rem; color: #64748b; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 2px; line-height: 1.3;">
+    <div class="sidebar-environment-note" style="padding: 8px 12px; font-size: 0.68rem; color: #64748b; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 2px; line-height: 1.3;">
         Prototype environment &bull; Synthetic data
     </div>
   </div>

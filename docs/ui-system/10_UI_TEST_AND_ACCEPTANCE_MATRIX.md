@@ -1,7 +1,19 @@
 # Portal test and acceptance matrix
 
-Documentation: READY FOR OWNER REVIEW. Future member implementation: NOT STARTED.
+Documentation preparation baseline: READY FOR OWNER REVIEW as of 27 October. Current Vincent implementation/acceptance is recorded in the dated checkpoint below.
 Roadmap statuses use the seven allowed values in the [phase plan](12_IMPLEMENTATION_SEQUENCE_AND_ROADMAP.md). Test outcomes are recorded separately as Passed, Failed, Skipped, Not Run or Unavailable. A test existing does not mean it ran. No future member self-verification row is marked executed by this documentation pass. Most listed Admin/Faculty/Student analytics components already ship in PR64; those rows are preservation/regression gates for later approved refinements, not assignments to implement them again. Only the desktop collapsible rail and explicitly approved new refinements remain implementation proposals.
+
+## Current Vincent acceptance evidence — 29 October 2026
+
+Approved implementation/self-verification is READY FOR OWNER REVIEW. The future-member rows below are the 27 October preparation matrix, not an assertion that current Vincent code is unimplemented. The [current item-by-item acceptance matrix](../../VINCENT_PHASE_C_ACCEPTANCE.md) records actual outcomes and limits.
+
+- SID-01/02/05, ADM-01–05, SUP-01–03, FAC-01/02, CH-01/02, THEME-01, A11Y-01, ASYNC-01, DESK-01 and affected REG/GOV scope have categorized evidence: 100 passed, 0 failed, 0 skipped, 385 PHP checks, 21 JavaScript checks, 31 read-only integration checks and integrity/syntax results.
+- SID-03 persistence and SID-04 observer proposals are not imposed on the owner-chosen transient hover implementation. Existing default rail, named toggle/drawer, one guarded initializer, settled/coalesced resize and cleanup remain tested. The acceptance report records the implementation alternative rather than inventing a storage/observer pass.
+- FAC-03, COH-01, EVID-01 remain BLOCKED for their academic contracts; no numeric/historical inference or Migration 011.
+- GOV-03 disposable creation/cleanup is not applicable to this read-only closure: no target was created or mutated. The older random-database suite was not run under this package.
+- Owner/team-leader visible retest remains pending; the latest Joshua branch integration is DEFERRED at owner request. Commit/push is authorized for the verified checkpoint; PR/merge/deployment are separate owner decisions.
+
+## Historical preparation matrix — 27 October 2026
 
 ## Mandatory self-verification
 

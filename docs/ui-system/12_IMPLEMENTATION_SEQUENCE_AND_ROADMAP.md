@@ -8,7 +8,19 @@ Canonical accepted runtime/onboarding baseline: `bdb4a267f30aa31ea36983304a03b01
 
 Allowed phase/readiness statuses: COMPLETE, IN PROGRESS, READY FOR OWNER REVIEW, PLANNED, BLOCKED, DEFERRED, NOT STARTED. Test outcomes remain separate. Documentation readiness does not complete member implementation.
 
-## Verified status — 27 October 2026
+## Current Vincent checkpoint — 29 October 2026
+
+| Phase | Current checkpoint | Remaining gate |
+| --- | --- | --- |
+| C — Vincent Admin/Faculty | IN PROGRESS; approved implementation/self-verification READY FOR OWNER REVIEW | Team-leader/owner visible acceptance; no new feature backlog is invented from accepted PR64 scope |
+| E — Shared integration | Existing approved-main/Student seams verified; latest Joshua-branch integration DEFERRED at owner request | Resume only when owner supplies/authorizes that integration |
+| F — Institutional readiness | PLANNED; academic evidence contracts remain BLOCKED | Separate policy/data/owner packages; no Migration 011 |
+
+The owner authorized a verified checkpoint commit/push for testing. The final delivery returns the exact immutable/remote SHA. No PR, merge, deployment or human acceptance is claimed. Final evidence and remaining gates: [acceptance](../../VINCENT_PHASE_C_ACCEPTANCE.md), [visible retest](../../VINCENT_TEAM_LEADER_RETEST.md).
+
+The dated preparation tables below are historical; their NOT STARTED/sidebar statements do not describe Vincent's current local implementation. Joshua's broader Student status has not been independently re-evaluated during the requested hold.
+
+## Historical verified status — 27 October 2026
 
 | Item | Documentation/review status | Implementation/deployment status |
 | --- | --- | --- |
@@ -23,7 +35,7 @@ Allowed phase/readiness statuses: COMPLETE, IN PROGRESS, READY FOR OWNER REVIEW,
 
 PR #64 final head: `9f6ed109d968c47fe439eecc816f68ec0167694d`; merged tree `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`. PR #63 reviewed head: `96aa4d7a91616c31d38687f2e5851721fa7def82`; merge: `c29d68a7ef961c0be61ffbf296a10918303d5fea`. Recheck live refs before publication; old moving Antigravity checkpoints are superseded by the merged commit.
 
-## Phases A–F
+## Historical phases A–F — 27 October 2026
 
 | Phase | Status | Responsible party | Delivered baseline or remaining gate |
 | --- | --- | --- | --- |

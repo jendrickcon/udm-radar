@@ -245,7 +245,7 @@ function analyticsPage(string $role): void {
         default => []
     };
     ?>
-    <link rel="stylesheet" href="<?= $escape(BASE_URL) ?>assets/css/academic-analytics.css">
+    <link rel="stylesheet" href="<?= $escape(BASE_URL) ?>assets/css/academic-analytics.css?v=<?= filemtime(__DIR__ . '/../../assets/css/academic-analytics.css') ?>">
     <main class="main-content analytics-page" id="academic-analytics" data-role="<?= $escape($role) ?>" data-endpoint="<?= $escape(BASE_URL) ?>api/academic_analytics.php">
         <header class="header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
             <div>
@@ -389,9 +389,10 @@ function analyticsPage(string $role): void {
                 <div role="tabpanel"
                      id="tab-panel-overview"
                      aria-labelledby="tab-btn-overview"
-                     class="analytics-tab-panel">
+                     class="analytics-tab-panel" tabindex="0">
 
                     <?php if ($role === 'admin' && $overview !== null): ?>
+                    <p class="analytics-note" id="student-overview-scope">Current active-student snapshot<?= !empty($_GET['section']) ? ' · Section ' . $escape($_GET['section']) : '' ?><?= !empty($_GET['year_level']) ? ' · Curriculum year ' . $escape($_GET['year_level']) : '' ?>. Academic filters refresh the comparison and support results; this student overview reflects the scope when the page opened.</p>
                     <!-- RESTORED: Program Overview Primary 4-Card Analytical KPI Grid -->
                     <div class="analytics-stat-grid">
                         <div class="stat-card" style="border-left-color: var(--accent-blue);">
@@ -431,8 +432,23 @@ function analyticsPage(string $role): void {
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
                             <?php else: ?>
                                 <div style="position: relative; height: 280px; width: 100%;">
-                                    <canvas id="sectionRiskChart"></canvas>
+                                    <canvas id="sectionRiskChart" role="img" aria-label="Risk distribution by section" aria-describedby="section-risk-chart-summary"></canvas>
                                 </div>
+                                <p class="analytics-chart-fallback" data-chart-fallback="sectionRiskChart">Chart unavailable. Open View chart data for exact values.</p>
+                                <details id="section-risk-data" class="analytics-chart-data">
+                                    <summary>View chart data</summary>
+                                    <div class="data-table-scroll" role="region" aria-label="Risk distribution chart data" tabindex="0">
+                                        <table id="section-risk-chart-summary">
+                                            <caption>Risk distribution by section; percentages of all active students in each section. No Prediction means no stored prediction.</caption>
+                                            <thead><tr><th scope="col">Section</th><th scope="col">High Risk (%)</th><th scope="col">Moderate Risk (%)</th><th scope="col">Low Risk (%)</th><th scope="col">No Prediction (%)</th></tr></thead>
+                                            <tbody>
+                                                <?php foreach ($overview['chartSecLabels'] as $i => $section): ?>
+                                                <tr><th scope="row"><?= $escape($section) ?></th><td><?= number_format($overview['chartSecHigh'][$i], 1) ?></td><td><?= number_format($overview['chartSecMod'][$i], 1) ?></td><td><?= number_format($overview['chartSecLow'][$i], 1) ?></td><td><?= number_format($overview['chartSecNone'][$i], 1) ?></td></tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
                             <?php endif; ?>
                         </div>
 
@@ -443,8 +459,9 @@ function analyticsPage(string $role): void {
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
                             <?php else: ?>
                                 <div style="position: relative; height: 210px; width: 100%;">
-                                    <canvas id="honorChart" role="img" aria-label="Academic Distinction Readiness Chart"></canvas>
+                                    <canvas id="honorChart" role="img" aria-label="Academic Distinction Readiness Chart" aria-describedby="honor-chart-summary"></canvas>
                                 </div>
+                                <p class="analytics-chart-fallback" data-chart-fallback="honorChart">Chart unavailable. Open View chart data for exact values.</p>
                                 <ul id="honorChartLegend" class="honor-chart-legend" role="list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 14px; padding: 0; list-style: none;">
                                     <?php foreach ($overview['distinctions'] as $label => $count):
                                         $dotColor = match(true) {
@@ -461,17 +478,20 @@ function analyticsPage(string $role): void {
                                     </li>
                                     <?php endforeach; ?>
                                 </ul>
-                                <div class="sr-only">
+                                <details id="honor-chart-data" class="analytics-chart-data">
+                                    <summary>View chart data</summary>
+                                    <div class="data-table-scroll" role="region" aria-label="Academic distinction chart data" tabindex="0">
                                     <table id="honor-chart-summary">
                                         <caption>Academic Distinction Readiness Summary</caption>
-                                        <thead><tr><th>Category</th><th>Count</th></tr></thead>
+                                        <thead><tr><th scope="col">Category</th><th scope="col">Count</th></tr></thead>
                                         <tbody>
                                             <?php foreach ($overview['distinctions'] as $label => $count): ?>
-                                                <tr><td><?= $escape($label) ?></td><td><?= (int)$count ?></td></tr>
+                                                <tr><th scope="row"><?= $escape($label) ?></th><td><?= (int)$count ?></td></tr>
                                             <?php endforeach; ?>
                                         </tbody>
                                     </table>
-                                </div>
+                                    </div>
+                                </details>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -536,7 +556,7 @@ function analyticsPage(string $role): void {
                 <div role="tabpanel"
                      id="tab-panel-<?= $role === 'admin' ? 'comparisons' : 'trends' ?>"
                      aria-labelledby="tab-btn-<?= $role === 'admin' ? 'comparisons' : 'trends' ?>"
-                     class="analytics-tab-panel"
+                     class="analytics-tab-panel" tabindex="0"
                      hidden>
 
                     <?php if ($role === 'admin'): ?>
@@ -700,7 +720,7 @@ function analyticsPage(string $role): void {
                 <div role="tabpanel"
                      id="tab-panel-support"
                      aria-labelledby="tab-btn-support"
-                     class="analytics-tab-panel"
+                     class="analytics-tab-panel" tabindex="0"
                      hidden>
                     <section aria-labelledby="analytics-support-heading">
                         <h2 id="analytics-support-heading" style="margin-bottom: 4px;">Support review summary</h2>
@@ -756,25 +776,36 @@ function analyticsPage(string $role): void {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        if (typeof Chart === 'undefined') return;
+        if (typeof Chart === 'undefined') {
+            for (const id of ['sectionRiskChart', 'honorChart']) {
+                const canvas = document.getElementById(id);
+                if (canvas) canvas.parentElement.hidden = true;
+            }
+            return;
+        }
         function getChartTheme() {
             const root = getComputedStyle(document.documentElement);
             return {
                 text: root.getPropertyValue('--text-dark').trim() || '#1e293b',
+                surface: root.getPropertyValue('--card-bg').trim() || '#ffffff',
+                border: root.getPropertyValue('--border-color').trim() || '#cbd5e1',
                 high: root.getPropertyValue('--risk-high').trim() || '#ef4444',
                 mod: root.getPropertyValue('--risk-mod').trim() || '#f59e0b',
                 low: root.getPropertyValue('--risk-low').trim() || '#10b981',
                 none: root.getPropertyValue('--border-color').trim() || '#94a3b8',
                 summa: root.getPropertyValue('--gold').trim() || '#e8b923',
-                magna: '#265597',
-                cumLaude: '#2d9cdb',
-                insufficient: '#64748b'
+                magna: root.getPropertyValue('--honor-magna').trim() || '#265597',
+                cumLaude: root.getPropertyValue('--primary-light').trim() || '#2d9cdb',
+                insufficient: root.getPropertyValue('--text-gray').trim() || '#64748b'
             };
         }
         const theme = getChartTheme();
+        const reducedMotion = () => document.documentElement.dataset.motion === 'reduce' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const tooltipTheme = t => ({ backgroundColor: t.surface, titleColor: t.text, bodyColor: t.text, borderColor: t.border, borderWidth: 1 });
+        let sectionChart = null, honorChart = null;
         const secEl = document.getElementById('sectionRiskChart');
         if (secEl) {
-            new Chart(secEl.getContext('2d'), {
+            sectionChart = new Chart(secEl.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: <?= json_encode($overview['chartSecLabels']) ?>,
@@ -789,10 +820,11 @@ function analyticsPage(string $role): void {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: theme.text } } },
+                    animation: reducedMotion() ? false : { duration: 150 },
+                    plugins: { legend: { position: 'bottom', labels: { color: theme.text } }, tooltip: tooltipTheme(theme) },
                     scales: {
-                        x: { stacked: true, max: 100, ticks: { callback: v => v + '%', color: theme.text } },
-                        y: { stacked: true, ticks: { color: theme.text } }
+                        x: { stacked: true, max: 100, ticks: { callback: v => v + '%', color: theme.text }, grid: { color: theme.border } },
+                        y: { stacked: true, ticks: { color: theme.text }, grid: { color: theme.border } }
                     }
                 }
             });
@@ -808,7 +840,7 @@ function analyticsPage(string $role): void {
                 if (l.includes('Insufficient')) return theme.insufficient;
                 return theme.none;
             });
-            new Chart(honorEl.getContext('2d'), {
+            honorChart = new Chart(honorEl.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: hLabels,
@@ -817,15 +849,41 @@ function analyticsPage(string $role): void {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: reducedMotion() ? false : { duration: 150 },
                     cutout: '65%',
-                    plugins: { legend: { display: false } }
+                    plugins: { legend: { display: false }, tooltip: tooltipTheme(theme) }
                 }
             });
         }
+        for (const canvas of [secEl, honorEl]) {
+            const fallback = canvas && document.querySelector('[data-chart-fallback="' + canvas.id + '"]');
+            if (fallback) fallback.hidden = true;
+        }
+        // Reuse the existing preferences event; keep axes, tooltips and datasets in sync.
+        window.addEventListener('udm-radar:display-preferences-changed', function() {
+            const current = getChartTheme();
+            if (sectionChart) {
+                sectionChart.data.datasets.forEach((dataset, i) => dataset.backgroundColor = [current.high, current.mod, current.low, current.none][i]);
+                for (const axis of ['x', 'y']) {
+                    sectionChart.options.scales[axis].ticks.color = current.text;
+                    sectionChart.options.scales[axis].grid.color = current.border;
+                }
+                sectionChart.options.plugins.legend.labels.color = current.text;
+            }
+            if (honorChart) {
+                honorChart.data.datasets[0].backgroundColor = honorChart.data.labels.map(label => label.includes('Summa') ? current.summa : label.includes('Magna') ? current.magna : label.includes('Cum Laude') ? current.cumLaude : label.includes('Insufficient') ? current.insufficient : current.none);
+            }
+            for (const chart of [sectionChart, honorChart]) {
+                if (!chart) continue;
+                chart.options.animation = reducedMotion() ? false : { duration: 150 };
+                chart.options.plugins.tooltip = tooltipTheme(current);
+                chart.update('none');
+            }
+        });
     });
     </script>
     <?php endif; ?>
-    <script src="<?= $escape(BASE_URL) ?>assets/js/academic-analytics.js" defer></script>
+    <script src="<?= $escape(BASE_URL) ?>assets/js/academic-analytics.js?v=<?= filemtime(__DIR__ . '/../../assets/js/academic-analytics.js') ?>" defer></script>
     <?php
     require __DIR__ . '/../footer.php';
 }
