@@ -306,12 +306,12 @@ require_once '../includes/sidebar.php';
                 <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSupport['eligible_cases'] ?? 0 ?> total eligible</div>
             </div>
         </div>
-        <div style="margin-top: 16px; padding: 14px 18px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="margin-top: 16px; padding: 14px 18px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.02em;">Average time before the first notice</span>
-                        <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; background: rgba(30, 77, 183, 0.1); color: var(--accent-blue); border-radius: 4px;">MTR-20</span>
+                        <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; background: var(--table-header-bg); color: var(--text-dark); border-radius: 4px;">MTR-20</span>
                     </div>
                     <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">From referral creation to the first recorded notice.</p>
                 </div>
@@ -322,7 +322,7 @@ require_once '../includes/sidebar.php';
                     <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;"><?= htmlspecialchars($mtr20SampleText) ?></div>
                 </div>
                 <?php if ($mtr20Warning): ?>
-                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; border-radius: 6px; font-size: 0.75rem; font-weight: 600;" role="status">
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--card-bg); border: 1px solid var(--risk-mod); color: var(--text-dark); border-radius: 6px; font-size: 0.75rem; font-weight: 600;" role="status">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                         <?= htmlspecialchars($mtr20Warning) ?>
                     </span>
@@ -621,7 +621,7 @@ function runBatchPredictions() {
 
     if (statusDiv) {
         statusDiv.style.display = 'block';
-        statusDiv.style.background = 'var(--bg-light, #f8f9fa)';
+        statusDiv.style.background = 'var(--card-bg)';
         statusDiv.style.border = '1px solid var(--border-color, #e2e8f0)';
         statusDiv.style.color = 'var(--text-dark, #2d3748)';
         statusDiv.innerHTML = '<strong>Batch prediction is running.</strong> Keep this page open while UDM-RADAR processes the eligible student records.';
@@ -654,9 +654,9 @@ function runBatchPredictions() {
             const cases = metrics.cases_created ?? 0;
 
             if (statusDiv) {
-                statusDiv.style.background = '#e6f4ea';
-                statusDiv.style.border = '1px solid #137333';
-                statusDiv.style.color = '#137333';
+                statusDiv.style.background = 'var(--card-bg)';
+                statusDiv.style.border = '1px solid var(--risk-low)';
+                statusDiv.style.color = 'var(--text-dark)';
                 statusDiv.innerHTML = `<strong>Batch Prediction Complete:</strong> Processed ${total} student${total === 1 ? '' : 's'} (${success} evaluated, ${skipped} skipped for insufficient data). Created ${cases} support case${cases === 1 ? '' : 's'}. Refreshing view…`;
             }
 
@@ -670,9 +670,9 @@ function runBatchPredictions() {
     .catch(error => {
         console.error('Batch Predict Error:', error);
         if (statusDiv) {
-            statusDiv.style.background = '#fce8e6';
-            statusDiv.style.border = '1px solid #c5221f';
-            statusDiv.style.color = '#c5221f';
+            statusDiv.style.background = 'var(--card-bg)';
+            statusDiv.style.border = '1px solid var(--risk-high)';
+            statusDiv.style.color = 'var(--text-dark)';
 
             let message = 'The request did not finish in this page. Before running it again, check the latest prediction results to avoid creating a duplicate batch.';
             if (error.message && error.message.includes('already running')) {
