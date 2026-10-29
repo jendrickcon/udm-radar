@@ -159,6 +159,24 @@ function formatAdminRiskInterpretation(int $high, int $moderate, int $low, int $
     return $prefix . ($high + $moderate) . ' of ' . $total . ' displayed Students are in Moderate or High advisory-risk bands; ' . $missing . ' have no prediction. Advisory bands do not determine official standing.';
 }
 
+function renderAnalyticsTrendSection(): void {
+    ?>
+                    <section aria-labelledby="analytics-trend-heading">
+                        <h2 id="analytics-trend-heading">Historical semester trend</h2>
+                        <p id="trend-description"></p>
+                        <div id="trend-chart" class="analytics-chart"></div>
+                        <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700;  color: var(--text-dark);">Historical trend details</h4>
+                            <div id="trend-details-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px; font-size: 0.82rem;"></div>
+                        </div>
+                        <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
+                            <table id="trend-table"></table>
+                        </div>
+                    </section>
+
+    <?php
+}
+
 function analyticsPage(string $role): void {
     require_once __DIR__ . '/../../config/constants.php';
     require_once __DIR__ . '/../../config/db.php';
@@ -255,6 +273,9 @@ function analyticsPage(string $role): void {
     };
     ?>
     <link rel="stylesheet" href="<?= $escape(BASE_URL) ?>assets/css/academic-analytics.css?v=<?= filemtime(__DIR__ . '/../../assets/css/academic-analytics.css') ?>">
+    <?php if ($role === 'admin'): ?>
+    <link rel="stylesheet" href="<?= $escape(BASE_URL) ?>assets/css/admin-academic-comparisons.css?v=<?= filemtime(__DIR__.'/../../assets/css/admin-academic-comparisons.css') ?>">
+    <?php endif; ?>
     <main class="main-content analytics-page" id="academic-analytics" data-role="<?= $escape($role) ?>" data-endpoint="<?= $escape(BASE_URL) ?>api/academic_analytics.php">
         <header class="header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
             <div>
@@ -441,9 +462,12 @@ function analyticsPage(string $role): void {
                             <?php if (empty($overview['sectionData'])): ?>
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
                             <?php else: ?>
-                                <div style="position: relative; height: 280px; width: 100%;">
+                                <div class="overview-chart-plot overview-chart-plot--risk">
                                     <canvas id="sectionRiskChart" role="img" aria-label="Risk distribution by section" aria-describedby="section-risk-chart-summary"></canvas>
                                 </div>
+                                <ul class="overview-chart-legend" aria-label="Risk bands">
+                                    <li><span style="background:var(--risk-high)"></span>High Risk</li><li><span style="background:var(--risk-mod)"></span>Moderate Risk</li><li><span style="background:var(--risk-low)"></span>Low Risk</li><li><span style="background:var(--border-color)"></span>No Prediction</li>
+                                </ul>
                                 <p class="analytics-chart-fallback" data-chart-fallback="sectionRiskChart">Chart unavailable. Use Exact values to read the available records.</p>
                                 <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
                                     <?= count($overview['chartSecLabels']) ?> displayed sections; percentages use all active Students within each section. No Prediction remains separate from advisory-risk bands.
@@ -477,13 +501,11 @@ function analyticsPage(string $role): void {
                             <?php if (empty($overview['sectionData'])): ?>
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
                             <?php else: ?>
-                                <div style="position: relative; height: 210px; width: 100%;">
+                                <div class="overview-chart-plot overview-chart-plot--distinction">
                                     <canvas id="honorChart" role="img" aria-label="Academic Distinction Readiness Chart" aria-describedby="honor-chart-summary"></canvas>
                                 </div>
                                 <p class="analytics-chart-fallback" data-chart-fallback="honorChart">Chart unavailable. Use Exact values to read the available records.</p>
-                                <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
-                                    <?= (int)array_sum($overview['distinctions']) ?> displayed Students across <?= count($overview['distinctions']) ?> recorded categories, based on latest stored estimates or predictions. This does not confer official eligibility.
-                                </p>
+
                                 <ul id="honorChartLegend" class="honor-chart-legend" role="list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 14px; padding: 0; list-style: none;">
                                     <?php foreach ($overview['distinctions'] as $label => $count):
                                         $dotColor = match(true) {
@@ -500,6 +522,9 @@ function analyticsPage(string $role): void {
                                     </li>
                                     <?php endforeach; ?>
                                 </ul>
+                                <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
+                                    <?= (int)array_sum($overview['distinctions']) ?> displayed Students across <?= count($overview['distinctions']) ?> recorded categories, based on latest stored estimates or predictions. This does not confer official eligibility.
+                                </p>
                                 <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" id="distinction-exact-values" data-focused-chart="distinction" aria-describedby="distinction-chart-heading" aria-expanded="false" aria-pressed="false" aria-controls="honor-chart-data">Exact values</button></div>
                                 <section id="honor-chart-data" class="card focused-chart-details" role="region" aria-labelledby="distinction-details-heading" hidden>
                                     <h3 id="distinction-details-heading" tabindex="-1">Focused view: Academic Distinction Readiness</h3>
@@ -574,6 +599,15 @@ function analyticsPage(string $role): void {
                     <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
                     <?php endif; ?>
 
+                    <?php if ($role === 'admin'): ?>
+                    <section aria-labelledby="analytics-summary-heading">
+                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
+                        <div id="analytics-summary"></div>
+                    </section>
+                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
+                    <?php endif; ?>
+                    <?php if ($role === 'admin') renderAnalyticsTrendSection(); ?>
+
                     <section aria-labelledby="analytics-method-heading">
                         <h2 id="analytics-method-heading">Reading these results</h2>
                         <div id="analytics-method"></div>
@@ -587,27 +621,22 @@ function analyticsPage(string $role): void {
                      class="analytics-tab-panel" tabindex="0"
                      hidden>
 
+
+
+                    <?php if ($role !== 'admin') renderAnalyticsTrendSection(); ?>
+
                     <?php if ($role === 'admin'): ?>
-                    <section aria-labelledby="analytics-summary-heading">
-                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
-                        <div id="analytics-summary"></div>
-                    </section>
-                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
-                    <?php endif; ?>
-
-                    <section aria-labelledby="analytics-trend-heading">
-                        <h2 id="analytics-trend-heading">Historical semester trend</h2>
-                        <p id="trend-description"></p>
-                        <div id="trend-chart" class="analytics-chart"></div>
-                        <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Historical Trend Details</h4>
-                            <div id="trend-details-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px; font-size: 0.82rem;"></div>
+                    <section id="admin-comparisons" aria-labelledby="admin-comparison-heading">
+                        <div class="card ac-workspace">
+                            <h2 id="admin-comparison-heading">Academic Comparisons</h2>
+                            <p class="ac-intro">Compare academic groups using the same scope, period, and metric.</p>
+                            <div id="ac-controls"></div>
                         </div>
-                        <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
-                            <table id="trend-table"></table>
-                        </div>
+                        <div id="ac-notice" role="status" class="ac-notice" hidden></div>
+                        <div id="ac-result"></div>
+                        <div class="ac-history"><p id="ac-history-summary"></p><button type="button" class="btn btn--quiet" id="ac-view-history">View historical trend</button></div>
                     </section>
-
+                    <?php else: ?>
                     <section aria-labelledby="analytics-comparison-heading" class="comparison-builder-section">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
                             <div>
@@ -742,6 +771,7 @@ function analyticsPage(string $role): void {
                             Comparative academic patterns support authorized review and do not independently measure teaching performance. Differences may reflect Student composition, prior achievement, subject difficulty, class size, record completeness, and semester conditions.
                         </p>
                     </section>
+                    <?php endif; ?>
                 </div>
 
                 <!-- TAB PANEL 3: SUPPORT & INTERVENTIONS -->
@@ -849,7 +879,7 @@ function analyticsPage(string $role): void {
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: reducedMotion() ? false : { duration: 150 },
-                    plugins: { legend: { position: 'bottom', labels: { color: theme.text } }, tooltip: tooltipTheme(theme) },
+                    plugins: { legend: { display: false, labels: { color: theme.text } }, tooltip: tooltipTheme(theme) },
                     scales: {
                         x: { stacked: true, max: 100, ticks: { callback: v => v + '%', color: theme.text }, grid: { color: theme.border } },
                         y: { stacked: true, ticks: { color: theme.text }, grid: { color: theme.border } }
@@ -911,6 +941,7 @@ function analyticsPage(string $role): void {
     });
     </script>
     <?php endif; ?>
+    <?php if ($role === 'admin'): ?><script src="<?= $escape(BASE_URL) ?>assets/js/admin-academic-comparisons.js?v=<?= filemtime(__DIR__.'/../../assets/js/admin-academic-comparisons.js') ?>" defer></script><?php endif; ?>
     <script src="<?= $escape(BASE_URL) ?>assets/js/academic-analytics.js?v=<?= filemtime(__DIR__ . '/../../assets/js/academic-analytics.js') ?>" defer></script>
     <?php
     if ($role === 'admin') { ?><script src="<?= $escape(BASE_URL) ?>assets/js/admin-analytics-interpretability.js?v=<?= filemtime(__DIR__.'/../../assets/js/admin-analytics-interpretability.js') ?>" defer></script><?php }

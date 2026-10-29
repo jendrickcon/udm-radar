@@ -77,27 +77,31 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
    const a=await first.boundingBox(),b=await second.boundingBox();
    if(width>=1280){
     expect(Math.abs(a.y-b.y),'Both cards share the row').toBeLessThan(2);
-    expect(Math.abs(a.height-b.height),'Both cards have equal computed heights').toBeLessThan(2);
+    expect(Math.abs(a.height-b.height),'Natural card bottoms align').toBeLessThanOrEqual(1);
    }else{
     expect(b.y,'Stacked panels do not overlap').toBeGreaterThanOrEqual(a.y+a.height-1);
-    expect(Math.min(a.height,b.height),'Stacked panels retain a useful minimum height').toBeGreaterThanOrEqual(500);
+    expect(Math.min(a.height,b.height),'Stacked panels retain their content').toBeGreaterThan(0);
    }
   };
   await paired(risk,distinction);
-  const normalHeight=(await risk.boundingBox()).height;
+  const compactAction=async chart=>{
+   const interpretation=await chart.locator('.chart-interpretation-text').boundingBox(),action=await chart.locator('[data-focused-chart]').boundingBox();
+   expect(action.y-interpretation.y-interpretation.height,'Action follows interpretation without filler').toBeGreaterThanOrEqual(12);
+   expect(action.y-interpretation.y-interpretation.height,'No artificial empty lower region').toBeLessThanOrEqual(32);
+   expect(await chart.evaluate(e=>getComputedStyle(e).minHeight),'No oversized panel minimum').toBe('0px');
+  };
+  await compactAction(risk);await compactAction(distinction);
   const panelStyle=panel=>panel.evaluate(e=>{const s=getComputedStyle(e);return [s.borderRadius,s.borderColor,s.backgroundColor,s.padding];});
   expect(await panelStyle(risk)).toEqual(await panelStyle(distinction));
   if(width>=1280)expect(Math.abs((await risk.locator('button').boundingBox()).y-(await distinction.locator('button').boundingBox()).y),'Chart actions share the footer line').toBeLessThan(2);
   for(const kind of ['risk','distinction']){
    const chart=kind==='risk'?risk:distinction,region=page.locator(kind==='risk'?'#section-risk-data':'#honor-chart-data');
-   const button=page.locator('#'+kind+'-exact-values'),buttonOffset=await button.evaluate(e=>e.offsetTop);await button.click();
-   expect(await button.evaluate(e=>e.offsetTop),'Toggle stays in the same panel position').toBeCloseTo(buttonOffset,0);
+   const button=page.locator('#'+kind+'-exact-values');await button.click();
    expect(await panelStyle(chart)).toEqual(await panelStyle(region));
    if(width>=1280){
     await paired(chart,region);
-    expect((await chart.boundingBox()).height,'One height contract across modes').toBeCloseTo(normalHeight,0);
-    const body=region.locator('.focused-chart-details__body');
-    expect(await body.evaluate(e=>/auto|scroll/.test(getComputedStyle(e).overflowY))).toBe(true);
+    await compactAction(chart);
+    const body=region.locator('.section-risk-table-scroll,.distinction-table-scroll');
     const box=await body.boundingBox(),panelBox=await region.boundingBox();
     expect(box.y+box.height).toBeLessThanOrEqual(panelBox.y+panelBox.height);
    }else await paired(chart,region);
@@ -137,8 +141,8 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
    if(kind==='risk'){
     const data=await page.evaluate(()=>({chart:Chart.getChart('sectionRiskChart').data.datasets.map(d=>d.data),table:[...document.querySelectorAll('#section-risk-chart-summary tbody tr')].map(r=>[...r.querySelectorAll('td')].map(t=>Number(t.textContent)))}));
     expect(data.chart).toEqual([0,1,2,3].map(i=>data.table.map(r=>r[i])));
-    const scroll=region.locator(width>=1280?'.focused-chart-details__body':'.section-risk-table-scroll');expect(await scroll.evaluate(e=>e.scrollHeight>e.clientHeight)).toBe(true);
-    if(width===1024)expect((await scroll.boundingBox()).height).toBeLessThanOrEqual(342);
+    const scroll=region.locator('.section-risk-table-scroll');expect(await scroll.evaluate(e=>e.scrollHeight>e.clientHeight)).toBe(true);
+    expect((await scroll.boundingBox()).height).toBeLessThanOrEqual(342);
     const headingBefore=await region.getByRole('heading').boundingBox();
     await scroll.evaluate(e=>e.scrollTop=e.scrollHeight);const caption=await region.locator('caption').boundingBox(),header=await region.locator('thead th').first().boundingBox();expect(header.y).toBeGreaterThanOrEqual(caption.y+caption.height-2);
     expect(Math.abs(caption.y-(await scroll.boundingBox()).y),'Caption stays at the top of the scroll area').toBeLessThan(4);
