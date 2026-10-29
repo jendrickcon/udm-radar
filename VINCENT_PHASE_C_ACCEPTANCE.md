@@ -94,12 +94,12 @@ node tests/unit/display_preferences_contract_test.js
 if($LASTEXITCODE){throw 'Display preference contracts failed'}
 node tests/unit/admin_faculty_acceptance_runner_test.cjs
 if($LASTEXITCODE){throw 'CLI failure guards failed'}
-$env:PHASE_C_READ_ONLY_DB='udm_radar'
+$env:PHASE_C_DISPOSABLE_DB='udm_radar_admin_faculty_acceptance_' + [System.Guid]::NewGuid().ToString('N').Substring(0,8)
 php tests/integration/admin_faculty_read_only_acceptance_test.php
-if($LASTEXITCODE){throw 'Read-only repository acceptance failed'}
+if($LASTEXITCODE){throw 'Disposable database acceptance failed'}
 ```
 
-The failure probes use an unavailable loopback endpoint and dummy database/user values; they never query application records. The actual read-only test requires its explicit opt-in, sets the session read-only and confirms the exact database before reading. A completion guard returns nonzero even when shared DB bootstrap terminates early. Successful fingerprint mode is explicitly completed as well.
+The failure probes use an unavailable loopback endpoint and dummy database/user values; they never query application records. The acceptance test strictly enforces database isolation: targets 'udm_radar' and 'udm_radar_scratch' are prohibited before connection, requiring a unique disposable target (`udm_radar_admin_faculty_acceptance_<unique-suffix>`). The runner automatically creates the disposable database, imports baseline schema and synthetic demo fixtures, runs the 31 read-only checks, drops the database, and asserts cleanup completion.
 
 ## Independent review closure
 
