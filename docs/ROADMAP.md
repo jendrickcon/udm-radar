@@ -5,6 +5,23 @@
 
 ---
 
+## Vincent Admin/Faculty checkpoint — 29 October 2026
+
+**Phase C: IN PROGRESS for owner acceptance; approved implementation and automated self-verification are READY FOR OWNER REVIEW.** The 27 October “NOT STARTED” entries below describe the earlier baseline and are superseded for Vincent by this checkpoint.
+
+The assigned `feat/member1-admin-faculty-ui` branch now contains the owner-approved collapsing navigation, theme/icon changes and Admin/Faculty usability/accessibility refinements. Acceptance closure verifies own/current Faculty scope, safe support drill-down, chart/table/metric parity, missing/provisional/gap states, themes, desktop geometry and existing shared Student seams. It also fixes incompatible cross-subject Faculty differences and the anonymous legacy comparison redirect. Academic formulas, auth rules, database/schema/models and dependencies remain unchanged.
+
+Final affected browser evidence: **100 passed, 0 failed, 0 skipped**; PHP contracts/regressions **385 passed**, JavaScript checks **21 passed** (19 preference contracts and 2 CLI failure guards), read-only actual repository integration **31 passed**. Evidence categories and exact commands are in [Vincent acceptance](../VINCENT_PHASE_C_ACCEPTANCE.md); tests are not institutional or human acceptance.
+
+The owner authorized the verified checkpoint commit/push for team-leader testing. Final Git/remote SHA and clean-status confirmation are returned with delivery; no PR, merge or deployment is performed. [Visible retest checklist](../VINCENT_TEAM_LEADER_RETEST.md) remains pending the team leader/owner.
+
+**Phase E: latest Joshua-branch integration DEFERRED by explicit owner request.** Existing approved-main/shared regression checks passed; no claim about Joshua's unpublished implementation or merge is made. Student work beyond the explicitly requested shared-sidebar/seam fixes remains Joshua's responsibility.
+
+MTR-07, canonical MTR-21, undated historical Faculty attribution, numeric Student cohort and Migration 011 remain BLOCKED. Genuine-record validation, institutional UAT and broader release readiness remain separate future work.
+
+---
+
+
 ## Post-defense analytics — PR #62 and PR #64 merged; locally deployed (2026-10-27)
 
 Approved v3 Blue revisions were merged as five bounded MVPs in [PR #62](https://github.com/jendrickcon/udm-radar/pull/62), merge commit `edef1b382b7874af770feb5713c20e9b68979241`, from certified head `03c3d31efe66d376869d5955fe2e57b48cca7bb0`: prediction meaning/range availability, Student progression, Administrator comparisons, support summaries/drill-down and currently assigned Faculty review. Phases 1–5 are MERGED for that bounded scope, not fulfillment of every canonical FR or MTR. Continuity PR #61, the eight closed reconciliation blockers, Antigravity Stage B APPROVED FOR OWNER MERGE REVIEW and the post-merge MERGED TREE MATCHES CERTIFIED IMPLEMENTATION verdict remain part of the accepted PR #62 history.

@@ -39,12 +39,34 @@ This register converts qualitative audits, static inspection findings, and usabi
 | **UX-010** | External Chart.js CDN dependency review | Cross-portal | Low | Proposed | `UI-SYSTEM-WP1` | Source-Confirmed |
 | **UX-011** | Unreachable calculator targets stay selectable until calculation | Student | Medium | Verified | `GOAL-CALCULATOR-FEASIBLE-GWA-OPTIONS-SOL-WP1` | Generated fixture / deterministic math; local branch, unmerged |
 | **UX-012** | Post-defense prediction meaning, comparison context and support interpretability | Cross-portal | High | In Progress | `POST-DEFENSE-ANALYTICS-MVP` | Disposable actual-handler desktop verification; local branch, unmerged |
+| **UX-013** | Admin/Faculty analytics controls, scope feedback and chart accessibility | Admin/Faculty; shared Student regression | Medium | Verified | `MEMBER1-VINCENT-ADMIN-FACULTY-PORTALS-WP2` | Authenticated / controlled response / generated checkpoint; owner retest pending |
+| **UX-014** | Incompatible Faculty differences and legacy anonymous comparison redirect | Admin/Faculty | Medium | Verified | `MEMBER1-VINCENT-ADMIN-FACULTY-PORTALS-WP2` | Two observed RED→GREEN fixes; final categorized acceptance checkpoint |
 
 ---
 
 ## 3. Finding Detail Records
 
+### UX-014: Faculty comparison eligibility and anonymous legacy redirect
+
+* **Observed:** Two different Faculty subject assignments displayed a point/relative difference despite a noncomparability warning. Anonymous legacy comparison access returned HTTP 200 with an undefined-BASE_URL fatal error instead of a login redirect.
+* **Fix:** Require matching verified subject keys before displaying a Faculty difference; load existing constants before the legacy route's existing auth guard. No formula, schema, model, dependency or authorization-rule changes.
+* **Verification:** The incompatible-pair reproduction failed before the guard and passed afterward while preserving a valid same-subject difference. The anonymous redirect reproduction failed before initialization repair and passed afterward. Final affected browser and contract results are in [acceptance](../VINCENT_PHASE_C_ACCEPTANCE.md).
+* **Delivery:** Verified checkpoint authorized for commit/push; owner/team-leader visible acceptance pending. Joshua integration remains on hold.
+
+
+### UX-013: Admin/Faculty analytics consistency and usable controls
+
+* **Owner direction:** 29 October 2026: retain the existing design and complete consistency, accessibility and usability refinements.
+* **Evidence:** Live synthetic audit reproduced initially empty Faculty cards despite available subject groups, unavailable grouping choices, native selector focus loss and misleading all-records status after filtering. Dark selected-control text measured 2.54:1. Source review found missing exact risk-percentage access and chart colors captured only at initial render.
+* **Local fix:** Role-appropriate card defaults/options; preserved focus and controls in unavailable states; focusable tab panels; accurate applied-scope status/URL; scoped control contrast/sizing; exact overview data disclosures and missing-chart fallback; theme/motion synchronization using the existing preference event. Original overview remains a labeled page-open snapshot. Calculations, role authorization, database and dependencies unchanged.
+* **Verification:** 69 affected browser cases passed: 26 fully live authenticated/read-only, 8 controlled response/fault/timing, 33 generated components and 2 Faculty structural. Pure PHP checks 14 passed. One Important independent-review finding received two RED→GREEN regressions before the final suite. Targeted accessibility checks are not a full WCAG audit.
+* **Delivery status:** Verified locally; this owner-authorized checkpoint includes the refinement and acceptance closure. Owner visible retest remains pending; overall Phase C/institutional acceptance is not claimed.
+* **Handoff:** [Vincent Phase C refinement report](../VINCENT_PHASE_C_REFINEMENT_REPORT.md).
+
+
 ### UX-012: Post-defense analytics interpretability
+
+Current accepted MVP status: PR64 is merged at `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`, as recorded in the canonical roadmap. The paragraph below is the earlier pre-publication checkpoint; its local/unmerged wording is historical. Broader institutional acceptance remains separate.
 
 The approved v3 guide requested clearer estimated GWA/advisory meaning, comparable academic summaries and support follow-up context. Five local MVPs now share canonical formulas and record scope, native controls, tables and representative line/bar views. Range/deferral/historical-assignment gaps remain explicit. Desktop actual-handler and generated regression evidence is recorded in [implementation status](post-defense/10_IMPLEMENTATION_STATUS.md); final chart redesign and UAT are deferred. The owner now directs **no further mobile testing or screenshotting; focus on desktops**. The completed [independent follow-up](post-defense/16_INDEPENDENT_REVIEW_FOLLOWUP.md) approves the bounded corrected MVP with documented non-blocking limitations; UX-012 remains In Progress for overall publication/UAT, and analytics remain local and unmerged. External Stage B and institutional acceptance are separate.
 

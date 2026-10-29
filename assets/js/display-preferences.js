@@ -8,6 +8,8 @@
  *    - theme: 'system' | 'light' | 'dark' (default: 'system')
  *    - textSize: 'small' | 'default' | 'large' | 'extra-large' (default: 'default')
  *    - motion: 'system' | 'reduce' | 'allow' (default: 'system')
+ *    - automaticSidebarExpansion: boolean (default: false)
+ *    - sidebarCollapsed: saved manual state (default: false)
  *    - underlineLinks: boolean (default: false)
  * 2. Legacy 'theme' key migration to udmRadarDisplayPreferencesV1
  * 3. System theme and motion resolution via matchMedia
@@ -41,11 +43,14 @@
     theme: 'system',
     textSize: 'default',
     motion: 'system',
-    underlineLinks: false
+    underlineLinks: false,
+    automaticSidebarExpansion: false,
+    sidebarCollapsed: false
   });
 
   let deviceThemeListener = null;
   let deviceMotionListener = null;
+  let volatilePreferences = null; // Keep this page consistent if browser storage rejects a write.
 
   /**
    * Safe localStorage wrapper with try/catch fallback
@@ -86,6 +91,8 @@
     const textSize = ALLOWED_TEXT_SIZES.includes(raw.textSize) ? raw.textSize : DEFAULT_PREFERENCES.textSize;
     const motion = ALLOWED_MOTIONS.includes(raw.motion) ? raw.motion : DEFAULT_PREFERENCES.motion;
     const underlineLinks = typeof raw.underlineLinks === 'boolean' ? raw.underlineLinks : DEFAULT_PREFERENCES.underlineLinks;
+    const automaticSidebarExpansion = raw.automaticSidebarExpansion === true;
+    const sidebarCollapsed = raw.sidebarCollapsed === true;
 
     return {
       version: 1,
@@ -93,7 +100,9 @@
       theme,
       textSize,
       motion,
-      underlineLinks
+      underlineLinks,
+      automaticSidebarExpansion,
+      sidebarCollapsed
     };
   }
 
@@ -112,6 +121,7 @@
    * Retrieves current preferences, validating against storage
    */
   function getPreferences() {
+    if (volatilePreferences) return { ...volatilePreferences };
     const stored = safeStorageGet(STORAGE_KEY);
     if (stored) {
       try {
@@ -179,6 +189,7 @@
       root.setAttribute('data-font-size', validPrefs.textSize);
       root.setAttribute('data-motion', activeMotion);
       root.setAttribute('data-underline-links', validPrefs.underlineLinks ? 'true' : 'false');
+      root.setAttribute('data-sidebar-auto-expansion', validPrefs.automaticSidebarExpansion ? 'true' : 'false');
       root.removeAttribute('data-contrast'); // Contrast mode removed in revised WP1
 
       // Sync compatibility cookie (strictly allowlisted active theme)
@@ -282,7 +293,7 @@
       ...partial
     });
 
-    safeStorageSet(STORAGE_KEY, JSON.stringify(updated));
+    volatilePreferences = safeStorageSet(STORAGE_KEY, JSON.stringify(updated)) ? null : updated;
     return applyPreferences(updated);
   }
 
@@ -290,7 +301,7 @@
    * Resets preferences to defaults
    */
   function resetPreferences() {
-    safeStorageSet(STORAGE_KEY, JSON.stringify(DEFAULT_PREFERENCES));
+    volatilePreferences = safeStorageSet(STORAGE_KEY, JSON.stringify(DEFAULT_PREFERENCES)) ? null : { ...DEFAULT_PREFERENCES };
     return applyPreferences(DEFAULT_PREFERENCES);
   }
 
@@ -415,6 +426,9 @@
       underlineEl.checked = !!current.underlineLinks;
     }
 
+    const automaticSidebarEl = form.querySelector('input[name="display_automatic_sidebar_expansion"]');
+    if (automaticSidebarEl) automaticSidebarEl.checked = current.automaticSidebarExpansion;
+
     // Event listeners
     form.addEventListener('change', (e) => {
       const target = e.target;
@@ -425,9 +439,11 @@
         theme: form.querySelector('input[name="display_theme"]:checked')?.value || current.theme,
         textSize: form.querySelector('input[name="display_text_size"]:checked')?.value || current.textSize,
         motion: form.querySelector('input[name="display_motion"]:checked')?.value || current.motion,
-        underlineLinks: !!form.querySelector('input[name="display_underline_links"]')?.checked
+        underlineLinks: !!form.querySelector('input[name="display_underline_links"]')?.checked,
+        automaticSidebarExpansion: !!automaticSidebarEl?.checked
       };
 
+      if (target === automaticSidebarEl && automaticSidebarEl.checked) newPrefs.sidebarCollapsed = false;
       savePreferences(newPrefs);
       updateSummaryCard(newPrefs);
       announceStatus('Display preferences saved.');
@@ -448,6 +464,7 @@
         setRadio('display_text_size', DEFAULT_PREFERENCES.textSize);
         setRadio('display_motion', DEFAULT_PREFERENCES.motion);
         if (underlineEl) underlineEl.checked = DEFAULT_PREFERENCES.underlineLinks;
+        if (automaticSidebarEl) automaticSidebarEl.checked = DEFAULT_PREFERENCES.automaticSidebarExpansion;
 
         // Refresh summary card badges
         updateSummaryCard(DEFAULT_PREFERENCES);

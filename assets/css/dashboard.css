@@ -350,6 +350,80 @@ tr:last-child td { border-bottom: none; }
 
 .empty-state { color: var(--text-gray); font-style: italic; padding: 20px 0; text-align: center; }
 
+/* Desktop rail keeps its width in the flex layout, so content is never covered. */
+.sidebar-collapse-toggle { display: none; }
+.sidebar--collapsible .sidebar-link,
+.sidebar--collapsible .theme-toggle-btn,
+.sidebar--collapsible .logout-btn { min-height: 44px; }
+
+@media (min-width: 901px) {
+    .sidebar--collapsible {
+        --sidebar-collapsed-width: 80px;
+        --sidebar-expanded-width: 280px;
+        width: var(--sidebar-expanded-width);
+        flex: 0 0 auto;
+        overflow: hidden;
+        transition: width 180ms ease-out, background-color 0.3s ease;
+    }
+    html[data-sidebar-collapsed="true"] .sidebar--collapsible { width: var(--sidebar-collapsed-width); }
+    .sidebar--collapsible .sidebar-brand { flex: 0 0 146px; height: 146px; }
+    .sidebar--collapsible .sidebar-logo { width: 130px; max-width: 100%; max-height: 130px; object-fit: contain; }
+    .sidebar--collapsible .sidebar-nav { min-height: 0; }
+    .sidebar--collapsible .sidebar-footer { flex-shrink: 0; }
+    .sidebar--collapsible .sidebar-link,
+    .sidebar--collapsible .theme-toggle-btn,
+    .sidebar--collapsible .logout-btn {
+        position: relative;
+        min-height: 44px;
+        flex-shrink: 0;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .sidebar--collapsible .sidebar-label {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 120ms ease-out;
+    }
+    html[data-sidebar-collapsed="true"] .sidebar--collapsible .sidebar-label { opacity: 0; visibility: hidden; }
+    html[data-sidebar-collapsed="true"] .sidebar--collapsible .nav-badge {
+        position: absolute;
+        right: 2px;
+        top: 4px;
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        font-size: 0;
+        box-shadow: none;
+    }
+    .sidebar--collapsible .sidebar-environment-note { white-space: nowrap; overflow: hidden; opacity: 1; }
+    html[data-sidebar-collapsed="true"] .sidebar--collapsible .sidebar-environment-note { opacity: 0; }
+    .sidebar--collapsible .sidebar-collapse-toggle { display: flex; }
+    .sidebar-collapse-toggle .sidebar-icon { transition: transform 180ms ease-out; }
+    html:not([data-sidebar-collapsed="true"]) .sidebar-collapse-toggle .sidebar-icon { transform: rotate(180deg); }
+}
+
+.sidebar-navigation-tooltip {
+    position: fixed;
+    z-index: 20020;
+    max-width: min(240px, calc(100vw - 16px));
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-dark);
+    font: 600 0.8125rem/1.4 'Inter', sans-serif;
+    overflow-wrap: anywhere;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.sidebar-navigation-tooltip[hidden] { display: none; }
+@media (hover: none) {
+    .sidebar-navigation-tooltip { pointer-events: none; }
+}
+
 /* ── Mobile Top Bar & Navigation Drawer (UI-WP-Mobile) ───────── */
 .mobile-topbar {
     display: none;

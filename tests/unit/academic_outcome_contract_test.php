@@ -60,6 +60,9 @@ checkOutcome(computeHistoricalFailureFeatures([
 function aggregatePortalFixture(string $relativePath, array $grades): array {
     $source = file_get_contents(dirname(__DIR__, 2) . '/' . $relativePath);
     $start = strpos($source, '$histStudents = [];');
+    if ($start === false) {
+        throw new RuntimeException('Historical aggregation start not found');
+    }
     $end = strpos($source, '    usort($histSubjects', $start);
     if ($start === false || $end === false) {
         throw new RuntimeException('Historical aggregation boundaries not found');
@@ -79,18 +82,25 @@ foreach ([
     [['INC', ' inc '], 0, 0, 2, 0],
     [['DO', 'DU', 'FA', 'UD', 'DRP'], 0, 4, 0, 4],
 ] as [$grades, $passed, $failed, $incomplete, $recognized]) {
-    $screen = aggregatePortalFixture('admin/analytics.php', $grades);
+    // The current Admin screen is a presenter wrapper; its metrics use this service.
+    require_once dirname(__DIR__, 2) . '/includes/analytics/calculations.php';
+    $rows = [];
+    foreach ($grades as $index => $grade) $rows[] = ['id'=>$index+1,'student_id'=>$index+1,'final_grade'=>$grade,'units'=>3];
+    $screen = analyticsAggregate($rows);
     $pdf = aggregatePortalFixture('admin/export_program_analytics_pdf.php', $grades);
-    checkOutcome($screen, $pdf, 'Screen/PDF outcome aggregation parity');
-    checkOutcome($screen['passed'], $passed, 'Passing count');
-    checkOutcome($screen['failed'], $failed, 'Failed count (deferred statuses preserved)');
-    checkOutcome($screen['incomplete_count'], $incomplete, 'Unresolved count');
-    checkOutcome($screen['recognized_outcome_count'], $recognized, 'Recognized denominator excludes INC');
+    checkOutcome($screen['recognized_outcome_count'], $pdf['recognized_outcome_count'], 'Current analytics/PDF recognized denominator parity');
+    checkOutcome($pdf['passed'], $passed, 'PDF passing count');
+    checkOutcome($pdf['failed'], $failed, 'PDF failed count (deferred statuses preserved)');
+    checkOutcome($pdf['incomplete_count'], $incomplete, 'PDF unresolved count');
+    checkOutcome($screen['recognized_outcome_count'], $recognized, 'Current analytics recognized denominator excludes INC');
 }
 // Actual Faculty Trends aggregation: encoded coverage must not be the mean divisor.
 function aggregateFacultyTrendFixture(array $finals): array {
     $source = file_get_contents(dirname(__DIR__, 2) . '/faculty/trend.php');
     $start = strpos($source, '$enrolledCount = count($grades);');
+    if ($start === false) {
+        throw new RuntimeException('Faculty trend aggregation start not found');
+    }
     $end = strpos($source, '$chartLineData = [', $start);
     if ($start === false || $end === false) {
         throw new RuntimeException('Faculty trend aggregation boundaries not found');

@@ -199,8 +199,8 @@
 
  let comparisonMode='overlay';
  let comparisonCards=[
-  {id:'card-a',dimension:'faculty_subject',key:''},
-  {id:'card-b',dimension:'faculty_subject',key:''}
+  {id:'card-a',dimension:role==='faculty'?'subject':'faculty_subject',key:''},
+  {id:'card-b',dimension:role==='faculty'?'subject':'faculty_subject',key:''}
  ];
 
  function getVerifiedFaculty(groups){
@@ -536,7 +536,8 @@
   const dimA=activeItems[0]?.card?.dimension||dimension;
   const dimB=activeItems[1]?.card?.dimension||dimension;
 
-  const isComparable=(dimA===dimB)&&(valA!==valB)&&groupA&&groupB;
+  const sameFacultySubject=dimA!=='faculty_subject'||valA?.split('|')[1]===valB?.split('|')[1];
+  const isComparable=(dimA===dimB)&&sameFacultySubject&&(valA!==valB)&&groupA&&groupB;
 
   if(isComparable){
    let diff=null;
@@ -712,21 +713,6 @@
   const valA=comparisonCards[0]?.key||'';
   const valB=comparisonCards[1]?.key||'';
 
-  if(!groups.length){
-   if(panelA)panelA.replaceChildren(el('p','No records match these filters.'));
-   if(panelB)panelB.replaceChildren(el('p','No records match these filters.'));
-   if(panelC)panelC.replaceChildren(el('p','No records match these filters.'));
-   if(summaryCard)summaryCard.replaceChildren(el('p','No comparison records match these filters.'));
-   if(chartContainer)chartContainer.replaceChildren(el('p','No comparison records match these filters.'));
-   if(legendContainer)legendContainer.replaceChildren();
-   if(sideBySideTable)table(sideBySideTable,['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'],[],'No records match these filters.','Direct metrics for the selected comparison cards.');
-   if(allGroupsTable)table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],[],'No records match these filters.',description);
-   const detailsContent=document.getElementById('comparison-details-content');
-   if(detailsContent)detailsContent.replaceChildren(el('p','No comparison records match these filters.'));
-   if(noticeEl)noticeEl.style.display='none';
-   return;
-  }
-
   // Notice Handling
   if(noticeEl){
    noticeEl.style.display='none';
@@ -766,10 +752,6 @@
   const renderPanel=(panel, card, group, tag, colClass, index)=>{
    if(!panel)return;
    panel.replaceChildren();
-   if(!group){
-    panel.append(el('p','No group selected.'));
-    return;
-   }
    const header=el('div',undefined,{class:'panel-header'});
    const topRow=el('div',undefined,{style:'display:flex;justify-content:space-between;align-items:center;gap:8px;'});
    const titleBox=el('div');
@@ -784,19 +766,19 @@
     removeBtn.addEventListener('click',()=>removeComparisonCard('card-c'));
     actionsBox.append(removeBtn);
    }
-   const statusBadge=el('span',group.provisional?'Provisional data':'Verified complete',{
-    class:`card-status-badge ${group.provisional?'badge-provisional':'badge-complete'}`
+   const statusBadge=el('span',!group?'Unavailable':group.provisional?'Provisional data':'Verified complete',{
+    class:`card-status-badge ${!group?'':group.provisional?'badge-provisional':'badge-complete'}`
    });
    actionsBox.append(statusBadge);
    topRow.append(titleBox,actionsBox);
 
-   let cardTitleText=group.label;
-   if(card.dimension==='faculty_subject'&&group.label.includes(' · ')){
+   let cardTitleText=group?.label||'No matching records';
+   if(group&&card.dimension==='faculty_subject'&&group.label.includes(' · ')){
     const [fname,scode]=group.label.split(' · ');
     cardTitleText=`${fname}'s verified ${scode} assignment`;
-   }else if(card.dimension==='section'){
+   }else if(group&&card.dimension==='section'){
     cardTitleText=`Section ${group.label}`;
-   }else if(card.dimension==='year_level'){
+   }else if(group&&card.dimension==='year_level'){
     cardTitleText=`${group.label} cohort`;
    }
    const titleEl=el('h4',cardTitleText,{class:'panel-title',style:'margin:6px 0 2px 0;'});
@@ -806,7 +788,8 @@
    // Card scope selectors
    const controlsRow=el('div',undefined,{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;'});
    const dimSelect=el('select',undefined,{class:'filter-select card-dimension-select','aria-label':`${tag} Group by`,style:'font-size:0.8rem;min-height:36px;padding:4px 6px;'});
-   Object.entries(dimensions).forEach(([k,lbl])=>{
+   Object.keys(report.groups).forEach(k=>{
+    const lbl=dimensions[k];
     const opt=el('option',lbl,{value:k});
     if(k===(card.dimension||dimension))opt.selected=true;
     dimSelect.append(opt);
@@ -815,20 +798,29 @@
     card.dimension=e.target.value;
     card.key='';
     renderComparisons();
+    panel.querySelector('.card-dimension-select')?.focus({preventScroll:true});
    });
 
    const valSelect=el('select',undefined,{class:'filter-select card-group-select','aria-label':`${tag} Select value`,style:'font-size:0.8rem;min-height:36px;padding:4px 6px;'});
    const availableGroups=card.dimension==='faculty_subject'?getVerifiedFaculty(report.groups):(report.groups[card.dimension]||[]);
    availableGroups.forEach(g=>{
     const opt=el('option',g.label,{value:g.key});
-    if(g.key===group.key)opt.selected=true;
+    if(g.key===group?.key)opt.selected=true;
     valSelect.append(opt);
    });
    valSelect.addEventListener('change',e=>{
     card.key=e.target.value;
     renderComparisons();
+    panel.querySelector('.card-group-select')?.focus({preventScroll:true});
    });
    controlsRow.append(dimSelect,valSelect);
+
+   if(!group){
+    valSelect.replaceChildren(el('option','No matching records',{value:''}));
+    valSelect.disabled=true;
+    panel.append(header,controlsRow,el('p','No verified records are available for this grouping. Choose another grouping or clear filters.'));
+    return;
+   }
 
    const metricBox=el('div',undefined,{class:'panel-metric-box card-metric-box'});
    const metricName=metricLabels[selectedMetric]||'Metric';
@@ -879,6 +871,18 @@
   }else if(panelC){
    panelC.style.display='none';
    if(panelsGrid)panelsGrid.classList.remove('has-3-cards');
+  }
+
+  if(!groups.length){
+   if(summaryCard)summaryCard.replaceChildren(el('p','No comparison records match these filters.'));
+   if(chartContainer)chartContainer.replaceChildren(el('p','No comparison records match these filters.'));
+   if(legendContainer)legendContainer.replaceChildren();
+   if(sideBySideTable)table(sideBySideTable,['Comparison subject','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage','Data status'],[],'No records match these filters.','Direct metrics for the selected comparison cards.');
+   if(allGroupsTable)table(allGroupsTable,['Group','Recorded class average','Students (n)','Eligible / recorded grades','Numeric coverage','Final-outcome coverage'],[],'No records match these filters.',description);
+   const detailsContent=document.getElementById('comparison-details-content');
+   if(detailsContent)detailsContent.replaceChildren(el('p','No comparison records match these filters.'));
+   if(noticeEl)noticeEl.style.display='none';
+   return;
   }
 
   // Summary Card - removed duplicate lower block when comparison-details-pane is present
@@ -1292,7 +1296,15 @@
    render(data);
    results.hidden=false;
    results.setAttribute('aria-busy','false');
-   state.textContent='Showing all authorized recorded values.';
+   state.textContent=document.getElementById('active-filters').textContent.replace('Active filters · ','Showing ')+'.';
+   // Only publish a successfully rendered scope; failed/stale requests keep it intact.
+   try{
+    const appliedUrl=new URL(location.href);
+    appliedUrl.search='';
+    apiParams.forEach((value,key)=>{if(value!=='')appliedUrl.searchParams.set(key,value);});
+    if(root.querySelector('.analytics-tablist'))appliedUrl.searchParams.set('tab',activeTab);
+    history.replaceState(null,'',appliedUrl);
+   }catch{}
   }catch(error){
    if(error.name==='AbortError'||ticket!==generation)return;
    state.setAttribute('role','alert');

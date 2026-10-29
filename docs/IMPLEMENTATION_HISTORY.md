@@ -7,6 +7,18 @@
 
 ---
 
+## Vincent Admin/Faculty refinement and acceptance checkpoint — 29 October 2026
+
+- **Package/branch:** `MEMBER1-VINCENT-ADMIN-FACULTY-PORTALS-WP2`, `feat/member1-admin-faculty-ui`; starting committed checkpoint `3ccbc89ad2ca462c211464db83a6c7f22afff8af`, approved main baseline `60a6f7614b594cd8759a3c9211e060c3b8d7ab62`.
+- **Delivered:** existing-design collapsing sidebar across the explicitly authorized portals; approved Faculty person/board icon; theme and active-state refinements; role-appropriate analytics cards; keyboard/focus/empty-card recovery; accurate applied-scope URL/status; exact overview chart disclosures and fallback; chart preference synchronization. Prior PR64 features are preserved, not reimplemented.
+- **Closure defects fixed:** incompatible Faculty subject assignments now withhold direct differences; the legacy comparison wrapper loads constants before its existing auth guard. The stale academic-outcome source regression now targets the current canonical analytics aggregate while preserving expected PDF outcomes and Faculty trend checks.
+- **Verification:** 100 passed, 0 failed, 0 skipped affected browser checks (34 live/read-only, 31 controlled response/fixture/timing, 33 generated components, 2 structural), 385 PHP checks, 21 JavaScript checks and 31 read-only repository integration checks. Protected fingerprints and all 18 synthetic application tables remain unchanged. No import, migration, new dependency, model change, screenshot or academic POST.
+- **Delivery/acceptance:** owner authorized verified checkpoint commit/push; final immutable SHA/remote confirmation is in the delivery handoff. Implementation is READY FOR OWNER REVIEW; human retest, PR/merge/deployment and institutional acceptance are not claimed. Joshua's latest-branch integration is on hold at owner request.
+- **Artifacts:** [acceptance matrix](../VINCENT_PHASE_C_ACCEPTANCE.md), [team-leader retest](../VINCENT_TEAM_LEADER_RETEST.md), [progress](../VINCENT_PROGRESS_UPDATE.md). Historical refinement evidence below remains dated to its own checkpoint.
+
+---
+
+
 ## Final analytics UI and member database bootstrap — PR #64 merged and deployed locally (2026-10-27)
 
 - **Merged baseline:** [PR #64](https://github.com/jendrickcon/udm-radar/pull/64), merge commit `bdb4a267f30aa31ea36983304a03b01dc28f0fcd`, final implementation head `9f6ed109d968c47fe439eecc816f68ec0167694d`. The owner confirms the canonical checkout is deployed locally at this exact SHA at `http://localhost/capstone/`. This subsequent accepted milestone supersedes the pending-deployment continuation recorded during the earlier PR #62 package below.
