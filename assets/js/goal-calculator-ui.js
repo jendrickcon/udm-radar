@@ -7,7 +7,7 @@
         return inputs(row).map(input=>input.dataset.periodState==='unavailable' ? 'unresolved' : input.dataset.suggested==='true' ? null : input.value);
     }
     function clearSuggestions(row) {
-        for (const input of inputs(row)) if (input.dataset.suggested==='true') { input.value='';delete input.dataset.suggested; }
+        for (const input of inputs(row)) if (input.dataset.suggested==='true') { input.value='';input.readOnly=false;delete input.dataset.suggested; }
     }
     function say(element,text) { if (element.textContent!==text) element.textContent=text; }
     function forward(row) {
@@ -41,7 +41,7 @@
             if (goal.reason==='completed') message='Goal already achieved. All periods are complete; no remaining grade is needed.';
             else if (goal.isFeasible) {
                 for (const input of inputs(row)) if (!input.disabled&&(input.value===''||input.dataset.suggested==='true')) {
-                    input.value=String(goal.suggestedRemainingGrade);input.dataset.suggested='true';
+                    input.value=String(goal.suggestedRemainingGrade);input.dataset.suggested='true';input.readOnly=true;
                 }
                 message=goal.reason==='already_achieved'?'Goal already achieved from the completed contribution.':`At least ${goal.suggestedRemainingGrade.toFixed(2)}% average is needed across the remaining periods. Temporary scenario only.`;
             }
@@ -56,6 +56,7 @@
         calculateOverallGwa();
     }
     function computeRowFinal(input) {
+        if (input.disabled || input.readOnly) return;
         const row=input.closest('.calc-row');delete input.dataset.suggested;clearSuggestions(row);
         update(row,{calculate:row.querySelector('.calc-final-input').value!=='',changed:true});
     }
@@ -67,13 +68,25 @@
         const output=document.getElementById('projected-gwa');output.textContent=value===null?'N/A':value.toFixed(2);
         output.style.color=value===null?'var(--accent-blue)':value>=3.25?'var(--risk-low)':value>=2.50?'var(--risk-mod)':'var(--risk-high)';
     }
+    function resetCalculator() {
+        for (const row of rows()) {
+            for (const input of inputs(row)) {
+                input.value=input.defaultValue;
+                input.readOnly=false;
+                delete input.dataset.suggested;
+            }
+            row.querySelector('.calc-final-input').value='';
+            update(row);
+        }
+        calculateOverallGwa();
+    }
     function toggleCalculator() {
         const section=document.getElementById('calculator-section');
         if (section.style.display==='none') {
             section.style.display='block';rows().forEach(row=>update(row,{calculate:row.querySelector('.calc-final-input').value!==''}));
             section.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
-        } else section.style.display='none';
+        } else { resetCalculator();section.style.display='none'; }
     }
-    Object.assign(window,{toggleCalculator,computeRowFinal,seekGrades,calculateOverallGwa});
+    Object.assign(window,{toggleCalculator,resetCalculator,computeRowFinal,seekGrades,calculateOverallGwa});
     rows().forEach(row=>update(row));
 })();

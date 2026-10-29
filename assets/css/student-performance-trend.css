@@ -1,0 +1,19 @@
+.student-performance-trend { min-width:0; }
+.student-performance-trend .header p,.student-performance-trend caption,.student-performance-trend .trend-note { color:var(--text-gray); }
+.student-performance-trend .stat-card h2 { font-size:.9rem; color:var(--text-gray); }
+.student-performance-trend .trend-value { font-size:2rem; font-weight:750; color:var(--text-dark); }
+.student-performance-trend .card { min-width:0; margin:20px 0; }
+.student-performance-trend .card h2 { font-size:1.2rem; margin-bottom:12px; }
+.student-performance-trend .trend-change { margin:16px 0; }
+.student-performance-trend .trend-legend { display:flex; flex-wrap:wrap; gap:12px 24px; list-style:none; padding:12px 0; color:var(--text-dark); }
+.student-performance-trend .trend-chart { position:relative; height:360px; min-width:0; }
+.student-performance-trend .trend-note { font-size:.85rem; margin-top:12px; }
+.student-performance-trend .trend-table-scroll { max-width:100%; overflow-x:auto; }
+.student-performance-trend table { border-collapse:collapse; width:100%; text-align:left; }
+.student-performance-trend th,.student-performance-trend td { padding:12px; border-bottom:1px solid var(--border-color); vertical-align:top; overflow-wrap:anywhere; }
+.student-performance-trend th { font-weight:600; }
+.student-performance-trend caption { text-align:left; padding:0 0 12px; }
+.student-performance-trend summary { cursor:pointer; }
+.student-performance-trend details p { margin-top:10px; font-weight:400; }
+.student-performance-trend summary:focus-visible,.student-performance-trend .trend-table-scroll:focus-visible { outline:2px solid var(--accent-blue); outline-offset:3px; }
+@media (max-width:1080px) { .student-performance-trend .stat-grid { grid-template-columns:1fr; } }

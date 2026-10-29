@@ -81,6 +81,17 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
+/* Tooltips are portaled to body so the table's scrollport cannot clip them. */
+.grades-risk-tooltip {
+    position: fixed; z-index: 3000; box-sizing: border-box;
+    width: max-content; max-width: min(280px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px); overflow-y: auto;
+    padding: 10px 12px; border: 1px solid #334155; border-radius: 8px;
+    color: #F8FAFC; background: #0F172A; box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    font-size: .75rem; font-weight: 500; line-height: 1.4;
+    white-space: normal; text-align: left;
+}
+.grades-page .custom-tooltip:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 3px; }
 .grades-page { min-width: 0; }
 .grades-card { min-width: 0; }
 .grades-table-scroll { width: 100%; overflow-x: auto; overflow-y: visible; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: #475569 transparent; }
@@ -359,4 +370,62 @@ require_once '../includes/sidebar.php';
     <?php endif; ?>
 </div>
 
+<script>
+(() => {
+    let active = null;
+    let closeTimer;
+    const close = () => {
+        clearTimeout(closeTimer);
+        if (!active) return;
+        active.tooltip.hidden = true;
+        active.badge.append(active.tooltip);
+        active.tooltip.classList.remove('grades-risk-tooltip');
+        active.tooltip.classList.add('tooltip-text');
+        active.tooltip.style.removeProperty('left');
+        active.tooltip.style.removeProperty('top');
+        active = null;
+    };
+    const scheduleClose = () => {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => {
+            if (active && !active.badge.matches(':hover, :focus-within') && !active.tooltip.matches(':hover')) close();
+        }, 150);
+    };
+    document.querySelectorAll('.grades-page .custom-tooltip').forEach((badge, index) => {
+        const tooltip = badge.querySelector('.tooltip-text');
+        if (!tooltip) return;
+        tooltip.hidden = true;
+        tooltip.id = `grades-risk-description-${index}`;
+        badge.setAttribute('aria-describedby', tooltip.id);
+        const open = () => {
+            clearTimeout(closeTimer);
+            if (active?.badge === badge) return;
+            close();
+            tooltip.classList.remove('tooltip-text');
+            tooltip.classList.add('grades-risk-tooltip');
+            tooltip.hidden = false;
+            document.body.append(tooltip);
+            active = { badge, tooltip };
+            const anchor = badge.getBoundingClientRect();
+            const box = tooltip.getBoundingClientRect();
+            const left = Math.max(12, Math.min(anchor.right - box.width, window.innerWidth - box.width - 12));
+            const above = anchor.top - box.height - 10;
+            const top = above >= 12 ? above : Math.max(12, Math.min(anchor.bottom + 10, window.innerHeight - box.height - 12));
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        };
+        badge.addEventListener('mouseenter', open);
+        badge.addEventListener('focus', open);
+        badge.addEventListener('mouseleave', scheduleClose);
+        badge.addEventListener('blur', scheduleClose);
+        tooltip.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+        tooltip.addEventListener('mouseleave', scheduleClose);
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+    document.addEventListener('scroll', event => {
+        if (active && event.target !== active.tooltip) close();
+    }, true);
+    window.addEventListener('resize', close);
+})();
+</script>
 <?php require_once '../includes/footer.php'; ?>

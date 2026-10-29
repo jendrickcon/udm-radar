@@ -30,7 +30,7 @@ $stmtPred = $db->prepare("
            $metaCols
     FROM predictions 
     WHERE student_id = ? 
-    ORDER BY generated_at DESC 
+    ORDER BY generated_at DESC, id DESC
     LIMIT 1
 ");
 $stmtPred->execute([$user['id']]);
@@ -100,7 +100,8 @@ $has_ai_prediction = $ml_prediction && $ml_prediction['predicted_gwa'] !== null;
 
 if ($has_ai_prediction) {
     $display_predicted_gwa = (float) $ml_prediction['predicted_gwa'];
-    $display_risk = $ml_prediction['risk_level'] !== null ? $ml_prediction['risk_level'] : computeRiskFromAvg($display_predicted_gwa);
+    // Advisory risk must describe the estimate shown, even if its saved risk label is stale.
+    $display_risk = computeRiskFromAvg($display_predicted_gwa);
     $display_honor = $ml_prediction['latin_honor'] ?? getLatinHonor($display_predicted_gwa, hasDisqualifyingGrade($user['id'], $db));
     $prediction_source = normalizePredictionSourceBoundary($ml_prediction['prediction_source'] ?? PREDICTION_SOURCE_DECISION_TREE) ?? PREDICTION_SOURCE_DECISION_TREE;
 } elseif ($has_fallback_data) {
@@ -568,7 +569,7 @@ require_once '../includes/sidebar.php';
     <div class="card" style="margin-bottom: 24px;">
         <div class="subject-heading" style="margin-bottom: 16px;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
-            <button onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
+            <button type="button" onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
                 <span>Open Grade Goal Calculator</span>
             </button>
@@ -659,7 +660,7 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div id="calculator-section" class="card" style="display: none; border: 2px solid var(--accent-blue); background-color: var(--card-bg);">
-        <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/goal-calculator.css">
+        <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/goal-calculator.css?v=<?= substr(hash_file('sha256', __DIR__ . '/../assets/css/goal-calculator.css'), 0, 12) ?>">
         <div class="calculator-heading" style="margin-bottom: 16px;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
@@ -673,7 +674,8 @@ require_once '../includes/sidebar.php';
                     <span style="font-size: 0.75rem; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Scenario Semester GWA</span><br>
                     <span id="projected-gwa" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-blue);">N/A</span>
                 </div>
-                <button onclick="toggleCalculator()" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit; display: inline-flex; align-items: center; gap: 4px;">
+                <button type="button" onclick="resetCalculator()" title="Clear all temporary scenarios and restore recorded grades" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit;">Reset</button>
+                <button type="button" onclick="toggleCalculator()" style="background: var(--border-color); color: var(--text-dark); border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     <span>Close</span>
                 </button>
@@ -723,8 +725,8 @@ require_once '../includes/sidebar.php';
 </div>
 
 <script id="goal-calculator-config" type="application/json"><?= json_encode($calculatorConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= BASE_URL ?>assets/js/goal-calculator.js"></script>
-<script src="<?= BASE_URL ?>assets/js/goal-calculator-ui.js"></script>
+<script src="<?= BASE_URL ?>assets/js/goal-calculator.js?v=<?= substr(hash_file('sha256', __DIR__ . '/../assets/js/goal-calculator.js'), 0, 12) ?>"></script>
+<script src="<?= BASE_URL ?>assets/js/goal-calculator-ui.js?v=<?= substr(hash_file('sha256', __DIR__ . '/../assets/js/goal-calculator-ui.js'), 0, 12) ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 function getThemeColors() {
