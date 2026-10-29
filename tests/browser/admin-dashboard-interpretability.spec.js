@@ -70,6 +70,44 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await page.evaluate(()=>window.UDMDisplayPreferences.applyPreferences({textSize:'extra-large'}));await contained(page);expect(await strip.evaluate(e=>e.scrollHeight<=e.clientHeight+1)).toBe(true);
   expect(errors).toEqual([]);expect(writes).toEqual([]);
  });
+ test('[Generated] Overview equal-height workspace '+width+' '+theme,async({page})=>{
+  await page.setViewportSize({width,height});const {errors,writes}=await open(page,'overview',theme);
+  const risk=page.locator('[data-chart-panel="risk"]'),distinction=page.locator('[data-chart-panel="distinction"]');
+  const paired=async(first,second)=>{
+   const a=await first.boundingBox(),b=await second.boundingBox();
+   if(width>=1280){
+    expect(Math.abs(a.y-b.y),'Both cards share the row').toBeLessThan(2);
+    expect(Math.abs(a.height-b.height),'Both cards have equal computed heights').toBeLessThan(2);
+   }else{
+    expect(b.y,'Stacked panels do not overlap').toBeGreaterThanOrEqual(a.y+a.height-1);
+    expect(Math.min(a.height,b.height),'Stacked panels retain a useful minimum height').toBeGreaterThanOrEqual(500);
+   }
+  };
+  await paired(risk,distinction);
+  const normalHeight=(await risk.boundingBox()).height;
+  const panelStyle=panel=>panel.evaluate(e=>{const s=getComputedStyle(e);return [s.borderRadius,s.borderColor,s.backgroundColor,s.padding];});
+  expect(await panelStyle(risk)).toEqual(await panelStyle(distinction));
+  if(width>=1280)expect(Math.abs((await risk.locator('button').boundingBox()).y-(await distinction.locator('button').boundingBox()).y),'Chart actions share the footer line').toBeLessThan(2);
+  for(const kind of ['risk','distinction']){
+   const chart=kind==='risk'?risk:distinction,region=page.locator(kind==='risk'?'#section-risk-data':'#honor-chart-data');
+   const button=page.locator('#'+kind+'-exact-values'),buttonOffset=await button.evaluate(e=>e.offsetTop);await button.click();
+   expect(await button.evaluate(e=>e.offsetTop),'Toggle stays in the same panel position').toBeCloseTo(buttonOffset,0);
+   expect(await panelStyle(chart)).toEqual(await panelStyle(region));
+   if(width>=1280){
+    await paired(chart,region);
+    expect((await chart.boundingBox()).height,'One height contract across modes').toBeCloseTo(normalHeight,0);
+    const body=region.locator('.focused-chart-details__body');
+    expect(await body.evaluate(e=>/auto|scroll/.test(getComputedStyle(e).overflowY))).toBe(true);
+    const box=await body.boundingBox(),panelBox=await region.boundingBox();
+    expect(box.y+box.height).toBeLessThanOrEqual(panelBox.y+panelBox.height);
+   }else await paired(chart,region);
+   await contained(page);await button.click();
+  }
+  await page.evaluate(()=>window.UDMDisplayPreferences.applyPreferences({textSize:'extra-large'}));
+  for(const panel of [risk,distinction])expect(await panel.evaluate(e=>e.scrollHeight<=e.clientHeight+2),'Chart content fits at enlarged text size').toBe(true);
+  await contained(page);
+  expect(errors).toEqual([]);expect(writes).toEqual([]);
+ });
  test('[Generated] Overview focused values and keyboard '+width+' '+theme,async({page})=>{
   await page.setViewportSize({width,height});const {errors,writes}=await open(page,'overview',theme);
   const grid=page.locator('[data-overview-charts]'),risk=page.locator('[data-chart-panel="risk"]'),distinction=page.locator('[data-chart-panel="distinction"]');
@@ -80,8 +118,14 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await expect(risk).toBeVisible();await expect(distinction).toBeVisible();
   for(const kind of ['risk','distinction']){
    const button=page.locator('#'+kind+'-exact-values'),region=page.locator(kind==='risk'?'#section-risk-data':'#honor-chart-data');
-   await expect(region).toBeHidden();await button.focus();await page.keyboard.press(kind==='risk'?'Enter':'Space');
-   await expect(button).toHaveAttribute('aria-expanded','true');await expect(region).toBeVisible();
+   await expect(region).toBeHidden();await expect(button).toHaveText('Exact values');await expect(button).toHaveAccessibleName('Exact values');
+   await expect(button).toHaveAttribute('aria-expanded','false');await expect(button).toHaveAttribute('aria-pressed','false');
+   await button.focus();await page.keyboard.press(kind==='risk'?'Enter':'Space');
+   await expect(button).toHaveAttribute('aria-expanded','true');await expect(button).toHaveAttribute('aria-pressed','true');await expect(region).toBeVisible();
+   await expect(button).toHaveAttribute('aria-controls',kind==='risk'?'section-risk-data':'honor-chart-data');
+   await expect(button).toHaveText('Back to both charts');await expect(button).toHaveAccessibleName('Back to both charts');
+   await expect(region.getByRole('button',{name:'Back to both charts'})).toHaveCount(0);
+   await expect(page.getByRole('button',{name:'Back to both charts',exact:true})).toHaveCount(1);
    await expect(kind==='risk'?risk:distinction).toBeVisible();await expect(kind==='risk'?distinction:risk).toBeHidden();
    await expect(region.getByRole('heading')).toContainText('Focused view:');
    await expect(region.getByRole('heading')).toBeFocused();
@@ -89,12 +133,17 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
    const opaque=await region.locator('caption').evaluate(e=>getComputedStyle(e).backgroundColor);
    expect(opaque).not.toMatch(/rgba\([^)]*,\s*0(?:\.\d+)?\)/);
    const chart=kind==='risk'?risk:distinction,cb=await chart.boundingBox(),rb=await region.boundingBox();
-   if(width===1440)expect(Math.abs(cb.y-rb.y)).toBeLessThan(3);else expect(rb.y).toBeGreaterThanOrEqual(cb.y+cb.height-2);
+   if(width>=1280){expect(Math.abs(cb.y-rb.y)).toBeLessThan(3);expect(kind==='risk'?cb.x<rb.x:rb.x<cb.x,'Details replace the opposite column').toBe(true);}else expect(rb.y).toBeGreaterThanOrEqual(cb.y+cb.height-2);
    if(kind==='risk'){
     const data=await page.evaluate(()=>({chart:Chart.getChart('sectionRiskChart').data.datasets.map(d=>d.data),table:[...document.querySelectorAll('#section-risk-chart-summary tbody tr')].map(r=>[...r.querySelectorAll('td')].map(t=>Number(t.textContent)))}));
     expect(data.chart).toEqual([0,1,2,3].map(i=>data.table.map(r=>r[i])));
-    const scroll=region.locator('.section-risk-table-scroll');expect(await scroll.evaluate(e=>e.scrollHeight>e.clientHeight)).toBe(true);expect((await scroll.boundingBox()).height).toBeLessThanOrEqual(342);
-    await scroll.evaluate(e=>e.scrollTop=180);const caption=await region.locator('caption').boundingBox(),header=await region.locator('thead th').first().boundingBox();expect(header.y).toBeGreaterThanOrEqual(caption.y+caption.height-2);
+    const scroll=region.locator(width>=1280?'.focused-chart-details__body':'.section-risk-table-scroll');expect(await scroll.evaluate(e=>e.scrollHeight>e.clientHeight)).toBe(true);
+    if(width===1024)expect((await scroll.boundingBox()).height).toBeLessThanOrEqual(342);
+    const headingBefore=await region.getByRole('heading').boundingBox();
+    await scroll.evaluate(e=>e.scrollTop=e.scrollHeight);const caption=await region.locator('caption').boundingBox(),header=await region.locator('thead th').first().boundingBox();expect(header.y).toBeGreaterThanOrEqual(caption.y+caption.height-2);
+    expect(Math.abs(caption.y-(await scroll.boundingBox()).y),'Caption stays at the top of the scroll area').toBeLessThan(4);
+    expect(await region.locator('thead th').first().evaluate(e=>getComputedStyle(e).backgroundColor)).not.toMatch(/rgba\([^)]*,\s*0(?:\.\d+)?\)/);
+    expect((await region.getByRole('heading').boundingBox()).y,'Heading remains outside scrolling details').toBeCloseTo(headingBefore.y,1);
    }else{
     await expect(region).toContainText('does not confer official eligibility');
     const data=await page.evaluate(()=>({chart:Chart.getChart('honorChart').data.datasets[0].data,table:[...document.querySelectorAll('#honor-chart-summary tbody td')].map(t=>Number(t.textContent))}));expect(data.chart).toEqual(data.table);
@@ -103,13 +152,29 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
    await contained(page);
    activeTheme=activeTheme==='light'?'dark':'light';
    await page.evaluate(t=>window.UDMDisplayPreferences.applyPreferences({theme:t}),activeTheme);
-   await region.getByRole('button',{name:'Back to both charts'}).click();await expect(risk).toBeVisible();await expect(distinction).toBeVisible();await expect(button).toBeFocused();
+   await button.click();await expect(risk).toBeVisible();await expect(distinction).toBeVisible();await expect(button).toBeFocused();
+   await expect(button).toHaveText('Exact values');await expect(button).toHaveAccessibleName('Exact values');
+   await expect(button).toHaveAttribute('aria-expanded','false');await expect(button).toHaveAttribute('aria-pressed','false');
    await expect(button).toBeInViewport();
    await expect(page.locator('html')).toHaveAttribute('data-theme',activeTheme);await expect(page.locator('#analytics-school_year')).toHaveValue('2026-2027');
   }
   expect(errors).toEqual([]);expect(writes).toEqual([]);
  });
 }
+test('[Generated] Active chart button reverses focused mode repeatedly',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});const {errors,writes}=await open(page,'overview','light');
+ const grid=page.locator('[data-overview-charts]');
+ for(const kind of ['risk','distinction']){
+  const button=page.locator('#'+kind+'-exact-values'),region=page.locator(kind==='risk'?'#section-risk-data':'#honor-chart-data');
+  for(let repeat=0;repeat<2;repeat++){
+   await button.click();await expect(region).toBeVisible();await expect(grid.locator('.focused-chart-details:visible')).toHaveCount(1);
+   await button.click();await expect(region).toBeHidden();await expect(button).toBeFocused();
+   await expect(grid.locator('[data-chart-panel]:visible')).toHaveCount(2);
+  }
+  await button.click();await page.keyboard.press('Escape');await expect(region).toBeHidden();await expect(button).toBeFocused();
+ }
+ expect(errors).toEqual([]);expect(writes).toEqual([]);
+});
 for(const scenario of ['high','missing','empty','error'])test('[Generated] truthful '+scenario+' Dashboard state',async({page})=>{
  await page.setViewportSize({width:1440,height:900});const {errors}=await open(page,'dashboard','light',scenario);
  const text=await page.locator('.admin-dashboard').innerText();

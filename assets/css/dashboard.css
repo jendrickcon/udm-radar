@@ -2323,13 +2323,30 @@ textarea:focus-visible,
 .comparison-help-popover { position: fixed; z-index: 10000; box-sizing: border-box; width: min(320px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; padding: 16px; background: var(--card-bg); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; }
 .comparison-help-popover h3 { font-size: 1rem; margin: 0 0 8px; }
 .comparison-help-popover ul { padding-left: 20px; margin: 8px 0 16px; }
-.analytics-page[data-role="admin"] .admin-overview-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; margin-bottom: 24px; }
+.analytics-page[data-role="admin"] .admin-overview-charts {
+    --analytics-overview-panel-height: max(clamp(600px, 48vw, 700px), 40rem);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: var(--analytics-overview-panel-height);
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 24px;
+}
 .admin-overview-charts > * { min-width: 0; }
 .admin-overview-charts [hidden] { display: none !important; }
-.admin-overview-charts [data-chart-panel] { display: flex; flex-direction: column; }
+.analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel],
+.analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts h3 { margin: 0 0 12px; font-size: 1.05rem; color: var(--text-dark); }
 .chart-panel-actions { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 16px; }
-.analytics-page[data-role="admin"] .focused-chart-details { margin: 0; padding: 24px; background: var(--card-bg); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; }
-.analytics-page[data-role="admin"] .focused-chart-details h3 { margin: 0 0 12px; font-size: 1.05rem; }
+.focused-chart-details__body { flex: 1; min-height: 0; overflow: auto; padding: 2px; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.focused-chart-details__body:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; border-radius: 4px; }
 .focused-chart-details p { font-size: .85rem; line-height: 1.5; margin-bottom: 12px; }
 .admin-overview-charts[data-focused="risk"] > [data-chart-panel="risk"] { order: 1; }
 .admin-overview-charts[data-focused="risk"] > .focused-chart-details { order: 2; }
@@ -2337,11 +2354,19 @@ textarea:focus-visible,
 .admin-overview-charts[data-focused="distinction"] > .focused-chart-details { order: 1; }
 .focused-chart-details caption { position: sticky; top: 0; z-index: 3; background: var(--table-header-bg); color: var(--text-dark); padding: 8px; text-align: left; }
 .focused-chart-details .section-risk-table-scroll thead th { top: var(--exact-caption-height, 0px); }
-.focused-chart-details caption,
-.focused-chart-details .section-risk-table-scroll thead th { background-color: var(--card-bg); background-image: linear-gradient(var(--table-header-bg), var(--table-header-bg)); }
-.focused-chart-details .section-risk-table-scroll { max-height: 340px; }
-@media (max-width: 1280px) {
-    .analytics-page[data-role="admin"] .admin-overview-charts[data-focused] { grid-template-columns: minmax(0, 1fr); }
+.analytics-page[data-role="admin"] .focused-chart-details caption,
+.analytics-page[data-role="admin"] .focused-chart-details thead th { background: linear-gradient(var(--table-header-bg), var(--table-header-bg)), var(--card-bg) !important; }
+.analytics-page[data-role="admin"] .focused-chart-details .section-risk-table-scroll,
+.analytics-page[data-role="admin"] .focused-chart-details .distinction-table-scroll { max-height: none; overflow: visible; }
+.focused-chart-details table { width: 100%; }
+.focused-chart-details th { overflow-wrap: anywhere; }
+@media (max-width: 1100px) {
+    .analytics-page[data-role="admin"] .admin-overview-charts { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
+    .analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel],
+    .analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details { height: auto; min-height: var(--analytics-overview-panel-height); }
+    .focused-chart-details__body { flex: 1 0 auto; overflow: visible; }
+    .analytics-page[data-role="admin"] .focused-chart-details .section-risk-table-scroll { max-height: 340px; overflow: auto; }
+    .analytics-page[data-role="admin"] .focused-chart-details .distinction-table-scroll { overflow-x: auto; }
     .admin-overview-charts[data-focused] > [data-chart-panel] { order: 1; }
     .admin-overview-charts[data-focused] > .focused-chart-details { order: 2; }
 }

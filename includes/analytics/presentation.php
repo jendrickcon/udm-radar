@@ -435,8 +435,8 @@ function analyticsPage(string $role): void {
                     <p id="overview-mode-status" class="sr-only" role="status" aria-live="polite">Showing both charts.</p>
                     <!-- RESTORED: Visual Analytics Charts Grid -->
                     <div data-overview-charts class="analytics-chart-grid admin-overview-charts">
-                        <div class="card" data-chart-panel="risk" style="position: relative; min-height: 380px;">
-                            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 6px; font-size: 1.05rem;">Risk Distribution by Section</div>
+                        <div class="card" data-chart-panel="risk" style="position: relative;">
+                            <h3 id="risk-chart-heading">Risk Distribution by Section</h3>
                             <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Percentage-based risk comparison enabling section-to-section analysis.</p>
                             <?php if (empty($overview['sectionData'])): ?>
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
@@ -448,8 +448,13 @@ function analyticsPage(string $role): void {
                                 <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
                                     <?= count($overview['chartSecLabels']) ?> displayed sections; percentages use all active Students within each section. No Prediction remains separate from advisory-risk bands.
                                 </p>
-                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" id="risk-exact-values" data-focused-chart="risk" aria-label="Exact values for Risk Distribution" aria-expanded="false" aria-controls="section-risk-data">Exact values</button></div>
-<section id="section-risk-data" class="focused-chart-details" role="region" aria-labelledby="section-risk-heading" hidden><h3 id="section-risk-heading" tabindex="-1">Focused view: Risk Distribution</h3><p>Population: active Students in each displayed section. Denominator: all active Students in that section, including those without predictions.</p><p>High: below 1.75; Moderate: 1.75–2.49; Low: 2.50 or above. These are advisory bands, separate from subject outcomes and official standing.</p><p><?= count($overview['chartSecLabels']) ?> sections are displayed. Differences do not establish Faculty quality or causes.</p>
+                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" id="risk-exact-values" data-focused-chart="risk" aria-describedby="risk-chart-heading" aria-expanded="false" aria-pressed="false" aria-controls="section-risk-data">Exact values</button></div>
+                                <section id="section-risk-data" class="card focused-chart-details" role="region" aria-labelledby="section-risk-heading" hidden>
+                                    <h3 id="section-risk-heading" tabindex="-1">Focused view: Risk Distribution</h3>
+                                    <div class="focused-chart-details__body" tabindex="0" role="region" aria-label="Scrollable Risk Distribution details">
+                                        <p>Population: active Students in each displayed section. Denominator: all active Students in that section, including those without predictions.</p>
+                                        <p>High: below 1.75; Moderate: 1.75–2.49; Low: 2.50 or above. These are advisory bands, separate from subject outcomes and official standing.</p>
+                                        <p><?= count($overview['chartSecLabels']) ?> sections are displayed. Differences do not establish Faculty quality or causes.</p>
                                     <div class="data-table-scroll section-risk-table-scroll" role="region" aria-label="Risk distribution chart data" tabindex="0">
                                         <table id="section-risk-chart-summary">
                                             <caption>Risk distribution by section; percentages of all active students in each section. No Prediction means no stored prediction.</caption>
@@ -461,12 +466,13 @@ function analyticsPage(string $role): void {
                                             </tbody>
                                         </table>
                                     </div>
-                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" data-close-focused>Back to both charts</button></div></section>
+                                    </div>
+                                </section>
                             <?php endif; ?>
                         </div>
 
-                        <div class="card" data-chart-panel="distinction" style="position: relative; min-height: 380px;">
-                            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 6px; font-size: 1.05rem;">Academic Distinction Readiness</div>
+                        <div class="card" data-chart-panel="distinction" style="position: relative;">
+                            <h3 id="distinction-chart-heading">Academic Distinction Readiness</h3>
                             <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Based on each student's latest available estimate or prediction. Does not represent official eligibility.</p>
                             <?php if (empty($overview['sectionData'])): ?>
                                 <p class="empty-state" style="margin-top: 60px;">No data matches your current filter.</p>
@@ -494,8 +500,13 @@ function analyticsPage(string $role): void {
                                     </li>
                                     <?php endforeach; ?>
                                 </ul>
-                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" id="distinction-exact-values" data-focused-chart="distinction" aria-label="Exact values for Academic Distinction Readiness" aria-expanded="false" aria-controls="honor-chart-data">Exact values</button></div>
-<section id="honor-chart-data" class="focused-chart-details" role="region" aria-labelledby="distinction-details-heading" hidden><h3 id="distinction-details-heading" tabindex="-1">Focused view: Academic Distinction Readiness</h3><p>Population: <?= (int)$overview['totalStudents'] ?> active Students in this opening scope. Categories use each Student's latest stored estimate or prediction.</p><p><?= (int)array_sum($overview['distinctions']) ?> Students are represented across the displayed categories.</p><p><strong>This result does not confer official eligibility.</strong> Missing estimates remain Insufficient Data. Recorded snapshots do not prove that later grades were incorporated.</p>
+                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" id="distinction-exact-values" data-focused-chart="distinction" aria-describedby="distinction-chart-heading" aria-expanded="false" aria-pressed="false" aria-controls="honor-chart-data">Exact values</button></div>
+                                <section id="honor-chart-data" class="card focused-chart-details" role="region" aria-labelledby="distinction-details-heading" hidden>
+                                    <h3 id="distinction-details-heading" tabindex="-1">Focused view: Academic Distinction Readiness</h3>
+                                    <div class="focused-chart-details__body" tabindex="0" role="region" aria-label="Scrollable Academic Distinction details">
+                                        <p>Population: <?= (int)$overview['totalStudents'] ?> active Students in this opening scope. Categories use each Student's latest stored estimate or prediction.</p>
+                                        <p><?= (int)array_sum($overview['distinctions']) ?> Students are represented across the displayed categories.</p>
+                                        <p><strong>This result does not confer official eligibility.</strong> Missing estimates remain Insufficient Data. Recorded snapshots do not prove that later grades were incorporated.</p>
                                     <div class="data-table-scroll distinction-table-scroll" role="region" aria-label="Academic distinction chart data" tabindex="0">
                                     <table id="honor-chart-summary">
                                         <caption>Academic Distinction Readiness Summary</caption>
@@ -507,7 +518,8 @@ function analyticsPage(string $role): void {
                                         </tbody>
                                     </table>
                                     </div>
-                                <div class="chart-panel-actions"><button type="button" class="btn btn--secondary" data-close-focused>Back to both charts</button></div></section>
+                                    </div>
+                                </section>
                             <?php endif; ?>
                         </div>
                     </div>

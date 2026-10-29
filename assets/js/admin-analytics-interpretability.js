@@ -50,6 +50,11 @@
     }
     let opener = null;
     const announce = text => { document.getElementById('overview-mode-status').textContent = text; };
+    const setButtonState = (button, open) => {
+        button.textContent = open ? 'Back to both charts' : 'Exact values';
+        button.setAttribute('aria-expanded', String(open));
+        button.setAttribute('aria-pressed', String(open));
+    };
     const resize = () => requestAnimationFrame(() => {
         grid.querySelectorAll('canvas').forEach(canvas => {
             if (canvas.getClientRects().length && typeof Chart !== 'undefined') Chart.getChart(canvas)?.resize();
@@ -63,7 +68,7 @@
     const restore = () => {
         for (const [region, home] of homes) { region.hidden = true; home.append(region); }
         panels.forEach(panel => { panel.hidden = false; });
-        buttons.forEach(button => button.setAttribute('aria-expanded', 'false'));
+        buttons.forEach(button => setButtonState(button, false));
         delete grid.dataset.focused;
     };
     const close = () => {
@@ -71,9 +76,14 @@
         restore(); opener = null;
         announce('Showing both charts.');
         resize();
-        target?.focus();
+        if (target) {
+            target.focus({ preventScroll: true });
+            const box = target.getBoundingClientRect();
+            if (box.top < 0 || box.bottom > innerHeight) target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
     };
     buttons.forEach(button => button.addEventListener('click', () => {
+        if (opener === button) { close(); return; }
         const region = document.getElementById(button.getAttribute('aria-controls'));
         if (!region) return;
         restore(); opener = button;
@@ -81,12 +91,11 @@
         panels.forEach(panel => { panel.hidden = panel.dataset.chartPanel !== grid.dataset.focused; });
         region.hidden = false;
         grid.append(region);
-        button.setAttribute('aria-expanded', 'true');
+        setButtonState(button, true);
         announce(region.querySelector('h3').textContent);
         region.querySelector('h3').focus();
         resize();
     }));
-    grid.querySelectorAll('[data-close-focused]').forEach(button => button.addEventListener('click', close));
     grid.addEventListener('keydown', event => {
         if (event.key === 'Escape' && opener) { event.preventDefault(); close(); }
     });
