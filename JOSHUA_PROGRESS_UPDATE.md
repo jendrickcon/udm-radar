@@ -210,3 +210,8 @@ Database-free trend model suite: 27 checks passed, 0 failures. PHP lint and git 
 
 ## Owner testing publication preparation — 2026-10-29
 User explicitly requested publishing the assigned branch for owner testing. This authorizes the report/application/test commit and feature-branch push only. Added OWNER_TESTING_HANDOFF.md, including database separation and the pending final-percent browser retest. PR/merge/deployment remain unauthorized. .a, credentials, databases, backups and generated evidence remain excluded.
+## Task completed: owner testing branch published — 2026-10-29
+
+Published application candidate commit 9b34aa4a277f44b28fc067136ddef964d04f6005 to origin/feat/member2-student-portal; remote SHA matched after push. This is the immutable application candidate for owner testing. A documentation-only publication-record commit follows it; application bytes are unchanged.
+
+20 code/test/report files included. .a, OLD_DATABASE_COMPATIBILITY_REPORT.md, credentials, local databases/backups, dependencies and generated logs excluded. Tracked worktree clean at initial push, with only those two excluded local untracked files. main was not updated; no PR, merge or deployment performed. Owner instructions in OWNER_TESTING_HANDOFF.md. Latest percentage feature: 27 model checks passed; its browser retest still pending. Earlier candidate browser suite had 25 passes. Owner acceptance and PDF/workbook workflow testing remain pending.
