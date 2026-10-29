@@ -35,7 +35,7 @@ function test(description, fn) {
 console.log('=== Display Preferences Unit Contract Test (Revised WP1) ===\n');
 
 // 1. Defaults verification
-test('DEFAULT_PREFERENCES matches approved revised WP1 schema exactly', () => {
+test('DEFAULT_PREFERENCES matches display and manual-sidebar defaults', () => {
   const defaults = DisplayPreferences.DEFAULT_PREFERENCES;
   assert.strictEqual(defaults.version, 1);
   assert.strictEqual(defaults.colorStyle, 'ccs', 'CCS Colors must be the default colorStyle');
@@ -43,6 +43,8 @@ test('DEFAULT_PREFERENCES matches approved revised WP1 schema exactly', () => {
   assert.strictEqual(defaults.textSize, 'default');
   assert.strictEqual(defaults.motion, 'system');
   assert.strictEqual(defaults.underlineLinks, false);
+  assert.strictEqual(defaults.automaticSidebarExpansion, false);
+  assert.strictEqual(defaults.sidebarCollapsed, false);
   assert.strictEqual(defaults.contrast, undefined, 'Contrast must be strictly absent from WP1 schema');
   assert.strictEqual(defaults.density, undefined, 'Density must be strictly absent from WP1 schema');
 });
@@ -55,7 +57,9 @@ test('validatePreferences preserves valid inputs including colorStyle', () => {
     theme: 'dark',
     textSize: 'extra-large',
     motion: 'reduce',
-    underlineLinks: true
+    underlineLinks: true,
+    automaticSidebarExpansion: true,
+    sidebarCollapsed: true
   };
   assert.deepStrictEqual(DisplayPreferences.validatePreferences(inputCcs), inputCcs);
 
@@ -65,7 +69,9 @@ test('validatePreferences preserves valid inputs including colorStyle', () => {
     theme: 'light',
     textSize: 'small',
     motion: 'allow',
-    underlineLinks: false
+    underlineLinks: false,
+    automaticSidebarExpansion: false,
+    sidebarCollapsed: false
   };
   assert.deepStrictEqual(DisplayPreferences.validatePreferences(inputClassic), inputClassic);
 });
@@ -99,6 +105,19 @@ test('validatePreferences rejects and discards contrast from input', () => {
 test('validatePreferences coerces non-boolean underlineLinks to default false', () => {
   const res = DisplayPreferences.validatePreferences({ underlineLinks: 'yes' });
   assert.strictEqual(res.underlineLinks, false);
+});
+
+test('sidebar settings require booleans and old stored preferences receive expanded/manual defaults', () => {
+  for (const raw of [{}, {automaticSidebarExpansion:'true', sidebarCollapsed:'false'}, {automaticSidebarExpansion:1, sidebarCollapsed:null}]) {
+    const prefs=DisplayPreferences.validatePreferences(raw);
+    assert.strictEqual(prefs.automaticSidebarExpansion,false);
+    assert.strictEqual(prefs.sidebarCollapsed,false);
+  }
+});
+test('sidebar settings preserve explicit manual and automatic choices independently', () => {
+  const prefs=DisplayPreferences.validatePreferences({automaticSidebarExpansion:true, sidebarCollapsed:true});
+  assert.strictEqual(prefs.automaticSidebarExpansion,true);
+  assert.strictEqual(prefs.sidebarCollapsed,true);
 });
 
 // 4. Malformed JSON and malicious injection safety

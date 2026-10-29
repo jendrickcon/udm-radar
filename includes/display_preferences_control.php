@@ -18,7 +18,7 @@
     <div class="display-pref-summary-header">
         <div class="table-title" id="displayPrefSummaryTitle" style="margin-bottom: 4px;">Display &amp; Accessibility</div>
         <p class="display-pref-summary-desc" style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 16px 0; line-height: 1.4;">
-            Theme, text size, motion, and link display
+            Theme, text size, motion, link display, and navigation
         </p>
     </div>
 
@@ -69,7 +69,7 @@
             Display &amp; Accessibility Preferences
         </div>
         <p style="color: var(--text-gray); font-size: 0.875rem; margin: 0 0 20px 0; line-height: 1.5;">
-            Customize colors, appearance, text size, motion, and link visibility. Changes apply immediately and are saved in this browser.
+            Customize colors, appearance, text size, motion, link visibility, and sidebar behavior. Changes apply immediately and are saved in this browser.
         </p>
     </div>
 
@@ -226,6 +226,18 @@
                 </div>
             </fieldset>
 
+            <fieldset class="display-pref-group">
+                <legend class="display-pref-group-title">Navigation</legend>
+                <div class="display-pref-section">
+                    <label class="display-pref-option">
+                        <input type="checkbox" name="display_automatic_sidebar_expansion" value="1" aria-labelledby="automatic-sidebar-label" aria-describedby="automatic-sidebar-description">
+                        <div class="display-pref-option-text">
+                            <span class="display-pref-option-label" id="automatic-sidebar-label">Automatic sidebar expansion</span>
+                            <span class="display-pref-option-sub" id="automatic-sidebar-description">Off by default. When enabled, hovering opens a collapsed sidebar and leaving closes it. Use the navigation button to expand or collapse manually. Touch and keyboard users can focus an item or hold its icon to read its label.</span>
+                        </div>
+                    </label>
+                </div>
+            </fieldset>
         </div>
 
         <!-- 4. Reset Button & Footer (Sections 8, 9, 10) -->

@@ -25,6 +25,7 @@ $pageTitle = $pageTitle ?? APP_NAME;
                 activeTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
             }
             var root = document.documentElement;
+            root.setAttribute('data-sidebar-collapsed', p && p.sidebarCollapsed === true ? 'true' : 'false');
             root.setAttribute('data-color-style', colorStyle);
             root.setAttribute('data-theme', activeTheme);
             if (p) {
@@ -52,6 +53,7 @@ $pageTitle = $pageTitle ?? APP_NAME;
             document.documentElement.setAttribute('data-font-size', 'default');
             document.documentElement.setAttribute('data-motion', 'allow');
             document.documentElement.setAttribute('data-underline-links', 'false');
+            document.documentElement.setAttribute('data-sidebar-collapsed', 'false');
             document.documentElement.removeAttribute('data-contrast');
         }
     })();

@@ -75,7 +75,7 @@ if (isset($user) && isset($user['role'])) {
 <!-- Mobile Navigation Drawer Overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
-<nav id="sidebar" class="sidebar<?= $collapsibleSidebar ? ' sidebar--collapsible' : '' ?>" aria-label="Main Navigation">
+<nav id="sidebar" class="sidebar<?= $collapsibleSidebar ? ' sidebar--collapsible sidebar--desktop-expanded' : '' ?>" aria-label="Main Navigation">
   <div class="sidebar-drawer-header">
     <button type="button" class="sidebar-drawer-close-btn" id="sidebar-drawer-close-btn" aria-label="Close navigation menu">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -137,9 +137,9 @@ if (isset($user) && isset($user['role'])) {
   </ul>
   <div class="sidebar-footer">
     <?php if ($collapsibleSidebar): ?>
-    <button type="button" class="theme-toggle-btn sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Expand navigation">
+    <button type="button" class="theme-toggle-btn sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Collapse navigation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
-      <span class="sidebar-label">Expand navigation</span>
+      <span class="sidebar-label">Collapse navigation</span>
     </button>
     <?php endif; ?>
     <button type="button" onclick="toggleTheme()" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark mode">
