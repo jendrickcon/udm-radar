@@ -766,7 +766,7 @@
     removeBtn.addEventListener('click',()=>removeComparisonCard('card-c'));
     actionsBox.append(removeBtn);
    }
-   const statusBadge=el('span',!group?'Unavailable':group.provisional?'Provisional data':'Verified complete',{
+   const statusBadge=el('span',!group?'Unavailable':group.provisional?'Provisional data':role==='admin'?'Recorded outcomes resolved':'Verified complete',{
     class:`card-status-badge ${!group?'':group.provisional?'badge-provisional':'badge-complete'}`
    });
    actionsBox.append(statusBadge);

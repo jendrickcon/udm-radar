@@ -100,6 +100,7 @@ $riskBadgeClass = fn(?string $risk) => match ($risk !== null ? strtoupper($risk)
 // Compact Program Analytics Snapshot (WP1)
 require_once __DIR__ . '/../includes/analytics/service.php';
 require_once __DIR__ . '/../includes/analytics/presentation.php';
+$analyticsAvailable = true;
 try {
     $analyticsReport = analyticsReport($db, $user, []);
     $analyticsSummary = $analyticsReport['summary'];
@@ -107,11 +108,12 @@ try {
     $analyticsCoverage = $analyticsReport['prediction_coverage'];
     $analyticsSupport = $analyticsReport['support'];
 } catch (Throwable $e) {
+    $analyticsAvailable = false;
     error_log('Admin dashboard analytics snapshot unavailable: ' . $e->getMessage());
     $analyticsSummary = ['gwa' => null, 'student_count' => 0, 'eligible_grade_count' => 0, 'expected_grade_count' => 0, 'numeric_coverage_pct' => null];
     $analyticsTrend = ['previous' => null, 'change' => ['point_change' => null, 'relative_change_pct' => null, 'direction' => 'Unavailable']];
     $analyticsCoverage = ['coverage_pct' => null, 'available_count' => 0, 'student_count' => 0];
-    $analyticsSupport = ['open_cases' => 0, 'eligible_cases' => 0, 'mean_first_action_hours' => null, 'first_action_sample' => 0];
+    $analyticsSupport = ['open_cases' => null, 'eligible_cases' => null, 'mean_first_action_hours' => null, 'first_action_sample' => 0];
 }
 $mtr20Hours = $analyticsSupport['mean_first_action_hours'] ?? null;
 $mtr20Sample = $analyticsSupport['first_action_sample'] ?? 0;
@@ -283,52 +285,61 @@ require_once '../includes/sidebar.php';
             <div class="stat-card" style="border-left-color: var(--teal) !important;">
                 <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Recorded Mean GWA</h4>
                 <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="mean-gwa"><?= $analyticsSummary['gwa'] !== null ? number_format($analyticsSummary['gwa'], 2) : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Weighted eligible grades</div>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Pooled eligible recorded grades; all authorized recorded periods.</div>
             </div>
-            <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
+            <div class="stat-card point-change-card" style="border-left-color: var(--accent-blue) !important;">
                 <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Point Change</h4>
                 <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="point-change"><?= $analyticsTrend['change']['point_change'] !== null ? ($analyticsTrend['change']['point_change'] > 0 ? '+' : '') . number_format($analyticsTrend['change']['point_change'], 2) : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">vs. comparable term</div>
+                <p class="stat-card-subtext"><?= !$analyticsAvailable ? 'Temporarily unavailable because analytics could not be loaded.' : ($analyticsTrend['change']['point_change'] !== null ? 'vs. compatible previous recorded period' : (empty($analyticsTrend['previous']) ? 'No comparable previous term is available for this scope.' : 'Unavailable because required records are missing.')) ?></p>
+                <button type="button" id="comparison-help-trigger" class="btn btn--quiet comparison-help-trigger" aria-label="Explain comparison requirements" aria-expanded="false" aria-controls="comparison-help">?</button>
+                <div id="comparison-help" class="comparison-help-popover" role="dialog" aria-labelledby="comparison-help-heading" hidden>
+                    <h3 id="comparison-help-heading">Comparison requirements</h3>
+                    <p>A previous result must use a compatible:</p>
+                    <ul><li>academic period</li><li>population</li><li>averaging method</li><li>eligibility rule</li></ul>
+                    <button type="button" class="btn btn--secondary" data-close-help>Close</button>
+                </div>
             </div>
             <div class="stat-card" style="border-left-color: var(--gold) !important;">
                 <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Prediction Coverage</h4>
                 <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="prediction-coverage"><?= $analyticsCoverage['coverage_pct'] !== null ? number_format($analyticsCoverage['coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsCoverage['available_count'] ?> of <?= $analyticsCoverage['student_count'] ?> students</div>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsAvailable ? (int)$analyticsCoverage['available_count'] . ' of ' . (int)$analyticsCoverage['student_count'] . ' Students represented in recorded grades' : 'Temporarily unavailable because analytics could not be loaded.' ?></div>
             </div>
             <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
                 <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Grade Coverage</h4>
                 <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="grade-coverage"><?= $analyticsSummary['numeric_coverage_pct'] !== null ? number_format($analyticsSummary['numeric_coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSummary['eligible_grade_count'] ?> / <?= $analyticsSummary['expected_grade_count'] ?> grades</div>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsAvailable ? (int)$analyticsSummary['eligible_grade_count'] . ' / ' . (int)$analyticsSummary['expected_grade_count'] . ' recorded grade entries' : 'Temporarily unavailable because analytics could not be loaded.' ?></div>
             </div>
             <div class="stat-card" style="border-left-color: var(--risk-mod) !important;">
                 <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Open Support Cases</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="open-cases"><?= $analyticsSupport['open_cases'] ?? 0 ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsSupport['eligible_cases'] ?? 0 ?> total eligible</div>
+                <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="open-cases"><?= $analyticsAvailable ? (int)$analyticsSupport['open_cases'] : 'Unavailable' ?></h2>
+                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $analyticsAvailable ? (int)$analyticsSupport['eligible_cases'] . ' total eligible cases' : 'Temporarily unavailable because analytics could not be loaded.' ?></div>
             </div>
         </div>
-        <div style="margin-top: 16px; padding: 14px 18px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.02em;">Average time before the first notice</span>
-                        <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; background: var(--table-header-bg); color: var(--text-dark); border-radius: 4px;">MTR-20</span>
-                    </div>
-                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-gray);">From referral creation to the first recorded notice.</p>
+        <?php
+        $isMtr20Available = ($mtr20Hours !== null && $mtr20Sample > 0);
+        $mtr20VisibleNotice = !$analyticsAvailable ? 'Temporarily unavailable because analytics could not be loaded.' : ($isMtr20Available ? $mtr20SampleText : 'No referral has a recorded first-notice time yet.');
+        ?>
+        <div class="card card-strip--compact" style="margin-top: 14px; padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 40px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.02em;">Average time before the first notice</span>
+                    <span style="font-size: 0.68rem; font-weight: 600; padding: 1px 5px; background: var(--table-header-bg); color: var(--text-dark); border-radius: 4px;">MTR-20</span>
                 </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;">From referral creation to first recorded notice</div>
             </div>
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                <div style="text-align: right;">
-                    <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-dark); line-height: 1.2;" data-dashboard-metric="mean-time-action"><?= htmlspecialchars($mtr20Formatted) ?></div>
-                    <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;"><?= htmlspecialchars($mtr20SampleText) ?></div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="text-align: right; display: flex; align-items: baseline; gap: 8px;">
+                    <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-dark); line-height: 1.2;" data-dashboard-metric="mean-time-action"><?= htmlspecialchars($mtr20Formatted) ?></span>
+                    <span style="font-size: 0.75rem; color: var(--text-gray);" data-dashboard-metric="mean-time-action-sample"><?= htmlspecialchars($mtr20VisibleNotice) ?></span>
                 </div>
-                <?php if ($mtr20Warning): ?>
-                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--card-bg); border: 1px solid var(--risk-mod); color: var(--text-dark); border-radius: 6px; font-size: 0.75rem; font-weight: 600;" role="status">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <?php if ($mtr20Warning && $isMtr20Available): ?>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--card-bg); border: 1px solid var(--risk-mod); color: var(--text-dark); border-radius: 4px; font-size: 0.72rem; font-weight: 600;" role="status">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                         <?= htmlspecialchars($mtr20Warning) ?>
                     </span>
                 <?php endif; ?>
                 <div style="cursor: help; color: var(--text-gray); display: flex; align-items: center;" title="Measures the elapsed time from when an academic-support referral was created to when the first notice was recorded. Referrals without a recorded notice are not included. A smaller value generally means earlier documented outreach, but the result should be interpreted with the number of eligible referrals." aria-label="Help explanation for first notice timing">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 </div>
             </div>
         </div>
@@ -337,16 +348,16 @@ require_once '../includes/sidebar.php';
     <!-- TIER 2: POPULATION DATA & FILTERS -->
     <div class="card">
         <form method="GET" action="index.php" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-            <label style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Year Level:</label>
-            <select name="year" onchange="this.form.submit()" class="filter-select">
+            <label for="dashboard-year" style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Year Level:</label>
+            <select id="dashboard-year" name="year" onchange="this.form.submit()" class="filter-select">
                 <option value="">All Years</option>
                 <?php foreach ($years as $y): ?>
                 <option value="<?= htmlspecialchars($y) ?>" <?= $yearFilter == $y ? 'selected' : '' ?>>Year <?= htmlspecialchars($y) ?></option>
                 <?php endforeach; ?>
             </select>
             
-            <label style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Section:</label>
-            <select name="section" onchange="this.form.submit()" class="filter-select">
+            <label for="dashboard-section" style="font-weight:600; font-size:0.9rem; color: var(--text-dark);">Section:</label>
+            <select id="dashboard-section" name="section" onchange="this.form.submit()" class="filter-select">
                 <option value="">All Sections</option>
                 <?php foreach ($sections as $sec): ?>
                 <option value="<?= htmlspecialchars($sec) ?>" <?= $sectionFilter === $sec ? 'selected' : '' ?>><?= htmlspecialchars($sec) ?></option>
@@ -360,11 +371,11 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- STAT GRID WITH DRILL-DOWN CAPABILITIES -->
-    <div class="stat-grid kpi-grid--five">
+    <div class="stat-grid kpi-grid--four-cohort">
         <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--accent-blue) !important;" onclick="applyTableFilter('risk', ''); applyTableFilter('status', '');" aria-controls="table-card" aria-label="Filter student table: view all students">
             <h4>Total Students</h4>
             <h2 style="color: var(--text-dark);"><?= $total ?></h2>
-            <div class="stat-card-subtext kpi-card__description">Active cohort population</div>
+            <div class="stat-card-subtext kpi-card__description">Active cohort population; <?= (int)$noPredict ?> without a prediction.</div>
             <span class="kpi-action-cue">View all students &rarr;</span>
         </button>
         
@@ -376,7 +387,7 @@ require_once '../includes/sidebar.php';
                     <?= $highRisk ?> High <span style="color: var(--text-gray); font-weight: normal; margin: 0 4px;">|</span> <span style="color: var(--risk-mod);"><?= $modRisk ?> Moderate</span>
                 </div>
             <?php else: ?>
-                <div style="font-size: 0.8rem; font-weight: 600; color: var(--risk-low); margin-top: 4px;">All clear</div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray); margin-top: 4px;">No recorded Moderate or High advisory-risk bands</div>
             <?php endif; ?>
             <span class="kpi-action-cue">Filter at-risk &rarr;</span>
         </button>
@@ -390,7 +401,7 @@ require_once '../includes/sidebar.php';
         
         <div class="stat-card" style="border-left-color: var(--teal) !important;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <h4>Avg Cumulative GWA</h4>
+                <h4>Average Cumulative GWA</h4>
                 <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Calculation Scope">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                     <span class="tooltip-text" role="tooltip">Average of recorded cumulative GWAs across active students. This is a historical cohort measure, not a projected GWA.</span>
@@ -400,42 +411,75 @@ require_once '../includes/sidebar.php';
             <div class="stat-card-subtext kpi-card__description">Historical cumulative cohort metric</div>
         </div>
         
-        <?php if ($noPredict > 0): ?>
-        <button type="button" class="stat-card kpi-card--action" style="border-left-color: var(--text-gray) !important;" onclick="applyTableFilter('risk', 'N/A');" aria-controls="table-card" aria-label="Filter student table: students missing predictions">
-            <h4>No Prediction Yet</h4>
-            <h2 style="color:var(--text-gray);"><?= $noPredict ?></h2>
-            <div class="stat-card-subtext kpi-card__description">Excluded from At-Risk count</div>
-            <span class="kpi-action-cue">Filter unpredicted &rarr;</span>
-        </button>
-        <?php endif; ?>
+
     </div>
 
     <!-- CHARTS -->
     <div class="dashboard-charts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 24px; margin-bottom: 32px;">
-        <div class="card" style="position: relative; height: 320px; margin-bottom: 0;">
-            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">College-Wide Risk Distribution</div>
-            <div style="position: relative; height: 240px; width: 100%;">
-                <canvas id="riskDonutChart" role="img" aria-label="College-wide risk distribution donut chart" aria-describedby="risk-donut-summary"></canvas>
-                <div id="risk-donut-summary" class="sr-only">
-                    <table>
-                        <caption>College-Wide Risk Distribution Summary</caption>
-                        <thead><tr><th scope="col">Risk Level</th><th scope="col">Student Count</th></tr></thead>
+        <div class="card" style="position: relative; min-height: 340px; height: auto; margin-bottom: 0;">
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">College-Wide Risk Distribution</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin: 0 0 16px 0;">Advisory triage based on latest projected or calculated performance</p>
+            <div style="position: relative; height: 220px; width: 100%;">
+                <canvas id="riskDonutChart" role="img" aria-label="College-wide risk distribution donut chart" aria-describedby="risk-donut-exact-table"></canvas>
+            </div>
+            <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
+                <?= htmlspecialchars(formatAdminRiskInterpretation($highRisk, $modRisk, $lowRisk, $noPredict), ENT_QUOTES, 'UTF-8') ?>
+            </p>
+            <details id="risk-donut-exact-data" class="analytics-chart-data distinction-exact-panel" style="margin-top: 8px;">
+                <summary>View exact values</summary>
+                <div class="data-table-scroll distinction-table-scroll" role="region" aria-label="Risk distribution exact values" tabindex="0">
+                    <table id="risk-donut-exact-table" style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+                        <caption class="sr-only">College-Wide Risk Distribution Exact Values</caption>
+                        <thead>
+                            <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color);">
+                                <th scope="col" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; color: var(--text-dark);">Risk Level</th>
+                                <th scope="col" style="padding: 8px 12px; text-align: right; font-size: 0.8rem; color: var(--text-dark);">Student Count</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr><td>High Risk</td><td><?= (int)$highRisk ?></td></tr>
-                            <tr><td>Moderate Risk</td><td><?= (int)$modRisk ?></td></tr>
-                            <tr><td>Low Risk</td><td><?= (int)$lowRisk ?></td></tr>
-                            <tr><td>No Prediction</td><td><?= (int)$noPredict ?></td></tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);"><th scope="row" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; font-weight: normal; color: var(--text-dark);">High Risk</th><td style="padding: 8px 12px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--risk-high);"><?= (int)$highRisk ?></td></tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);"><th scope="row" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; font-weight: normal; color: var(--text-dark);">Moderate Risk</th><td style="padding: 8px 12px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--risk-mod);"><?= (int)$modRisk ?></td></tr>
+                            <tr style="border-bottom: 1px solid var(--border-color);"><th scope="row" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; font-weight: normal; color: var(--text-dark);">Low Risk</th><td style="padding: 8px 12px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--risk-low);"><?= (int)$lowRisk ?></td></tr>
+                            <tr><th scope="row" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; font-weight: normal; color: var(--text-dark);">No Prediction Yet</th><td style="padding: 8px 12px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--text-gray);"><?= (int)$noPredict ?></td></tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </details>
         </div>
         
-        <div class="card" style="position: relative; height: 320px; margin-bottom: 0;">
-            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">Average GWA by Section</div>
-            <div style="position: relative; height: 240px; width: 100%;">
-                <canvas id="sectionGwaBarChart"></canvas>
+        <div class="card" style="position: relative; min-height: 340px; height: auto; margin-bottom: 0;">
+            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Average GWA by Section</div>
+            <p style="font-size: 0.8rem; color: var(--text-gray); margin: 0 0 16px 0;">Recorded section average on the prototype 0.00–4.00 scale</p>
+            <div style="position: relative; height: 220px; width: 100%;">
+                <canvas id="sectionGwaBarChart" role="img" aria-label="Average GWA by section bar chart" aria-describedby="section-gwa-exact-table"></canvas>
             </div>
+            <p class="chart-interpretation-text" style="font-size: 0.82rem; color: var(--text-gray); margin: 12px 0 8px 0; line-height: 1.4;">
+                <?= !empty($chartSectionAverages)
+                    ? "Recorded section averages range from approximately " . number_format(min($chartSectionAverages), 2) . " to " . number_format(max($chartSectionAverages), 2) . " across the displayed sections."
+                    : "No section averages recorded for the selected filter." ?>
+            </p>
+            <details id="section-gwa-exact-data" class="analytics-chart-data section-gwa-exact-panel" style="margin-top: 8px;">
+                <summary>View exact values</summary>
+                <div class="data-table-scroll section-gwa-table-scroll" role="region" aria-label="Section GWA exact values" tabindex="0" style="max-height: 350px; overflow-y: auto;">
+                    <table id="section-gwa-exact-table" style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+                        <caption class="sr-only">Average GWA by Section Exact Values</caption>
+                        <thead>
+                            <tr style="background: var(--table-header-bg); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 2;">
+                                <th scope="col" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; color: var(--text-dark); background: var(--table-header-bg); position: sticky; top: 0;">Section</th>
+                                <th scope="col" style="padding: 8px 12px; text-align: right; font-size: 0.8rem; color: var(--text-dark); background: var(--table-header-bg); position: sticky; top: 0;">Recorded Average GWA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($chartSectionLabels as $idx => $sLabel): ?>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <th scope="row" style="padding: 8px 12px; text-align: left; font-size: 0.8rem; font-weight: normal; color: var(--text-dark);"><?= htmlspecialchars($sLabel) ?></th>
+                                <td style="padding: 8px 12px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--text-dark);"><?= number_format($chartSectionAverages[$idx], 2) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -444,7 +488,7 @@ require_once '../includes/sidebar.php';
         <div class="table-toolbar">
             <input type="text" id="dashboard-search" class="search-box" placeholder="Search by name, student no., or section…">
             <div class="roster-controls">
-                <select id="filter-risk" class="filter-select" onchange="currentPage=1; renderPage();">
+                <select id="filter-risk" aria-label="Advisory risk" class="filter-select" onchange="currentPage=1; renderPage();">
                     <option value="">All Risks</option>
                     <option value="AT_RISK">At-Risk (High & Mod)</option>
                     <option value="HIGH">High Risk</option>
@@ -452,7 +496,7 @@ require_once '../includes/sidebar.php';
                     <option value="LOW">Low Risk</option>
                     <option value="N/A">No Data</option>
                 </select>
-                <select id="filter-status" class="filter-select" onchange="currentPage=1; renderPage();">
+                <select id="filter-status" aria-label="Curriculum pacing" class="filter-select" onchange="currentPage=1; renderPage();">
                     <option value="">All Statuses</option>
                     <option value="Regular">Regular</option>
                     <option value="Irregular">Irregular</option>
@@ -694,13 +738,15 @@ function runBatchPredictions() {
 function getChartThemeColors() {
     const root = getComputedStyle(document.documentElement);
     return {
-        high: root.getPropertyValue('--risk-high').trim(),
-        mod: root.getPropertyValue('--risk-mod').trim(),
-        low: root.getPropertyValue('--risk-low').trim(),
-        na: root.getPropertyValue('--text-gray').trim(),
-        teal: root.getPropertyValue('--teal').trim(),
-        text: root.getPropertyValue('--text-dark').trim(),
-        border: root.getPropertyValue('--border-color').trim()
+        high: root.getPropertyValue('--risk-high').trim() || '#EF4444',
+        mod: root.getPropertyValue('--risk-mod').trim() || '#F59E0B',
+        low: root.getPropertyValue('--risk-low').trim() || '#10B981',
+        na: root.getPropertyValue('--text-gray').trim() || '#6B7280',
+        accentBlue: root.getPropertyValue('--accent-blue').trim() || '#1E4DB7',
+        primary: root.getPropertyValue('--primary').trim() || '#1E4DB7',
+        primaryLight: root.getPropertyValue('--primary-light').trim() || '#3B82F6',
+        text: root.getPropertyValue('--text-dark').trim() || '#1F2937',
+        border: root.getPropertyValue('--border-color').trim() || '#E5E7EB'
     };
 }
 
@@ -740,7 +786,12 @@ const barChart = new Chart(ctxBar, {
         datasets: [{
             label: 'Average GWA',
             data: <?= json_encode($chartSectionAverages) ?>,
-            backgroundColor: themeColors.teal,
+            backgroundColor: themeColors.accentBlue,
+            hoverBackgroundColor: themeColors.primaryLight,
+            borderColor: themeColors.primary,
+            borderWidth: 1,
+            hoverBorderWidth: 3,
+            hoverBorderColor: themeColors.text,
             borderRadius: 4,
             barPercentage: 0.6
         }]
@@ -751,7 +802,7 @@ const barChart = new Chart(ctxBar, {
         plugins: { legend: { display: false } }, 
         scales: { 
             x: { ticks: { color: themeColors.text }, grid: { color: themeColors.border } },
-            y: { min: 1.0, max: 4.0, ticks: { stepSize: 0.5, color: themeColors.text }, grid: { color: themeColors.border }, title: { display: true, text: 'GWA (4.00 = Highest)', color: themeColors.text } } 
+            y: { min: 1.0, max: 4.0, ticks: { stepSize: 0.5, color: themeColors.text }, grid: { color: themeColors.border }, title: { display: true, text: 'Recorded-grade average', color: themeColors.text } }
         } 
     }
 });
@@ -769,12 +820,16 @@ const observer = new MutationObserver(() => {
     
     // Update Bar Chart
     barChart.options.animation = !isReducedMotion;
-    barChart.data.datasets[0].backgroundColor = themeColors.teal;
+    barChart.data.datasets[0].backgroundColor = themeColors.accentBlue;
+    barChart.data.datasets[0].hoverBackgroundColor = themeColors.primaryLight;
+    barChart.data.datasets[0].borderColor = themeColors.primary;
+    barChart.data.datasets[0].hoverBorderColor = themeColors.text;
     barChart.options.scales.x.ticks.color = themeColors.text;
     barChart.options.scales.x.grid.color = themeColors.border;
     barChart.options.scales.y.ticks.color = themeColors.text;
     barChart.options.scales.y.grid.color = themeColors.border;
     barChart.options.scales.y.title.color = themeColors.text;
+    barChart.options.scales.y.title.text = 'Recorded-grade average';
     barChart.update('none');
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
@@ -974,4 +1029,5 @@ function sortTable(colIndex) {
 }
 </script>
 
+<script src="<?= BASE_URL ?>assets/js/admin-analytics-interpretability.js?v=<?= filemtime(__DIR__.'/../assets/js/admin-analytics-interpretability.js') ?>" defer></script>
 <?php require_once '../includes/footer.php'; ?>
