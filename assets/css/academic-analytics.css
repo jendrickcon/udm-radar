@@ -256,3 +256,8 @@
  .analytics-page .card{padding:16px}
  .analytics-secondary-metrics{grid-template-columns:1fr}
 }
+
+/* Student historical chart only: avoid oversized SVG text and crowded periods. */
+.analytics-page[data-role="student"] #trend-chart { padding:24px 0 16px; }
+.analytics-page[data-role="student"] #trend-chart .student-history-chart { min-width:720px; max-height:none; }
+.analytics-page[data-role="student"] #trend-chart .student-history-chart text { font-size:12px; }

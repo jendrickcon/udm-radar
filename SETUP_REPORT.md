@@ -1,5 +1,11 @@
 # UDM-RADAR Setup Report
 
+## Latest database setup update — 2026-10-29
+
+**Owner-dataset setup and compatibility gate: PASS.** Following explicit replacement authorization and approval to exclude 182 predictions with blank provenance, the supplied owner backup was reviewed, reconciled and imported into local `udm_radar`. Normal localhost now uses that database. Final totals: 18 canonical tables, 291 Student profiles, 12,552 grades and 2,358 valid Student predictions. Original supplied synthetic identities and password hashes are preserved. Both previous local datasets were backed up; recovery of the original `udm_radar` backup was rehearsed successfully. All 182 excluded Student predictions remain in the source review database. No Migration 011 or new feature implementation was performed in this setup task.
+
+See [the current owner-dataset setup and compatibility report](OWNER_DATASET_SETUP_REPORT.md) and [verification evidence](OWNER_DATASET_VERIFICATION.json) for exact counts, other exclusions, backup checksums, schema checks and testing limits. The remaining sections below record the historical 2026-10-27 setup and are not the current database inventory.
+
 Date: 2026-10-27 (Asia/Manila)
 
 **Setup gate: PASS. Feature implementation has not started.**

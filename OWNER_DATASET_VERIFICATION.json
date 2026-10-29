@@ -1,0 +1,377 @@
+{
+    "date": "2026-10-29",
+    "setup_gate": "PASS",
+    "source": {
+        "counts": {
+            "_backup_student_profiles_course_wp6": 291,
+            "academic_support_cases": 11,
+            "admin_change_log": 22,
+            "export_audit_logs": 3,
+            "faculty_class_loads": 10,
+            "feedback_messages": 0,
+            "feedback_reports": 16,
+            "feedback_status_history": 11,
+            "grades": 12552,
+            "otp_tokens": 0,
+            "pending_corrections": 5,
+            "pending_grade_batches": 4,
+            "predictions": 2541,
+            "student_profiles": 291,
+            "subjects": 58,
+            "support_actions": 3,
+            "support_case_referrals": 11,
+            "support_status_history": 4,
+            "users": 296
+        },
+        "roles": [
+            {
+                "role": "student",
+                "total": 291
+            },
+            {
+                "role": "faculty",
+                "total": 4
+            },
+            {
+                "role": "admin",
+                "total": 1
+            }
+        ],
+        "schema_diff": {
+            "legacy_tables": [
+                "_backup_student_profiles_course_wp6"
+            ],
+            "missing_columns": [],
+            "column_differences": [
+                {
+                    "column": "grades.final_grade",
+                    "attribute": "Type",
+                    "source": "decimal(4,2)",
+                    "current": "varchar(10)"
+                },
+                {
+                    "column": "grades.final_grade",
+                    "attribute": "Collation",
+                    "source": null,
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "predictions.risk_level",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "predictions.latin_honor",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "predictions.prediction_source",
+                    "attribute": "Type",
+                    "source": "enum('heuristic','decision_tree')",
+                    "current": "varchar(30)"
+                },
+                {
+                    "column": "predictions.prediction_source",
+                    "attribute": "Default",
+                    "source": "heuristic",
+                    "current": null
+                },
+                {
+                    "column": "predictions.prediction_source",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "predictions.data_completeness",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "predictions.provisional_basis",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.student_number",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.course",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.college",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.section",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.status",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "student_profiles.record_status",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.section",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.subject_risk_level",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.latest_term_checked",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.reason_code",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.status",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                },
+                {
+                    "column": "support_case_referrals.message_to_student",
+                    "attribute": "Collation",
+                    "source": "utf8mb4_unicode_ci",
+                    "current": "utf8mb4_general_ci"
+                }
+            ]
+        },
+        "foreign_key_edges": 32,
+        "prediction_roles": [
+            {
+                "role": "student",
+                "total": 2540
+            },
+            {
+                "role": "admin",
+                "total": 1
+            }
+        ],
+        "courses": [
+            {
+                "course": "BSIT - Software Development",
+                "total": 291
+            }
+        ],
+        "otp_rows": 0
+    },
+    "compatible": {
+        "status": "VERIFIED_BEFORE_REPLACEMENT",
+        "counts": {
+            "academic_support_cases": 11,
+            "admin_change_log": 22,
+            "export_audit_logs": 3,
+            "faculty_class_loads": 10,
+            "feedback_messages": 0,
+            "feedback_reports": 16,
+            "feedback_status_history": 11,
+            "grades": 12552,
+            "otp_tokens": 0,
+            "pending_corrections": 3,
+            "pending_grade_batches": 4,
+            "predictions": 2358,
+            "student_profiles": 291,
+            "subjects": 58,
+            "support_actions": 3,
+            "support_case_referrals": 11,
+            "support_status_history": 4,
+            "users": 296
+        },
+        "source_non_student_predictions_excluded": 1,
+        "source_foreign_keys": 32,
+        "staging_foreign_keys": 32,
+        "orphans": 0,
+        "logical_violations": {
+            "profile_identity": 0,
+            "grades_role": 0,
+            "faculty_load_role": 0,
+            "support_student_role": 0,
+            "audit_actors": 0,
+            "audit_targets": 0,
+            "export_actors": 0,
+            "pending_target_grade": 0,
+            "pending_target_student": 0,
+            "case_prediction_owner": 0
+        },
+        "payload_entries_verified": 23,
+        "source_identity_and_password_hashes_preserved": true,
+        "export_format": "varchar(20)",
+        "data_seed_sha256": "b912bb2fb176d045f7b2d7097dcde09bddda04312162705c8e0c7b724f094e1f",
+        "data_seed_path": "C:\\xampp\\htdocs\\udm-radar\\logs\\owner-dataset-review/owner-compatible-data.sql",
+        "required_checks": 10,
+        "section_counts": {
+            "profiles": 10,
+            "faculty_loads": 8
+        },
+        "migration_011_run": false,
+        "excluded_rejected_corrections_with_zero_target": 2,
+        "owner_approved_blank_source_predictions_excluded": 182
+    },
+    "replacement": {
+        "result": "PASS",
+        "target": "udm_radar",
+        "counts": {
+            "academic_support_cases": 11,
+            "admin_change_log": 22,
+            "export_audit_logs": 3,
+            "faculty_class_loads": 10,
+            "feedback_messages": 0,
+            "feedback_reports": 16,
+            "feedback_status_history": 11,
+            "grades": 12552,
+            "otp_tokens": 0,
+            "pending_corrections": 3,
+            "pending_grade_batches": 4,
+            "predictions": 2358,
+            "student_profiles": 291,
+            "subjects": 58,
+            "support_actions": 3,
+            "support_case_referrals": 11,
+            "support_status_history": 4,
+            "users": 296
+        },
+        "staging_schema_and_data_fingerprints_match": true,
+        "foreign_key_edges": 32,
+        "orphans": 0,
+        "required_check_constraints": 10,
+        "source_identities_and_password_hashes_preserved": true,
+        "backup_path": "C:\\xampp\\htdocs\\udm-radar\\logs\\owner-dataset-review/backups/udm_radar_before_owner_dataset_20261029_095809.sql",
+        "backup_sha256": "5f06214e1ca766c7fdc2b83f3f6023f7fe3f998685f26b1507db23d99e11e845",
+        "source_sha256": "b799de553f034d63bae8d4263d846e061cceaa5ca2d51c2c74a4f827bc102119",
+        "compatible_data_sha256": "b912bb2fb176d045f7b2d7097dcde09bddda04312162705c8e0c7b724f094e1f",
+        "localhost_config_target": "udm_radar",
+        "migration_011_run": false,
+        "completed_utc": "2026-10-29T09:59:04+00:00"
+    },
+    "recovery": {
+        "result": "PASS",
+        "backup_sha256": "5f06214e1ca766c7fdc2b83f3f6023f7fe3f998685f26b1507db23d99e11e845",
+        "all_table_schema_and_data_fingerprints_match": true,
+        "temporary_database_removed": true
+    },
+    "data_only_sql_audit": {
+        "data_seed_sha256": "b912bb2fb176d045f7b2d7097dcde09bddda04312162705c8e0c7b724f094e1f",
+        "insert_statements": 168,
+        "non_insert_statements": 0,
+        "legacy_table_statements": 0
+    },
+    "student_readonly_rendering": [
+        {
+            "route": "student/index.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 41025,
+            "error": null,
+            "hasFatalMarker": false
+        },
+        {
+            "route": "student/dashboard.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 99075,
+            "error": null,
+            "hasFatalMarker": false
+        },
+        {
+            "route": "student/trend.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 47141,
+            "error": null,
+            "hasFatalMarker": false,
+            "evidenceRows": 10,
+            "completeTermPoints": 6
+        },
+        {
+            "route": "student/grades.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 113056,
+            "error": null,
+            "hasFatalMarker": false
+        },
+        {
+            "route": "student/academic_analytics.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 37119,
+            "error": null,
+            "hasFatalMarker": false
+        },
+        {
+            "route": "student/enrolment_planning.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 48523,
+            "error": null,
+            "hasFatalMarker": false,
+            "templateUnavailableBanner": false
+        },
+        {
+            "route": "student/feedback.php",
+            "database": "udm_radar",
+            "readOnly": true,
+            "injectedSession": true,
+            "realLoginTested": false,
+            "status": 200,
+            "renderedBytes": 59932,
+            "error": null,
+            "hasFatalMarker": false
+        }
+    ],
+    "excluded_student_predictions_still_in_review": 182,
+    "actual_password_login_tested": false
+}

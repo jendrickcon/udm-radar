@@ -33,11 +33,25 @@ function studentTrendModel(array $rows, array $prediction): array {
                 && ($between['provisional'] || $between['gwa'] === null)) $comparable = false;
         }
         $change = analyticsChange($previous['gwa'] ?? null, $value, $comparable);
-        $comparison = $change['point_change'] !== null
-            ? sprintf('%+.2f points: %s to %s.', $change['point_change'], studentTrendPeriod($previous['key']), studentTrendPeriod($term['key']))
-            : 'Change unavailable — incomplete, missing, nonadjacent, or noncomparable completed terms.';
-        if ($change['relative_change_pct'] !== null) {
-            $comparison .= sprintf(' Supporting relative change: %+.2f%% (relative to previous completed-term GWA).', $change['relative_change_pct']);
+        $comparison = 'Change unavailable — incomplete, missing, nonadjacent, or noncomparable completed terms.';
+        if ($change['point_change'] !== null) {
+            $delta = $change['point_change'];
+            $comparison = $delta == 0.0
+                ? 'Your GWA stayed the same'
+                : sprintf('Your GWA %s by %.2f points', $delta > 0 ? 'increased' : 'decreased', abs($delta));
+            if ($change['relative_change_pct'] !== null) {
+                $comparison .= sprintf(' (%.2f%%)', abs($change['relative_change_pct']));
+            }
+            $beforePeriod = studentTrendPeriod($previous['key']);
+            $afterPeriod = studentTrendPeriod($term['key']);
+            $beforeYear = explode('|', $previous['key'])[0];
+            $afterYear = explode('|', $term['key'])[0];
+            if ($beforeYear === $afterYear) {
+                $prefixLength = strlen('SY ' . $beforeYear . ' — ');
+                $comparison .= sprintf('. Comparison: %s to %s, SY %s.', substr($beforePeriod, $prefixLength), substr($afterPeriod, $prefixLength), $beforeYear);
+            } else {
+                $comparison .= sprintf('. Comparison: %s to %s.', $beforePeriod, $afterPeriod);
+            }
         }
         $points[] = ['period' => studentTrendPeriod($term['key']), 'key' => $term['key'], 'zone' => 'history',
             'type' => 'Recorded completed-term GWA', 'value' => $value,

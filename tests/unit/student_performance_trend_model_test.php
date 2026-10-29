@@ -15,7 +15,7 @@ trendCheck(count($empty['points']) === 1 && $empty['points'][0]['value'] === nul
 $rows = [grade(1,'2024-2025',1,'2.00'),grade(2,'2024-2025',2,'3.00'),grade(3,'2025-2026',1,null,1,80,90)];
 $model = studentTrendModel($rows, ['predicted_gwa'=>2.15,'risk_level'=>'LOW','prediction_source'=>'calculation_fallback','data_completeness'=>'complete']);
 trendCheck($model['latest'] === 3.0, 'Latest completed GWA excludes pending current term');
-trendCheck(str_contains($model['change'], '+1.00'), 'Adjacent completed-term delta uses accepted helper');
+trendCheck(str_contains($model['change'], 'increased by 1.00 points'), 'Adjacent completed-term delta uses accepted helper');
 trendCheck($model['points'][2]['value'] === null, 'Incomplete current final remains null');
 trendCheck($model['points'][3]['zone'] === 'current' && $model['points'][3]['value'] === convertPercentageToPoint(80), 'Preliminary snapshot uses existing raw-percent conversion');
 trendCheck(str_contains($model['points'][3]['detail'], 'Pre-Final 0/1'), 'Coverage denominator counts actual recorded subject slots');
@@ -44,12 +44,19 @@ trendCheck($completedCurrent['latest'] === 3.0, 'Fully recorded current term can
 $source = file_get_contents(__DIR__.'/../../student/trend.php');
 trendCheck(str_contains($source,"WHERE g.student_id=?") && str_contains($source,"requireRole('student')"), 'Source inspection: Student session scoping retained (not live authorization proof)');
 trendCheck(str_contains($source,"foreach (\$model['points']") && str_contains($source,"json_encode(\$model['points']"), 'Source inspection: chart and table consume same point payload');
-foreach ([['2.25','2.50','+11.11%'],['2.50','2.25','-10.00%'],['2.50','2.50','+0.00%']] as [$before,$after,$expected]) {
+foreach ([['2.25','2.50','Your GWA increased by 0.25 points (11.11%)'],['2.50','2.25','Your GWA decreased by 0.25 points (10.00%)'],['2.50','2.50','Your GWA stayed the same (0.00%)']] as [$before,$after,$expected]) {
     $relative = studentTrendModel([grade(1,'2024-2025',1,$before),grade(2,'2024-2025',2,$after)], []);
-    trendCheck(str_contains($relative['change'], 'Supporting relative change: '.$expected), 'Supporting relative percent '.$before.' to '.$after.' = '.$expected);
+    trendCheck(str_contains($relative['change'], $expected), 'Plain-language direction and relative percent '.$before.' to '.$after);
 }
 foreach (['0.00',null] as $before) {
     $relative = studentTrendModel([grade(1,'2024-2025',1,$before),grade(2,'2024-2025',2,'2.50')], []);
-    trendCheck(!str_contains($relative['change'],'relative change:'), 'No percent for zero/missing previous completed GWA');
+    trendCheck(!str_contains($relative['change'],'%'), 'No percent for zero/missing previous completed GWA');
 }
+$exampleRows = [];
+foreach (['3.00','3.00','3.00','3.25','3.25'] as $i => $final) $exampleRows[] = grade($i+1,'2025-2026',1,$final);
+foreach (array_merge(array_fill(0,16,'3.25'),array_fill(0,9,'3.50')) as $i => $final) $exampleRows[] = grade($i+6,'2025-2026',2,$final);
+$sameYear = studentTrendModel($exampleRows, []);
+trendCheck($sameYear['change'] === 'Your GWA increased by 0.24 points (7.74%). Comparison: First Semester to Second Semester, SY 2025-2026.', 'Same-year comparison explains the screenshot without repeated year labels');
+$crossYear = studentTrendModel([grade(1,'2024-2025',2,'2.00'),grade(2,'2025-2026',1,'2.50')], []);
+trendCheck(str_contains($crossYear['change'],'SY 2024-2025 — Second Semester to SY 2025-2026 — First Semester'), 'Cross-year comparison preserves both complete period labels');
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";

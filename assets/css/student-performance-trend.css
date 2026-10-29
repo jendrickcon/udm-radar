@@ -6,7 +6,7 @@
 .student-performance-trend .card h2 { font-size:1.2rem; margin-bottom:12px; }
 .student-performance-trend .trend-change { margin:16px 0; }
 .student-performance-trend .trend-legend { display:flex; flex-wrap:wrap; gap:12px 24px; list-style:none; padding:12px 0; color:var(--text-dark); }
-.student-performance-trend .trend-chart { position:relative; height:360px; min-width:0; }
+.student-performance-trend .trend-chart { position:relative; height:400px; min-width:0; }
 .student-performance-trend .trend-note { font-size:.85rem; margin-top:12px; }
 .student-performance-trend .trend-table-scroll { max-width:100%; overflow-x:auto; }
 .student-performance-trend table { border-collapse:collapse; width:100%; text-align:left; }
@@ -17,3 +17,39 @@
 .student-performance-trend details p { margin-top:10px; font-weight:400; }
 .student-performance-trend summary:focus-visible,.student-performance-trend .trend-table-scroll:focus-visible { outline:2px solid var(--accent-blue); outline-offset:3px; }
 @media (max-width:1080px) { .student-performance-trend .stat-grid { grid-template-columns:1fr; } }
+.student-performance-trend .trend-evidence-toggle { display:flex; align-items:center; flex-wrap:wrap; gap:12px; justify-content:space-between; padding:4px; }
+.student-performance-trend .trend-evidence-toggle::before { content:'▸'; }
+.student-performance-trend #trend-evidence[open] > .trend-evidence-toggle::before { content:'▾'; }
+.student-performance-trend .trend-evidence-toggle h2 { flex:1; margin:0; }
+.student-performance-trend .trend-evidence-toggle > span { color:var(--text-gray); font-size:.85rem; }
+.student-performance-trend #trend-evidence[open] > .trend-evidence-toggle { margin-bottom:16px; }
+.student-performance-trend #trend-evidence[open] .trend-show-table,
+.student-performance-trend #trend-evidence:not([open]) .trend-hide-table { display:none; }
+
+.student-performance-trend { --trend-guide-0:#2563eb; --trend-guide-1:#7e22ce; --trend-guide-2:#92400e; --trend-guide-3:#0f766e; }
+[data-theme="dark"] .student-performance-trend { --trend-guide-0:#60a5fa; --trend-guide-1:#c084fc; --trend-guide-2:#facc15; --trend-guide-3:#5eead4; }
+.student-performance-trend .trend-distinction-legend { display:flex; flex-wrap:wrap; gap:10px 20px; list-style:none; padding:8px 0 16px; font-size:.85rem; }
+.student-performance-trend .trend-distinction-legend li { display:flex; align-items:center; gap:8px; }
+.student-performance-trend .trend-guide-swatch { display:inline-block; width:28px; border-top:2px dashed var(--trend-guide-color); }
+.student-performance-trend .trend-guide-0 { --trend-guide-color:var(--trend-guide-0); }
+.student-performance-trend .trend-guide-1 { --trend-guide-color:var(--trend-guide-1); border-top-style:dotted; }
+.student-performance-trend .trend-guide-2 { --trend-guide-color:var(--trend-guide-2); }
+.student-performance-trend .trend-guide-3 { --trend-guide-color:var(--trend-guide-3); }
+
+.student-performance-trend .trend-chart-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.student-performance-trend .trend-honors-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:.85rem; padding:8px 0; }
+.student-performance-trend .trend-honors-toggle input { width:18px; height:18px; accent-color:var(--accent-blue); }
+.student-performance-trend .trend-honors-toggle:focus-within { outline:2px solid var(--accent-blue); outline-offset:3px; }
+.student-performance-trend .trend-distinction-legend[hidden] { display:none; }
+.student-performance-trend .trend-about { margin-top:16px; color:var(--text-gray); font-size:.85rem; }
+.student-performance-trend .trend-about summary { color:var(--text-dark); padding:6px 0; }
+.student-performance-trend .trend-assistive-status { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+.student-performance-trend #trend-chart-status { margin-top:32px; font-size:.85rem; color:var(--text-gray); }
+.student-performance-trend .trend-guide-swatch { border-top-width:3px; }
+.student-performance-trend .trend-distinction-legend { color:var(--text-dark); font-size:.9rem; }
+
+/* Preserve legible chart text on narrow screens without page-wide overflow. */
+@media (max-width:640px) {
+    .student-performance-trend .trend-chart { height:540px; }
+}

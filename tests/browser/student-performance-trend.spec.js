@@ -12,7 +12,7 @@ async function login(page,name='analytics_student_a'){
  await page.goto(base+'/login.php');await page.locator('#userid').fill(name);await page.locator('#password').fill(state.password);
  await page.getByRole('button',{name:/sign in|log in|login/i}).click();await expect(page).toHaveURL(/student\/index.php/);
 }
-async function trend(page){await page.goto(base+'/student/trend.php');await expect(page.locator('#semGwaChart')).toBeVisible();await expect(page.locator('#trend-chart-status')).toContainText('Focus or expand');}
+async function trend(page){await page.goto(base+'/student/trend.php');await expect(page.locator('#semGwaChart')).toBeVisible();await expect(page.locator('#trend-chart-status')).toContainText('Open the evidence table');}
 for(const [width,height] of [[1440,900],[1280,600],[1024,768]]) for(const theme of ['light','dark']) {
  test(`authenticated trend ${width}x${height} ${theme}`,async({page})=>{
   await page.setViewportSize({width,height});await page.emulateMedia({reducedMotion:'reduce'});await transport(page);const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -20,24 +20,27 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]]) for(const theme 
   await page.locator('html').evaluate((el,theme)=>{el.dataset.theme=theme;el.dataset.motion='reduce';},theme);
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
   const data=await page.evaluate(()=>{
-   const points=JSON.parse(document.getElementById('student-trend-data').textContent),chart=Chart.getChart('semGwaChart');
-   return {points,rows:[...document.querySelectorAll('.student-performance-trend tbody tr')].map(row=>row.children[2].textContent.trim()),
+   const tablePoints=JSON.parse(document.getElementById('student-trend-data').textContent),points=tablePoints.filter(p=>!(p.zone==='history'&&p.state==='Pending'&&tablePoints.some(q=>q.zone==='current'&&q.key===p.key))),chart=Chart.getChart('semGwaChart');
+   return {points,tablePoints,rows:[...document.querySelectorAll('.student-performance-trend tbody tr')].map(row=>row.children[2].textContent.trim()),
     values:chart.data.datasets.slice(0,3).map(ds=>ds.data),overflow:document.documentElement.scrollWidth>innerWidth,
     canvas:document.getElementById('semGwaChart').getBoundingClientRect().toJSON(),chartArea:chart.chartArea,
     showLine:chart.data.datasets.slice(0,3).map(ds=>ds.showLine),zero:chart.options.scales.y.min,animation:chart.options.animation};
   });
-  expect(data.rows).toEqual(data.points.map(p=>p.value===null?(p.state==='Pending'?'Pending':'Unavailable'):p.value.toFixed(2)));
+  expect(data.rows).toEqual(data.tablePoints.map(p=>p.value===null?(p.state==='Pending'?'Pending':'Unavailable'):p.value.toFixed(2)));
   for(const [zone,i]of [['history',0],['current',1],['estimate',2]])expect(data.values[i]).toEqual(data.points.map(p=>p.zone===zone?p.value:null));
-  expect(data.showLine).toEqual([true,false,false]);expect(data.zero).toBe(0);expect(data.animation).toBe(false);expect(data.overflow).toBe(false);expect(data.canvas.right).toBeLessThanOrEqual(width+1);expect(data.chartArea.width).toBeGreaterThan(100);
+  const lowestValue=Math.min(2.5,...data.points.filter(p=>p.value!==null).map(p=>p.value));
+  expect(data.showLine).toEqual([true,false,false]);expect(data.zero).toBe(Math.max(0,Math.floor((lowestValue<2.5?lowestValue-.1:2.5)*4)/4));expect(data.animation).toBe(false);expect(data.overflow).toBe(false);expect(data.canvas.right).toBeLessThanOrEqual(width+1);expect(data.chartArea.width).toBeGreaterThan(100);
   const headingBoxes=await page.evaluate(()=>{
    const chart=Chart.getChart('semGwaChart'),ctx=chart.ctx,original=ctx.fillText,boxes=[];
-   ctx.fillText=function(text,x,y,...args){if(['Completed history','In-progress snapshots','Stored estimate'].includes(text)&&this.font.includes('600'))boxes.push({text,left:x-this.measureText(text).width/2,right:x+this.measureText(text).width/2,top:y-12,bottom:y+3});return original.call(this,text,x,y,...args);};
-   try{chart.update('none');}finally{ctx.fillText=original;}return boxes;
+   ctx.fillText=function(text,x,y,...args){if(this.font.includes('18px'))boxes.push({text,left:x-this.measureText(text).width/2,right:x+this.measureText(text).width/2,top:y-18,bottom:y+4});return original.call(this,text,x,y,...args);};
+   try{chart.stop();chart.update('none');chart.draw();}finally{ctx.fillText=original;}return [...new Map(boxes.map(b=>[b.text+':'+b.left+':'+b.top,b])).values()];
   });
   for(let i=0;i<headingBoxes.length;i++)for(let j=i+1;j<headingBoxes.length;j++){
    const a=headingBoxes[i],b=headingBoxes[j];expect(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top,`${a.text} overlaps ${b.text}`).toBe(false);
   }
-  const summaries=page.locator('[data-trend-point]');await summaries.first().focus();await expect(summaries.first()).toBeFocused();
+  await page.locator('.trend-evidence-toggle').click();
+  // Enter using the keyboard: pointer-triggered programmatic focus need not match :focus-visible.
+  const summaries=page.locator('[data-trend-point]');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(summaries.first()).toBeFocused();
   expect(await summaries.first().evaluate(el=>getComputedStyle(el).outlineStyle)).not.toBe('none');
   await page.keyboard.press('Enter');await expect(summaries.first().locator('..')).toHaveAttribute('open','');await page.keyboard.press('Escape');await expect(summaries.first().locator('..')).not.toHaveAttribute('open','');
   await page.evaluate(()=>{document.documentElement.dataset.fontSize='extra-large';});
@@ -79,7 +82,7 @@ test('live Grades tooltip, calculator Reset/Close, Home and Student navigation r
 });
 test('no-canvas/library fallback retains exact evidence table',async({page})=>{
  await page.route('https://cdn.jsdelivr.net/npm/chart.js',r=>r.fulfill({contentType:'application/javascript',body:'/* intentional unavailable chart dependency test */'}));
- await login(page,'trend_prelim_only');await page.goto(base+'/student/trend.php');await expect(page.locator('#trend-chart-status')).toContainText('Chart unavailable');await expect(page.getByRole('table')).toBeVisible();await expect(page.getByRole('cell',{name:/Current Preliminary snapshot/})).toBeVisible();
+ await login(page,'trend_prelim_only');await page.goto(base+'/student/trend.php');await expect(page.locator('#trend-chart-status')).toContainText('Chart unavailable');await page.locator('.trend-evidence-toggle').click();await expect(page.getByRole('table')).toBeVisible();await expect(page.getByRole('cell',{name:/Current Preliminary progress/})).toBeVisible();
 });
 test('Dashboard and Academic Review derive MODERATE from 2.15 despite stale saved LOW',async({page})=>{
  await transport(page);await login(page,'trend_risk_mismatch');await page.goto(base+'/student/dashboard.php');
