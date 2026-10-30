@@ -1001,36 +1001,38 @@
    }else{
     const svg=svgEl('svg',{viewBox:'0 0 380 150',role:'img','aria-label':'Case and referral status chart',style:'width:100%;height:auto;max-height:160px;'});
     svg.append(svgEl('title',{},'Support Case and Referral Status'),svgEl('desc',{},'Horizontal comparison showing cases and referrals as separate record units.'));
-    const barW=260;
+    const barW=250;
     const casesOpenW=totalCases>0?Math.round((s.open_cases/totalCases)*barW):0;
     const casesClosedW=totalCases>0?barW-casesOpenW:0;
     svg.append(svgEl('text',{x:10,y:20,'font-size':'12px','font-weight':'600'},`Parent Cases (n=${totalCases})`));
     if(totalCases>0){
-     if(casesOpenW>0)svg.append(svgEl('rect',{x:10,y:28,width:casesOpenW,height:20,fill:'var(--teal, #008080)',rx:casesClosedW===0?4:0}));
-     if(casesClosedW>0)svg.append(svgEl('rect',{x:10+casesOpenW,y:28,width:casesClosedW,height:20,fill:'var(--accent-blue, #1e4db7)',rx:casesOpenW===0?4:0}));
-     svg.append(svgEl('text',{x:280,y:43,'font-size':'11px','font-weight':'500'},`${s.open_cases} Open · ${s.closed_cases} Closed`));
+     svg.append(svgEl('rect',{x:10,y:28,width:barW,height:18,fill:'var(--border-color)',opacity:'0.25',rx:4}));
+     if(casesOpenW>0)svg.append(svgEl('rect',{x:10,y:28,width:casesOpenW,height:18,fill:'var(--teal, #008080)',rx:casesClosedW===0?4:0}));
+     if(casesClosedW>0)svg.append(svgEl('rect',{x:10+casesOpenW,y:28,width:casesClosedW,height:18,fill:'var(--accent-blue, #1e4db7)',rx:casesOpenW===0?4:0}));
+     svg.append(svgEl('text',{x:270,y:41,'font-size':'11px','font-weight':'600'},`${s.open_cases} Open · ${s.closed_cases} Closed`));
     }else{
-     svg.append(svgEl('rect',{x:10,y:28,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
-     svg.append(svgEl('text',{x:15,y:42,'font-size':'11px',fill:'var(--text-gray)'},'No recorded cases'));
+     svg.append(svgEl('text',{x:10,y:40,'font-size':'11px',fill:'var(--text-gray)'},'No recorded parent cases in this scope'));
     }
     const refsRevW=totalRefs>0?Math.round((reviewed/totalRefs)*barW):0;
     const refsAwtW=totalRefs>0?barW-refsRevW:0;
     svg.append(svgEl('text',{x:10,y:80,'font-size':'12px','font-weight':'600'},`Referrals (n=${totalRefs})`));
     if(totalRefs>0){
-     if(refsRevW>0)svg.append(svgEl('rect',{x:10,y:88,width:refsRevW,height:20,fill:'var(--teal, #008080)',rx:refsAwtW===0?4:0}));
-     if(refsAwtW>0)svg.append(svgEl('rect',{x:10+refsRevW,y:88,width:refsAwtW,height:20,fill:'#f59e0b',rx:refsRevW===0?4:0}));
-     svg.append(svgEl('text',{x:280,y:103,'font-size':'11px','font-weight':'500'},`${reviewed} Rev · ${awaiting} Awaiting`));
+     svg.append(svgEl('rect',{x:10,y:88,width:barW,height:18,fill:'var(--border-color)',opacity:'0.25',rx:4}));
+     if(refsRevW>0)svg.append(svgEl('rect',{x:10,y:88,width:refsRevW,height:18,fill:'var(--teal, #008080)',rx:refsAwtW===0?4:0}));
+     if(refsAwtW>0)svg.append(svgEl('rect',{x:10+refsRevW,y:88,width:refsAwtW,height:18,fill:'#f59e0b',rx:refsRevW===0?4:0}));
+     svg.append(svgEl('text',{x:270,y:101,'font-size':'11px','font-weight':'600'},`${reviewed} Reviewed · ${awaiting} Awaiting`));
     }else{
-     svg.append(svgEl('rect',{x:10,y:88,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
-     svg.append(svgEl('text',{x:15,y:102,'font-size':'11px',fill:'var(--text-gray)'},'No recorded referrals'));
+     svg.append(svgEl('text',{x:10,y:100,'font-size':'11px',fill:'var(--text-gray)'},'No recorded referrals in this scope'));
     }
     svg.append(
-     svgEl('circle',{cx:16,cy:132,r:4,fill:'var(--teal, #008080)'}),
-     svgEl('text',{x:26,y:136,'font-size':'10px'},'Open / Reviewed'),
-     svgEl('circle',{cx:125,cy:132,r:4,fill:'var(--accent-blue, #1e4db7)'}),
-     svgEl('text',{x:135,y:136,'font-size':'10px'},'Closed Case'),
-     svgEl('circle',{cx:215,cy:132,r:4,fill:'#f59e0b'}),
-     svgEl('text',{x:225,y:136,'font-size':'10px'},'Awaiting Review')
+     svgEl('circle',{cx:14,cy:132,r:4,fill:'var(--teal, #008080)'}),
+     svgEl('text',{x:22,y:135,'font-size':'10px','font-weight':'500'},'Open'),
+     svgEl('circle',{cx:74,cy:132,r:4,fill:'var(--accent-blue, #1e4db7)'}),
+     svgEl('text',{x:82,y:135,'font-size':'10px','font-weight':'500'},'Closed'),
+     svgEl('circle',{cx:138,cy:132,r:4,fill:'var(--teal, #008080)'}),
+     svgEl('text',{x:146,y:135,'font-size':'10px','font-weight':'500'},'Reviewed'),
+     svgEl('circle',{cx:214,cy:132,r:4,fill:'#f59e0b'}),
+     svgEl('text',{x:222,y:135,'font-size':'10px','font-weight':'500'},'Awaiting review')
     );
     statusContainer.append(svg);
    }
@@ -1040,7 +1042,7 @@
   const flowContainer=document.getElementById('chart-notice-flow');
   if(flowContainer){
    flowContainer.replaceChildren();
-   const svg=svgEl('svg',{viewBox:'0 0 460 170',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:175px;'});
+   const svg=svgEl('svg',{viewBox:'0 0 460 115',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:125px;'});
    svg.append(svgEl('title',{},'Notice and Receipt Flow'),svgEl('desc',{},'Progression from created referrals to issued notices and recorded receipt acknowledgments.'));
    const nodeW=115, nodeH=64;
 
@@ -1068,11 +1070,26 @@
    svg.append(svgEl('text',{x:334+nodeW/2,y:52,'text-anchor':'middle','font-size':'18px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
    svg.append(svgEl('text',{x:334+nodeW/2,y:67,'text-anchor':'middle','font-size':'9.5px',fill:'var(--teal, #008080)'},'Receipt confirmed'));
 
-   // Subtitles below nodes (wrapped, fully legible)
-   svg.append(svgEl('text',{x:12,y:105,'font-size':'11px','font-weight':'600',fill:'currentColor'},'MTR-19 is a bounded count of recorded student receipts.'));
-   svg.append(svgEl('text',{x:12,y:124,'font-size':'10px',fill:'var(--text-gray)'},'Acknowledgments are recorded receipt counts, not the canonical acknowledgment rate.'));
-   svg.append(svgEl('text',{x:12,y:141,'font-size':'9.5px',fill:'var(--text-gray)'},'Action progression records receipt only; does not imply fault, agreement, or punitive action.'));
+   // Concise 1-line text
+   svg.append(svgEl('text',{x:12,y:98,'font-size':'10px',fill:'var(--text-gray)'},'MTR-19 bounded count · Action progression records receipt only, not agreement or fault.'));
    flowContainer.append(svg);
+
+   const flowHelp=el('details',undefined,{class:'support-inline-disclosure'});
+   const flowSummary=el('summary',undefined,{class:'support-inline-summary'});
+   flowSummary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','How this flow is counted')
+   );
+   const flowBody=el('div',undefined,{class:'support-inline-help-body'});
+   flowBody.innerHTML=`
+    <ul style="margin:6px 0 0 0;padding-left:18px;font-size:0.78rem;color:var(--text-gray);line-height:1.5;">
+     <li><strong>Referrals created:</strong> Initial support referral logged for review.</li>
+     <li><strong>Notices issued:</strong> Formal academic advisory notices issued following review.</li>
+     <li><strong>Receipt confirmed:</strong> Confirmed student receipt acknowledgments (bounded count, not rate). Confirms receipt only, never agreement, fault, or admission.</li>
+    </ul>
+   `;
+   flowHelp.append(flowSummary,flowBody);
+   flowContainer.append(flowHelp);
   }
 
   // Workload Summary (5 Metrics)
@@ -1133,9 +1150,25 @@
    const titleParent=el('div','MEDIAN PARENT-CASE DURATION',{style:'font-size:0.75rem;font-weight:700;color:var(--text-gray);letter-spacing:0.4px;margin-bottom:4px;'});
    const valParentStr=s.median_closure_hours!==null?`${num(s.median_closure_hours)} hours (n=${s.closure_sample})`:'Unavailable';
    const valParentEl=el('div',valParentStr,{style:'font-size:1.15rem;font-weight:700;color:var(--text-dark);'});
-   const subParentEl=el('div','Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:2px;line-height:1.35;'});
-   const mtr21Notice=el('div','Canonical referral closure or reopening duration (MTR-21) remains unavailable until required referral-lifecycle data contracts exist.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:6px;font-style:italic;line-height:1.35;'});
-   timingBox.append(divider,titleParent,valParentEl,subParentEl,mtr21Notice);
+
+   const mtr21Details=el('details',undefined,{class:'support-inline-disclosure',style:'margin-top:8px;'});
+   const mtr21Summary=el('summary',undefined,{class:'support-inline-summary'});
+   mtr21Summary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','Why referral closure remains unavailable')
+   );
+   const mtr21Body=el('div',undefined,{class:'support-inline-help-body'});
+   mtr21Body.innerHTML=`
+    <p style="margin:4px 0;font-size:0.75rem;color:var(--text-gray);line-height:1.45;">
+     Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.
+    </p>
+    <p style="margin:4px 0;font-size:0.75rem;color:var(--text-gray);line-height:1.45;font-style:italic;">
+     Canonical referral closure or reopening duration (MTR-21) remains unavailable until required referral-lifecycle data contracts exist.
+    </p>
+   `;
+   mtr21Details.append(mtr21Summary,mtr21Body);
+
+   timingBox.append(divider,titleParent,valParentEl,mtr21Details);
    timingContainer.append(timingBox);
   }
 
@@ -1153,14 +1186,105 @@
     }
    }
    if(key==='median_closure_hours'&&s[key]!==null)value=num(s[key])+` hours (n=${s.closure_sample})`;
-   return[label,el('span',value,{'data-support':key})];
+   return[el('span',label,{class:'support-metric-card-label'}),el('span',value,{'data-support':key,class:'support-metric-card-val'})];
   });
   const supTable=document.getElementById('support-table');
-  if(supTable)table(supTable,['Measure','Recorded result'],rows,'No cases match these filters.',`Cases n=${s.eligible_cases}; referrals n=${s.referrals_created}. Counts describe separate record types.`);
+  if(supTable){
+   supTable.className='support-metrics-table';
+   table(supTable,['Measure','Recorded result'],rows,'No cases match these filters.',`Cases n=${s.eligible_cases}; referrals n=${s.referrals_created}. Counts describe separate record types.`);
+  }
+
+  // Definition disclosure
+  const defContainer=document.getElementById('support-definitions-container');
+  if(defContainer){
+   defContainer.replaceChildren();
+   const defDetails=el('details',undefined,{class:'support-inline-disclosure card',style:'padding:12px 16px;'});
+   const defSummary=el('summary',undefined,{class:'support-inline-summary'});
+   defSummary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','How support metrics are defined and calculated')
+   );
+   const defBody=el('div',undefined,{class:'support-inline-help-body',style:'margin-top:10px;'});
+   defBody.innerHTML=`
+    <ul style="margin:0;padding-left:18px;font-size:0.8rem;color:var(--text-gray);line-height:1.55;">
+     <li><strong>Recorded eligible cases:</strong> Count of distinct student cases within the filtered scope.</li>
+     <li><strong>Referrals created vs. reviewed:</strong> Separate record units representing initial referrals and faculty-reviewed decisions.</li>
+     <li><strong>Notices issued vs. deferred:</strong> Formal notices generated versus advisory notices intentionally postponed pending review.</li>
+     <li><strong>Receipt acknowledgments:</strong> Raw count of student receipt confirmations; does not constitute fault or agreement.</li>
+     <li><strong>First-notice duration (MTR-20):</strong> Mean elapsed hours from referral creation to the first recorded notice.</li>
+     <li><strong>Median parent-case duration:</strong> Limited indicator for closed cases; canonical MTR-21 referral closure remains unavailable.</li>
+    </ul>
+   `;
+   defDetails.append(defSummary,defBody);
+   defContainer.append(defDetails);
+  }
+
   const supLimits=document.getElementById('support-limits');
   if(supLimits)supLimits.textContent=s.deferral_reason+' MTR-20 is the arithmetic mean from each distinct referral creation to its first recorded notice; earlier unrecorded actions cannot be inferred. Missing, invalid or reversed times are excluded. Receipt acknowledgments are recorded counts, including valid legacy receipt timestamps without linked issuance evidence, not MTR-19 rates. The parent-case closed-duration median is a limited recorded indicator, not canonical MTR-21: referral closure and reopening equivalence remain blocked. No teaching-quality or causal claim follows from these durations.';
+
   const drillTable=document.getElementById('drilldown-table');
-  if(drillTable)table(drillTable,['Authorized record','Status'],report.drilldowns.map(d=>[el('a',d.label,{href:d.href}),d.status.replaceAll('_',' ')]),'No authorized records match these filters.');
+  if(drillTable){
+   drillTable.className='support-task-table';
+   drillTable.replaceChildren();
+   if(!report.drilldowns||report.drilldowns.length===0){
+    const tbody=el('tbody');
+    const tr=el('tr');
+    tr.append(el('td','No authorized records match these filters.',{colspan:3,class:'support-task-empty',style:'padding:16px;color:var(--text-gray);text-align:center;'}));
+    tbody.append(tr);
+    drillTable.append(tbody);
+   }else{
+    const tbody=el('tbody');
+    const total=report.drilldowns.length;
+    report.drilldowns.forEach((d,idx)=>{
+     const tr=el('tr',undefined,{class:idx>=5?'support-task-row support-task-row--extra':'support-task-row'});
+     if(idx>=5)tr.style.display='none';
+
+     const tdName=el('td',undefined,{class:'support-task-col-name'});
+     tdName.append(el('span',d.label,{class:'support-task-name'}));
+
+     const rawStatus=String(d.status||'').replaceAll('_',' ');
+     const sentenceStatus=rawStatus.charAt(0).toUpperCase()+rawStatus.slice(1).toLowerCase();
+     const tdBadge=el('td',undefined,{class:'support-task-col-status'});
+     const badge=el('span',sentenceStatus,{class:`support-status-badge support-status-badge--${d.status}`});
+     tdBadge.append(badge);
+
+     const tdAction=el('td',undefined,{class:'support-task-col-action',style:'text-align:right;'});
+     const actionVerb=(d.status==='open'||d.status==='pending')?'Open case':'View case';
+     const link=el('a',`${actionVerb} →`,{
+      href:d.href,
+      class:'btn btn--secondary btn--sm support-action-btn',
+      'aria-label':d.label
+     });
+     tdAction.append(link);
+
+     tr.append(tdName,tdBadge,tdAction);
+     tbody.append(tr);
+    });
+
+    if(total>5){
+     const toggleTr=el('tr',undefined,{class:'support-task-toggle-row'});
+     const toggleTd=el('td',undefined,{colspan:3,style:'text-align:center;padding:10px;'});
+     const toggleBtn=el('button',`View all ${total} cases ↓`,{
+      type:'button',
+      class:'btn btn--subtle btn--sm support-task-toggle-btn',
+      'aria-expanded':'false'
+     });
+     let expanded=false;
+     toggleBtn.addEventListener('click',()=>{
+      expanded=!expanded;
+      toggleBtn.setAttribute('aria-expanded',String(expanded));
+      toggleBtn.textContent=expanded?`Show fewer cases ↑`:`View all ${total} cases ↓`;
+      tbody.querySelectorAll('.support-task-row--extra').forEach(r=>{
+       r.style.display=expanded?'':'none';
+      });
+     });
+     toggleTd.append(toggleBtn);
+     toggleTr.append(toggleTd);
+     tbody.append(toggleTr);
+    }
+    drillTable.append(tbody);
+   }
+  }
  }
 
  function updateAdvancedFiltersBadge(){

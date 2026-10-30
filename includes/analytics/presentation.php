@@ -370,6 +370,12 @@ function analyticsPage(string $role): void {
                             <option value="">All recorded values</option>
                         </select>
                     </div>
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-section">Section</label>
+                        <select id="analytics-section" name="section" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
                     <div class="filter-field filter-field--overview">
                         <label for="analytics-year_level">Curriculum year</label>
                         <select id="analytics-year_level" name="year_level" class="filter-select">
@@ -385,12 +391,6 @@ function analyticsPage(string $role): void {
                     <div class="filter-field filter-field--support" style="display: none;">
                         <label for="analytics-decision">Referral status</label>
                         <select id="analytics-decision" name="decision" class="filter-select">
-                            <option value="">All recorded values</option>
-                        </select>
-                    </div>
-                    <div class="filter-field filter-field--shared">
-                        <label for="analytics-section">Section</label>
-                        <select id="analytics-section" name="section" class="filter-select">
                             <option value="">All recorded values</option>
                         </select>
                     </div>
@@ -918,6 +918,7 @@ function analyticsPage(string $role): void {
                             <div class="data-table-scroll" role="region" aria-label="Support summary data" tabindex="0">
                                 <table id="support-table"></table>
                             </div>
+                            <div id="support-definitions-container" style="margin-top: 14px;"></div>
                             <p id="support-limits" class="analytics-limits" style="font-size: 0.82rem; color: var(--text-gray); margin-top: 10px; line-height: 1.5;"></p>
                         </section>
                     </section>
