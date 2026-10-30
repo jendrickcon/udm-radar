@@ -225,6 +225,83 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  expect(bgBarA).toMatch(/rgb\(13,\s*148,\s*136\)|rgb\(15,\s*143,\s*131\)/);
 });
 
+test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',async({page})=>{
+ await open(page);
+ await faculty(page);
+
+ // 1. Verify two-group centered cluster and bar-edge spacing (48px to 88px)
+ const plotArea = page.locator('.ac-plot-side-by-side');
+ await expect(plotArea).toBeVisible();
+ await expect(plotArea).toHaveClass(/has-2-groups/);
+
+ const colA = page.locator('.ac-col-a');
+ const colB = page.locator('.ac-col-b');
+ const boxA = await colA.boundingBox();
+ const boxB = await colB.boundingBox();
+ expect(boxA).not.toBeNull();
+ expect(boxB).not.toBeNull();
+
+ // Bar width in approved range (72px to 96px)
+ expect(boxA.width).toBeGreaterThanOrEqual(72);
+ expect(boxA.width).toBeLessThanOrEqual(96);
+
+ // Gap between bar edges in approved range (48px to 88px)
+ const barEdgeGap2 = boxB.x - (boxA.x + boxA.width);
+ expect(barEdgeGap2).toBeGreaterThanOrEqual(48);
+ expect(barEdgeGap2).toBeLessThanOrEqual(88);
+
+ // Centered cluster check: outer margins of the plot should be balanced
+ const boxPlot = await plotArea.boundingBox();
+ expect(boxPlot).not.toBeNull();
+ const leftSpace2 = boxA.x - boxPlot.x;
+ const rightSpace2 = (boxPlot.x + boxPlot.width) - (boxB.x + boxB.width);
+ expect(Math.abs(leftSpace2 - rightSpace2)).toBeLessThanOrEqual(4);
+
+ // GWA scale grid lines: major lines only, readable theme-aware line
+ const gridlines = page.locator('.ac-chart-gridline');
+ expect(await gridlines.count()).toBeLessThanOrEqual(4);
+ const baseline = page.locator('.ac-chart-baseline');
+ await expect(baseline).toBeVisible();
+
+ // 2. Add Group C to verify three-group centered cluster (28px to 56px gap)
+ await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
+ await expect(plotArea).toHaveClass(/has-3-groups/);
+
+ const colC = page.locator('.ac-col-c');
+ const box3A = await colA.boundingBox();
+ const box3B = await colB.boundingBox();
+ const box3C = await colC.boundingBox();
+ expect(box3A).not.toBeNull();
+ expect(box3B).not.toBeNull();
+ expect(box3C).not.toBeNull();
+
+ const gapAB = box3B.x - (box3A.x + box3A.width);
+ const gapBC = box3C.x - (box3B.x + box3B.width);
+ expect(gapAB).toBeGreaterThanOrEqual(28);
+ expect(gapAB).toBeLessThanOrEqual(56);
+ expect(gapBC).toBeGreaterThanOrEqual(28);
+ expect(gapBC).toBeLessThanOrEqual(56);
+
+ // Three-group centered cluster check
+ const box3Plot = await plotArea.boundingBox();
+ const leftSpace3 = box3A.x - box3Plot.x;
+ const rightSpace3 = (box3Plot.x + box3Plot.width) - (box3C.x + box3C.width);
+ expect(Math.abs(leftSpace3 - rightSpace3)).toBeLessThanOrEqual(4);
+
+ // No label collision: labels beneath bars must not overlap horizontally
+ const labelA = page.locator('.ac-col-a .ac-bar-bottom-label');
+ const labelB = page.locator('.ac-col-b .ac-bar-bottom-label');
+ const labelC = page.locator('.ac-col-c .ac-bar-bottom-label');
+ const boxLabelA = await labelA.boundingBox();
+ const boxLabelB = await labelB.boundingBox();
+ const boxLabelC = await labelC.boundingBox();
+ expect(boxLabelA).not.toBeNull();
+ expect(boxLabelB).not.toBeNull();
+ expect(boxLabelC).not.toBeNull();
+ expect(boxLabelA.x + boxLabelA.width).toBeLessThanOrEqual(boxLabelB.x + 4);
+ expect(boxLabelB.x + boxLabelB.width).toBeLessThanOrEqual(boxLabelC.x + 4);
+});
+
 test('Overlay mode top value strip, major gridlines only, and label isolation',async({page})=>{
  await open(page);
  await faculty(page);
@@ -260,12 +337,12 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await expect(page.locator('.ac-plot-overlay .ac-bar-top-info')).toHaveCount(0);
  await expect(page.locator('.ac-plot-overlay .ac-bar-sub-label')).toHaveCount(0);
 
- // Two-group value strip buttons do not overlap
+ // Two-group pill buttons do not overlap and are stacked vertically inside plot
  const boxItemA = await stripItems.nth(0).boundingBox();
  const boxItemB = await stripItems.nth(1).boundingBox();
  expect(boxItemA).not.toBeNull();
  expect(boxItemB).not.toBeNull();
- expect(boxItemA.x + boxItemA.width).toBeLessThanOrEqual(boxItemB.x + 2);
+ expect(boxItemA.y + boxItemA.height).toBeLessThanOrEqual(boxItemB.y + 2);
 
  // Columns have distinct horizontal positions
  const boxColA = await page.locator('.ac-col-a').boundingBox();

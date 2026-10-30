@@ -243,11 +243,13 @@
                         : 'Group ' + letter + ' highlighted.';
                 }
             }
-            const stripItems = layout.querySelectorAll('.ac-value-strip-item');
+            const stripItems = layout.querySelectorAll('.ac-value-strip-item, .ac-overlay-pill');
             stripItems.forEach(btn => {
                 const active = btn.dataset.groupSelect === letter;
                 btn.setAttribute('aria-pressed', String(active));
                 btn.classList.toggle('is-selected', active);
+                const ind = btn.querySelector('.ac-pill-indicator');
+                if (ind) ind.textContent = active ? '✓' : '';
             });
             const baselineMarkers = layout.querySelectorAll('.ac-bar-baseline-marker');
             baselineMarkers.forEach(m => {
@@ -407,34 +409,37 @@
             // Recognizable Vertical Bar Comparison Chart Card
             const chartCard = make('div', undefined, { class: 'ac-vertical-chart-card', role: 'region', 'aria-label': 'Vertical bar comparison chart' });
 
-            // If overlay mode, insert the top value strip before the chart stage
+            const chartStage = make('div', undefined, { class: 'ac-chart-stage' });
+
+            // If overlay mode, insert the compact group-colored pill cluster inside the chart stage
             if (chartDisplayMode === 'overlay') {
-                const valueStrip = make('div', undefined, {
-                    class: 'ac-overlay-value-strip',
+                const pillGroup = make('div', undefined, {
+                    class: 'ac-overlay-pill-group ac-overlay-value-strip',
                     role: 'group',
                     'aria-label': 'Current group values'
                 });
                 selected.forEach((group, index) => {
                     const letter = 'ABC'[index];
-                    const valBtn = make('button', undefined, {
+                    const isSelected = highlightedGroup === letter;
+                    const pillBtn = make('button', undefined, {
                         type: 'button',
-                        class: 'ac-value-strip-item ac-item-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
+                        class: 'ac-overlay-pill ac-value-strip-item ac-item-' + letter.toLowerCase() + ' ac-pill-' + letter.toLowerCase() + (isSelected ? ' is-selected' : ''),
                         'data-group-select': letter,
-                        'aria-pressed': String(highlightedGroup === letter),
+                        'aria-pressed': String(isSelected),
                         'aria-label': 'Highlight Group ' + letter + ', ' + metrics[metric] + ' ' + valueText(group)
                     });
-                    valBtn.append(
+                    const indicator = make('span', isSelected ? '✓' : '', { class: 'ac-pill-indicator', 'aria-hidden': 'true' });
+                    pillBtn.append(
                         make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                        make('span', 'Group ' + letter, { class: 'ac-strip-key' }),
-                        make('strong', valueText(group), { class: 'ac-strip-val' })
+                        make('span', 'Group ' + letter, { class: 'ac-pill-key ac-strip-key' }),
+                        make('strong', valueText(group), { class: 'ac-pill-val ac-strip-val' }),
+                        indicator
                     );
-                    valBtn.addEventListener('click', () => updateHighlight(letter));
-                    valueStrip.append(valBtn);
+                    pillBtn.addEventListener('click', () => updateHighlight(letter));
+                    pillGroup.append(pillBtn);
                 });
-                chartCard.append(valueStrip);
+                chartStage.append(pillGroup);
             }
-
-            const chartStage = make('div', undefined, { class: 'ac-chart-stage' });
 
             // Y-Axis and Ticks (Major Scale Only)
             const yAxis = make('div', undefined, { class: 'ac-chart-y-axis', 'aria-hidden': 'true' });

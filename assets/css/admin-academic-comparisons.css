@@ -8,6 +8,8 @@
     --comparison-c-border: #f59e0b;
     --teal: #0d9488;
     --gold: #d97706;
+    --ac-gridline-color: rgba(71, 85, 105, 0.22);
+    --ac-baseline-color: rgba(71, 85, 105, 0.38);
 }
 
 [data-theme="dark"] {
@@ -19,6 +21,8 @@
     --comparison-c-border: #fbbf24;
     --teal: #0f8f83;
     --gold: #d59628;
+    --ac-gridline-color: rgba(148, 163, 184, 0.28);
+    --ac-baseline-color: rgba(148, 163, 184, 0.45);
 }
 
 .analytics-page[data-role="admin"] #admin-comparisons { margin-block: 24px; }
@@ -61,16 +65,22 @@
 .ac-chart-y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 48px; pointer-events: none; }
 .ac-y-tick { position: absolute; right: 0; display: flex; align-items: center; justify-content: flex-end; transform: translateY(-50%); }
 .ac-y-tick-label { font-size: .75rem; color: var(--text-gray); font-family: monospace, sans-serif; white-space: nowrap; }
-.ac-chart-gridline { position: absolute; left: 54px; right: 0; border-top: 1px dashed var(--border-color); opacity: 0.35; pointer-events: none; }
-.ac-chart-baseline { position: absolute; left: 54px; right: 0; bottom: 0; border-top: 2px solid var(--border-color); pointer-events: none; }
+.ac-chart-gridline { position: absolute; left: 54px; right: 0; border-top: 1px dashed var(--ac-gridline-color); opacity: 1; pointer-events: none; }
+.ac-chart-baseline { position: absolute; left: 54px; right: 0; bottom: 0; border-top: 2px solid var(--ac-baseline-color); pointer-events: none; }
 
 /* Plot Area and Columns */
 .ac-chart-plot-area { position: relative; width: 100%; height: 100%; display: flex; align-items: flex-end; }
-.ac-plot-side-by-side { justify-content: space-around; }
+.ac-plot-side-by-side { justify-content: center; }
+.ac-plot-side-by-side.has-2-groups { gap: 64px; }
+.ac-plot-side-by-side.has-2-groups .ac-bar-column { width: 84px; max-width: 96px; min-width: 72px; }
+.ac-plot-side-by-side.has-2-groups .ac-vertical-bar { width: 100%; max-width: 84px; }
+.ac-plot-side-by-side.has-3-groups { gap: 36px; }
+.ac-plot-side-by-side.has-3-groups .ac-bar-column { width: 72px; max-width: 80px; min-width: 60px; }
+.ac-plot-side-by-side.has-3-groups .ac-vertical-bar { width: 100%; max-width: 72px; }
+
 .ac-plot-overlay { justify-content: center; }
 
 .ac-bar-column { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; transition: all 200ms cubic-bezier(0.2,0,0,1); }
-.ac-plot-side-by-side .ac-bar-column { width: 30%; max-width: 140px; }
 .ac-plot-overlay .ac-bar-column { position: absolute; bottom: 0; height: 100%; }
 
 /* Overlay Two Groups: Distinct center offsets and clean width */
@@ -87,73 +97,119 @@
 .ac-bar-val-badge { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); white-space: nowrap; }
 .ac-bar-glyph-icon { font-size: .8rem; }
 
-/* Top Value Strip for Overlay Mode */
-.ac-overlay-value-strip {
+/* Compact Overlay Pill Group Inside Plot */
+.ac-overlay-pill-group {
+    position: absolute;
+    top: 12px;
+    right: 16px;
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin: 0 0 16px;
-    padding: 8px 16px;
-    background: var(--table-header-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+    pointer-events: auto;
 }
-.ac-value-strip-item {
+
+/* Individual Group-Colored Pills */
+.ac-overlay-pill, .ac-value-strip-item {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    font-size: .875rem;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    font-size: .84rem;
     font-weight: 600;
     color: var(--text-dark);
     cursor: pointer;
     transition: all 180ms cubic-bezier(0.2,0,0,1);
-    min-height: 38px;
+    min-height: 34px;
     user-select: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.ac-value-strip-item:hover {
-    border-color: var(--accent-blue);
-    background: var(--table-header-bg);
-}
-.ac-value-strip-item:focus-visible {
+.ac-overlay-pill:focus-visible, .ac-value-strip-item:focus-visible {
     outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
 }
-.ac-value-strip-item[aria-pressed="true"],
-.ac-value-strip-item.is-selected {
-    background: var(--card-bg);
-    font-weight: 700;
+
+/* Group A Pill: Teal identity */
+.ac-pill-a, .ac-item-a {
+    background: rgba(13, 148, 136, 0.12);
+    border: 1px solid var(--comparison-a-border, #14b8a6);
 }
-.ac-value-strip-item.ac-item-a[aria-pressed="true"],
-.ac-value-strip-item.ac-item-a.is-selected {
+.ac-pill-a:hover, .ac-item-a:hover {
+    background: rgba(13, 148, 136, 0.20);
+}
+.ac-pill-a[aria-pressed="true"],
+.ac-pill-a.is-selected,
+.ac-item-a[aria-pressed="true"],
+.ac-item-a.is-selected {
+    background: rgba(13, 148, 136, 0.24);
     border: 2px solid var(--comparison-a-border, #14b8a6);
-    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.25);
-}
-.ac-value-strip-item.ac-item-b[aria-pressed="true"],
-.ac-value-strip-item.ac-item-b.is-selected {
-    border: 2px solid var(--comparison-b-border, #3b82f6);
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
-}
-.ac-value-strip-item.ac-item-c[aria-pressed="true"],
-.ac-value-strip-item.ac-item-c.is-selected {
-    border: 2px solid var(--comparison-c-border, #f59e0b);
-    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25);
-}
-.ac-strip-key {
-    color: var(--text-dark);
-    font-size: .875rem;
-}
-.ac-strip-val {
-    font-size: 1.05rem;
+    box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.35), 0 2px 6px rgba(13, 148, 136, 0.20);
     font-weight: 700;
+}
+
+/* Group B Pill: Blue identity */
+.ac-pill-b, .ac-item-b {
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid var(--comparison-b-border, #3b82f6);
+}
+.ac-pill-b:hover, .ac-item-b:hover {
+    background: rgba(37, 99, 235, 0.20);
+}
+.ac-pill-b[aria-pressed="true"],
+.ac-pill-b.is-selected,
+.ac-item-b[aria-pressed="true"],
+.ac-item-b.is-selected {
+    background: rgba(37, 99, 235, 0.24);
+    border: 2px solid var(--comparison-b-border, #3b82f6);
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(37, 99, 235, 0.20);
+    font-weight: 700;
+}
+
+/* Group C Pill: Amber identity */
+.ac-pill-c, .ac-item-c {
+    background: rgba(217, 119, 6, 0.12);
+    border: 1px solid var(--comparison-c-border, #f59e0b);
+}
+.ac-pill-c:hover, .ac-item-c:hover {
+    background: rgba(217, 119, 6, 0.20);
+}
+.ac-pill-c[aria-pressed="true"],
+.ac-pill-c.is-selected,
+.ac-item-c[aria-pressed="true"],
+.ac-item-c.is-selected {
+    background: rgba(217, 119, 6, 0.24);
+    border: 2px solid var(--comparison-c-border, #f59e0b);
+    box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.35), 0 2px 6px rgba(217, 119, 6, 0.20);
+    font-weight: 700;
+}
+
+.ac-pill-key, .ac-strip-key {
+    color: var(--text-dark);
+    font-size: .84rem;
+}
+.ac-pill-val, .ac-strip-val {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-left: 1px;
+}
+.ac-pill-indicator {
+    font-size: .75rem;
+    font-weight: 800;
     color: var(--text-dark);
     margin-left: 2px;
+}
+
+@media (max-width: 1040px) {
+    .ac-overlay-pill-group {
+        position: static;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 0 auto 12px;
+        width: fit-content;
+    }
 }
 
 /* Small Baseline Marker for Overlay Mode */
