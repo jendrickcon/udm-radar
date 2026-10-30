@@ -57,7 +57,43 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await choose(page,'school_year','2026-2027');await choose(page,'semester','1');await choose(page,'subject','1');
   await expect(page.locator('[data-comparison-chart]')).toBeVisible();
   await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: -0.50 recorded-grade points');
+
+  // Verify conventional vertical bar chart elements
+  await expect(page.locator('.ac-vertical-chart-card')).toBeVisible();
+  await expect(page.locator('.ac-chart-stage')).toBeVisible();
+  await expect(page.locator('.ac-chart-y-axis')).toBeVisible();
+  await expect(page.locator('.ac-chart-baseline')).toBeVisible();
   expect(await page.locator('.ac-bar').evaluateAll(es=>es.map(e=>Number(e.dataset.value)))).toEqual([2.5,3]);
+  await expect(page.locator('.ac-bar-val-badge').nth(0)).toHaveText('2.50');
+  await expect(page.locator('.ac-bar-val-badge').nth(1)).toHaveText('3.00');
+
+  // Test Display Mode: Side by side vs Overlay
+  await expect(page.locator('.ac-chart-plot-area')).toHaveClass(/ac-plot-side-by-side/);
+  await page.locator('[data-display-select="overlay"]').click();
+  await expect(page.locator('.ac-chart-plot-area')).toHaveClass(/ac-plot-overlay/);
+  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-chart-display','overlay');
+  await page.locator('[data-display-select="side-by-side"]').click();
+  await expect(page.locator('.ac-chart-plot-area')).toHaveClass(/ac-plot-side-by-side/);
+
+  // Test Group Highlighting
+  await page.locator('[data-group-select="A"]').click();
+  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
+  await expect(page.locator('[data-group-select="A"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#ac-highlight-announcement')).toHaveText('Group A highlighted.');
+  await expect(page.locator('.ac-highlight-title')).toContainText('Group A');
+  await expect(page.locator('.ac-relational-callout')).toContainText('0.50 recorded-grade points lower than Group B');
+
+  await page.locator('[data-group-select="B"]').click();
+  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','B');
+  await expect(page.locator('[data-group-select="B"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#ac-highlight-announcement')).toHaveText('Group B highlighted.');
+  await expect(page.locator('.ac-relational-callout')).toContainText('0.50 recorded-grade points higher than Group A');
+
+  await page.locator('[data-group-select="all"]').click();
+  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','all');
+  await expect(page.locator('[data-group-select="all"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#ac-highlight-announcement')).toHaveText('Both groups displayed.');
+
   await page.getByText('View exact evidence',{exact:true}).click();
   const rows=page.locator('#ac-result tbody tr');await expect(rows).toHaveCount(2);
   await expect(rows.nth(0).locator('td').nth(3)).toHaveText('2.50');await expect(rows.nth(1).locator('td').nth(3)).toHaveText('3.00');
@@ -69,6 +105,17 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await expect(page.locator('.ac-separate-cards .card-stats')).toHaveCount(2);
   await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();await expect(page.locator('#ac-group-c')).toBeFocused();
   await expect(page.locator('#ac-group-c')).toHaveValue('13|1');await expect(page.getByRole('button',{name:'+ Add Group C',exact:true})).toBeDisabled();
+
+  // Overlay with Group C
+  await page.getByRole('button',{name:'Overlay chart',exact:true}).click();
+  await expect(page.locator('.ac-col-c')).toBeVisible();
+  expect(await page.locator('.ac-bar').evaluateAll(es=>es.map(e=>Number(e.dataset.value)))).toEqual([2.5,3,3.5]);
+  await expect(page.locator('[data-group-select="C"]')).toBeVisible();
+  await page.locator('[data-group-select="C"]').click();
+  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','C');
+  await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: -0.50 recorded-grade points');
+  await expect(page.locator('[data-comparison-summary]')).toContainText('Group C is shown for context');
+
   await page.getByRole('button',{name:'Remove Group C',exact:true}).click();await expect(page.getByRole('button',{name:'+ Add Group C',exact:true})).toBeFocused();
   await page.getByRole('button',{name:'Overlay chart',exact:true}).click();await expect(page.locator('#ac-group-b')).toHaveValue('12|1');
   await page.locator('#ac-group-b').evaluate(e=>e.add(new Option('Tampered different subject','11|2')));
@@ -83,6 +130,32 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   expect(errors).toEqual([]);expect(writes).toEqual([]);
  });
 }
+test('Direct bar, legend, and keyboard interaction on vertical bar chart',async({page})=>{
+ await open(page);
+ await faculty(page);
+ await expect(page.locator('.ac-vertical-chart-card')).toBeVisible();
+
+ // Direct bar click
+ const barB=page.locator('.ac-col-b .ac-vertical-bar');
+ await barB.click();
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','B');
+
+ // Keyboard activation on bar
+ const barA=page.locator('.ac-col-a .ac-vertical-bar');
+ await barA.focus();
+ await page.keyboard.press('Enter');
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
+
+ // Direct legend item click
+ const legB=page.locator('.ac-legend-b');
+ await legB.click();
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','B');
+
+ // Direct counterpart click in summary
+ const counterpart=page.locator('.ac-counterpart-card');
+ await counterpart.click();
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
+});
 for(const scenario of ['unavailable','zero','empty'])test('Compact '+scenario+' comparison state',async({page})=>{
  await open(page,'dark',scenario);
  await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);
