@@ -80,7 +80,6 @@
         }
         if (refreshSubmit) {
             refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
-            refreshSubmit.focus();
         }
         if (previewSubmit) {
             previewSubmit.textContent = 'Refresh preview';

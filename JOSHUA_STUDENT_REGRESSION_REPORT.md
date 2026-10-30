@@ -63,7 +63,7 @@ Protected/shared-path diff checks found no current changes in the canonical sche
 
 ## Commands and evidence
 
-The seven PHP scripts under `tests/unit/` were executed with `C:/xampp/php/php.exe`; calculator JavaScript used `node tests/unit/goal_calculator_feasibility_test.cjs`. Per-script outputs and exit codes are in `logs/student-regression/`.
+The seven PHP scripts under `tests/unit/` were executed with `php`; calculator JavaScript used `node tests/unit/goal_calculator_feasibility_test.cjs`. Per-script outputs and exit codes are in `logs/student-regression/`.
 
 Authenticated browser command: `node tests/fixtures/run_student_trend.mjs`. Final results, code fingerprints, actual browser version, unchanged fixture hashes and cleanup proof are in `logs/student-trend/browser.json`, `environment.json`, `browser-version.txt`, `data-integrity.json` and `lifecycle.json`.
 

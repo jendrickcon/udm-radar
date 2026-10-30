@@ -232,7 +232,7 @@
         "source_identity_and_password_hashes_preserved": true,
         "export_format": "varchar(20)",
         "data_seed_sha256": "b912bb2fb176d045f7b2d7097dcde09bddda04312162705c8e0c7b724f094e1f",
-        "data_seed_path": "C:\\xampp\\htdocs\\udm-radar\\logs\\owner-dataset-review/owner-compatible-data.sql",
+        "data_seed_path": "logs\\owner-dataset-review/owner-compatible-data.sql",
         "required_checks": 10,
         "section_counts": {
             "profiles": 10,
@@ -270,7 +270,7 @@
         "orphans": 0,
         "required_check_constraints": 10,
         "source_identities_and_password_hashes_preserved": true,
-        "backup_path": "C:\\xampp\\htdocs\\udm-radar\\logs\\owner-dataset-review/backups/udm_radar_before_owner_dataset_20261029_095809.sql",
+        "backup_path": "logs\\owner-dataset-review/backups/udm_radar_before_owner_dataset_20261029_095809.sql",
         "backup_sha256": "5f06214e1ca766c7fdc2b83f3f6023f7fe3f998685f26b1507db23d99e11e845",
         "source_sha256": "b799de553f034d63bae8d4263d846e061cceaa5ca2d51c2c74a4f827bc102119",
         "compatible_data_sha256": "b912bb2fb176d045f7b2d7097dcde09bddda04312162705c8e0c7b724f094e1f",

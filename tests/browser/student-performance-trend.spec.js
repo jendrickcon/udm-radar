@@ -2,11 +2,12 @@ import {test,expect} from '@playwright/test';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 const base=process.env.STUDENT_TREND_URL;
+const evidence=process.env.STUDENT_TREND_EVIDENCE || 'logs/student-trend';
 const state=base?JSON.parse(readFileSync(process.env.STUDENT_TREND_STATE,'utf8')):null;
 test.skip(!base,'Run through tests/fixtures/run_student_trend.mjs for an owned disposable target.');
-test.beforeAll(async({browser})=>{writeFileSync(resolve('logs/student-trend/browser-version.txt'),browser.version());});
+test.beforeAll(async({browser})=>{writeFileSync(resolve(evidence,'browser-version.txt'),browser.version());});
 async function transport(page){
- await page.route('https://cdn.jsdelivr.net/npm/chart.js',route=>route.fulfill({contentType:'application/javascript',body:readFileSync(resolve('logs/student-trend/chart.umd.js'),'utf8')}));
+ await page.route('https://cdn.jsdelivr.net/npm/chart.js',route=>route.fulfill({contentType:'application/javascript',body:readFileSync(resolve(evidence,'chart.umd.js'),'utf8')}));
 }
 async function login(page,name='analytics_student_a'){
  await page.goto(base+'/login.php');await page.locator('#userid').fill(name);await page.locator('#password').fill(state.password);
@@ -50,7 +51,16 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]]) for(const theme 
 }
 for(const account of ['trend_no_grades','trend_prelim_only','trend_history_only','trend_projection_only','analytics_student_b']) {
  test(`authenticated sparse evidence ${account}`,async({page})=>{
-  await transport(page);await login(page,account);await trend(page);
+  await transport(page);await login(page,account);await page.goto(base+'/student/trend.php');
+  const payload=JSON.parse(await page.locator('#student-trend-data').textContent());
+  if(payload.every(point=>point.value===null)) {
+   await expect(page.locator('#trend-chart-status')).toBeVisible();
+   await expect(page.locator('#trend-chart-status')).toContainText('No chart is available because');
+   await expect(page.locator('#trend-evidence')).not.toHaveAttribute('open');
+   await expect(page.locator('#semGwaChart')).toBeHidden();
+   return;
+  }
+  await expect(page.locator('#trend-chart-status')).toContainText('Open the evidence table');
   const result=await page.evaluate(()=>{const p=JSON.parse(document.getElementById('student-trend-data').textContent);return {points:p,line:Chart.getChart('semGwaChart').data.datasets[0].showLine};});
   expect(result.line).toBe(false);
   if(account==='trend_no_grades')expect(result.points.every(p=>p.value===null)).toBe(true);
@@ -66,6 +76,72 @@ test('authenticated own-record scope, foreign identifiers and cross-role denial'
  await page.goto(base+'/student/trend.php?student_id=203&user_id=203&id=203');expect(await page.locator('#student-trend-data').textContent()).toBe(own);
  for(const route of ['admin/index.php','faculty/index.php']){await page.goto(base+'/'+route);await expect(page).toHaveURL(/login.php\?error=unauthorized/);}
  await page.goto(base+'/logout.php');await page.goto(base+'/student/trend.php');await expect(page).toHaveURL(/login.php/);
+});
+
+for(const [account,expected] of [
+ ['trend_summer','Your GWA increased by 0.50 points (25.00%). Comparison: SY 2023-2024 — Summer to SY 2024-2025 — Summer.'],
+ ['trend_lone_summer','Change unavailable'],
+ ['trend_undated','Change unavailable']
+]) test(`authenticated period correction ${account}`,async({page})=>{
+ await transport(page);await login(page,account);await trend(page);
+ await expect(page.locator('.trend-change')).toContainText(expected);
+ const points=JSON.parse(await page.locator('#student-trend-data').textContent());
+ if(account==='trend_undated'){
+  await expect(page.locator('.stat-card').first().locator('.trend-value')).toHaveText('2.00');
+  expect(points.find(p=>p.key==='Unknown|1')).toMatchObject({value:null,state:'Unavailable',period:'Academic period unavailable'});
+ }
+});
+
+for(const role of ['admin','faculty'])test(`${role} denied from Student routes`,async({page})=>{
+ await page.goto(base+'/login.php');await page.locator('#userid').fill(role==='admin'?'analytics_admin':'analytics_faculty_a');
+ await page.locator('#password').fill(state.password);await page.getByRole('button',{name:/sign in|log in|login/i}).click();
+ await expect(page).toHaveURL(new RegExp(role+'/index.php'));
+ for(const route of ['student/trend.php','student/dashboard.php','student/academic_analytics.php','student/enrolment_planning.php']){
+  await page.goto(base+'/'+route);await expect(page).toHaveURL(/login.php\?error=unauthorized/);
+ }
+});
+
+for(const role of ['admin','faculty'])test(`${role} shared analytics smoke`,async({page})=>{
+ await transport(page);await page.goto(base+'/login.php');await page.locator('#userid').fill(role==='admin'?'analytics_admin':'analytics_faculty_a');
+ await page.locator('#password').fill(state.password);await page.getByRole('button',{name:/sign in|log in|login/i}).click();
+ await expect(page).toHaveURL(new RegExp(role+'/index.php'));
+ const response=await page.goto(base+'/'+(role==='admin'?'admin/analytics.php':'faculty/assigned_analytics.php'));
+ expect(response.status()).toBe(200);await expect(page.locator('#analytics-results')).toBeVisible();
+ expect(await page.locator('body').innerText()).not.toMatch(/Fatal error|SQLSTATE/);
+});
+
+test('private PDF prerequisite fails safely during authenticated preview',async({page})=>{
+ await transport(page);await login(page,'trend_planning');await page.goto(base+'/student/enrolment_planning.php');
+ const data=await page.locator('#pef-cc-planning-form').evaluate(form=>new URLSearchParams(new FormData(form)).toString());
+ const response=await page.request.post(base+'/student/enrolment_planning.php',{data,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+ expect(response.status()).toBe(503);
+ const html=await response.text();expect(html).toContain('The approved planning template is unavailable.');
+ expect(html).not.toMatch(/C:[\\/]|ProgramData|password_hash|SQLSTATE|Fatal error/);
+ expect(html).not.toContain('id="pef-cc-download-form"');
+});
+
+test('authenticated manual planning retains keyboard focus and selected IDs on unavailable preview',async({page})=>{
+ await transport(page);await login(page,'trend_manual_plan');await page.goto(base+'/student/enrolment_planning.php');
+ const choice=page.locator('#pef-cc-subjects input[type="checkbox"]').first();
+ await expect(choice).toBeVisible();await choice.focus();await page.keyboard.press('Space');
+ await expect(choice).toBeChecked();await expect(choice).toBeFocused();
+ expect(await choice.evaluate(el=>getComputedStyle(el.closest('label')).outlineStyle)).not.toBe('none');
+ const selected=await choice.getAttribute('value');
+ const data=await page.locator('#pef-cc-planning-form').evaluate(form=>new URLSearchParams(new FormData(form)).toString());
+ const response=await page.request.post(base+'/student/enrolment_planning.php',{data,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+ expect(response.status()).toBe(503);
+ const html=await response.text();expect(html).toContain(`value="${selected}" checked`);
+ expect(html).not.toContain('id="pef-cc-download-form"');
+});
+
+test('Student prediction range and trend cohort remain explicitly unavailable',async({page})=>{
+ await transport(page);await login(page);await page.goto(base+'/student/academic_analytics.php');
+ await expect(page.locator('#analytics-results')).toBeVisible();
+ await expect(page.locator('[data-metric="lower"]')).toHaveText('Unavailable');
+ await expect(page.locator('[data-metric="upper"]')).toHaveText('Unavailable');
+ await expect(page.getByText('Decision Tree Regressor',{exact:true})).toBeVisible();
+ await trend(page);await page.getByText('About this chart',{exact:true}).click();
+ await expect(page.getByText('Comparable cohort average unavailable pending an approved cohort calculation and privacy contract.',{exact:true})).toBeVisible();
 });
 test('live Grades tooltip, calculator Reset/Close, Home and Student navigation regression',async({page})=>{
  await transport(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));await login(page,'trend_prelim_only');
@@ -89,7 +165,7 @@ test('Dashboard and Academic Review derive MODERATE from 2.15 despite stale save
  const dashboard=await page.locator('main,.main-content').last().innerText();expect(dashboard).toContain('2.15');expect(dashboard).toContain('MODERATE');expect(dashboard).not.toContain('2.50 or above');
  await page.goto(base+'/student/academic_analytics.php');await expect(page.locator('[data-metric="estimate"]')).toHaveText('2.15');
  const review=await page.locator('body').innerText();expect(review).toContain('MODERATE');
- writeFileSync(resolve('logs/student-trend/risk-investigation.json'),JSON.stringify({classification:'CORRECTION VERIFIED under controlled synthetic saved mismatch',estimate:2.15,savedRisk:'LOW',dashboardRisk:'MODERATE',reviewRisk:'MODERATE',database:state.database,existingLocalRecordsInspected:false,correctionPerformed:true},null,2));
+ writeFileSync(resolve(evidence,'risk-investigation.json'),JSON.stringify({classification:'CORRECTION VERIFIED under controlled synthetic saved mismatch',estimate:2.15,savedRisk:'LOW',dashboardRisk:'MODERATE',reviewRisk:'MODERATE',database:state.database,existingLocalRecordsInspected:false,correctionPerformed:true},null,2));
 });
 test('Student analytics API rejects foreign identifiers and support filters',async({page})=>{
  await transport(page);await login(page,'trend_prelim_only');

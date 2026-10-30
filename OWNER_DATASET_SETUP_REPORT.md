@@ -8,7 +8,7 @@ Normal application connection now selects **`udm_radar`**, containing the compat
 
 ## Source and exclusions
 
-Source: `C:/Users/Joshua/Downloads/udm_radar_full_synthetic_backup_sql.sql` (1,359,230 bytes).
+Source: `[private external artifact; location omitted]` (1,359,230 bytes).
 
 Source SHA-256: `b799de553f034d63bae8d4263d846e061cceaa5ca2d51c2c74a4f827bc102119`
 
@@ -62,8 +62,8 @@ Final accounts: **291 Students, 4 Faculty, 1 Administrator** (296 total). Sectio
 
 Before replacement, backed up both the original `udm_radar` and currently active `udm_radar_large_seed_demo`. Both completed with stable schema/data fingerprints before and after the dump. Latest verified copies:
 
-- `udm_radar`: `C:\xampp\htdocs\udm-radar\logs\owner-dataset-review/backups/udm_radar_before_owner_dataset_20261029_095809.sql` (44,528 bytes), SHA-256 `5f06214e1ca766c7fdc2b83f3f6023f7fe3f998685f26b1507db23d99e11e845`.
-- `udm_radar_large_seed_demo`: `C:\xampp\htdocs\udm-radar\logs\owner-dataset-review/backups/udm_radar_large_seed_demo_before_owner_dataset_20261029_095809.sql` (1,140,892 bytes), SHA-256 `45a50324e4b31baf2418d5372a52b0c52c3d07ab62604a60f55e6f6dab3932ee`.
+- `udm_radar`: `logs\owner-dataset-review/backups/udm_radar_before_owner_dataset_20261029_095809.sql` (44,528 bytes), SHA-256 `5f06214e1ca766c7fdc2b83f3f6023f7fe3f998685f26b1507db23d99e11e845`.
+- `udm_radar_large_seed_demo`: `logs\owner-dataset-review/backups/udm_radar_large_seed_demo_before_owner_dataset_20261029_095809.sql` (1,140,892 bytes), SHA-256 `45a50324e4b31baf2418d5372a52b0c52c3d07ab62604a60f55e6f6dab3932ee`.
 
 Restored the `udm_radar` backup into fresh `udm_radar_owner_rollback_check`; every table's schema and data fingerprint matched the original backup snapshot. Dropped that recovery-check database and verified its absence. Immediately before replacement, rechecked that `udm_radar` still matched the verified backup. Recovery was available if import failed; no rollback was needed.
 

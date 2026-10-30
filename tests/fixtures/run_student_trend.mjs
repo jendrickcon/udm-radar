@@ -8,7 +8,9 @@ import {createHash} from 'node:crypto';
 const require=createRequire(resolve('package.json')),php='C:/xampp/php/php.exe',cwd=process.cwd();
 const pin=JSON.parse(readFileSync('package.json','utf8')).devDependencies['@playwright/test'];
 if(require('@playwright/test/package.json').version!==pin)throw new Error('Pinned runner mismatch');
-const evidence=resolve('logs/student-trend');mkdirSync(evidence,{recursive:true});
+const evidence=resolve('logs/student-closeout-'+Date.now());mkdirSync(evidence,{recursive:true});
+const sessionPath=resolve(evidence,'sessions');mkdirSync(sessionPath);
+writeFileSync(resolve(evidence,'chart.umd.js'),readFileSync('logs/student-trend/chart.umd.js'));
 const fixture=resolve('tests/fixtures/student_trend_fixture.php'),statePath=resolve(evidence,'owned-state.json');
 function runPhp(args,input){const r=spawnSync(php,args,{cwd,input,encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024});if(r.status!==0)throw new Error(r.stderr||r.stdout||'Fixture failed');return r.stdout;}
 let state,server,log;
@@ -16,9 +18,9 @@ try{
  state=JSON.parse(runPhp([fixture,'setup']));writeFileSync(statePath,JSON.stringify(state));
  console.log('Owned disposable database: '+state.database+'; application tables plus ownership marker: '+state.all_table_count);
  const port=await new Promise((resolvePort,reject)=>{const socket=createServer();socket.on('error',reject);socket.listen(0,'127.0.0.1',()=>{const p=socket.address().port;socket.close(()=>resolvePort(p));});});
- const env={...process.env,DB_NAME:state.database,DB_HOST:'127.0.0.1',STUDENT_TREND_STATE:statePath,STUDENT_TREND_URL:`http://127.0.0.1:${port}/udm-radar`,PLAYWRIGHT_BASE_URL:`http://127.0.0.1:${port}/udm-radar`};
+ const env={...process.env,DB_NAME:state.database,DB_HOST:'127.0.0.1',STUDENT_TREND_EVIDENCE:evidence,STUDENT_TREND_STATE:statePath,STUDENT_TREND_URL:`http://127.0.0.1:${port}/udm-radar`,PLAYWRIGHT_BASE_URL:`http://127.0.0.1:${port}/udm-radar`};
  log=openSync(resolve(evidence,'server.log'),'w');
- server=spawn(php,['-S',`127.0.0.1:${port}`,'-t',cwd,'tests/fixtures/student_trend_router.php'],{cwd,env,windowsHide:true,stdio:['ignore',log,log]});
+ server=spawn(php,['-d',`session.save_path=${sessionPath}`,'-S',`127.0.0.1:${port}`,'-t',cwd,'tests/fixtures/student_trend_router.php'],{cwd,env,windowsHide:true,stdio:['ignore',log,log]});
  const probe=()=>new Promise(done=>{const req=get(env.STUDENT_TREND_URL+'/login.php',res=>{res.resume();res.on('end',()=>done(res.statusCode===200));});req.on('error',()=>done(false));req.setTimeout(1000,()=>{req.destroy();done(false);});});
  let ready=false;for(let i=0;i<40;i++){if(await probe()){ready=true;break;}await new Promise(r=>setTimeout(r,100));}
  if(!ready)throw new Error('Isolated PHP server failed readiness; inspect logs/student-trend/server.log');

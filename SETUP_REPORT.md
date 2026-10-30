@@ -18,20 +18,20 @@ The user confirmed the approved main SHA and explicitly authorized private backu
 
 ## Repository
 
-- Path: `C:\xampp\htdocs\udm-radar`
+- Path: repository root (`.`)
 - Remote: `https://github.com/jendrickcon/udm-radar.git`
 - Approved main, fetched origin/main, and branch HEAD: `60a6f7614b594cd8759a3c9211e060c3b8d7ab62`
 - Fetch and `git pull --ff-only origin main`: successful; already up to date.
 - Assigned branch created: `feat/member2-student-portal`.
 - Initial repository was clean. Final tracked staged and unstaged diffs are empty.
 - Final untracked files: `SETUP_REPORT.md` and `.a`. The `.a` file appeared after the IDE restart and was left untouched. This report is the only agent-authored repository artifact.
-- VS Code was reopened using `code --reuse-window C:/xampp/htdocs/udm-radar` to select the repository-only workspace. This interrupted the final check; services and database were rechecked afterward.
+- VS Code was reopened using `code --reuse-window .` to select the repository-only workspace. This interrupted the final check; services and database were rechecked afterward.
 
 ## Private backup and replacement
 
 The original database had 19 base tables. Before replacement, mysqldump completed successfully with single-transaction, routines, triggers, events, and hex-blob options.
 
-- Private backup: `C:\Users\Joshua\udm-radar-private-backups\udm_radar_before_setup_20261027_121307.sql`
+- Private backup: `[private external artifact; location omitted]`
 - Size: 1,048,841 bytes.
 - SHA256: `DCB94ED2CA87730FBC153DD7E4B9DCEDC1F3DBCC8BF88CCFFD3F7D4A3058AC1C`
 - Validation: readable nonempty file, 19 CREATE TABLE statements, and dump-completed marker. A restore rehearsal was not performed.
@@ -43,7 +43,7 @@ After these checks, only the authorized `udm_radar` database was dropped and rec
 
 | Check | Result |
 | --- | --- |
-| MySQL executable | `C:\xampp\mysql\bin\mysql.exe` |
+| MySQL executable | `mysql` |
 | Required schema, seed, verification SQL, and README | All present |
 | Database encoding/collation | utf8mb4 / utf8mb4_unicode_ci |
 | Canonical schema import | PASS |

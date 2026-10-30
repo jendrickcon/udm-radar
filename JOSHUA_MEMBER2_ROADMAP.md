@@ -149,7 +149,7 @@ Current outcome: **implementation and latest combined automated regression deliv
 - [Self-review](JOSHUA_SELF_REVIEW.md)
 - [Owner dataset setup](OWNER_DATASET_SETUP_REPORT.md)
 - [Owner dataset verification](OWNER_DATASET_VERIFICATION.json)
-- [Historical baseline test summary](test-results/student-baseline/TEST_REPORT.md)
+- Historical baseline test summary: generated local evidence was not committed; see [the portable regression report](JOSHUA_STUDENT_REGRESSION_REPORT.md).
 - [Owner testing handoff](OWNER_TESTING_HANDOFF.md)
 - [Superseded external review request](JOSHUA_ANTIGRAVITY_REVIEW_REQUEST.md)
 

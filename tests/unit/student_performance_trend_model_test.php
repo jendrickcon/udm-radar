@@ -59,4 +59,22 @@ $sameYear = studentTrendModel($exampleRows, []);
 trendCheck($sameYear['change'] === 'Your GWA increased by 0.24 points (7.74%). Comparison: First Semester to Second Semester, SY 2025-2026.', 'Same-year comparison explains the screenshot without repeated year labels');
 $crossYear = studentTrendModel([grade(1,'2024-2025',2,'2.00'),grade(2,'2025-2026',1,'2.50')], []);
 trendCheck(str_contains($crossYear['change'],'SY 2024-2025 — Second Semester to SY 2025-2026 — First Semester'), 'Cross-year comparison preserves both complete period labels');
+foreach ([['', 1], ['2025-2026', 0], ['Unknown', 3], ['2025-2025', 1], ['2025-2027', 2]] as [$year, $semester]) {
+    $dated = grade(1, '2024-2025', 2, '2.00');
+    $undated = grade(2, $year, $semester, '4.00', 1, 100, 100);
+    $safe = studentTrendModel([$undated, $dated], []);
+    trendCheck($safe['latest'] === 2.0 && $safe['snapshot'] === null, 'Invalid period cannot replace dated result or current snapshot: '.$year.'|'.$semester);
+    trendCheck($safe['points'][1]['value'] === null && $safe['points'][1]['period'] === 'Academic period unavailable', 'Invalid period stays separate and unavailable');
+}
+$missing = grade(2, '', 1, '4.00');
+unset($missing['school_year'], $missing['semester']);
+trendCheck(studentTrendModel([grade(1,'2024-2025',2,'2.00'), $missing], [])['latest'] === 2.0, 'Absent period fields handled safely');
+$ties = [grade(1,'2024-2025',2,'2.00'), grade(2,'2024-2025',2,'3.00')];
+trendCheck(studentTrendModel($ties, []) === studentTrendModel(array_reverse($ties), []), 'Identical-period subjects aggregate deterministically');
+$summerPair = studentTrendModel([grade(1,'2023-2024',3,'2.00'),grade(2,'2024-2025',1,null),grade(3,'2024-2025',2,'4.00'),grade(4,'2024-2025',3,'2.50')], []);
+trendCheck($summerPair['latest'] === 2.5, 'Summer follows second semester chronologically');
+trendCheck($summerPair['change'] === 'Your GWA increased by 0.50 points (25.00%). Comparison: SY 2023-2024 — Summer to SY 2024-2025 — Summer.', 'Summer comparison preserves points, percentage and exact labels across regular terms');
+trendCheck(str_contains(studentTrendModel([grade(1,'2024-2025',3,'2.50')], [])['change'], 'unavailable'), 'Summer without earlier Summer has unavailable change');
+$pendingSummer = studentTrendModel([grade(1,'2022-2023',3,'2.00'),grade(2,'2023-2024',3,null),grade(3,'2024-2025',3,'2.50')], []);
+trendCheck(str_contains($pendingSummer['change'], 'unavailable'), 'Known incomplete Summer prevents skipping to an older Summer');
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";

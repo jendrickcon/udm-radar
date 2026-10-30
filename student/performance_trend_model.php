@@ -4,7 +4,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/analytics/calculations.php';
 require_once __DIR__ . '/../includes/analytics/predictions.php';
 
+function studentTrendPeriodOrder(string $key): ?int {
+    if (!preg_match('/^(\d{4})-(\d{4})\|([123])$/D', $key, $parts)
+        || (int)$parts[2] !== (int)$parts[1] + 1) return null;
+    return (int)$parts[1] * 3 + (int)$parts[3];
+}
+
 function studentTrendPeriod(string $key): string {
+    if (studentTrendPeriodOrder($key) === null) return 'Academic period unavailable';
     [$year, $semester] = array_pad(explode('|', $key), 2, '');
     return 'SY ' . $year . ' — ' . match ($semester) {
         '1' => 'First Semester', '2' => 'Second Semester', '3' => 'Summer', default => 'Period unavailable'
@@ -12,6 +19,7 @@ function studentTrendPeriod(string $key): string {
 }
 
 function studentTrendAdjacent(string $before, string $after): bool {
+    if (studentTrendPeriodOrder($before) === null || studentTrendPeriodOrder($after) === null) return false;
     [$yearA, $semA] = explode('|', $before);
     [$yearB, $semB] = explode('|', $after);
     if (!preg_match('/^\d{4}-\d{4}$/', $yearA) || !preg_match('/^\d{4}-\d{4}$/', $yearB)) return false;
@@ -22,13 +30,22 @@ function studentTrendAdjacent(string $before, string $after): bool {
 function studentTrendModel(array $rows, array $prediction): array {
     // Keep incomplete current terms as explicit nulls in the recorded-term series.
     $series = analyticsGroup($rows, 'semester');
+    // Invalid periods remain visible as unavailable evidence, never as latest results.
+    usort($series, fn($a, $b) => (studentTrendPeriodOrder($a['key']) ?? PHP_INT_MAX)
+        <=> (studentTrendPeriodOrder($b['key']) ?? PHP_INT_MAX) ?: strcmp($a['key'], $b['key']));
+    $datedSeries = array_values(array_filter($series, fn($term) => studentTrendPeriodOrder($term['key']) !== null));
     $points = []; $latest = null; $latestChange = 'Change unavailable — two comparable completed terms are required.';
     foreach ($series as $index => $term) {
-        $value = !$term['provisional'] ? $term['gwa'] : null;
-        $previous = analyticsPreviousComparable($series, $term);
-        $comparable = $value !== null && $previous !== null && studentTrendAdjacent($previous['key'], $term['key']);
+        $dated = studentTrendPeriodOrder($term['key']) !== null;
+        $value = $dated && !$term['provisional'] ? $term['gwa'] : null;
+        $previous = $dated ? analyticsPreviousComparable($datedSeries, $term) : null;
+        $summer = str_ends_with($term['key'], '|3');
+        $comparable = $value !== null && $previous !== null
+            && ($summer || studentTrendAdjacent($previous['key'], $term['key']));
         // Do not silently skip a known incomplete period, even across Summer.
         if ($previous) foreach ($series as $between) {
+            if (studentTrendPeriodOrder($between['key']) === null
+                || ($summer && !str_ends_with($between['key'], '|3'))) continue;
             if (strnatcmp($between['key'], $previous['key']) > 0 && strnatcmp($between['key'], $term['key']) < 0
                 && ($between['provisional'] || $between['gwa'] === null)) $comparable = false;
         }
@@ -55,7 +72,7 @@ function studentTrendModel(array $rows, array $prediction): array {
         }
         $points[] = ['period' => studentTrendPeriod($term['key']), 'key' => $term['key'], 'zone' => 'history',
             'type' => 'Recorded completed-term GWA', 'value' => $value,
-            'state' => $value !== null ? 'Recorded' : ($term['provisional'] ? 'Pending' : 'Unavailable'),
+            'state' => $value !== null ? 'Recorded' : (!$dated ? 'Unavailable' : ($term['provisional'] ? 'Pending' : 'Unavailable')),
             'detail' => $term['resolved_final_count'] . ' of ' . $term['expected_grade_count'] . ' recorded subject slots have resolved final outcomes; '
                 . $term['eligible_units'] . ' eligible numeric credit units. Not cumulative GWA.',
             'comparison' => $comparison, 'connect' => $index > 0 && studentTrendAdjacent($series[$index - 1]['key'], $term['key'])];
@@ -63,7 +80,10 @@ function studentTrendModel(array $rows, array $prediction): array {
     }
     $current = array_values(array_filter($rows, fn($row) => (int)$row['is_current'] === 1));
     $currentTerms = [];
-    foreach ($current as $row) $currentTerms[$row['school_year'] . '|' . $row['semester']][] = $row;
+    foreach ($current as $row) {
+        $key = ($row['school_year'] ?? '') . '|' . ($row['semester'] ?? '');
+        if (studentTrendPeriodOrder($key) !== null) $currentTerms[$key][] = $row;
+    }
     ksort($currentTerms, SORT_NATURAL);
     $snapshot = null;
     foreach ($currentTerms as $key => $subjects) {

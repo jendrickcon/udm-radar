@@ -45,6 +45,8 @@ $files = [
     'grades'     => $repoRoot . '/student/grades.php',
     'index'      => $repoRoot . '/student/index.php',
     'trend'      => $repoRoot . '/student/trend.php',
+    'trend_model' => $repoRoot . '/student/performance_trend_model.php',
+    'trend_script' => $repoRoot . '/assets/js/student-performance-trend.js',
     'feedback'   => $repoRoot . '/student/feedback.php',
     'constants'  => $repoRoot . '/config/constants.php',
     'glossary'   => $repoRoot . '/includes/glossary_modal.php',
@@ -118,8 +120,8 @@ $requiredTerms = [
     'Moderate Risk indicator',
     'Low Risk indicator',
     'Additional grades may change this estimate',
-    'Recorded Term GWA',
-    'Current Snapshot GWA',
+    'Recorded completed-term GWA',
+    'Current term progress',
     'Estimated GWA',
     'NOT YET ACKNOWLEDGED',
     'Reason shared by Faculty',
@@ -308,16 +310,20 @@ assertCheck(
     "COPY-018: Activity list frames update as 'A new estimate was recorded. Current risk indicator: {X}'"
 );
 
-// COPY-019: student/trend.php - GWA naming in cards, legend, and tooltip
+// COPY-019: UI/UX Governance sections 7 and 8 require distinct evidence and visible meaning.
 assertCheck(
-    str_contains($contents['trend'], 'Recorded Term GWA') &&
-    str_contains($contents['trend'], 'Current Snapshot GWA') &&
-    str_contains($contents['trend'], 'Estimated GWA'),
-    "COPY-019: Performance Trend cards and legend use Recorded Term GWA, Current Snapshot GWA, Estimated GWA"
+    str_contains($contents['trend'], 'Latest completed term') &&
+    str_contains($contents['trend'], 'Current term progress') &&
+    str_contains($contents['trend'], 'Estimated GWA') &&
+    str_contains($contents['trend_model'], 'Recorded completed-term GWA'),
+    "COPY-019: Trend distinguishes completed results, current progress and estimates"
 );
 assertCheck(
-    str_contains($contents['trend'], "let prefix = type === 'historical' ? 'Recorded Term GWA: ' : (type === 'current' ? 'Current Snapshot GWA: ' : 'Estimated GWA: ');"),
-    "COPY-019: Trend chart tooltip callback uses approved prefix vocabulary"
+    str_contains($contents['trend_script'], "const pointLabel = point => point.type.replace(' snapshot',' progress');") &&
+    str_contains($contents['trend_script'], 'pointLabel(points[item.dataIndex])') &&
+    str_contains($contents['trend_model'], 'Not a completed-semester final GWA.') &&
+    str_contains($contents['trend_model'], 'Estimate only; not a final grade or official standing.'),
+    "COPY-019: Dedicated tooltip script preserves evidence labels and model limitations"
 );
 
 // COPY-020: config/constants.php - Student actionable next steps

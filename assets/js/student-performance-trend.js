@@ -5,6 +5,11 @@
     const points = allPoints.map((point,sourceIndex)=>({...point,sourceIndex})).filter(point => !(point.zone === 'history' && point.state === 'Pending' && allPoints.some(other=>other.zone === 'current' && other.key === point.key)));
     const pointLabel = point => point.type.replace(' snapshot',' progress');
     const status = document.getElementById('trend-chart-status');
+    if (!points.some(point => point.value !== null)) {
+        document.querySelector('.trend-chart').hidden = true;
+        status.textContent = 'No chart is available because there are no dated completed results, current progress values, or stored estimates to plot. Available record details remain in the evidence table below.';
+        return;
+    }
     if (typeof Chart === 'undefined') { status.textContent = 'Chart unavailable. All values and point details are in the table below.'; return; }
     const root = document.documentElement;
     const palette = () => {
