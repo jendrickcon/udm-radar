@@ -251,10 +251,17 @@
                 const ind = btn.querySelector('.ac-pill-indicator');
                 if (ind) ind.textContent = active ? '✓' : '';
             });
-            const baselineMarkers = layout.querySelectorAll('.ac-bar-baseline-marker');
-            baselineMarkers.forEach(m => {
-                const active = m.dataset.groupSelect === letter;
-                m.classList.toggle('is-selected', active);
+            // Update column z-index for physical stacking in overlay mode
+            const cols = layout.querySelectorAll('.ac-bar-column');
+            cols.forEach(col => {
+                const grp = col.dataset.group;
+                if (letter === 'all') {
+                    col.style.zIndex = grp === 'A' ? '1' : grp === 'B' ? '2' : '3';
+                } else if (grp === letter) {
+                    col.style.zIndex = '10';
+                } else {
+                    col.style.zIndex = '1';
+                }
             });
             renderSummary();
         };
@@ -271,21 +278,58 @@
             if (mode === 'overlay') summary.append(make('h3', 'Comparison summary'));
 
             if (highlightedGroup === 'all') {
-                selected.forEach((group, index) => {
+                const grid = make('div', undefined, { class: 'ac-summary-grid' + (selected.length === 3 ? ' has-3-cols' : ' has-2-cols') });
+                selected.slice(0, 2).forEach((group, index) => {
                     const letter = 'ABC'[index];
-                    const item = make('div', undefined, { class: 'ac-group-summary ac-summary-item ac-item-' + letter.toLowerCase(), role: 'button', tabindex: '0' });
-                    item.addEventListener('click', () => updateHighlight(letter));
-                    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
-
-                    const header = make('h4', undefined);
-                    header.append(make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }), ' Group ' + letter + ' · ' + group.label);
-                    item.append(header, make('strong', valueText(group), { 'data-comparison-value': group.key }), make('span', status(group), { class: 'ac-status' }));
-                    const dl = make('dl');
-                    for (const [l, text] of [['Sample', String(group.student_count)], ['Numeric coverage', coverage(group)]]) {
+                    const cell = make('div', undefined, { class: 'ac-summary-card ac-card-' + letter.toLowerCase() });
+                    const cellHeader = make('div', undefined, { class: 'ac-summary-cell-header' });
+                    cellHeader.append(
+                        make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
+                        make('span', 'Group ' + letter, { class: 'ac-summary-group-title' })
+                    );
+                    const valBox = make('div', undefined, { class: 'ac-summary-val-box' });
+                    valBox.append(
+                        make('strong', valueText(group), { 'data-comparison-value': group.key, class: 'ac-summary-metric-val' }),
+                        make('span', status(group), { class: 'card-status-badge ' + (group.provisional ? 'badge-provisional' : 'badge-complete') })
+                    );
+                    const periodLabel = make('p', group.label, { class: 'ac-summary-period-label', title: group.label });
+                    const dl = make('dl', undefined, { class: 'ac-summary-stats' });
+                    for (const [l, text] of [
+                        ['Sample', String(group.student_count)],
+                        ['Numeric coverage', coverage(group)],
+                        ['Final coverage', Number.isFinite(group.final_coverage_pct) ? group.final_coverage_pct.toFixed(2) + '%' : 'Unavailable']
+                    ]) {
                         const pair = make('div'); pair.append(make('dt', l), make('dd', text)); dl.append(pair);
                     }
-                    item.append(dl); summary.append(item);
+                    cell.append(cellHeader, valBox, periodLabel, dl);
+                    grid.append(cell);
                 });
+                summary.append(grid);
+
+                if (selected.length === 3) {
+                    const groupC = selected[2];
+                    const cellC = make('div', undefined, { class: 'ac-summary-card ac-card-c ac-summary-contextual-card' });
+                    const cellHeaderC = make('div', undefined, { class: 'ac-summary-cell-header' });
+                    cellHeaderC.append(
+                        make('span', glyphs.C, { class: 'ac-marker-glyph ac-glyph-c', 'aria-hidden': 'true' }),
+                        make('span', 'Group C (Context only) · ' + groupC.label, { class: 'ac-summary-group-title' })
+                    );
+                    const valBoxC = make('div', undefined, { class: 'ac-summary-val-box' });
+                    valBoxC.append(
+                        make('strong', valueText(groupC), { 'data-comparison-value': groupC.key, class: 'ac-summary-metric-val' }),
+                        make('span', status(groupC), { class: 'card-status-badge ' + (groupC.provisional ? 'badge-provisional' : 'badge-complete') })
+                    );
+                    const dlC = make('dl', undefined, { class: 'ac-summary-stats' });
+                    for (const [l, text] of [
+                        ['Sample', String(groupC.student_count)],
+                        ['Numeric coverage', coverage(groupC)],
+                        ['Final coverage', Number.isFinite(groupC.final_coverage_pct) ? groupC.final_coverage_pct.toFixed(2) + '%' : 'Unavailable']
+                    ]) {
+                        const pair = make('div'); pair.append(make('dt', l), make('dd', text)); dlC.append(pair);
+                    }
+                    cellC.append(cellHeaderC, valBoxC, dlC);
+                    summary.append(cellC);
+                }
             } else {
                 const targetIdx = ['A', 'B', 'C'].indexOf(highlightedGroup);
                 const targetGroup = selected[targetIdx];
@@ -331,14 +375,12 @@
                     item.append(make('div', 'Difference compares Group A and Group B. Group C is shown for context.', { class: 'ac-relational-callout ac-relational-context' }));
                 }
 
-                const counterpart = make('div', undefined, { class: 'ac-counterpart-card', role: 'button', tabindex: '0' });
+                const counterpart = make('div', undefined, { class: 'ac-counterpart-card' });
                 counterpart.append(
                     make('span', 'Compared with Group ' + otherLetter + ': ', { class: 'ac-helper' }),
                     make('strong', valueText(otherGroup), { class: 'ac-counterpart-val' }),
                     make('span', ' (' + otherGroup.label + ')', { class: 'ac-helper' })
                 );
-                counterpart.addEventListener('click', () => updateHighlight(otherLetter));
-                counterpart.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(otherLetter); } });
                 item.append(counterpart);
                 summary.append(item);
             }
@@ -365,7 +407,7 @@
             letters.forEach(letter => {
                 const btn = make('button', undefined, {
                     type: 'button',
-                    class: 'btn btn--secondary ac-toolbar-btn',
+                    class: 'btn btn--secondary ac-toolbar-btn ac-highlight-btn ac-highlight-btn-' + letter.toLowerCase(),
                     'data-group-select': letter,
                     'aria-pressed': String(highlightedGroup === letter)
                 });
@@ -375,7 +417,7 @@
             });
             const showBothBtn = make('button', selected.length === 3 ? 'Show all' : 'Show both', {
                 type: 'button',
-                class: 'btn btn--secondary ac-toolbar-btn',
+                class: 'btn btn--secondary ac-toolbar-btn ac-highlight-btn ac-highlight-btn-all',
                 'data-group-select': 'all',
                 'aria-pressed': String(highlightedGroup === 'all')
             });
@@ -459,6 +501,18 @@
                     chartStage.append(make('div', undefined, { class: 'ac-chart-gridline', style: 'top: ' + (100 - tickPct) + '%;' }));
                 }
             });
+
+            // Half-step minor horizontal lines (0.50, 1.50, 2.50, 3.50)
+            if (metric === 'gwa') {
+                [3.5, 2.5, 1.5, 0.5].forEach(minorVal => {
+                    const minorPct = (minorVal / max) * 100;
+                    chartStage.append(make('div', undefined, {
+                        class: 'ac-chart-gridline ac-gridline-minor',
+                        style: 'top: ' + (100 - minorPct) + '%;'
+                    }));
+                });
+            }
+
             chartStage.append(make('div', undefined, { class: 'ac-chart-baseline' }));
             chartStage.append(yAxis);
 
@@ -491,7 +545,7 @@
                         col.append(topInfo);
                     }
 
-                    // The Vertical Bar
+                    // The Vertical Bar (terminates at 0.00 baseline)
                     const bar = make('div', undefined, {
                         class: 'ac-vertical-bar ac-bar ac-bar-color-' + index,
                         style: 'height: ' + heightPct + '%;',
@@ -502,6 +556,13 @@
                     });
                     bar.addEventListener('click', () => updateHighlight(letter));
                     bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
+
+                    // Circular A, B, C badge placed INSIDE the bar, 8-12px above 0.00 baseline
+                    const marker = make('div', letter, {
+                        class: 'ac-bar-inner-marker ac-marker-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
+                        'aria-hidden': 'true'
+                    });
+                    bar.append(marker);
                     col.append(bar);
                 } else {
                     if (chartDisplayMode !== 'overlay') {
@@ -524,26 +585,14 @@
                     col.append(bar);
                 }
 
-                // Column Bottom Labels: small baseline marker in Overlay, full label in Side-by-side
-                if (chartDisplayMode === 'overlay') {
-                    const marker = make('div', letter, {
-                        class: 'ac-bar-baseline-marker' + (highlightedGroup === letter ? ' is-selected' : ''),
-                        role: 'button',
-                        tabindex: '0',
-                        'data-group-select': letter,
-                        'aria-label': 'Group ' + letter + ': ' + group.label
-                    });
-                    marker.addEventListener('click', () => updateHighlight(letter));
-                    marker.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
-                    col.append(marker);
-                } else {
-                    const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label', role: 'button', tabindex: '0' });
+                // In Side-by-side mode: Period and group label beneath 0.00 baseline on one line
+                if (chartDisplayMode !== 'overlay') {
+                    const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
+                    const labelText = selected.length === 3 ? group.label.replace(/Semester\s+(\d+)/i, 'S$1') : group.label;
                     bottomLabel.append(
-                        make('span', 'Group ' + letter),
-                        make('span', group.label, { class: 'ac-bar-sub-label' })
+                        make('span', 'Group ' + letter, { class: 'ac-bar-label-group' }),
+                        make('span', labelText, { class: 'ac-bar-sub-label', title: group.label })
                     );
-                    bottomLabel.addEventListener('click', () => updateHighlight(letter));
-                    bottomLabel.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
                     col.append(bottomLabel);
                 }
 
@@ -563,26 +612,6 @@
             }
             chartCard.append(diffAnnotation);
 
-            // Interactive Legend
-            const legend = make('div', undefined, { class: 'ac-chart-legend', role: 'list', 'aria-label': 'Chart legend' });
-            selected.forEach((group, index) => {
-                const letter = 'ABC'[index];
-                const legItem = make('div', undefined, {
-                    class: 'ac-legend-item ac-legend-' + letter.toLowerCase(),
-                    role: 'button',
-                    tabindex: '0',
-                    'data-group': letter,
-                    'aria-label': 'Highlight Group ' + letter + ': ' + group.label
-                });
-                legItem.append(
-                    make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                    ' Group ' + letter + ': ' + group.label + ' (' + valueText(group) + ')' + (index === 2 ? ' · Context only' : '')
-                );
-                legItem.addEventListener('click', () => updateHighlight(letter));
-                legItem.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
-                legend.append(legItem);
-            });
-            chartCard.append(legend);
             plot.append(chartCard);
             layout.append(plot);
         }

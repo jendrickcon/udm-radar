@@ -130,7 +130,7 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   expect(errors).toEqual([]);expect(writes).toEqual([]);
  });
 }
-test('Direct bar, legend, and keyboard interaction on vertical bar chart',async({page})=>{
+test('Direct bar and keyboard interaction on vertical bar chart',async({page})=>{
  await open(page);
  await faculty(page);
  await expect(page.locator('.ac-vertical-chart-card')).toBeVisible();
@@ -146,15 +146,12 @@ test('Direct bar, legend, and keyboard interaction on vertical bar chart',async(
  await page.keyboard.press('Enter');
  await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
 
- // Direct legend item click
- const legB=page.locator('.ac-legend-b');
- await legB.click();
- await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','B');
+ // Bottom legend is absent (redundant third selector removed)
+ await expect(page.locator('.ac-chart-legend')).toHaveCount(0);
+ await expect(page.locator('.ac-legend-item')).toHaveCount(0);
 
- // Direct counterpart click in summary
- const counterpart=page.locator('.ac-counterpart-card');
- await counterpart.click();
- await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
+ // Exactly two interactive areas control group emphasis: toolbar and in-chart controls
+ await expect(page.locator('[data-role="highlight-controls"]')).toHaveCount(1);
 });
 for(const scenario of ['unavailable','zero','empty'])test('Compact '+scenario+' comparison state',async({page})=>{
  await open(page,'dark',scenario);
@@ -202,9 +199,10 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  const opacityBottomA = await bottomLabelA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
  expect(opacityBottomA).toBeGreaterThanOrEqual(0.80);
 
- const legA = page.locator('.ac-legend-a');
- const opacityLegA = await legA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
- expect(opacityLegA).toBeGreaterThanOrEqual(0.75);
+ const markerA = page.locator('.ac-col-a .ac-bar-inner-marker');
+ await expect(markerA).toBeVisible();
+ const opacityMarkerA = await markerA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityMarkerA).toBeGreaterThanOrEqual(0.80);
 
  // Now Highlight Group A: Group B must remain clearly visible
  await page.locator('[data-group-select="A"]').click();
@@ -257,11 +255,31 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  const rightSpace2 = (boxPlot.x + boxPlot.width) - (boxB.x + boxB.width);
  expect(Math.abs(leftSpace2 - rightSpace2)).toBeLessThanOrEqual(4);
 
- // GWA scale grid lines: major lines only, readable theme-aware line
- const gridlines = page.locator('.ac-chart-gridline');
- expect(await gridlines.count()).toBeLessThanOrEqual(4);
+ // GWA scale grid lines: major lines (<= 4) and minor half-step lines (4)
+ const majorLines = page.locator('.ac-chart-gridline:not(.ac-gridline-minor)');
+ expect(await majorLines.count()).toBeLessThanOrEqual(4);
+ const minorLines = page.locator('.ac-chart-gridline.ac-gridline-minor');
+ expect(await minorLines.count()).toBe(4);
  const baseline = page.locator('.ac-chart-baseline');
  await expect(baseline).toBeVisible();
+
+ // Baseline alignment: bars terminate at 0.00 baseline within 1.5px
+ const barA = page.locator('.ac-col-a .ac-vertical-bar');
+ const barB = page.locator('.ac-col-b .ac-vertical-bar');
+ const boxBarA = await barA.boundingBox();
+ const boxBarB = await barB.boundingBox();
+ const boxBaseline = await baseline.boundingBox();
+ expect(Math.abs((boxBarA.y + boxBarA.height) - boxBaseline.y)).toBeLessThanOrEqual(1.5);
+ expect(Math.abs((boxBarB.y + boxBarB.height) - boxBaseline.y)).toBeLessThanOrEqual(1.5);
+
+ // Circular A/B badges sit inside the lower portion of each bar
+ const markerA = page.locator('.ac-col-a .ac-bar-inner-marker');
+ const markerB = page.locator('.ac-col-b .ac-bar-inner-marker');
+ await expect(markerA).toBeVisible();
+ await expect(markerB).toBeVisible();
+ const boxMarkerA = await markerA.boundingBox();
+ expect(boxMarkerA.y).toBeGreaterThanOrEqual(boxBarA.y);
+ expect(boxMarkerA.y + boxMarkerA.height).toBeLessThanOrEqual(boxBarA.y + boxBarA.height);
 
  // 2. Add Group C to verify three-group centered cluster (28px to 56px gap)
  await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
@@ -321,10 +339,12 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await expect(plotArea).toHaveClass(/ac-plot-overlay/);
  await expect(plotArea).toHaveClass(/has-2-groups/);
 
- // Gridlines: only major scale gridlines exist (<= 4), zero unlabeled dotted guidelines
+ // Gridlines: only major scale gridlines exist (<= 4) and minor half-step lines (4)
  await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
- const gridlines = page.locator('.ac-chart-gridline');
- expect(await gridlines.count()).toBeLessThanOrEqual(4);
+ const majorGridlines = page.locator('.ac-chart-gridline:not(.ac-gridline-minor)');
+ expect(await majorGridlines.count()).toBeLessThanOrEqual(4);
+ const minorGridlines = page.locator('.ac-chart-gridline.ac-gridline-minor');
+ expect(await minorGridlines.count()).toBe(4);
 
  // Top value strip is visible, with interactive button items
  const valueStrip = page.locator('.ac-overlay-value-strip');
@@ -337,12 +357,24 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await expect(page.locator('.ac-plot-overlay .ac-bar-top-info')).toHaveCount(0);
  await expect(page.locator('.ac-plot-overlay .ac-bar-sub-label')).toHaveCount(0);
 
- // Two-group pill buttons do not overlap and are stacked vertically inside plot
+ // Two-group pill buttons do not overlap and are centered horizontally
  const boxItemA = await stripItems.nth(0).boundingBox();
  const boxItemB = await stripItems.nth(1).boundingBox();
  expect(boxItemA).not.toBeNull();
  expect(boxItemB).not.toBeNull();
- expect(boxItemA.y + boxItemA.height).toBeLessThanOrEqual(boxItemB.y + 2);
+ expect(boxItemA.x + boxItemA.width).toBeLessThanOrEqual(boxItemB.x + 2);
+ expect(Math.abs(boxItemA.y - boxItemB.y)).toBeLessThanOrEqual(4);
+
+ // Physical overlay front-order stacking when highlighted
+ await page.locator('[data-group-select="A"]').first().click();
+ const zIndexA = await page.locator('.ac-col-a').evaluate(el => parseInt(window.getComputedStyle(el).zIndex, 10));
+ const zIndexB = await page.locator('.ac-col-b').evaluate(el => parseInt(window.getComputedStyle(el).zIndex, 10));
+ expect(zIndexA).toBeGreaterThan(zIndexB);
+
+ await page.locator('[data-group-select="B"]').first().click();
+ const zIndexA2 = await page.locator('.ac-col-a').evaluate(el => parseInt(window.getComputedStyle(el).zIndex, 10));
+ const zIndexB2 = await page.locator('.ac-col-b').evaluate(el => parseInt(window.getComputedStyle(el).zIndex, 10));
+ expect(zIndexB2).toBeGreaterThan(zIndexA2);
 
  // Columns have distinct horizontal positions
  const boxColA = await page.locator('.ac-col-a').boundingBox();
@@ -666,4 +698,41 @@ test('Cross-tab responsive filter layout, consistent control dimensions, and the
    expect(supOverflow, `No horizontal overflow in Support tab at ${width}x${height} ${theme}`).toBe(false);
   }
  }
+});
+
+test('Comparison chart interaction refinement: redundancy, textured outline, single-line periods, and Show both grid', async({ page }) => {
+ await open(page);
+ await faculty(page);
+ await expect(page.locator('.ac-vertical-chart-card')).toBeVisible();
+
+ // 1. Redundancy: exactly one Highlight toolbar, zero bottom legend widgets
+ await expect(page.locator('[data-role="highlight-controls"]')).toHaveCount(1);
+ await expect(page.locator('.ac-chart-legend')).toHaveCount(0);
+ await expect(page.locator('.ac-legend-item')).toHaveCount(0);
+
+ // 2. Button styling: selected toolbar button has group-colored border and textured outline
+ const btnA = page.locator('[data-group-select="A"]').first();
+ await btnA.click();
+ await expect(btnA).toHaveAttribute('aria-pressed', 'true');
+ const btnABorder = await btnA.evaluate(el => window.getComputedStyle(el).borderWidth);
+ expect(parseInt(btnABorder, 10)).toBeGreaterThanOrEqual(2);
+
+ // 3. Single-line period labels beneath bars in side-by-side mode
+ const labelSubA = page.locator('.ac-col-a .ac-bar-sub-label');
+ const whiteSpaceA = await labelSubA.evaluate(el => window.getComputedStyle(el).whiteSpace);
+ expect(whiteSpaceA).toBe('nowrap');
+
+ // 4. Show both summary: balanced two-column grid
+ const showBothBtn = page.locator('[data-group-select="all"]').first();
+ await showBothBtn.click();
+ await expect(page.locator('.ac-summary-grid')).toBeVisible();
+ const summaryCards = page.locator('.ac-summary-grid .ac-summary-card');
+ await expect(summaryCards).toHaveCount(2);
+
+ const boxCardA = await summaryCards.nth(0).boundingBox();
+ const boxCardB = await summaryCards.nth(1).boundingBox();
+ expect(boxCardA).not.toBeNull();
+ expect(boxCardB).not.toBeNull();
+ expect(Math.abs(boxCardA.width - boxCardB.width)).toBeLessThanOrEqual(2); // Equal widths
+ expect(page.locator('.ac-difference')).toBeVisible();
 });
