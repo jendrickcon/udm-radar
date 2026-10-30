@@ -373,6 +373,67 @@
 .ac-marker-b { color: var(--comparison-b-fill, #2563eb); }
 .ac-marker-c { color: var(--comparison-c-fill, #d97706); }
 
+/* In-bar Exact Value Badge (Pinned inside top of bar) */
+.ac-bar-inner-val-badge {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 3;
+}
+.ac-plot-overlay .ac-bar-inner-val-badge { display: none !important; }
+
+/* Zero-value baseline presentation */
+.ac-bar-zero { height: 4px !important; border-radius: 2px 2px 0 0; }
+.ac-bar-zero-val-badge {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 5;
+}
+.ac-marker-zero {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+}
+
+/* Faculty and Section Sub-labels beneath bars */
+.ac-bar-sub-fac {
+    display: block;
+    font-size: .84rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    white-space: nowrap;
+}
+.ac-bar-sub-sec {
+    display: block;
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--text-gray);
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+.badge-interim {
+    background: rgba(13, 148, 136, 0.15);
+    color: var(--comparison-a-border, #14b8a6);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+}
+
 /* Unavailable bar */
 .ac-bar-unavailable { height: 18px !important; background: repeating-linear-gradient(45deg, var(--border-color), var(--border-color) 4px, var(--card-bg) 4px, var(--card-bg) 8px) !important; border: 1px dashed var(--text-gray) !important; }
 

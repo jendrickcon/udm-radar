@@ -12,6 +12,7 @@ if ($scenario === 'ite331') {
         $rows[] = [
             'id' => ++$id, 'student_id' => 1000 + $i, 'subject_id' => 39,
             'school_year' => '2026-2027', 'semester' => 1, 'final_grade' => null,
+            'prelim' => 87.66, 'midterm' => null, 'prefinal' => null,
             'units' => 3, 'curriculum_year' => 3, 'code' => 'ITE331',
             'title' => 'System Analysis and Design', 'faculty_id' => 2,
             'faculty_ids' => [2], 'faculty_name' => 'Ronald Fernandez',
@@ -24,6 +25,7 @@ if ($scenario === 'ite331') {
         $rows[] = [
             'id' => ++$id, 'student_id' => 2000 + $i, 'subject_id' => 39,
             'school_year' => '2026-2027', 'semester' => 1, 'final_grade' => null,
+            'prelim' => 84.54, 'midterm' => null, 'prefinal' => null,
             'units' => 3, 'curriculum_year' => 3, 'code' => 'ITE331',
             'title' => 'System Analysis and Design', 'faculty_id' => 302,
             'faculty_ids' => [302], 'faculty_name' => 'John Rey Consulta',

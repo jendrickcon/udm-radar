@@ -199,9 +199,8 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  expect(opacityBarA).toBeGreaterThanOrEqual(0.58);
  expect(opacityBarA).toBeLessThanOrEqual(0.70);
 
- const topInfoA = page.locator('.ac-col-a .ac-bar-top-info');
- const opacityTopA = await topInfoA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
- expect(opacityTopA).toBeGreaterThanOrEqual(0.85);
+ const valBadgeA = page.locator('.ac-col-a .ac-bar-inner-val-badge');
+ await expect(valBadgeA).toBeVisible();
 
  const bottomLabelA = page.locator('.ac-col-a .ac-bar-bottom-label');
  const opacityBottomA = await bottomLabelA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
@@ -220,9 +219,8 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  expect(opacityBarBWhenA).toBeGreaterThanOrEqual(0.58);
  expect(opacityBarBWhenA).toBeLessThanOrEqual(0.70);
 
- const topInfoB = page.locator('.ac-col-b .ac-bar-top-info');
- const opacityTopB = await topInfoB.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
- expect(opacityTopB).toBeGreaterThanOrEqual(0.85);
+ const valBadgeB = page.locator('.ac-col-b .ac-bar-inner-val-badge');
+ await expect(valBadgeB).toBeVisible();
 
  // Group A has a rich, solid, non-transparent teal fill in normal and highlighted states
  const bgBarA = await barA.evaluate(el => window.getComputedStyle(el).backgroundColor);
@@ -332,12 +330,12 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await open(page);
  await faculty(page);
 
- // 1. Verify Side-by-side mode: exact values above bars, full labels below, no value strip, no side callouts
+ // 1. Verify Side-by-side mode: exact values inside bars, full labels below, no value strip, no side callouts
  await expect(page.locator('.ac-plot-side-by-side')).toBeVisible();
  await expect(page.locator('.ac-overlay-value-strip')).toHaveCount(0);
  await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
  await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
- await expect(page.locator('.ac-plot-side-by-side .ac-bar-top-info')).toHaveCount(2);
+ await expect(page.locator('.ac-plot-side-by-side .ac-bar-inner-val-badge')).toHaveCount(2);
  await expect(page.locator('.ac-plot-side-by-side .ac-bar-bottom-label')).toHaveCount(2);
  await expect(page.locator('.ac-plot-side-by-side .ac-bar-sub-label')).toHaveCount(2);
 
@@ -781,27 +779,52 @@ test('Live scenario fixture: ITE331 auto-selection, faculty group population, an
  await expect(page.getByRole('button', { name: '+ Add Group C', exact: true })).toBeDisabled();
  await expect(page.locator('#ac-group-limit')).toHaveText('Two comparable Faculty groups are available.');
 
- // 6. Verify metric auto-switched to Student count and GWA option reflects unavailable status
+ // 6. Verify metric auto-switched to Preliminary score average and GWA option reflects unavailable status
  const metricSelect = page.locator('#ac-metric');
- await expect(metricSelect).toHaveValue('student_count');
+ await expect(metricSelect).toHaveValue('prelim_avg');
+ await expect(page.locator('#ac-filter-announcer')).toContainText('Preliminary score average was selected');
  await expect(metricSelect.locator('option[value="gwa"]')).toContainText('Recorded-grade average (Unavailable - outcomes pending)');
+ await expect(metricSelect.locator('option[value="midterm_avg"]')).toBeDisabled();
+ await expect(metricSelect.locator('option[value="midterm_avg"]')).toContainText('Midterm score average, no eligible scores for this scope');
 
  // 7. Verify notice displays ready state
  await expect(page.locator('#ac-notice')).toHaveText('Two comparable Faculty groups are available across five sections.');
 
- // 8. Verify chart and comparison summary are visible with difference in Students
+ // 8. Verify chart and comparison summary are visible with difference in percentage points
  await expect(page.locator('[data-comparison-chart]')).toBeVisible();
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +3.12 percentage points');
+ await expect(page.locator('.ac-col-a .ac-bar-inner-val-badge')).toHaveText('87.66%');
+ await expect(page.locator('.ac-col-b .ac-bar-inner-val-badge')).toHaveText('84.54%');
+ await expect(page.locator('.ac-bar-label-group')).toHaveCount(0);
+ await expect(page.locator('.ac-col-a .ac-bar-sub-fac')).toHaveText('Ronald Fernandez');
+ await expect(page.locator('.ac-col-a .ac-bar-sub-sec')).toHaveText('Sections IT-31, IT-32, IT-33');
+ await expect(page.locator('.ac-col-b .ac-bar-sub-fac')).toHaveText('John Rey Consulta');
+ await expect(page.locator('.ac-col-b .ac-bar-sub-sec')).toHaveText('Sections IT-37, IT-38');
+ await expect(page.locator('[data-comparison-summary] .card-status-badge').first()).toHaveText('Interim');
+
+ // 9. Switch to Student count
+ await metricSelect.selectOption('student_count');
+ await expect(page.locator('.ac-col-a .ac-bar-inner-val-badge')).toHaveText('115');
+ await expect(page.locator('.ac-col-b .ac-bar-inner-val-badge')).toHaveText('68');
  await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +47.00 Students');
 
- // 9. Verify metric-aware manual switch to GWA shows unavailable notice
+ // 10. Switch to Final numeric-grade coverage (zero-value baseline presentation)
+ await metricSelect.selectOption('numeric_coverage_pct');
+ await expect(page.locator('.ac-col-a .ac-bar-zero-val-badge')).toHaveText('0.00%');
+ await expect(page.locator('.ac-col-b .ac-bar-zero-val-badge')).toHaveText('0.00%');
+ await expect(page.locator('.ac-marker-zero')).toHaveCount(2);
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: 0.00 percentage points');
+
+ // 11. Switch to GWA shows unavailable notice
  await metricSelect.selectOption('gwa');
  await expect(page.locator('#ac-notice')).toHaveText('Recorded-grade average is unavailable for the selected ongoing term. Choose an available metric.');
  await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: Unavailable');
+ await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);
 
- // 10. Switch back to student_count
- await metricSelect.selectOption('student_count');
+ // 12. Switch back to prelim_avg
+ await metricSelect.selectOption('prelim_avg');
  await expect(page.locator('#ac-notice')).toHaveText('Two comparable Faculty groups are available across five sections.');
- await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +47.00 Students');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +3.12 percentage points');
 
  expect(errors).toEqual([]);
  expect(writes).toEqual([]);

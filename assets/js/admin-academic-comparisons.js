@@ -4,7 +4,18 @@
     const root = document.getElementById('admin-comparisons');
     if (!root) return;
     const dimensions = { school_year: 'School year', semester: 'Semester', year_level: 'Curriculum year', subject: 'Subject', section: 'Section', faculty_subject: 'Faculty assignment' };
-    const metrics = { gwa: 'Recorded-grade average', student_count: 'Student count', numeric_coverage_pct: 'Numeric grade coverage', final_coverage_pct: 'Final-outcome coverage', prediction_coverage_pct: 'Prediction coverage', risk_distribution: 'Advisory-risk distribution' };
+    const metrics = {
+        student_count: 'Student count',
+        prelim_avg: 'Preliminary score average',
+        prelim_coverage_pct: 'Preliminary score coverage',
+        midterm_avg: 'Midterm score average',
+        midterm_coverage_pct: 'Midterm score coverage',
+        gwa: 'Recorded-grade average',
+        numeric_coverage_pct: 'Final numeric-grade coverage',
+        final_coverage_pct: 'Final-outcome coverage',
+        prediction_coverage_pct: 'Prediction coverage',
+        risk_distribution: 'Advisory-risk distribution'
+    };
     const helpers = { school_year: 'Compare recorded school-year groups.', semester: 'Compare recorded terms in chronological order.', year_level: 'Compare subject curriculum years, not Student year-level history.', subject: 'Compare subject records for context; units and difficulty may differ.', section: 'Compare verified current section records.', faculty_subject: 'Choose a common school year, semester and subject before selecting verified Faculty assignments.' };
     const glyphs = { A: '●', B: '■', C: '◆' };
     const make = (tag, text, attrs = {}) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value); return node; };
@@ -88,7 +99,35 @@
     groupActions.append(add, remove, limit); controls.append(make('h3', '3. Select groups'), groups, groupActions);
     const finalRow = make('div', undefined, { class: 'ac-final-controls' });
     const metricField = field('ac-metric', 'Metric');
-    for (const [value, label] of Object.entries(metrics)) metricField.select.append(make('option', label, { value }));
+    const metricGroups = [
+        {
+            label: 'Current-term evidence',
+            items: [
+                { value: 'student_count', label: 'Student count' },
+                { value: 'prelim_avg', label: 'Preliminary score average' },
+                { value: 'prelim_coverage_pct', label: 'Preliminary score coverage' },
+                { value: 'midterm_avg', label: 'Midterm score average' },
+                { value: 'midterm_coverage_pct', label: 'Midterm score coverage' }
+            ]
+        },
+        {
+            label: 'Finalized outcomes',
+            items: [
+                { value: 'gwa', label: 'Recorded-grade average' },
+                { value: 'numeric_coverage_pct', label: 'Final numeric-grade coverage' },
+                { value: 'final_coverage_pct', label: 'Final-outcome coverage' },
+                { value: 'prediction_coverage_pct', label: 'Prediction coverage' },
+                { value: 'risk_distribution', label: 'Advisory-risk distribution' }
+            ]
+        }
+    ];
+    for (const grp of metricGroups) {
+        const og = make('optgroup', undefined, { label: grp.label });
+        for (const item of grp.items) {
+            og.append(make('option', item.label, { value: item.value }));
+        }
+        metricField.select.append(og);
+    }
     metricField.select.addEventListener('change', () => { metric = metricField.select.value; highlightedGroup = 'all'; drawResult(); });
     const modes = make('div', undefined, { role: 'group', 'aria-label': 'Comparison display mode', class: 'ac-modes' });
     for (const [value, label] of [['overlay', 'Overlay chart'], ['cards', 'Separate cards']]) {
@@ -218,6 +257,30 @@
         limit.textContent = keys.length === 3 ? 'Maximum three groups.' : choices.length <= keys.length ? (dimension === 'faculty_subject' && choices.length === 2 ? 'Two comparable Faculty groups are available.' : 'No additional recorded group is available.') : 'Optional; up to three groups.';
         metricField.select.querySelectorAll('option').forEach(option => { option.disabled = ['prediction_coverage_pct', 'risk_distribution'].includes(option.value) && !['school_year', 'semester', 'section'].includes(dimension); });
 
+        const optMidtermAvg = metricField.select.querySelector('option[value="midterm_avg"]');
+        const optMidtermCov = metricField.select.querySelector('option[value="midterm_coverage_pct"]');
+        const hasMidterm = choices.length >= 2 && choices.some(g => Number.isFinite(g.midterm_avg));
+        if (optMidtermAvg) {
+            optMidtermAvg.disabled = !hasMidterm;
+            optMidtermAvg.textContent = hasMidterm ? 'Midterm score average' : 'Midterm score average, no eligible scores for this scope';
+        }
+        if (optMidtermCov) {
+            optMidtermCov.disabled = !hasMidterm;
+            optMidtermCov.textContent = hasMidterm ? 'Midterm score coverage' : 'Midterm score coverage, no eligible scores for this scope';
+        }
+
+        const optPrelimAvg = metricField.select.querySelector('option[value="prelim_avg"]');
+        const optPrelimCov = metricField.select.querySelector('option[value="prelim_coverage_pct"]');
+        const hasPrelim = choices.length >= 2 && choices.every(g => Number.isFinite(g.prelim_avg));
+        if (optPrelimAvg) {
+            optPrelimAvg.disabled = !hasPrelim;
+            optPrelimAvg.textContent = hasPrelim ? 'Preliminary score average' : 'Preliminary score average, no eligible scores for this scope';
+        }
+        if (optPrelimCov) {
+            optPrelimCov.disabled = !hasPrelim;
+            optPrelimCov.textContent = hasPrelim ? 'Preliminary score coverage' : 'Preliminary score coverage, no eligible scores for this scope';
+        }
+
         const gwaOption = metricField.select.querySelector('option[value="gwa"]');
         const gwaUnavailable = choices.length >= 2 && choices.every(g => !Number.isFinite(g.gwa));
         if (gwaOption) {
@@ -225,10 +288,16 @@
         }
 
         if (dimension === 'faculty_subject' && metric === 'gwa' && gwaUnavailable) {
-            metric = 'student_count';
-            metricField.select.value = 'student_count';
             const compSubjCode = (report?.comparable_subjects || []).find(s => String(s.subject_id) === String(report?.filters?.subject))?.code || 'ITE331';
-            announceFilter(`${compSubjCode} was selected automatically because it is the only comparable subject for this period. Recorded-grade average is unavailable for this ongoing term. Student count was selected as an available comparison metric.`);
+            if (hasPrelim) {
+                metric = 'prelim_avg';
+                metricField.select.value = 'prelim_avg';
+                announceFilter(`${compSubjCode} was selected automatically because it is the only comparable subject for this period. Recorded-grade average is unavailable for this ongoing term. Preliminary score average was selected.`);
+            } else {
+                metric = 'student_count';
+                metricField.select.value = 'student_count';
+                announceFilter(`${compSubjCode} was selected automatically because it is the only comparable subject for this period. Recorded-grade average is unavailable for this ongoing term. Student count was selected as an available comparison metric.`);
+            }
         } else if (metricField.select.selectedOptions[0]?.disabled) {
             metric = 'gwa';
             metricField.select.value = metric;
@@ -280,9 +349,31 @@
         return null;
     }
     const rawValue = group => Number.isFinite(group?.[metric]) ? group[metric] : null;
-    const valueText = group => rawValue(group) === null ? 'Unavailable' : metric === 'student_count' ? String(rawValue(group)) : rawValue(group).toFixed(2) + (metric.endsWith('_pct') ? '%' : '');
-    const coverage = group => Number.isFinite(group.numeric_coverage_pct) ? group.numeric_coverage_pct.toFixed(2) + '%' : 'Unavailable';
-    const status = group => group.provisional ? 'Provisional' : 'Recorded outcomes resolved';
+    const valueText = group => {
+        const raw = rawValue(group);
+        if (raw === null) return 'Unavailable';
+        if (metric === 'student_count') return String(raw);
+        if (metric.endsWith('_pct') || metric.endsWith('_avg')) return raw.toFixed(2) + '%';
+        return raw.toFixed(2);
+    };
+    const coverage = group => {
+        if (metric.startsWith('prelim_')) {
+            return Number.isFinite(group?.prelim_coverage_pct) ? group.prelim_coverage_pct.toFixed(2) + '%' : (Number.isFinite(group?.numeric_coverage_pct) ? group.numeric_coverage_pct.toFixed(2) + '%' : 'Unavailable');
+        }
+        if (metric.startsWith('midterm_')) {
+            return Number.isFinite(group?.midterm_coverage_pct) ? group.midterm_coverage_pct.toFixed(2) + '%' : 'Unavailable';
+        }
+        return Number.isFinite(group?.numeric_coverage_pct) ? group.numeric_coverage_pct.toFixed(2) + '%' : 'Unavailable';
+    };
+    const status = group => {
+        if (metric.startsWith('prelim_') || metric.startsWith('midterm_')) return 'Interim';
+        return group.provisional ? 'Provisional' : 'Recorded outcomes resolved';
+    };
+    const statusBadgeClass = group => {
+        const s = status(group);
+        if (s === 'Interim') return 'card-status-badge badge-interim';
+        return 'card-status-badge ' + (group.provisional ? 'badge-provisional' : 'badge-complete');
+    };
 
     function drawResult(focusInvalid = false) {
         modes.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
@@ -427,7 +518,7 @@
                     const valBox = make('div', undefined, { class: 'ac-summary-val-box' });
                     valBox.append(
                         make('strong', valueText(group), { 'data-comparison-value': group.key, class: 'ac-summary-metric-val' }),
-                        make('span', status(group), { class: 'card-status-badge ' + (group.provisional ? 'badge-provisional' : 'badge-complete') })
+                        make('span', status(group), { class: statusBadgeClass(group) })
                     );
                     const periodLabel = make('p', group.label, { class: 'ac-summary-period-label', title: group.label });
                     const dl = make('dl', undefined, { class: 'ac-summary-stats' });
@@ -454,7 +545,7 @@
                     const valBoxC = make('div', undefined, { class: 'ac-summary-val-box' });
                     valBoxC.append(
                         make('strong', valueText(groupC), { 'data-comparison-value': groupC.key, class: 'ac-summary-metric-val' }),
-                        make('span', status(groupC), { class: 'card-status-badge ' + (groupC.provisional ? 'badge-provisional' : 'badge-complete') })
+                        make('span', status(groupC), { class: statusBadgeClass(groupC) })
                     );
                     const dlC = make('dl', undefined, { class: 'ac-summary-stats' });
                     for (const [l, text] of [
@@ -483,10 +574,13 @@
                 const metricBox = make('div', undefined, { class: 'ac-highlight-metric-box' });
                 metricBox.append(
                     make('strong', valueText(targetGroup), { 'data-comparison-value': targetGroup.key, class: 'ac-highlight-metric-value' }),
-                    make('span', status(targetGroup), { class: 'card-status-badge ' + (targetGroup.provisional ? 'badge-provisional' : 'badge-complete') })
+                    make('span', status(targetGroup), { class: statusBadgeClass(targetGroup) })
                 );
                 item.append(metricBox);
-                item.append(make('p', metric === 'gwa' ? 'Pooled unit-weighted recorded-grade mean' : metrics[metric] + ' for selected group', { class: 'ac-helper' }));
+                let metricSub = metrics[metric] + ' for selected group';
+                if (metric === 'gwa') metricSub = 'Pooled unit-weighted recorded-grade mean';
+                else if (metric === 'prelim_avg' || metric === 'midterm_avg') metricSub = 'Interim percentage result, not a finalized GWA.';
+                item.append(make('p', metricSub, { class: 'ac-helper' }));
 
                 const dl = make('dl', undefined, { class: 'ac-highlight-stats' });
                 for (const [l, text] of [
@@ -623,13 +717,13 @@
             // Y-Axis and Ticks (Major Scale Only)
             const yAxis = make('div', undefined, { class: 'ac-chart-y-axis', 'aria-hidden': 'true' });
             let yTicks = [4, 3, 2, 1, 0];
-            if (metric.endsWith('_pct')) yTicks = [100, 75, 50, 25, 0];
+            if (metric.endsWith('_pct') || metric.endsWith('_avg')) yTicks = [100, 75, 50, 25, 0];
             else if (metric === 'student_count') yTicks = [max, Math.round(max * 0.75), Math.round(max * 0.5), Math.round(max * 0.25), 0];
 
             yTicks.forEach(tickVal => {
                 const tickPct = (tickVal / max) * 100;
                 const tickNode = make('div', undefined, { class: 'ac-y-tick', style: 'top: ' + (100 - tickPct) + '%;' });
-                let tickLabel = metric === 'gwa' ? tickVal.toFixed(2) : metric.endsWith('_pct') ? tickVal + '%' : String(tickVal);
+                let tickLabel = metric === 'gwa' ? tickVal.toFixed(2) : (metric.endsWith('_pct') || metric.endsWith('_avg')) ? tickVal + '%' : String(tickVal);
                 if (metric === 'gwa' && tickVal === 1) tickLabel = '1.00';
                 tickNode.append(make('span', tickLabel, { class: 'ac-y-tick-label' }));
                 yAxis.append(tickNode);
@@ -669,38 +763,58 @@
                 if (raw !== null) {
                     const heightPct = Math.max(0, Math.min(100, (raw / max) * 100));
 
-                    // In side-by-side mode: exact value above bar
-                    if (chartDisplayMode !== 'overlay') {
-                        const topInfo = make('div', undefined, {
-                            class: 'ac-bar-top-info',
-                            style: 'bottom: ' + heightPct + '%;'
+                    if (raw > 0) {
+                        // The Vertical Bar (terminates at 0.00 baseline)
+                        const bar = make('div', undefined, {
+                            class: 'ac-vertical-bar ac-bar ac-bar-color-' + index,
+                            style: 'height: ' + heightPct + '%;',
+                            'data-value': raw,
+                            role: 'button',
+                            tabindex: '0',
+                            'aria-label': 'Group ' + letter + ': ' + group.label + ', ' + valueText(group)
                         });
-                        topInfo.append(
-                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                            make('span', valueText(group), { class: 'ac-bar-val-badge' })
-                        );
-                        col.append(topInfo);
+                        bar.addEventListener('click', () => updateHighlight(letter));
+                        bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
+
+                        // Value badge pinned inside top of the bar
+                        const valBadge = make('span', valueText(group), {
+                            class: 'ac-bar-inner-val-badge ac-bar-val-badge',
+                            'aria-hidden': 'true'
+                        });
+                        bar.append(valBadge);
+
+                        // Circular A, B, C badge placed INSIDE the bar, 8-12px above 0.00 baseline
+                        const marker = make('div', letter, {
+                            class: 'ac-bar-inner-marker ac-marker-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
+                            'aria-hidden': 'true'
+                        });
+                        bar.append(marker);
+                        col.append(bar);
+                    } else {
+                        // Zero value: 4px baseline marker, 0.00% immediately above marker, circular A/B/C marker visible at baseline
+                        const bar = make('div', undefined, {
+                            class: 'ac-vertical-bar ac-bar ac-bar-color-' + index + ' ac-bar-zero',
+                            'data-value': 0,
+                            role: 'button',
+                            tabindex: '0',
+                            'aria-label': 'Group ' + letter + ': ' + group.label + ', ' + valueText(group)
+                        });
+                        bar.addEventListener('click', () => updateHighlight(letter));
+                        bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
+
+                        const zeroValBadge = make('span', valueText(group), {
+                            class: 'ac-bar-zero-val-badge ac-bar-val-badge',
+                            'aria-hidden': 'true'
+                        });
+                        col.append(zeroValBadge);
+
+                        const marker = make('div', letter, {
+                            class: 'ac-bar-inner-marker ac-marker-zero ac-marker-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
+                            'aria-hidden': 'true'
+                        });
+                        col.append(marker);
+                        col.append(bar);
                     }
-
-                    // The Vertical Bar (terminates at 0.00 baseline)
-                    const bar = make('div', undefined, {
-                        class: 'ac-vertical-bar ac-bar ac-bar-color-' + index,
-                        style: 'height: ' + heightPct + '%;',
-                        'data-value': raw,
-                        role: 'button',
-                        tabindex: '0',
-                        'aria-label': 'Group ' + letter + ': ' + group.label + ', ' + valueText(group)
-                    });
-                    bar.addEventListener('click', () => updateHighlight(letter));
-                    bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
-
-                    // Circular A, B, C badge placed INSIDE the bar, 8-12px above 0.00 baseline
-                    const marker = make('div', letter, {
-                        class: 'ac-bar-inner-marker ac-marker-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
-                        'aria-hidden': 'true'
-                    });
-                    bar.append(marker);
-                    col.append(bar);
                 } else {
                     if (chartDisplayMode !== 'overlay') {
                         const topInfo = make('div', undefined, {
@@ -722,14 +836,27 @@
                     col.append(bar);
                 }
 
-                // In Side-by-side mode: Period and group label beneath 0.00 baseline on one line
+                // In Side-by-side mode: Sub-labels beneath baseline (NO "Group A" / "Group B")
                 if (chartDisplayMode !== 'overlay') {
                     const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
-                    const shortSub = dimension === 'faculty_subject' ? (group.faculty_label || group.label).split(' · ')[0] : group.label;
-                    bottomLabel.append(
-                        make('span', 'Group ' + letter, { class: 'ac-bar-label-group' }),
-                        make('span', shortSub, { class: 'ac-bar-sub-label', title: group.label })
-                    );
+                    if (dimension === 'faculty_subject') {
+                        const rawLabel = group.faculty_label || group.label;
+                        const parts = rawLabel.split(' · ');
+                        const facName = parts[0] || rawLabel;
+                        const secName = parts.length > 2 ? parts[2] : (parts[1]?.startsWith('Sections') ? parts[1] : (parts[1] || ''));
+                        bottomLabel.append(
+                            make('span', facName, { class: 'ac-bar-sub-label ac-bar-sub-fac', title: rawLabel }),
+                            make('span', secName, { class: 'ac-bar-sub-sec', title: secName })
+                        );
+                    } else {
+                        let periodLabel = group.label;
+                        if (selected.length === 3) {
+                            periodLabel = periodLabel.replace('Semester 1', 'S1').replace('Semester 2', 'S2');
+                        }
+                        bottomLabel.append(
+                            make('span', periodLabel, { class: 'ac-bar-sub-label', title: group.label })
+                        );
+                    }
                     col.append(bottomLabel);
                 }
 
@@ -763,10 +890,13 @@
                 const letter = 'abc'[index], card = make('div', undefined, { class: 'comparison-panel comparison-card panel-' + letter + ' card-' + letter + ' ac-group-summary' });
                 const header = make('div', undefined, { class: 'panel-header' });
                 const top = make('div', undefined, { class: 'ac-card-top' });
-                top.append(make('span', 'Group ' + letter.toUpperCase(), { class: 'ac-group-tag' }), make('span', status(group), { class: 'card-status-badge ' + (group.provisional ? 'badge-provisional' : 'badge-complete') }));
+                top.append(make('span', 'Group ' + letter.toUpperCase(), { class: 'ac-group-tag' }), make('span', status(group), { class: statusBadgeClass(group) }));
                 header.append(top, make('h4', group.label, { class: 'panel-title' }), make('p', dimensions[dimension] + ' · ' + (report.filters.school_year || 'All recorded years') + ' · ' + (report.filters.semester ? 'Semester ' + report.filters.semester : 'All recorded semesters'), { class: 'panel-sub' }));
                 const metricBox = make('div', undefined, { class: 'panel-metric-box card-metric-box' });
-                metricBox.append(make('div', metrics[metric], { class: 'panel-metric-label card-metric-label' }), make('div', valueText(group), { class: 'panel-metric-value card-metric-value', 'data-comparison-value': group.key }), make('div', metric === 'gwa' ? 'Pooled unit-weighted recorded-grade mean' : 'Recorded values for the selected scope', { class: 'panel-metric-sub card-metric-sub' }));
+                let cardMetricSub = 'Recorded values for the selected scope';
+                if (metric === 'gwa') cardMetricSub = 'Pooled unit-weighted recorded-grade mean';
+                else if (metric === 'prelim_avg' || metric === 'midterm_avg') cardMetricSub = 'Interim percentage result, not a finalized GWA.';
+                metricBox.append(make('div', metrics[metric], { class: 'panel-metric-label card-metric-label' }), make('div', valueText(group), { class: 'panel-metric-value card-metric-value', 'data-comparison-value': group.key }), make('div', cardMetricSub, { class: 'panel-metric-sub card-metric-sub' }));
                 const stats = make('dl', undefined, { class: 'panel-stats card-stats' });
                 for (const [label, value] of [['Students (n)', String(group.student_count)], ['Numeric coverage', coverage(group)], ['Final coverage', Number.isFinite(group.final_coverage_pct) ? group.final_coverage_pct.toFixed(2) + '%' : 'Unavailable']]) {
                     const pair = make('div'); pair.append(make('dt', label), make('dd', value)); stats.append(pair);

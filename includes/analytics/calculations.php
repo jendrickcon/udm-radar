@@ -5,6 +5,8 @@ require_once __DIR__.'/../../config/constants.php';
 /** Recorded grade slots, never a cross-product or an inferred enrollment population. */
 function analyticsAggregate(array $rows):array {
     $seen=[];$students=[];$contributors=[];$eligible=[];$recorded=0;$resolved=0;$recognized=0;$pending=0;$invalidUnits=0;
+    $prelimScores=[];$prelimStudents=[];
+    $midtermScores=[];$midtermStudents=[];
     foreach($rows as $index=>$r){
         $key=(string)($r['id']??'row-'.$index);
         if(isset($seen[$key]))continue;
@@ -18,13 +20,32 @@ function analyticsAggregate(array $rows):array {
             $units=is_numeric($r['units']??null)?(int)$r['units']:0;
             if($units>0){$eligible[]=['grade'=>$grade,'units'=>$units];$contributors[$sid]=true;}else{$invalidUnits++;}
         }
+        $p=$r['prelim']??null;
+        if($p!==null&&is_numeric($p)){
+            $prelimScores[]=(float)$p;
+            $prelimStudents[$sid]=true;
+        }
+        $m=$r['midterm']??null;
+        if($m!==null&&is_numeric($m)){
+            $midtermScores[]=(float)$m;
+            $midtermStudents[$sid]=true;
+        }
     }
     $expected=count($seen);$unitCount=array_sum(array_column($eligible,'units'));
-    return ['gwa'=>computeWeightedGWA($eligible),'student_count'=>count($students),'contributing_student_count'=>count($contributors),
+    $stdCount=count($students);
+    $pCount=count($prelimScores);
+    $mCount=count($midtermScores);
+    return ['gwa'=>computeWeightedGWA($eligible),'student_count'=>$stdCount,'contributing_student_count'=>count($contributors),
         'expected_grade_count'=>$expected,'eligible_grade_count'=>count($eligible),'eligible_units'=>$unitCount,
         'recorded_outcome_count'=>$recorded,'resolved_final_count'=>$resolved,'recognized_outcome_count'=>$recognized,
         'numeric_coverage_pct'=>$expected?round(count($eligible)/$expected*100,2):null,
         'final_coverage_pct'=>$expected?round($resolved/$expected*100,2):null,
+        'prelim_avg'=>$pCount>0?round(array_sum($prelimScores)/$pCount,2):null,
+        'prelim_coverage_pct'=>$stdCount>0?round(count($prelimStudents)/$stdCount*100,2):null,
+        'prelim_student_count'=>count($prelimStudents),
+        'midterm_avg'=>$mCount>0?round(array_sum($midtermScores)/$mCount,2):null,
+        'midterm_coverage_pct'=>$stdCount>0?round(count($midtermStudents)/$stdCount*100,2):null,
+        'midterm_student_count'=>count($midtermStudents),
         'provisional'=>$expected>0&&($pending>0||$invalidUnits>0),'pending_grade_count'=>$pending,'invalid_unit_count'=>$invalidUnits];
 }
 
