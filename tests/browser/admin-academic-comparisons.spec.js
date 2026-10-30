@@ -38,6 +38,10 @@ test('Comparisons starts with the visible six-dimension workspace',async({page})
  await expect(page.locator('#other-comparisons-disclosure')).toHaveCount(0);
 });
 async function choose(page,id,value){
+ if (await page.locator('#ac-'+id).inputValue() === String(value)) {
+  await expect(page.locator('#analytics-results')).toHaveAttribute('aria-busy','false');
+  return;
+ }
  const response=page.waitForResponse(r=>r.url().includes('/api/academic_analytics.php'));
  await page.locator('#ac-'+id).selectOption(value);await response;
  await expect(page.locator('#analytics-results')).toHaveAttribute('aria-busy','false');
@@ -745,4 +749,60 @@ test('Comparison chart interaction refinement: redundancy, textured outline, sin
  expect(boxCardB).not.toBeNull();
  expect(Math.abs(boxCardA.width - boxCardB.width)).toBeLessThanOrEqual(2); // Equal widths
  expect(page.locator('.ac-difference')).toBeVisible();
+});
+
+test('Live scenario fixture: ITE331 auto-selection, faculty group population, and student count fallback', async ({ page }) => {
+ const { errors, writes } = await open(page, 'light', 'ite331');
+ await page.locator('[data-dimension="faculty_subject"]').click();
+
+ // Select school year and semester
+ await choose(page, 'school_year', '2026-2027');
+ await choose(page, 'semester', '1');
+
+ // 1. Verify Common subject auto-selects ITE331 (ID 39)
+ const subjectSelect = page.locator('#ac-subject');
+ await expect(subjectSelect).toHaveValue('39');
+ await expect(page.locator('#ac-filter-announcer')).toContainText('ITE331 was selected automatically');
+
+ // 2. Verify notice never shows "Choose a comparable subject"
+ await expect(page.locator('#ac-notice')).not.toContainText('Choose a comparable subject');
+
+ // 3. Verify Group A and Group B are auto-populated and auto-selected
+ const groupA = page.locator('#ac-group-a');
+ const groupB = page.locator('#ac-group-b');
+ await expect(groupA).toHaveValue('2|39');
+ await expect(groupB).toHaveValue('302|39');
+
+ // 4. Verify section labels
+ await expect(groupA.locator('option:checked')).toHaveText('Ronald Fernandez · Sections IT-31, IT-32, IT-33');
+ await expect(groupB.locator('option:checked')).toHaveText('John Rey Consulta · Sections IT-37, IT-38');
+
+ // 5. Verify Group C is disabled with exact helper text
+ await expect(page.getByRole('button', { name: '+ Add Group C', exact: true })).toBeDisabled();
+ await expect(page.locator('#ac-group-limit')).toHaveText('Two comparable Faculty groups are available.');
+
+ // 6. Verify metric auto-switched to Student count and GWA option reflects unavailable status
+ const metricSelect = page.locator('#ac-metric');
+ await expect(metricSelect).toHaveValue('student_count');
+ await expect(metricSelect.locator('option[value="gwa"]')).toContainText('Recorded-grade average (Unavailable - outcomes pending)');
+
+ // 7. Verify notice displays ready state
+ await expect(page.locator('#ac-notice')).toHaveText('Two comparable Faculty groups are available across five sections.');
+
+ // 8. Verify chart and comparison summary are visible with difference in Students
+ await expect(page.locator('[data-comparison-chart]')).toBeVisible();
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +47.00 Students');
+
+ // 9. Verify metric-aware manual switch to GWA shows unavailable notice
+ await metricSelect.selectOption('gwa');
+ await expect(page.locator('#ac-notice')).toHaveText('Recorded-grade average is unavailable for the selected ongoing term. Choose an available metric.');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: Unavailable');
+
+ // 10. Switch back to student_count
+ await metricSelect.selectOption('student_count');
+ await expect(page.locator('#ac-notice')).toHaveText('Two comparable Faculty groups are available across five sections.');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +47.00 Students');
+
+ expect(errors).toEqual([]);
+ expect(writes).toEqual([]);
 });

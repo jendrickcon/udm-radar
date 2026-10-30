@@ -116,7 +116,7 @@
         const list = report?.groups[dimension] || [];
         if (dimension === 'faculty_subject') {
             if (!report || !report.filters.school_year || !report.filters.semester || !report.filters.subject) return [];
-            return list.filter(group => /^\d+\|\d+$/.test(group.key) && group.key.split('|')[1] === report.filters.subject && !/Historical|Assignment unavailable/.test(group.label) && (group.student_count > 0 || group.recorded_outcome_count > 0));
+            return list.filter(group => /^\d+\|\d+$/.test(group.key) && String(group.key.split('|')[1]) === String(report.filters.subject) && !/Historical|Assignment unavailable/.test(group.label) && (group.student_count > 0 || group.recorded_outcome_count > 0));
         }
         return list.filter(group => !/Historical|Assignment unavailable/.test(group.label) && (group.student_count > 0 || group.recorded_outcome_count > 0));
     }
@@ -139,9 +139,19 @@
                 if (compSubjects.length > 0) {
                     options(item.select, compSubjects, report?.filters[name] || '', 'Choose a comparable subject');
                     item.select.disabled = false;
-                    if (compSubjects.length === 1 && !report?.filters[name] && !item.select.value) {
-                        item.select.value = compSubjects[0].subject_id;
-                        announceFilter(`${compSubjects[0].code} has ${compSubjects[0].distinct_faculty_count} comparable Faculty groups across ${compSubjects[0].eligible_section_count} sections for ${compSubjects[0].school_year} Semester ${compSubjects[0].semester}.`);
+                    const hasPeriod = Boolean(report?.filters?.school_year && report?.filters?.semester);
+                    if (hasPeriod && compSubjects.length === 1 && !report?.filters?.subject && !item.select.value) {
+                        const singleSubject = compSubjects[0];
+                        const singleSubjectId = String(singleSubject.subject_id);
+                        item.select.value = singleSubjectId;
+                        if (report?.filters) report.filters.subject = singleSubjectId;
+                        announceFilter(`${singleSubject.code} was selected automatically because it is the only comparable subject for this period.`);
+                        busy = true;
+                        notice.hidden = false;
+                        notice.textContent = `Loading Faculty groups for ${singleSubject.code}…`;
+                        notice.setAttribute('role', 'status');
+                        request?.(parameters());
+                        return;
                     }
                 } else {
                     item.select.replaceChildren(make('option', 'No comparable subject for this period', { value: '' }));
@@ -153,36 +163,44 @@
         }
         const choices = candidates();
 
-        // Progressive candidate filtering: Group A gets full choices
-        if (!choices.some(group => group.key === keys[0])) {
-            keys[0] = choices[0]?.key || '';
-        }
-
-        // Group B options exclude Group A's selected assignment
-        const choicesB = choices.filter(group => group.key !== keys[0]);
-        if (!choicesB.some(group => group.key === keys[1])) {
-            const oldB = keys[1];
-            keys[1] = choicesB[0]?.key || '';
-            if (oldB && oldB !== keys[1]) {
-                announceFilter('Group B was updated because Group A changed.');
+        if (dimension === 'faculty_subject' && choices.length === 2) {
+            keys[0] = choices[0].key;
+            keys[1] = choices[1].key;
+            if (keys.length > 2) keys = keys.slice(0, 2);
+        } else {
+            // Progressive candidate filtering: Group A gets full choices
+            if (!choices.some(group => group.key === keys[0])) {
+                keys[0] = choices[0]?.key || '';
             }
-        }
 
-        // Group C options exclude both Group A and Group B
-        if (keys.length === 3) {
-            const choicesC = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
-            if (!choicesC.some(group => group.key === keys[2])) {
-                keys[2] = choicesC[0]?.key || '';
+            // Group B options exclude Group A's selected assignment
+            const choicesB = choices.filter(group => group.key !== keys[0]);
+            if (!choicesB.some(group => group.key === keys[1])) {
+                const oldB = keys[1];
+                keys[1] = choicesB[0]?.key || '';
+                if (oldB && oldB !== keys[1]) {
+                    announceFilter('Group B was updated because Group A changed.');
+                }
+            }
+
+            // Group C options exclude both Group A and Group B
+            if (keys.length === 3) {
+                const choicesC = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
+                if (!choicesC.some(group => group.key === keys[2])) {
+                    keys[2] = choicesC[0]?.key || '';
+                }
             }
         }
 
         groupFields.forEach((item, index) => {
             item.box.hidden = index >= keys.length;
             let groupChoices = choices;
-            if (index === 1) {
-                groupChoices = choices.filter(group => group.key !== keys[0]);
+            if (index === 0 && keys[1]) {
+                groupChoices = choices.filter(group => group.key !== keys[1] || group.key === keys[0]);
+            } else if (index === 1) {
+                groupChoices = choices.filter(group => group.key !== keys[0] || group.key === keys[1]);
             } else if (index === 2) {
-                groupChoices = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
+                groupChoices = choices.filter(group => (group.key !== keys[0] && group.key !== keys[1]) || group.key === keys[2]);
             }
             if (dimension === 'faculty_subject') {
                 const mapped = groupChoices.map(g => ({
@@ -199,25 +217,57 @@
         add.disabled = keys.length === 3 || choices.length <= keys.length; remove.hidden = keys.length !== 3;
         limit.textContent = keys.length === 3 ? 'Maximum three groups.' : choices.length <= keys.length ? (dimension === 'faculty_subject' && choices.length === 2 ? 'Two comparable Faculty groups are available.' : 'No additional recorded group is available.') : 'Optional; up to three groups.';
         metricField.select.querySelectorAll('option').forEach(option => { option.disabled = ['prediction_coverage_pct', 'risk_distribution'].includes(option.value) && !['school_year', 'semester', 'section'].includes(dimension); });
-        if (metricField.select.selectedOptions[0]?.disabled) { metric = 'gwa'; metricField.select.value = metric; }
+
+        const gwaOption = metricField.select.querySelector('option[value="gwa"]');
+        const gwaUnavailable = choices.length >= 2 && choices.every(g => !Number.isFinite(g.gwa));
+        if (gwaOption) {
+            gwaOption.textContent = gwaUnavailable ? 'Recorded-grade average (Unavailable - outcomes pending)' : 'Recorded-grade average';
+        }
+
+        if (dimension === 'faculty_subject' && metric === 'gwa' && gwaUnavailable) {
+            metric = 'student_count';
+            metricField.select.value = 'student_count';
+            const compSubjCode = (report?.comparable_subjects || []).find(s => String(s.subject_id) === String(report?.filters?.subject))?.code || 'ITE331';
+            announceFilter(`${compSubjCode} was selected automatically because it is the only comparable subject for this period. Recorded-grade average is unavailable for this ongoing term. Student count was selected as an available comparison metric.`);
+        } else if (metricField.select.selectedOptions[0]?.disabled) {
+            metric = 'gwa';
+            metricField.select.value = metric;
+        }
         drawResult();
     }
     function validation() {
-        if (failed) return ['Comparison records could not be loaded. Apply the scope again to retry.', compare];
-        if (busy || !report) return ['Loading comparison records…', null];
+        if (failed) {
+            if (dimension === 'faculty_subject') return ['Faculty comparison options could not be loaded. Try again.', compare];
+            return ['Comparison records could not be loaded. Apply the scope again to retry.', compare];
+        }
+        if (busy || !report) {
+            if (dimension === 'faculty_subject') {
+                const selectedSubjId = common.subject?.select?.value || report?.filters?.subject;
+                const subObj = (report?.comparable_subjects || []).find(s => String(s.subject_id) === String(selectedSubjId));
+                const code = subObj?.code || (selectedSubjId === '39' ? 'ITE331' : '');
+                if (code) return [`Loading Faculty groups for ${code}…`, null];
+            }
+            return ['Loading comparison records…', null];
+        }
         if (dimension === 'faculty_subject') {
-            if (!report.filters.school_year) return ['Choose a school year to compare verified Faculty assignments.', common.school_year.select];
-            if (!report.filters.semester) return ['Choose a semester to compare verified Faculty assignments.', common.semester.select];
+            if (!report.filters.school_year || !report.filters.semester) return ['Choose a school year and semester.', common.school_year.select];
             const compList = report.comparable_subjects || [];
             if (compList.length === 0) {
                 return ['No common subject is available for Faculty comparison in this period. Choose another school year or semester. Subjects are shown only when at least two verified Faculty assignments have eligible comparison data.', common.school_year.select];
             }
-            if (!report.filters.subject) return ['Choose a comparable subject.', common.subject.select];
-            if (report.filters.subject && !compList.some(s => String(s.subject_id) === String(report.filters.subject))) {
+            if (!report.filters.subject && !common.subject.select.value) return ['Choose a comparable subject.', common.subject.select];
+            const currentSubj = report.filters.subject || common.subject.select.value;
+            if (currentSubj && !compList.some(s => String(s.subject_id) === String(currentSubj))) {
                 return ['No comparable assignment is available. No common verified subject assignment is available for the selected Faculty members and period.', common.subject.select];
             }
             for (const [name, item] of Object.entries(common)) {
-                if (!item.select.value || item.select.value !== report.filters[name]) return ['Choose the same school year, semester and subject for every Faculty assignment.', item.select];
+                if (!item.select.value || String(item.select.value) !== String(report.filters[name])) {
+                    if (name === 'subject' && !report.filters[name] && item.select.value) {
+                        const subObj = compList.find(s => String(s.subject_id) === String(item.select.value));
+                        return [`Loading Faculty groups for ${subObj?.code || 'ITE331'}…`, null];
+                    }
+                    return ['Choose the same school year, semester and subject for every Faculty assignment.', item.select];
+                }
             }
         }
         const choices = candidates();
@@ -281,7 +331,24 @@
         }
         const selected = keys.map(key => candidates().find(group => group.key === key));
         const valuesAvailable = selected.some(group => rawValue(group) !== null);
-        if (!valuesAvailable) { notice.hidden = false; notice.textContent = 'No recorded values are available for this metric and scope. Review coverage or choose another metric.'; }
+        if (!valuesAvailable) {
+            notice.hidden = false;
+            notice.textContent = metric === 'gwa'
+                ? 'Recorded-grade average is unavailable for the selected ongoing term. Choose an available metric.'
+                : 'No recorded values are available for this metric and scope. Review coverage or choose another metric.';
+        } else if (dimension === 'faculty_subject' && selected.length === 2) {
+            const totalSections = selected.reduce((acc, g) => {
+                const m = (g?.faculty_label || g?.label || '').match(/Sections\s+([^|]+)/i);
+                return acc + (m ? m[1].split(',').length : 0);
+            }, 0);
+            const secText = totalSections === 5 ? 'five sections' : `${totalSections} sections`;
+            notice.hidden = false;
+            notice.textContent = `Two comparable Faculty groups are available across ${secText}.`;
+            notice.setAttribute('role', 'status');
+        } else {
+            notice.hidden = true;
+            notice.textContent = '';
+        }
         if (highlightedGroup !== 'all' && !['A', 'B', ...(selected.length === 3 ? ['C'] : [])].includes(highlightedGroup)) {
             highlightedGroup = 'all';
         }
