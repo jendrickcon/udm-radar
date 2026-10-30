@@ -682,12 +682,12 @@
             // Recognizable Vertical Bar Comparison Chart Card
             const chartCard = make('div', undefined, { class: 'ac-vertical-chart-card', role: 'region', 'aria-label': 'Vertical bar comparison chart' });
 
-            const chartStage = make('div', undefined, { class: 'ac-chart-stage' });
+            const chartStage = make('div', undefined, { class: 'ac-chart-stage' + (chartDisplayMode === 'overlay' ? ' ac-stage-overlay' : '') });
 
             // If overlay mode, insert the compact group-colored pill cluster inside the chart stage
             if (chartDisplayMode === 'overlay') {
                 const pillGroup = make('div', undefined, {
-                    class: 'ac-overlay-pill-group ac-overlay-value-strip',
+                    class: 'ac-overlay-pill-group ac-overlay-value-strip' + (selected.length === 3 ? ' has-3-pills' : ''),
                     role: 'group',
                     'aria-label': 'Current group values'
                 });
@@ -837,18 +837,10 @@
                 }
 
                 // In Side-by-side mode: Sub-labels beneath baseline (NO "Group A" / "Group B")
+                // For faculty_subject, faculty and section details belong in the Comparison summary, avoiding chart clutter
                 if (chartDisplayMode !== 'overlay') {
-                    const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
-                    if (dimension === 'faculty_subject') {
-                        const rawLabel = group.faculty_label || group.label;
-                        const parts = rawLabel.split(' · ');
-                        const facName = parts[0] || rawLabel;
-                        const secName = parts.length > 2 ? parts[2] : (parts[1]?.startsWith('Sections') ? parts[1] : (parts[1] || ''));
-                        bottomLabel.append(
-                            make('span', facName, { class: 'ac-bar-sub-label ac-bar-sub-fac', title: rawLabel }),
-                            make('span', secName, { class: 'ac-bar-sub-sec', title: secName })
-                        );
-                    } else {
+                    if (dimension !== 'faculty_subject') {
+                        const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
                         let periodLabel = group.label;
                         if (selected.length === 3) {
                             periodLabel = periodLabel.replace('Semester 1', 'S1').replace('Semester 2', 'S2');
@@ -856,8 +848,8 @@
                         bottomLabel.append(
                             make('span', periodLabel, { class: 'ac-bar-sub-label', title: group.label })
                         );
+                        col.append(bottomLabel);
                     }
-                    col.append(bottomLabel);
                 }
 
                 plotArea.append(col);

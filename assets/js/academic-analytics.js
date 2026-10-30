@@ -1170,7 +1170,6 @@
   const overviewFields=form.querySelectorAll('.filter-field--overview');
   const supportFields=form.querySelectorAll('.filter-field--support');
   const activeFilters=document.getElementById('active-filters');
-  const supportActiveScope=document.getElementById('support-active-scope');
 
   if(tabId==='overview'){
    if(overviewSlot&&!overviewSlot.contains(form)){
@@ -1188,7 +1187,6 @@
     activeFilters.style.display='';
     activeFilters.textContent=lastOverviewScopeStr;
    }
-   if(supportActiveScope)supportActiveScope.style.display='none';
   }else if(tabId==='support'){
    if(supportSlot&&!supportSlot.contains(form)){
     supportSlot.appendChild(form);
@@ -1204,10 +1202,6 @@
    if(activeFilters){
     activeFilters.style.display='';
     activeFilters.textContent=lastSupportScopeStr;
-   }
-   if(supportActiveScope){
-    supportActiveScope.style.display='';
-    supportActiveScope.textContent=lastSupportScopeStr;
    }
   }else if(tabId==='comparisons'||tabId==='trends'){
    form.hidden=true;
@@ -1286,10 +1280,6 @@
   const activeFiltersEl = document.getElementById('active-filters');
   if (activeFiltersEl) {
    activeFiltersEl.textContent = activeScopeText;
-  }
-  const supScopeEl = document.getElementById('support-active-scope');
-  if (supScopeEl) {
-   supScopeEl.textContent = lastSupportScopeStr;
   }
 
   const box=document.getElementById('analytics-summary');

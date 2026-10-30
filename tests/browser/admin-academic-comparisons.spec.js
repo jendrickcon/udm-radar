@@ -203,8 +203,10 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  await expect(valBadgeA).toBeVisible();
 
  const bottomLabelA = page.locator('.ac-col-a .ac-bar-bottom-label');
- const opacityBottomA = await bottomLabelA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
- expect(opacityBottomA).toBeGreaterThanOrEqual(0.80);
+ if (await bottomLabelA.count() > 0) {
+  const opacityBottomA = await bottomLabelA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+  expect(opacityBottomA).toBeGreaterThanOrEqual(0.80);
+ }
 
  const markerA = page.locator('.ac-col-a .ac-bar-inner-marker');
  await expect(markerA).toBeVisible();
@@ -312,18 +314,20 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  const rightSpace3 = (box3Plot.x + box3Plot.width) - (box3C.x + box3C.width);
  expect(Math.abs(leftSpace3 - rightSpace3)).toBeLessThanOrEqual(4);
 
- // No label collision: labels beneath bars must not overlap horizontally
+ // No label collision: if labels beneath bars exist, they must not overlap horizontally
  const labelA = page.locator('.ac-col-a .ac-bar-bottom-label');
  const labelB = page.locator('.ac-col-b .ac-bar-bottom-label');
  const labelC = page.locator('.ac-col-c .ac-bar-bottom-label');
- const boxLabelA = await labelA.boundingBox();
- const boxLabelB = await labelB.boundingBox();
- const boxLabelC = await labelC.boundingBox();
- expect(boxLabelA).not.toBeNull();
- expect(boxLabelB).not.toBeNull();
- expect(boxLabelC).not.toBeNull();
- expect(boxLabelA.x + boxLabelA.width).toBeLessThanOrEqual(boxLabelB.x + 4);
- expect(boxLabelB.x + boxLabelB.width).toBeLessThanOrEqual(boxLabelC.x + 4);
+ if (await labelA.count() > 0 && await labelB.count() > 0 && await labelC.count() > 0) {
+  const boxLabelA = await labelA.boundingBox();
+  const boxLabelB = await labelB.boundingBox();
+  const boxLabelC = await labelC.boundingBox();
+  expect(boxLabelA).not.toBeNull();
+  expect(boxLabelB).not.toBeNull();
+  expect(boxLabelC).not.toBeNull();
+  expect(boxLabelA.x + boxLabelA.width).toBeLessThanOrEqual(boxLabelB.x + 4);
+  expect(boxLabelB.x + boxLabelB.width).toBeLessThanOrEqual(boxLabelC.x + 4);
+ }
 });
 
 test('Overlay mode top value strip, major gridlines only, and label isolation',async({page})=>{
@@ -336,8 +340,7 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
  await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
  await expect(page.locator('.ac-plot-side-by-side .ac-bar-inner-val-badge')).toHaveCount(2);
- await expect(page.locator('.ac-plot-side-by-side .ac-bar-bottom-label')).toHaveCount(2);
- await expect(page.locator('.ac-plot-side-by-side .ac-bar-sub-label')).toHaveCount(2);
+ await expect(page.locator('.ac-plot-side-by-side .ac-bar-bottom-label')).toHaveCount(0);
 
  // 2. Switch to Overlay mode
  await page.locator('[data-display-select="overlay"]').click();
@@ -363,13 +366,21 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await expect(page.locator('.ac-plot-overlay .ac-bar-top-info')).toHaveCount(0);
  await expect(page.locator('.ac-plot-overlay .ac-bar-sub-label')).toHaveCount(0);
 
- // Two-group pill buttons do not overlap and are centered horizontally
+ // Two-group pill buttons do not overlap and are stacked vertically on the right
  const boxItemA = await stripItems.nth(0).boundingBox();
  const boxItemB = await stripItems.nth(1).boundingBox();
  expect(boxItemA).not.toBeNull();
  expect(boxItemB).not.toBeNull();
- expect(boxItemA.x + boxItemA.width).toBeLessThanOrEqual(boxItemB.x + 2);
- expect(Math.abs(boxItemA.y - boxItemB.y)).toBeLessThanOrEqual(4);
+ expect(boxItemA.y + boxItemA.height).toBeLessThanOrEqual(boxItemB.y + 4);
+
+ // Plot area occupies 72% to 80% of stage, right-side controls occupy 20% to 28%
+ const stageBox = await page.locator('.ac-chart-stage').boundingBox();
+ const plotBox = await plotArea.boundingBox();
+ const controlsBox = await valueStrip.boundingBox();
+ expect(plotBox.width / stageBox.width).toBeGreaterThanOrEqual(0.72);
+ expect(plotBox.width / stageBox.width).toBeLessThanOrEqual(0.80);
+ expect(controlsBox.width / stageBox.width).toBeGreaterThanOrEqual(0.20);
+ expect(controlsBox.width / stageBox.width).toBeLessThanOrEqual(0.28);
 
  // Physical overlay front-order stacking when highlighted
  await page.locator('[data-group-select="A"]').first().click();
@@ -729,10 +740,12 @@ test('Comparison chart interaction refinement: redundancy, textured outline, sin
  const btnABorder = await btnA.evaluate(el => window.getComputedStyle(el).borderWidth);
  expect(parseInt(btnABorder, 10)).toBeGreaterThanOrEqual(2);
 
- // 3. Single-line period labels beneath bars in side-by-side mode
+ // 3. Single-line period labels beneath bars in side-by-side mode (when present)
  const labelSubA = page.locator('.ac-col-a .ac-bar-sub-label');
- const whiteSpaceA = await labelSubA.evaluate(el => window.getComputedStyle(el).whiteSpace);
- expect(whiteSpaceA).toBe('nowrap');
+ if (await labelSubA.count() > 0) {
+  const whiteSpaceA = await labelSubA.evaluate(el => window.getComputedStyle(el).whiteSpace);
+  expect(whiteSpaceA).toBe('nowrap');
+ }
 
  // 4. Show both summary: balanced two-column grid
  const showBothBtn = page.locator('[data-group-select="all"]').first();
@@ -796,10 +809,12 @@ test('Live scenario fixture: ITE331 auto-selection, faculty group population, an
  await expect(page.locator('.ac-col-a .ac-bar-inner-val-badge')).toHaveText('87.66%');
  await expect(page.locator('.ac-col-b .ac-bar-inner-val-badge')).toHaveText('84.54%');
  await expect(page.locator('.ac-bar-label-group')).toHaveCount(0);
- await expect(page.locator('.ac-col-a .ac-bar-sub-fac')).toHaveText('Ronald Fernandez');
- await expect(page.locator('.ac-col-a .ac-bar-sub-sec')).toHaveText('Sections IT-31, IT-32, IT-33');
- await expect(page.locator('.ac-col-b .ac-bar-sub-fac')).toHaveText('John Rey Consulta');
- await expect(page.locator('.ac-col-b .ac-bar-sub-sec')).toHaveText('Sections IT-37, IT-38');
+ await expect(page.locator('.ac-bar-sub-fac')).toHaveCount(0);
+ await expect(page.locator('.ac-bar-sub-sec')).toHaveCount(0);
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Ronald Fernandez');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Sections IT-31, IT-32, IT-33');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('John Rey Consulta');
+ await expect(page.locator('[data-comparison-summary]')).toContainText('Sections IT-37, IT-38');
  await expect(page.locator('[data-comparison-summary] .card-status-badge').first()).toHaveText('Interim');
 
  // 9. Switch to Student count
@@ -825,6 +840,67 @@ test('Live scenario fixture: ITE331 auto-selection, faculty group population, an
  await metricSelect.selectOption('prelim_avg');
  await expect(page.locator('#ac-notice')).toHaveText('Two comparable Faculty groups are available across five sections.');
  await expect(page.locator('[data-comparison-summary]')).toContainText('Difference A − B: +3.12 percentage points');
+
+ expect(errors).toEqual([]);
+ expect(writes).toEqual([]);
+});
+
+test('Program Analytics content reduction, duplication audit, and layout hierarchy', async ({ page }) => {
+ const { errors, writes } = await open(page, 'light');
+
+ // 1. Header prototype disclosure is absent
+ await expect(page.locator('.analytics-disclosure')).toHaveCount(0);
+ await expect(page.locator('.header')).not.toContainText('Prototype performance on synthetic academic records');
+
+ // 2. Overview tab density: 4 primary metrics, 1 active-scope strip, 4-block details, no exact table open
+ await page.locator('#tab-btn-overview').click();
+ await expect(page.locator('.analytics-metrics dd')).toHaveCount(4);
+ await expect(page.locator('#tab-panel-overview .analytics-scope-strip:visible')).toHaveCount(1);
+ await expect(page.locator('.analytics-details-grid .analytics-detail-block')).toHaveCount(4);
+ await expect(page.locator('#section-risk-data')).toBeHidden();
+
+ // 3. Support tab: exactly one scope strip, misplaced faculty comparison copy absent, correct sequence
+ await page.locator('#tab-btn-support').click();
+ const supportScopeStrips = page.locator('#tab-panel-support .analytics-scope-strip:visible');
+ await expect(supportScopeStrips).toHaveCount(1);
+ await expect(page.locator('#support-active-scope')).toHaveCount(0);
+ await expect(page.locator('#tab-panel-support')).not.toContainText('undated history is not attributed to a teacher');
+ await expect(page.locator('#tab-panel-support')).toContainText('Case status and referral status apply to the support workload shown below.');
+
+ const supFltBox = await page.locator('#tab-panel-support .analytics-filter-workspace').boundingBox();
+ const supScpBox = await supportScopeStrips.first().boundingBox();
+ const supWkBox = await page.locator('#tab-panel-support #support-workload-summary').boundingBox();
+ expect(supFltBox.y).toBeLessThan(supScpBox.y);
+ expect(supScpBox.y).toBeLessThan(supWkBox.y);
+ await expect(page.locator('#support-workload-summary .stat-card')).toHaveCount(5);
+
+ // 4. Academic Comparisons: Beside-the-chart overlay pills and plot width proportion
+ await page.locator('#tab-btn-comparisons').click();
+ await faculty(page);
+ await page.locator('[data-display-select="overlay"]').click();
+
+ const stageBox = await page.locator('.ac-chart-stage').boundingBox();
+ const plotBox = await page.locator('.ac-plot-overlay').boundingBox();
+ const controlsBox = await page.locator('.ac-overlay-pill-group').boundingBox();
+ expect(plotBox.width / stageBox.width).toBeGreaterThanOrEqual(0.72);
+ expect(plotBox.width / stageBox.width).toBeLessThanOrEqual(0.80);
+ expect(controlsBox.width / stageBox.width).toBeGreaterThanOrEqual(0.20);
+ expect(controlsBox.width / stageBox.width).toBeLessThanOrEqual(0.28);
+ expect(controlsBox.x).toBeGreaterThan(plotBox.x + plotBox.width * 0.7);
+
+ // Vertical stack of pills
+ const pillA = page.locator('.ac-value-strip-item.ac-item-a');
+ const pillB = page.locator('.ac-value-strip-item.ac-item-b');
+ const boxA = await pillA.boundingBox();
+ const boxB = await pillB.boundingBox();
+ expect(boxA.y + boxA.height).toBeLessThanOrEqual(boxB.y + 4);
+
+ // Bars centered inside plot region
+ const colA = await page.locator('.ac-col-a').boundingBox();
+ const colB = await page.locator('.ac-col-b').boundingBox();
+ const clusterCenter = (colA.x + colB.x + colB.width) / 2;
+ const plotCenter = plotBox.x + plotBox.width / 2;
+ expect(Math.abs(clusterCenter - plotCenter)).toBeLessThanOrEqual(15);
 
  expect(errors).toEqual([]);
  expect(writes).toEqual([]);

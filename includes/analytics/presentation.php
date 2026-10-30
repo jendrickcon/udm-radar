@@ -298,8 +298,6 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </header>
 
-        <p class="analytics-disclosure">Prototype performance on synthetic academic records</p>
-
         <?php if (!empty($tabs)): ?>
         <!-- Accessible Tab Navigation Bar -->
         <div class="analytics-tabs-wrapper">
@@ -414,7 +412,7 @@ function analyticsPage(string $role): void {
 
             <?php if ($role !== 'student'): ?>
             <p class="analytics-note">
-                Case status and referral status apply to the support summary. Academic section and Faculty comparisons use verified current assignments; undated history is not attributed to a teacher.
+                Case status and referral status apply to the support workload shown below.
             </p>
             <?php endif; ?>
         </form>
@@ -833,8 +831,6 @@ function analyticsPage(string $role): void {
                     </div>
 
                     <div id="support-filter-slot" class="analytics-tab-filter-slot"></div>
-
-                    <p id="support-active-scope" class="analytics-context analytics-scope-strip" style="display: none;"></p>
 
                     <div id="support-empty-guidance" class="card support-empty-guidance" style="display: none;"></div>
 
