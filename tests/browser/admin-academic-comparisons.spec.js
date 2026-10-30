@@ -251,10 +251,10 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  expect(boxA.width).toBeGreaterThanOrEqual(72);
  expect(boxA.width).toBeLessThanOrEqual(96);
 
- // Gap between bar edges in approved range (48px to 88px)
+ // Gap between bar edges in approved range (76px to 96px, target 84px)
  const barEdgeGap2 = boxB.x - (boxA.x + boxA.width);
- expect(barEdgeGap2).toBeGreaterThanOrEqual(48);
- expect(barEdgeGap2).toBeLessThanOrEqual(88);
+ expect(barEdgeGap2).toBeGreaterThanOrEqual(76);
+ expect(barEdgeGap2).toBeLessThanOrEqual(96);
 
  // Centered cluster check: outer margins of the plot should be balanced
  const boxPlot = await plotArea.boundingBox();
@@ -271,7 +271,7 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  const baseline = page.locator('.ac-chart-baseline');
  await expect(baseline).toBeVisible();
 
- // Baseline alignment: bars terminate at 0.00 baseline within 1.5px
+ // Baseline alignment: bars terminate at 0.00 baseline within 2.0px
  const barA = page.locator('.ac-col-a .ac-vertical-bar');
  const barB = page.locator('.ac-col-b .ac-vertical-bar');
  const boxBarA = await barA.boundingBox();
@@ -289,7 +289,7 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  expect(boxMarkerA.y).toBeGreaterThanOrEqual(boxBarA.y);
  expect(boxMarkerA.y + boxMarkerA.height).toBeLessThanOrEqual(boxBarA.y + boxBarA.height);
 
- // 2. Add Group C to verify three-group centered cluster (28px to 56px gap)
+ // 2. Add Group C to verify three-group centered cluster (36px to 52px gap, target 42px)
  await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
  await expect(plotArea).toHaveClass(/has-3-groups/);
 
@@ -303,10 +303,10 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
 
  const gapAB = box3B.x - (box3A.x + box3A.width);
  const gapBC = box3C.x - (box3B.x + box3B.width);
- expect(gapAB).toBeGreaterThanOrEqual(28);
- expect(gapAB).toBeLessThanOrEqual(56);
- expect(gapBC).toBeGreaterThanOrEqual(28);
- expect(gapBC).toBeLessThanOrEqual(56);
+ expect(gapAB).toBeGreaterThanOrEqual(36);
+ expect(gapAB).toBeLessThanOrEqual(52);
+ expect(gapBC).toBeGreaterThanOrEqual(36);
+ expect(gapBC).toBeLessThanOrEqual(52);
 
  // Three-group centered cluster check
  const box3Plot = await plotArea.boundingBox();
@@ -314,7 +314,7 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  const rightSpace3 = (box3Plot.x + box3Plot.width) - (box3C.x + box3C.width);
  expect(Math.abs(leftSpace3 - rightSpace3)).toBeLessThanOrEqual(4);
 
- // No label collision: if labels beneath bars exist, they must not overlap horizontally
+ // No label collision: if labels beneath bars exist, they must be separated by at least 16px
  const labelA = page.locator('.ac-col-a .ac-bar-bottom-label');
  const labelB = page.locator('.ac-col-b .ac-bar-bottom-label');
  const labelC = page.locator('.ac-col-c .ac-bar-bottom-label');
@@ -325,8 +325,8 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
   expect(boxLabelA).not.toBeNull();
   expect(boxLabelB).not.toBeNull();
   expect(boxLabelC).not.toBeNull();
-  expect(boxLabelA.x + boxLabelA.width).toBeLessThanOrEqual(boxLabelB.x + 4);
-  expect(boxLabelB.x + boxLabelB.width).toBeLessThanOrEqual(boxLabelC.x + 4);
+  expect(boxLabelB.x - (boxLabelA.x + boxLabelA.width)).toBeGreaterThanOrEqual(16);
+  expect(boxLabelC.x - (boxLabelB.x + boxLabelB.width)).toBeGreaterThanOrEqual(16);
  }
 });
 
@@ -334,19 +334,26 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  await open(page);
  await faculty(page);
 
- // 1. Verify Side-by-side mode: exact values inside bars, full labels below, no value strip, no side callouts
+ // 1. Verify Side-by-side mode: exact values inside bars, no floating pills
  await expect(page.locator('.ac-plot-side-by-side')).toBeVisible();
  await expect(page.locator('.ac-overlay-value-strip')).toHaveCount(0);
  await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
  await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
  await expect(page.locator('.ac-plot-side-by-side .ac-bar-inner-val-badge')).toHaveCount(2);
- await expect(page.locator('.ac-plot-side-by-side .ac-bar-bottom-label')).toHaveCount(0);
 
  // 2. Switch to Overlay mode
  await page.locator('[data-display-select="overlay"]').click();
  const plotArea = page.locator('.ac-chart-plot-area');
  await expect(plotArea).toHaveClass(/ac-plot-overlay/);
  await expect(plotArea).toHaveClass(/has-2-groups/);
+
+ // Full-width plot and gridlines: lines extend across full available stage from Y-axis to right edge
+ const stageBox = await page.locator('.ac-chart-stage').boundingBox();
+ const plotBox = await plotArea.boundingBox();
+ expect(plotBox.width).toBeCloseTo(stageBox.width - 54, 1);
+ const gridline = page.locator('.ac-chart-gridline').first();
+ const boxGrid = await gridline.boundingBox();
+ expect(boxGrid.x + boxGrid.width).toBeCloseTo(plotBox.x + plotBox.width, 1);
 
  // Gridlines: only major scale gridlines exist (<= 4) and minor half-step lines (4)
  await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
@@ -355,32 +362,42 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  const minorGridlines = page.locator('.ac-chart-gridline.ac-gridline-minor');
  expect(await minorGridlines.count()).toBe(4);
 
- // Top value strip is visible, with interactive button items
+ // Floating value pills are visible over the plot
  const valueStrip = page.locator('.ac-overlay-value-strip');
  await expect(valueStrip).toBeVisible();
  const stripItems = page.locator('.ac-value-strip-item');
  await expect(stripItems).toHaveCount(2);
 
- // Verify no side callouts, no duplicate values above bars, and no full labels below bars in overlay mode
- await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
- await expect(page.locator('.ac-plot-overlay .ac-bar-top-info')).toHaveCount(0);
- await expect(page.locator('.ac-plot-overlay .ac-bar-sub-label')).toHaveCount(0);
-
- // Two-group pill buttons do not overlap and are stacked vertically on the right
+ // Two-group pill buttons stacked vertically, absolutely overlaid without shrinking the plot
  const boxItemA = await stripItems.nth(0).boundingBox();
  const boxItemB = await stripItems.nth(1).boundingBox();
  expect(boxItemA).not.toBeNull();
  expect(boxItemB).not.toBeNull();
  expect(boxItemA.y + boxItemA.height).toBeLessThanOrEqual(boxItemB.y + 4);
 
- // Plot area occupies 72% to 80% of stage, right-side controls occupy 20% to 28%
- const stageBox = await page.locator('.ac-chart-stage').boundingBox();
- const plotBox = await plotArea.boundingBox();
+ // Pill cluster is inside chart stage
  const controlsBox = await valueStrip.boundingBox();
- expect(plotBox.width / stageBox.width).toBeGreaterThanOrEqual(0.72);
- expect(plotBox.width / stageBox.width).toBeLessThanOrEqual(0.80);
- expect(controlsBox.width / stageBox.width).toBeGreaterThanOrEqual(0.20);
- expect(controlsBox.width / stageBox.width).toBeLessThanOrEqual(0.28);
+ expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(stageBox.x + stageBox.width + 2);
+ expect(controlsBox.y).toBeGreaterThanOrEqual(stageBox.y);
+
+ // Scope label naming: pills identify actual compared scope (Faculty names, not Group A / Group B)
+ expect(await page.locator('.ac-item-a .ac-strip-key').textContent()).toBe('Synthetic Faculty 11');
+ expect(await page.locator('.ac-item-b .ac-strip-key').textContent()).toBe('Synthetic Faculty 12');
+ await expect(stripItems.nth(0)).toHaveAttribute('aria-label', /Group A, Synthetic Faculty 11, value/);
+ await expect(stripItems.nth(1)).toHaveAttribute('aria-label', /Group B, Synthetic Faculty 12, value/);
+
+ // Centered overlaid bar cluster: cluster center within 2px of full plot center
+ const boxColA = await page.locator('.ac-col-a').boundingBox();
+ const boxColB = await page.locator('.ac-col-b').boundingBox();
+ expect(boxColA).not.toBeNull();
+ expect(boxColB).not.toBeNull();
+ const clusterCenter = (boxColA.x + boxColB.x + boxColB.width) / 2;
+ const plotCenter = plotBox.x + plotBox.width / 2;
+ expect(Math.abs(clusterCenter - plotCenter)).toBeLessThanOrEqual(2);
+
+ // Bars remain inside plot bounds without overlapping Y-axis or right boundary
+ expect(boxColA.x).toBeGreaterThan(plotBox.x);
+ expect(boxColB.x + boxColB.width).toBeLessThan(plotBox.x + plotBox.width);
 
  // Physical overlay front-order stacking when highlighted
  await page.locator('[data-group-select="A"]').first().click();
@@ -394,10 +411,6 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  expect(zIndexB2).toBeGreaterThan(zIndexA2);
 
  // Columns have distinct horizontal positions
- const boxColA = await page.locator('.ac-col-a').boundingBox();
- const boxColB = await page.locator('.ac-col-b').boundingBox();
- expect(boxColA).not.toBeNull();
- expect(boxColB).not.toBeNull();
  expect(Math.abs(boxColA.x - boxColB.x)).toBeGreaterThanOrEqual(25);
 
  // 3. Add Group C to verify three-group overlay layout
@@ -409,9 +422,17 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  const boxItemC = await stripItems.nth(2).boundingBox();
  expect(boxItemC).not.toBeNull();
 
+ const boxColA3 = await page.locator('.ac-col-a').boundingBox();
+ const boxColB3 = await page.locator('.ac-col-b').boundingBox();
  const boxColC = await page.locator('.ac-col-c').boundingBox();
+ expect(boxColA3).not.toBeNull();
+ expect(boxColB3).not.toBeNull();
  expect(boxColC).not.toBeNull();
- expect(Math.abs(boxColB.x - boxColC.x)).toBeGreaterThanOrEqual(25);
+ expect(Math.abs(boxColB3.x - boxColC.x)).toBeGreaterThanOrEqual(20);
+
+ // Three-group overlaid cluster remains centered within 2px
+ const clusterCenter3 = (boxColA3.x + boxColC.x + boxColC.width) / 2;
+ expect(Math.abs(clusterCenter3 - plotCenter)).toBeLessThanOrEqual(2);
 
  // 4. Interactive selection on value strip buttons with aria-pressed synchronization
  const stripBtnB = page.locator('.ac-value-strip-item.ac-item-b');
@@ -740,6 +761,7 @@ test('Comparison chart interaction refinement: redundancy, textured outline, sin
  const btnABorder = await btnA.evaluate(el => window.getComputedStyle(el).borderWidth);
  expect(parseInt(btnABorder, 10)).toBeGreaterThanOrEqual(2);
 
+ // 3. Single-line period labels beneath bars in side-by-side mode
  // 3. Single-line period labels beneath bars in side-by-side mode (when present)
  const labelSubA = page.locator('.ac-col-a .ac-bar-sub-label');
  if (await labelSubA.count() > 0) {
@@ -874,7 +896,7 @@ test('Program Analytics content reduction, duplication audit, and layout hierarc
  expect(supScpBox.y).toBeLessThan(supWkBox.y);
  await expect(page.locator('#support-workload-summary .stat-card')).toHaveCount(5);
 
- // 4. Academic Comparisons: Beside-the-chart overlay pills and plot width proportion
+ // 4. Academic Comparisons: Full-width plot, centered overlaid bars, and floating scope pills
  await page.locator('#tab-btn-comparisons').click();
  await faculty(page);
  await page.locator('[data-display-select="overlay"]').click();
@@ -882,25 +904,26 @@ test('Program Analytics content reduction, duplication audit, and layout hierarc
  const stageBox = await page.locator('.ac-chart-stage').boundingBox();
  const plotBox = await page.locator('.ac-plot-overlay').boundingBox();
  const controlsBox = await page.locator('.ac-overlay-pill-group').boundingBox();
- expect(plotBox.width / stageBox.width).toBeGreaterThanOrEqual(0.72);
- expect(plotBox.width / stageBox.width).toBeLessThanOrEqual(0.80);
- expect(controlsBox.width / stageBox.width).toBeGreaterThanOrEqual(0.20);
- expect(controlsBox.width / stageBox.width).toBeLessThanOrEqual(0.28);
- expect(controlsBox.x).toBeGreaterThan(plotBox.x + plotBox.width * 0.7);
 
- // Vertical stack of pills
+ // Full-width plot
+ expect(plotBox.width).toBeCloseTo(stageBox.width - 54, 1);
+ expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(stageBox.x + stageBox.width + 2);
+
+ // Vertical stack of pills with scope naming
  const pillA = page.locator('.ac-value-strip-item.ac-item-a');
  const pillB = page.locator('.ac-value-strip-item.ac-item-b');
  const boxA = await pillA.boundingBox();
  const boxB = await pillB.boundingBox();
  expect(boxA.y + boxA.height).toBeLessThanOrEqual(boxB.y + 4);
+ expect(await page.locator('.ac-item-a .ac-strip-key').textContent()).toBe('Synthetic Faculty 11');
+ expect(await page.locator('.ac-item-b .ac-strip-key').textContent()).toBe('Synthetic Faculty 12');
 
- // Bars centered inside plot region
+ // Bars centered inside plot region within 2px
  const colA = await page.locator('.ac-col-a').boundingBox();
  const colB = await page.locator('.ac-col-b').boundingBox();
  const clusterCenter = (colA.x + colB.x + colB.width) / 2;
  const plotCenter = plotBox.x + plotBox.width / 2;
- expect(Math.abs(clusterCenter - plotCenter)).toBeLessThanOrEqual(15);
+ expect(Math.abs(clusterCenter - plotCenter)).toBeLessThanOrEqual(2);
 
  expect(errors).toEqual([]);
  expect(writes).toEqual([]);

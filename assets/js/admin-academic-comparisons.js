@@ -679,14 +679,90 @@
             toolbarsRow.append(displayGroup);
             plot.append(toolbarsRow);
 
+            const formatScopeLabel = (group, dim, isCompact = false) => {
+                if (!group) return '';
+                if (dim === 'faculty_subject') {
+                    const raw = group.faculty_label || group.label || '';
+                    const parts = raw.split(' · ');
+                    const fac = parts[0] || raw;
+                    if (isCompact && fac.length > 15) {
+                        const nameParts = fac.split(' ');
+                        if (nameParts.length > 1) {
+                            return nameParts.slice(0, -1).join(' ') + ' ' + nameParts[nameParts.length - 1][0] + '.';
+                        }
+                    }
+                    return fac;
+                }
+                if (dim === 'semester') {
+                    let lbl = group.label || '';
+                    if (isCompact) {
+                        lbl = lbl.replace('Semester 1', 'S1').replace('Semester 2', 'S2');
+                    }
+                    return lbl;
+                }
+                if (dim === 'subject') {
+                    const raw = group.label || '';
+                    return raw.split(' · ')[0].trim();
+                }
+                if (dim === 'section') {
+                    const raw = group.label || '';
+                    return raw.replace(/^Section\s+/i, '').trim();
+                }
+                if (dim === 'year_level') {
+                    return group.label || '';
+                }
+                return group.label || '';
+            };
+
+            const adjustPillPlacement = (pills, stageEl, colEls) => {
+                if (!pills || !stageEl || !colEls.length) return;
+                pills.classList.remove('pos-upper-left', 'pos-top-center');
+                const pillRect = pills.getBoundingClientRect();
+                if (!pillRect.width || !pillRect.height) return;
+
+                let collides = false;
+                for (const col of colEls) {
+                    const bar = col.querySelector('.ac-vertical-bar');
+                    if (!bar) continue;
+                    const bRect = bar.getBoundingClientRect();
+                    if (bRect.top < pillRect.bottom + 6 && bRect.bottom > pillRect.top - 6 &&
+                        bRect.left < pillRect.right + 6 && bRect.right > pillRect.left - 6) {
+                        collides = true;
+                        break;
+                    }
+                }
+                if (!collides) return;
+
+                // Attempt upper-left
+                pills.classList.add('pos-upper-left');
+                const leftRect = pills.getBoundingClientRect();
+                let leftCollides = false;
+                for (const col of colEls) {
+                    const bar = col.querySelector('.ac-vertical-bar');
+                    if (!bar) continue;
+                    const bRect = bar.getBoundingClientRect();
+                    if (bRect.top < leftRect.bottom + 6 && bRect.bottom > leftRect.top - 6 &&
+                        bRect.left < leftRect.right + 6 && bRect.right > leftRect.left - 6) {
+                        leftCollides = true;
+                        break;
+                    }
+                }
+                if (!leftCollides) return;
+
+                // Fallback: top center row
+                pills.classList.remove('pos-upper-left');
+                pills.classList.add('pos-top-center');
+            };
+
             // Recognizable Vertical Bar Comparison Chart Card
             const chartCard = make('div', undefined, { class: 'ac-vertical-chart-card', role: 'region', 'aria-label': 'Vertical bar comparison chart' });
 
             const chartStage = make('div', undefined, { class: 'ac-chart-stage' + (chartDisplayMode === 'overlay' ? ' ac-stage-overlay' : '') });
 
             // If overlay mode, insert the compact group-colored pill cluster inside the chart stage
+            let pillGroup = null;
             if (chartDisplayMode === 'overlay') {
-                const pillGroup = make('div', undefined, {
+                pillGroup = make('div', undefined, {
                     class: 'ac-overlay-pill-group ac-overlay-value-strip' + (selected.length === 3 ? ' has-3-pills' : ''),
                     role: 'group',
                     'aria-label': 'Current group values'
@@ -694,17 +770,19 @@
                 selected.forEach((group, index) => {
                     const letter = 'ABC'[index];
                     const isSelected = highlightedGroup === letter;
+                    const scopeName = formatScopeLabel(group, dimension, selected.length === 3);
                     const pillBtn = make('button', undefined, {
                         type: 'button',
                         class: 'ac-overlay-pill ac-value-strip-item ac-item-' + letter.toLowerCase() + ' ac-pill-' + letter.toLowerCase() + (isSelected ? ' is-selected' : ''),
                         'data-group-select': letter,
                         'aria-pressed': String(isSelected),
-                        'aria-label': 'Highlight Group ' + letter + ', ' + metrics[metric] + ' ' + valueText(group)
+                        'aria-label': 'Group ' + letter + ', ' + formatScopeLabel(group, dimension) + ', value ' + valueText(group),
+                        title: group.label
                     });
                     const indicator = make('span', isSelected ? '✓' : '', { class: 'ac-pill-indicator', 'aria-hidden': 'true' });
                     pillBtn.append(
                         make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                        make('span', 'Group ' + letter, { class: 'ac-pill-key ac-strip-key' }),
+                        make('span', scopeName, { class: 'ac-pill-key ac-strip-key' }),
                         make('strong', valueText(group), { class: 'ac-pill-val ac-strip-val' }),
                         indicator
                     );
@@ -841,10 +919,7 @@
                 if (chartDisplayMode !== 'overlay') {
                     if (dimension !== 'faculty_subject') {
                         const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
-                        let periodLabel = group.label;
-                        if (selected.length === 3) {
-                            periodLabel = periodLabel.replace('Semester 1', 'S1').replace('Semester 2', 'S2');
-                        }
+                        let periodLabel = formatScopeLabel(group, dimension, selected.length === 3);
                         bottomLabel.append(
                             make('span', periodLabel, { class: 'ac-bar-sub-label', title: group.label })
                         );
@@ -856,6 +931,10 @@
             });
             chartStage.append(plotArea);
             chartCard.append(chartStage);
+
+            if (pillGroup) {
+                adjustPillPlacement(pillGroup, chartStage, plotArea.querySelectorAll('.ac-bar-column'));
+            }
 
             // Chart Difference Annotation
             const diffAnnotation = make('div', undefined, { class: 'ac-chart-diff-annotation' });
