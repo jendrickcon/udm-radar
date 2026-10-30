@@ -474,3 +474,196 @@ test('Progressive filter intersection, duplicate exclusion, and empty intersecti
  const btnClear = emptyCard.getByRole('button',{name:'Clear comparison'});
  await expect(btnClear).toBeVisible();
 });
+
+test('Shared tab architecture and consistent sequence across Overview, Academic Comparisons, and Support tabs', async({ page }) => {
+ await open(page);
+
+ // 1. Overview Tab Structural Sequence
+ await page.locator('#tab-btn-overview').click();
+ const ovTitle = page.locator('#tab-panel-overview .analytics-tab-title');
+ const ovIntro = page.locator('#tab-panel-overview .analytics-tab-intro');
+ const ovFilterWs = page.locator('#tab-panel-overview .analytics-filter-workspace');
+ const ovScope = page.locator('#tab-panel-overview #active-filters');
+ const ovSummary = page.locator('#tab-panel-overview #analytics-summary');
+ const ovMethod = page.locator('#tab-panel-overview #analytics-method');
+
+ await expect(ovTitle).toHaveText('Program Analytics Overview');
+ await expect(ovIntro).toHaveText('Understand recorded academic results and historical patterns.');
+ await expect(ovFilterWs).toBeVisible();
+ await expect(ovFilterWs.locator('#filter-workspace-title')).toHaveText('Filter this view');
+ await expect(ovScope).toBeVisible();
+ await expect(ovScope).toContainText('Current scope:');
+ await expect(ovSummary).toBeVisible();
+ await expect(ovMethod).toBeVisible();
+
+ const ovTitleBox = await ovTitle.boundingBox();
+ const ovFltBox = await ovFilterWs.boundingBox();
+ const ovScpBox = await ovScope.boundingBox();
+ const ovSumBox = await ovSummary.boundingBox();
+ expect(ovTitleBox.y).toBeLessThan(ovFltBox.y);
+ expect(ovFltBox.y).toBeLessThan(ovScpBox.y);
+ expect(ovScpBox.y).toBeLessThan(ovSumBox.y);
+
+ // 2. Academic Comparisons Tab Structural Sequence
+ await page.locator('#tab-btn-comparisons').click();
+ const compTitle = page.locator('#tab-panel-comparisons h2#admin-comparison-heading');
+ const compIntro = page.locator('#tab-panel-comparisons p.ac-intro');
+ const compWs = page.locator('#tab-panel-comparisons .ac-workspace');
+ const compResult = page.locator('#tab-panel-comparisons #ac-result');
+
+ await expect(compTitle).toHaveText('Academic Comparisons');
+ await expect(compIntro).toContainText('Compare academic groups using the same scope, period, and metric.');
+ await expect(compWs).toBeVisible();
+ await expect(compResult).toBeVisible();
+
+ const compTitleBox = await compTitle.boundingBox();
+ const compWsBox = await compWs.boundingBox();
+ expect(compTitleBox.y).toBeLessThan(compWsBox.y);
+
+ // 3. Support and Interventions Tab Structural Sequence
+ await page.locator('#tab-btn-support').click();
+ const supTitle = page.locator('#tab-panel-support .analytics-tab-title');
+ const supIntro = page.locator('#tab-panel-support .analytics-tab-intro');
+ const supFilterWs = page.locator('#tab-panel-support .analytics-filter-workspace');
+ const supScope = page.locator('#tab-panel-support #active-filters');
+ const supWorkload = page.locator('#tab-panel-support #support-workload-summary');
+ const supCharts = page.locator('#tab-panel-support .support-charts-grid');
+ const supActions = page.locator('#tab-panel-support #drilldown-table');
+ const supEvidence = page.locator('#tab-panel-support #support-table');
+
+ await expect(supTitle).toHaveText('Support and Interventions');
+ await expect(supIntro).toHaveText('Review support workload and recorded intervention activity.');
+ await expect(supFilterWs).toBeVisible();
+ await expect(supFilterWs.locator('#filter-workspace-title')).toHaveText('Filter this view');
+ await expect(supScope).toBeVisible();
+ await expect(supScope).toContainText('Current support scope:');
+ await expect(supWorkload).toBeVisible();
+ await expect(supCharts).toBeVisible();
+ await expect(supActions).toBeVisible();
+ await expect(supEvidence).toBeVisible();
+
+ const supTitleBox = await supTitle.boundingBox();
+ const supFltBox = await supFilterWs.boundingBox();
+ const supScpBox = await supScope.boundingBox();
+ const supWkBox = await supWorkload.boundingBox();
+ const supChtBox = await supCharts.boundingBox();
+ const supActBox = await supActions.boundingBox();
+ const supEvtBox = await supEvidence.boundingBox();
+
+ expect(supTitleBox.y).toBeLessThan(supFltBox.y);
+ expect(supFltBox.y).toBeLessThan(supScpBox.y);
+ expect(supScpBox.y).toBeLessThan(supWkBox.y);
+ expect(supWkBox.y).toBeLessThan(supChtBox.y);
+ expect(supChtBox.y).toBeLessThan(supActBox.y);
+ expect(supActBox.y).toBeLessThan(supEvtBox.y);
+});
+
+test('Overview tab visible important filters and scope updates', async({ page }) => {
+ await open(page);
+ await page.locator('#tab-btn-overview').click();
+
+ // All 4 primary filters must be visible and permanent (no hidden details)
+ const selSy = page.locator('#analytics-school_year');
+ const selSem = page.locator('#analytics-semester');
+ const selYr = page.locator('#analytics-year_level');
+ const selSec = page.locator('#analytics-section');
+
+ await expect(selSy).toBeVisible();
+ await expect(selSem).toBeVisible();
+ await expect(selYr).toBeVisible();
+ await expect(selSec).toBeVisible();
+
+ // Support filters must be hidden in Overview
+ await expect(page.locator('#analytics-case_status')).toBeHidden();
+ await expect(page.locator('#analytics-decision')).toBeHidden();
+
+ // Scope strip reflects selected options
+ await selSy.selectOption('2026-2027');
+ await selSem.selectOption('1');
+ await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+
+ const scopeStrip = page.locator('#tab-panel-overview #active-filters');
+ await expect(scopeStrip).toContainText('2026-2027');
+ await expect(scopeStrip).toContainText('Semester 1');
+
+ // Recorded Academic Results Level 1 & Level 2 details remain full-width
+ const metricsBox = page.locator('.analytics-metrics');
+ const detailsWs = page.locator('.analytics-details-workspace');
+ await expect(metricsBox).toBeVisible();
+ await expect(detailsWs).toBeVisible();
+});
+
+test('Support tab visible filters, workload metrics separation, timing contracts, and empty-state guidance', async({ page }) => {
+ await open(page);
+ await page.locator('#tab-btn-support').click();
+
+ // 5 Support primary filters must be visible
+ await expect(page.locator('#analytics-school_year')).toBeVisible();
+ await expect(page.locator('#analytics-semester')).toBeVisible();
+ await expect(page.locator('#analytics-case_status')).toBeVisible();
+ await expect(page.locator('#analytics-decision')).toBeVisible();
+ await expect(page.locator('#analytics-section')).toBeVisible();
+
+ // Overview-only filter (year_level) must be hidden in Support
+ await expect(page.locator('#analytics-year_level')).toBeHidden();
+
+ // Workload summary metrics exist as distinct truthful counters
+ const mPending = page.locator('[data-support-workload="pending-reviews"]');
+ const mOpen = page.locator('[data-support-workload="open-cases"]');
+ const mRef = page.locator('[data-support-workload="referrals"]');
+ const mNotices = page.locator('[data-support-workload="notices"]');
+ const mAck = page.locator('[data-support-workload="acknowledgments"]');
+
+ await expect(mPending).toBeVisible();
+ await expect(mOpen).toBeVisible();
+ await expect(mRef).toBeVisible();
+ await expect(mNotices).toBeVisible();
+ await expect(mAck).toBeVisible();
+
+ // Timing results: MTR-20, median parent-case duration, and explicit MTR-21 unavailable notice
+ const timingContainer = page.locator('#chart-first-notice');
+ await expect(timingContainer).toContainText('AVERAGE TIME BEFORE FIRST NOTICE (MTR-20)');
+ await expect(timingContainer).toContainText('MEDIAN PARENT-CASE DURATION');
+ await expect(timingContainer).toContainText('Canonical referral closure or reopening duration (MTR-21) remains unavailable until required referral-lifecycle data contracts exist.');
+
+ // Authorized next actions table
+ await expect(page.locator('#drilldown-table')).toBeVisible();
+
+ // Support limits notice
+ const limits = page.locator('#support-limits');
+ await expect(limits).toBeVisible();
+ await expect(limits).toContainText('MTR-20 is the arithmetic mean');
+});
+
+test('Cross-tab responsive filter layout, consistent control dimensions, and theme parity', async({ page }) => {
+ for (const { width, height } of [{ width: 1440, height: 900 }, { width: 1280, height: 600 }, { width: 1024, height: 768 }]) {
+  for (const theme of ['light', 'dark']) {
+   await page.setViewportSize({ width, height });
+   await open(page, theme);
+   await page.locator('#tab-btn-overview').click();
+
+   // Filter select height approx 44px
+   const sySelect = page.locator('#analytics-school_year');
+   const box = await sySelect.boundingBox();
+   expect(box.height).toBeGreaterThanOrEqual(40);
+   expect(box.height).toBeLessThanOrEqual(48);
+
+   // Filter workspace padding between 20px and 24px
+   const wsPadding = await page.locator('.analytics-filter-workspace').first().evaluate(e => {
+    const s = getComputedStyle(e);
+    return parseFloat(s.paddingTop);
+   });
+   expect(wsPadding).toBeGreaterThanOrEqual(20);
+   expect(wsPadding).toBeLessThanOrEqual(24);
+
+   // No horizontal overflow
+   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+   expect(overflow, `No horizontal overflow at ${width}x${height} ${theme}`).toBe(false);
+
+   // Check Support tab responsive containment
+   await page.locator('#tab-btn-support').click();
+   const supOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+   expect(supOverflow, `No horizontal overflow in Support tab at ${width}x${height} ${theme}`).toBe(false);
+  }
+ }
+});

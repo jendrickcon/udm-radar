@@ -2,7 +2,7 @@
  'use strict';
  const root=document.getElementById('academic-analytics');if(!root)return;
  const role=root.dataset.role, form=document.getElementById('analytics-filters'), results=document.getElementById('analytics-results'), state=document.getElementById('analytics-state');
- const labels={school_year:'School year',semester:'Semester',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty:'Faculty',case_status:'Case status',decision:'Referral decision'};
+ const labels={school_year:'School year',semester:'Semester',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty:'Faculty',case_status:'Case status',decision:'Referral status'};
  const dimensions={semester:'Semester',school_year:'School year',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty_subject:'Faculty assignment'};
  const dimensionMetrics={
   semester:[
@@ -1038,6 +1038,41 @@
    flowContainer.append(svg);
   }
 
+  // Workload Summary (5 Metrics)
+  const pendingReviews=Math.max(0,(s.referrals_created||0)-(s.referrals_reviewed||0));
+  const setSupportWorkload=(key,val)=>{
+   const el=document.querySelector(`[data-support-workload="${key}"]`);
+   if(el)el.textContent=String(val);
+  };
+  setSupportWorkload('pending-reviews',pendingReviews);
+  setSupportWorkload('open-cases',s.open_cases??0);
+  setSupportWorkload('referrals',s.referrals_created??0);
+  setSupportWorkload('notices',s.notices_issued??0);
+  setSupportWorkload('acknowledgments',s.student_acknowledgments??0);
+
+  // Empty State Guidance
+  const emptyGuidance=document.getElementById('support-empty-guidance');
+  const isSupportEmpty=(s.eligible_cases===0&&s.referrals_created===0);
+  if(emptyGuidance){
+   if(isSupportEmpty){
+    emptyGuidance.style.display='block';
+    emptyGuidance.replaceChildren();
+    const p=el('p','No support or intervention records are available for the selected scope.');
+    const actions=el('div',undefined,{class:'support-empty-actions'});
+    const clearBtn=el('button','Clear filters',{type:'button',class:'btn btn--secondary'});
+    clearBtn.addEventListener('click',()=>{
+     form.reset();
+     updateAdvancedFiltersBadge();
+     load(new URLSearchParams());
+    });
+    actions.append(clearBtn);
+    emptyGuidance.append(p,actions);
+   }else{
+    emptyGuidance.style.display='none';
+    emptyGuidance.replaceChildren();
+   }
+  }
+
   // Chart 3: First-Notice Timing
   const timingContainer=document.getElementById('chart-first-notice');
   if(timingContainer){
@@ -1062,7 +1097,8 @@
    const valParentStr=s.median_closure_hours!==null?`${num(s.median_closure_hours)} hours (n=${s.closure_sample})`:'Unavailable';
    const valParentEl=el('div',valParentStr,{style:'font-size:1.15rem;font-weight:700;color:var(--text-dark);'});
    const subParentEl=el('div','Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:2px;line-height:1.35;'});
-   timingBox.append(divider,titleParent,valParentEl,subParentEl);
+   const mtr21Notice=el('div','Canonical referral closure or reopening duration (MTR-21) remains unavailable until required referral-lifecycle data contracts exist.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:6px;font-style:italic;line-height:1.35;'});
+   timingBox.append(divider,titleParent,valParentEl,subParentEl,mtr21Notice);
    timingContainer.append(timingBox);
   }
 
@@ -1108,6 +1144,9 @@
   }
  }
 
+ let lastOverviewScopeStr = 'Current scope: All authorized recorded values';
+ let lastSupportScopeStr = 'Current support scope: All authorized recorded values';
+
  function switchTab(tabId){
   activeTab=tabId;
   const tabButtons=root.querySelectorAll('.analytics-tablist .tab-btn');
@@ -1123,11 +1162,56 @@
    const match=p.id==='tab-panel-'+tabId;
    p.hidden=!match;
   });
-  if(role==='admin')form.hidden=tabId==='comparisons';
 
-  const supFilters=document.getElementById('support-only-filters');
-  if(supFilters){
-   supFilters.style.display=(tabId==='support'?'block':'none');
+  const overviewSlot=document.getElementById('overview-filter-slot');
+  const supportSlot=document.getElementById('support-filter-slot');
+  const wsTitle=document.getElementById('filter-workspace-title');
+  const wsIntro=document.getElementById('filter-workspace-intro');
+  const overviewFields=form.querySelectorAll('.filter-field--overview');
+  const supportFields=form.querySelectorAll('.filter-field--support');
+  const activeFilters=document.getElementById('active-filters');
+  const supportActiveScope=document.getElementById('support-active-scope');
+
+  if(tabId==='overview'){
+   if(overviewSlot&&!overviewSlot.contains(form)){
+    overviewSlot.appendChild(form);
+   }
+   if(activeFilters&&overviewSlot&&!overviewSlot.contains(activeFilters)){
+    overviewSlot.parentElement.insertBefore(activeFilters, overviewSlot.nextSibling);
+   }
+   form.hidden=false;
+   if(wsTitle)wsTitle.textContent='Filter this view';
+   if(wsIntro)wsIntro.textContent='Choose the academic scope and cohorts to analyze.';
+   overviewFields.forEach(el=>el.style.display='');
+   supportFields.forEach(el=>el.style.display='none');
+   if(activeFilters){
+    activeFilters.style.display='';
+    activeFilters.textContent=lastOverviewScopeStr;
+   }
+   if(supportActiveScope)supportActiveScope.style.display='none';
+  }else if(tabId==='support'){
+   if(supportSlot&&!supportSlot.contains(form)){
+    supportSlot.appendChild(form);
+   }
+   if(activeFilters&&supportSlot&&!supportSlot.contains(activeFilters)){
+    supportSlot.parentElement.insertBefore(activeFilters, supportSlot.nextSibling);
+   }
+   form.hidden=false;
+   if(wsTitle)wsTitle.textContent='Filter this view';
+   if(wsIntro)wsIntro.textContent='Filter support workload and recorded intervention activity by period and status.';
+   overviewFields.forEach(el=>el.style.display='none');
+   supportFields.forEach(el=>el.style.display='');
+   if(activeFilters){
+    activeFilters.style.display='';
+    activeFilters.textContent=lastSupportScopeStr;
+   }
+   if(supportActiveScope){
+    supportActiveScope.style.display='';
+    supportActiveScope.textContent=lastSupportScopeStr;
+   }
+  }else if(tabId==='comparisons'||tabId==='trends'){
+   form.hidden=true;
+   if(activeFilters)activeFilters.style.display='none';
   }
 
   // Update URL without page reload
@@ -1181,8 +1265,32 @@
   form.querySelector('fieldset').disabled=false;
   updateAdvancedFiltersBadge();
 
-  const active=Object.entries(data.filters).filter(([,v])=>v!=='').map(([k,v])=>`${labels[k]}: ${(data.options[k]||[]).find(o=>o.value===v)?.label||v}`);
-  document.getElementById('active-filters').textContent=active.length?'Active filters · '+active.join(' · '):'Active filters · All authorized recorded values';
+  const formatScopeItem = (key, defaultText) => {
+   const val = data.filters[key];
+   if (!val) return defaultText;
+   const opt = (data.options[key] || []).find(o => o.value === val);
+   return opt ? opt.label : val;
+  };
+
+  const syText = formatScopeItem('school_year', 'All school years');
+  const semText = data.filters.semester ? (data.filters.semester === '1' ? 'Semester 1' : (data.filters.semester === '2' ? 'Semester 2' : (data.filters.semester === '3' ? 'Summer' : `Semester ${data.filters.semester}`))) : 'All semesters';
+  const yrText = data.filters.year_level ? `Year ${data.filters.year_level}` : 'All curriculum years';
+  const secText = data.filters.section ? `Section ${data.filters.section}` : 'All sections';
+  const caseText = formatScopeItem('case_status', 'All case statuses');
+  const decText = formatScopeItem('decision', 'All referral statuses');
+
+  lastOverviewScopeStr = `Current scope: ${syText} · ${semText} · ${yrText} · ${secText}`;
+  lastSupportScopeStr = `Current support scope: ${syText} · ${semText} · ${caseText} · ${decText} · ${secText}`;
+
+  const activeScopeText = activeTab === 'support' ? lastSupportScopeStr : lastOverviewScopeStr;
+  const activeFiltersEl = document.getElementById('active-filters');
+  if (activeFiltersEl) {
+   activeFiltersEl.textContent = activeScopeText;
+  }
+  const supScopeEl = document.getElementById('support-active-scope');
+  if (supScopeEl) {
+   supScopeEl.textContent = lastSupportScopeStr;
+  }
 
   const box=document.getElementById('analytics-summary');
   box.replaceChildren();
@@ -1348,7 +1456,7 @@
    render(data);
    results.hidden=false;
    results.setAttribute('aria-busy','false');
-   state.textContent=document.getElementById('active-filters').textContent.replace('Active filters · ','Showing ')+'.';
+   state.textContent=document.getElementById('active-filters').textContent.replace('Current scope: ','Showing ').replace('Current support scope: ','Showing ').replace('Active filters · ','Showing ')+'.';
    // Only publish a successfully rendered scope; failed/stale requests keep it intact.
    try{
     const appliedUrl=new URL(location.href);
