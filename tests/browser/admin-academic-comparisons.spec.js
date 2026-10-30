@@ -173,3 +173,129 @@ test('Failed scope retains controls and retries with the primary action',async({
  transport.fail=false;await page.getByRole('button',{name:'Compare groups',exact:true}).click();
  await expect(page.locator('[data-comparison-chart]')).toBeVisible();expect(errors).toEqual([]);
 });
+
+test('Non-selected group visibility contract in side-by-side and highlight modes',async({page})=>{
+ await open(page);
+ await faculty(page);
+ await expect(page.locator('.ac-vertical-chart-card')).toBeVisible();
+
+ // Highlight Group B: Group A must remain clearly visible and not aggressively dimmed
+ await page.locator('[data-group-select="B"]').click();
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','B');
+
+ const barA = page.locator('.ac-col-a .ac-vertical-bar');
+ const barB = page.locator('.ac-col-b .ac-vertical-bar');
+ await expect(barA).toBeVisible();
+ await expect(barB).toBeVisible();
+
+ const opacityBarA = await barA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ const opacityBarB = await barB.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityBarB).toBeCloseTo(1, 1);
+ expect(opacityBarA).toBeGreaterThanOrEqual(0.58);
+ expect(opacityBarA).toBeLessThanOrEqual(0.70);
+
+ const topInfoA = page.locator('.ac-col-a .ac-bar-top-info');
+ const opacityTopA = await topInfoA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityTopA).toBeGreaterThanOrEqual(0.85);
+
+ const bottomLabelA = page.locator('.ac-col-a .ac-bar-bottom-label');
+ const opacityBottomA = await bottomLabelA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityBottomA).toBeGreaterThanOrEqual(0.80);
+
+ const legA = page.locator('.ac-legend-a');
+ const opacityLegA = await legA.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityLegA).toBeGreaterThanOrEqual(0.75);
+
+ // Now Highlight Group A: Group B must remain clearly visible
+ await page.locator('[data-group-select="A"]').click();
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted','A');
+
+ const opacityBarBWhenA = await barB.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityBarBWhenA).toBeGreaterThanOrEqual(0.58);
+ expect(opacityBarBWhenA).toBeLessThanOrEqual(0.70);
+
+ const topInfoB = page.locator('.ac-col-b .ac-bar-top-info');
+ const opacityTopB = await topInfoB.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
+ expect(opacityTopB).toBeGreaterThanOrEqual(0.85);
+});
+
+test('Overlay mode collision-aware layout, staggered lanes, and label isolation',async({page})=>{
+ await open(page);
+ await faculty(page);
+
+ // Switch to Overlay mode
+ await page.locator('[data-display-select="overlay"]').click();
+ const plotArea = page.locator('.ac-chart-plot-area');
+ await expect(plotArea).toHaveClass(/ac-plot-overlay/);
+ await expect(plotArea).toHaveClass(/has-2-groups/);
+
+ // Verify that in overlay mode, long period/subject sub-labels are isolated to prevent collisions
+ const subLabels = page.locator('.ac-plot-overlay .ac-bar-sub-label');
+ await expect(subLabels).toHaveCount(0);
+
+ // Columns have distinct horizontal positions
+ const boxColA = await page.locator('.ac-col-a').boundingBox();
+ const boxColB = await page.locator('.ac-col-b').boundingBox();
+ expect(boxColA).not.toBeNull();
+ expect(boxColB).not.toBeNull();
+ expect(Math.abs(boxColA.x - boxColB.x)).toBeGreaterThanOrEqual(25);
+
+ // Add Group C to verify three-group overlay layout
+ await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
+ await expect(plotArea).toHaveClass(/has-3-groups/);
+ await expect(page.locator('.ac-col-c')).toBeVisible();
+
+ const boxColC = await page.locator('.ac-col-c').boundingBox();
+ expect(boxColC).not.toBeNull();
+ expect(Math.abs(boxColB.x - boxColC.x)).toBeGreaterThanOrEqual(25);
+
+ // Verify connectors and badges exist
+ const badges = page.locator('.ac-bar-val-badge');
+ await expect(badges.first()).toBeVisible();
+});
+
+test('Progressive filter intersection, duplicate exclusion, and empty intersection guidance',async({page})=>{
+ await open(page);
+ await page.locator('[data-dimension="faculty_subject"]').click();
+ await choose(page,'school_year','2026-2027');
+ await choose(page,'semester','1');
+ await choose(page,'subject','1');
+
+ // Group A is selected as 11|1
+ await expect(page.locator('#ac-group-a')).toHaveValue('11|1');
+
+ // Group B options must exclude Group A (11|1)
+ const groupBOptionValues = await page.locator('#ac-group-b option').evaluateAll(opts => opts.map(o => o.value));
+ expect(groupBOptionValues).not.toContain('11|1');
+ expect(groupBOptionValues).toContain('12|1');
+
+ // Add Group C
+ await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
+ await expect(page.locator('#ac-group-c')).toHaveValue('13|1');
+
+ // Group C options must exclude Group A (11|1) and Group B (12|1)
+ const groupCOptionValues = await page.locator('#ac-group-c option').evaluateAll(opts => opts.map(o => o.value));
+ expect(groupCOptionValues).not.toContain('11|1');
+ expect(groupCOptionValues).not.toContain('12|1');
+ expect(groupCOptionValues).toContain('13|1');
+
+ // Switch subject to '2' where only 1 faculty member has an assignment (no comparable counterpart)
+ await choose(page,'subject','2');
+ await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);
+ await expect(page.locator('#ac-notice')).toContainText('No common verified subject');
+ await expect(page.locator('#ac-notice')).toContainText('No comparable assignment is available');
+
+ // Empty intersection card should be rendered with actionable recovery buttons
+ const emptyCard = page.locator('.ac-empty-intersection');
+ await expect(emptyCard).toBeVisible();
+ await expect(emptyCard).toContainText('No comparable assignment is available');
+ await expect(emptyCard).toContainText('The selected groups do not share an eligible subject and academic period');
+
+ const btnChangeDim = emptyCard.getByRole('button',{name:'Change comparison dimension'});
+ await expect(btnChangeDim).toBeVisible();
+ await btnChangeDim.click();
+ await expect(page.locator('[data-dimension="faculty_subject"]')).toBeFocused();
+
+ const btnClear = emptyCard.getByRole('button',{name:'Clear comparison'});
+ await expect(btnClear).toBeVisible();
+});

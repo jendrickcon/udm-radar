@@ -12,6 +12,10 @@
     let report, request, dimension = 'semester', metric = 'gwa', mode = 'overlay', keys = ['', ''], busy = false, failed = false;
     let chartDisplayMode = 'side-by-side', highlightedGroup = 'all';
 
+    const filterAnnouncer = make('span', '', { class: 'sr-only', role: 'status', 'aria-live': 'polite', id: 'ac-filter-announcer' });
+    controls.append(filterAnnouncer);
+    const announceFilter = (msg) => { if (filterAnnouncer) filterAnnouncer.textContent = msg; };
+
     const field = (id, label) => { const box = make('div', undefined, { class: 'ac-field' }); const select = make('select', undefined, { id }); box.append(make('label', label, { for: id }), select); return { box, select }; };
     const scope = make('div', undefined, { role: 'group', 'aria-label': 'Compare by', class: 'ac-dimensions' });
     for (const [key, label] of Object.entries(dimensions)) {
@@ -42,7 +46,18 @@
     for (const letter of ['A', 'B', 'C']) {
         const item = field('ac-group-' + letter.toLowerCase(), 'Group ' + letter);
         item.box.hidden = letter === 'C'; groups.append(item.box); groupFields.push(item);
-        item.select.addEventListener('change', () => { keys[['A', 'B', 'C'].indexOf(letter)] = item.select.value; highlightedGroup = 'all'; drawResult(); });
+        item.select.addEventListener('change', () => {
+            const idx = ['A', 'B', 'C'].indexOf(letter);
+            keys[idx] = item.select.value;
+            highlightedGroup = 'all';
+            if (idx === 0) {
+                draw();
+            } else if (idx === 1 && keys.length === 3) {
+                draw();
+            } else {
+                drawResult();
+            }
+        });
     }
     const groupActions = make('div', undefined, { class: 'ac-group-actions' });
     const add = make('button', '+ Add Group C', { type: 'button', class: 'btn btn--secondary', 'aria-describedby': 'ac-group-limit' });
@@ -79,9 +94,11 @@
     }
     function candidates() {
         const list = report?.groups[dimension] || [];
-        if (dimension !== 'faculty_subject') return list;
-        if (!report || !report.filters.school_year || !report.filters.semester || !report.filters.subject) return [];
-        return list.filter(group => /^\d+\|\d+$/.test(group.key) && group.key.split('|')[1] === report.filters.subject && !/Historical|Assignment unavailable/.test(group.label));
+        if (dimension === 'faculty_subject') {
+            if (!report || !report.filters.school_year || !report.filters.semester || !report.filters.subject) return [];
+            return list.filter(group => /^\d+\|\d+$/.test(group.key) && group.key.split('|')[1] === report.filters.subject && !/Historical|Assignment unavailable/.test(group.label) && (group.student_count > 0 || group.recorded_outcome_count > 0));
+        }
+        return list.filter(group => !/Historical|Assignment unavailable/.test(group.label) && (group.student_count > 0 || group.recorded_outcome_count > 0));
     }
     function options(select, list, current, prompt) {
         select.replaceChildren(make('option', prompt, { value: '' }));
@@ -100,12 +117,42 @@
             options(item.select, report?.options[name] || [], report?.filters[name] || '', dimension === 'faculty_subject' ? 'Choose ' + name.replace('_', ' ') : 'All recorded values');
         }
         const choices = candidates();
-        keys.forEach((key, index) => {
-            if (!choices.some(group => group.key === key)) keys[index] = choices.find(group => !keys.includes(group.key))?.key || '';
-        });
+
+        // Progressive candidate filtering: Group A gets full choices
+        if (!choices.some(group => group.key === keys[0])) {
+            keys[0] = choices[0]?.key || '';
+        }
+
+        // Group B options exclude Group A's selected assignment
+        const choicesB = choices.filter(group => group.key !== keys[0]);
+        if (!choicesB.some(group => group.key === keys[1])) {
+            const oldB = keys[1];
+            keys[1] = choicesB[0]?.key || '';
+            if (oldB && oldB !== keys[1]) {
+                announceFilter('Group B was updated because Group A changed.');
+            }
+        }
+
+        // Group C options exclude both Group A and Group B
+        if (keys.length === 3) {
+            const choicesC = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
+            if (!choicesC.some(group => group.key === keys[2])) {
+                keys[2] = choicesC[0]?.key || '';
+            }
+        }
+
         groupFields.forEach((item, index) => {
-            item.box.hidden = index >= keys.length; options(item.select, choices, keys[index], 'Choose a group'); item.select.disabled = busy || !choices.length;
+            item.box.hidden = index >= keys.length;
+            let groupChoices = choices;
+            if (index === 1) {
+                groupChoices = choices.filter(group => group.key !== keys[0]);
+            } else if (index === 2) {
+                groupChoices = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
+            }
+            options(item.select, groupChoices, keys[index], 'Choose a group');
+            item.select.disabled = busy || !groupChoices.length;
         });
+
         add.disabled = keys.length === 3 || choices.length <= keys.length; remove.hidden = keys.length !== 3;
         limit.textContent = keys.length === 3 ? 'Maximum three groups.' : choices.length <= keys.length ? 'No additional recorded group is available.' : 'Optional; up to three groups.';
         metricField.select.querySelectorAll('option').forEach(option => { option.disabled = ['prediction_coverage_pct', 'risk_distribution'].includes(option.value) && !['school_year', 'semester', 'section'].includes(dimension); });
@@ -121,7 +168,8 @@
             }
         }
         const choices = candidates();
-        if (dimension === 'faculty_subject' && choices.length < 2) return ['No common verified subject assignment is available for the selected Faculty members and period.', common.subject.select];
+        if (dimension === 'faculty_subject' && choices.length < 2) return ['No comparable assignment is available. No common verified subject assignment is available for the selected Faculty members and period.', common.subject.select];
+        if (choices.length < 2) return ['No comparable assignment is available. The selected groups do not share an eligible subject and academic period.', groupFields[0].select];
         for (let index = 0; index < keys.length; index++) {
             if (!keys[index] || !choices.some(group => group.key === keys[index]) || groupFields[index].select.value !== keys[index]) return ['Choose an available recorded group for each comparison.', groupFields[index].select];
         }
@@ -133,6 +181,49 @@
     const coverage = group => Number.isFinite(group.numeric_coverage_pct) ? group.numeric_coverage_pct.toFixed(2) + '%' : 'Unavailable';
     const status = group => group.provisional ? 'Provisional' : 'Recorded outcomes resolved';
 
+    // Label collision layout function
+    function computeLabelLayout({ selected, max, stageWidth, mode }) {
+        if (mode !== 'overlay') return { strategy: 'standard', items: [] };
+        const items = selected.map((group, index) => {
+            const letter = 'ABC'[index];
+            const raw = rawValue(group);
+            const heightPct = raw !== null ? Math.max(0, Math.min(100, (raw / max) * 100)) : 0;
+            return { letter, group, raw, heightPct, index };
+        });
+
+        const isConstrained = stageWidth <= 480 || (typeof window !== 'undefined' && window.innerWidth <= 1040);
+        const anyNearTop = items.some(it => it.heightPct > 82);
+
+        let closeValues = false;
+        for (let i = 0; i < items.length; i++) {
+            for (let j = i + 1; j < items.length; j++) {
+                if (items[i].raw !== null && items[j].raw !== null && Math.abs(items[i].raw - items[j].raw) <= 0.35) {
+                    closeValues = true;
+                }
+            }
+        }
+
+        if (isConstrained || (anyNearTop && closeValues)) {
+            return {
+                strategy: 'compact-top-legend',
+                items: items.map(it => ({ ...it, lane: 0, offsetY: 0 }))
+            };
+        }
+
+        const laneOffsets2 = [32, 10];
+        const laneOffsets3 = [40, 22, 6];
+        const offsets = items.length === 3 ? laneOffsets3 : laneOffsets2;
+
+        return {
+            strategy: 'staggered-lanes',
+            items: items.map((it, idx) => ({
+                ...it,
+                lane: idx,
+                offsetY: offsets[idx] || 10
+            }))
+        };
+    }
+
     function drawResult(focusInvalid = false) {
         modes.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
         modeHelp.textContent = mode === 'overlay' ? 'Show selected groups together on one scale.' : 'Show complete details for each group.';
@@ -141,6 +232,24 @@
         notice.hidden = !error; notice.textContent = error?.[0] || ''; notice.setAttribute('role', focusInvalid ? 'alert' : 'status');
         if (error) {
             if (focusInvalid && error[1]) { error[1].setAttribute('aria-invalid', 'true'); error[1].setAttribute('aria-describedby', 'ac-notice'); error[1].focus(); }
+            if (error[0]?.includes('No comparable assignment is available')) {
+                const emptyCard = make('div', undefined, { class: 'card ac-empty-intersection', role: 'region', 'aria-label': 'No comparable assignment available' });
+                const emptyHead = make('div', undefined, { class: 'ac-empty-header' });
+                emptyHead.append(
+                    make('h4', 'No comparable assignment is available.'),
+                    make('p', 'The selected groups do not share an eligible subject and academic period.', { class: 'ac-helper' })
+                );
+                const emptyActions = make('div', undefined, { class: 'ac-empty-actions' });
+                const bGroups = make('button', 'Change selected groups', { type: 'button', class: 'btn btn--secondary' });
+                bGroups.addEventListener('click', () => { groupFields[0].select.focus(); });
+                const bDim = make('button', 'Change comparison dimension', { type: 'button', class: 'btn btn--secondary' });
+                bDim.addEventListener('click', () => { (scope.querySelector('[data-dimension="' + dimension + '"]') || scope.querySelector('button'))?.focus(); });
+                const bClear = make('button', 'Clear comparison', { type: 'button', class: 'btn btn--quiet' });
+                bClear.addEventListener('click', () => { clear.click(); });
+                emptyActions.append(bGroups, bDim, bClear);
+                emptyCard.append(emptyHead, emptyActions);
+                result.append(emptyCard);
+            }
             return;
         }
         const selected = keys.map(key => candidates().find(group => group.key === key));
@@ -182,17 +291,7 @@
 
         const updateDisplayMode = (newMode) => {
             chartDisplayMode = newMode;
-            layout.setAttribute('data-chart-display', newMode);
-            const dispToolbar = layout.querySelector('[data-role="display-controls"]');
-            if (dispToolbar) {
-                dispToolbar.querySelectorAll('[data-display-select]').forEach(btn => {
-                    btn.setAttribute('aria-pressed', String(btn.dataset.displaySelect === newMode));
-                });
-            }
-            const plotArea = layout.querySelector('.ac-chart-plot-area');
-            if (plotArea) {
-                plotArea.className = 'ac-chart-plot-area ac-plot-' + newMode;
-            }
+            drawResult();
         };
 
         const renderSummary = () => {
@@ -362,8 +461,38 @@
             chartStage.append(make('div', undefined, { class: 'ac-chart-baseline' }));
             chartStage.append(yAxis);
 
+            const layoutConfig = computeLabelLayout({
+                selected,
+                max,
+                stageWidth: chartStage.clientWidth || (typeof window !== 'undefined' ? window.innerWidth * 0.5 : 600),
+                mode: chartDisplayMode
+            });
+
+            if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'compact-top-legend') {
+                const compactLegend = make('div', undefined, { class: 'ac-compact-top-legend', role: 'group', 'aria-label': 'Current group values' });
+                layoutConfig.items.forEach(it => {
+                    const pill = make('div', undefined, {
+                        class: 'ac-compact-val-pill ac-compact-' + it.letter.toLowerCase(),
+                        'data-group': it.letter,
+                        role: 'button',
+                        tabindex: '0'
+                    });
+                    pill.append(
+                        make('span', glyphs[it.letter], { class: 'ac-marker-glyph ac-glyph-' + it.letter.toLowerCase(), 'aria-hidden': 'true' }),
+                        ' Group ' + it.letter + ': ',
+                        make('strong', valueText(it.group), { class: 'ac-bar-val-badge' })
+                    );
+                    pill.addEventListener('click', () => updateHighlight(it.letter));
+                    pill.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(it.letter); } });
+                    compactLegend.append(pill);
+                });
+                chartStage.append(compactLegend);
+            }
+
             // Plot Area with Vertical Bars
-            const plotArea = make('div', undefined, { class: 'ac-chart-plot-area ac-plot-' + chartDisplayMode });
+            const plotArea = make('div', undefined, {
+                class: 'ac-chart-plot-area ac-plot-' + chartDisplayMode + (selected.length === 3 ? ' has-3-groups' : ' has-2-groups')
+            });
 
             selected.forEach((group, index) => {
                 const letter = 'ABC'[index];
@@ -383,15 +512,38 @@
                     }));
 
                     // Top label with value badge
-                    const topInfo = make('div', undefined, {
-                        class: 'ac-bar-top-info',
-                        style: 'bottom: ' + heightPct + '%;'
-                    });
-                    topInfo.append(
-                        make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                        make('span', valueText(group), { class: 'ac-bar-val-badge' })
-                    );
-                    col.append(topInfo);
+                    if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'compact-top-legend') {
+                        const topInfo = make('div', undefined, {
+                            class: 'ac-bar-top-info ac-top-compact',
+                            style: 'bottom: ' + heightPct + '%;'
+                        });
+                        topInfo.append(
+                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' })
+                        );
+                        col.append(topInfo);
+                    } else if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'staggered-lanes') {
+                        const itLayout = layoutConfig.items[index] || { lane: index, offsetY: 10 };
+                        const topInfo = make('div', undefined, {
+                            class: 'ac-bar-top-info ac-overlay-staggered ac-lane-' + itLayout.lane,
+                            style: 'bottom: calc(' + heightPct + '% + ' + itLayout.offsetY + 'px);'
+                        });
+                        topInfo.append(
+                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
+                            make('span', valueText(group), { class: 'ac-bar-val-badge' }),
+                            make('span', undefined, { class: 'ac-label-connector', style: 'height: ' + itLayout.offsetY + 'px;' })
+                        );
+                        col.append(topInfo);
+                    } else {
+                        const topInfo = make('div', undefined, {
+                            class: 'ac-bar-top-info',
+                            style: 'bottom: ' + heightPct + '%;'
+                        });
+                        topInfo.append(
+                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
+                            make('span', valueText(group), { class: 'ac-bar-val-badge' })
+                        );
+                        col.append(topInfo);
+                    }
 
                     // The Vertical Bar
                     const bar = make('div', undefined, {
@@ -426,10 +578,14 @@
 
                 // Column Bottom Labels
                 const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label', role: 'button', tabindex: '0' });
-                bottomLabel.append(
-                    make('span', 'Group ' + letter),
-                    make('span', group.label, { class: 'ac-bar-sub-label' })
-                );
+                if (chartDisplayMode === 'overlay') {
+                    bottomLabel.append(make('span', 'Group ' + letter));
+                } else {
+                    bottomLabel.append(
+                        make('span', 'Group ' + letter),
+                        make('span', group.label, { class: 'ac-bar-sub-label' })
+                    );
+                }
                 bottomLabel.addEventListener('click', () => updateHighlight(letter));
                 bottomLabel.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
                 col.append(bottomLabel);
