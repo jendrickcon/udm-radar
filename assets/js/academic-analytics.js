@@ -766,7 +766,7 @@
     removeBtn.addEventListener('click',()=>removeComparisonCard('card-c'));
     actionsBox.append(removeBtn);
    }
-   const statusBadge=el('span',!group?'Unavailable':group.provisional?'Provisional data':'Verified complete',{
+   const statusBadge=el('span',!group?'Unavailable':group.provisional?'Provisional data':role==='admin'?'Recorded outcomes resolved':'Verified complete',{
     class:`card-status-badge ${!group?'':group.provisional?'badge-provisional':'badge-complete'}`
    });
    actionsBox.append(statusBadge);
@@ -1123,6 +1123,7 @@
    const match=p.id==='tab-panel-'+tabId;
    p.hidden=!match;
   });
+  if(role==='admin')form.hidden=tabId==='comparisons';
 
   const supFilters=document.getElementById('support-only-filters');
   if(supFilters){
@@ -1240,6 +1241,7 @@
   table(document.getElementById('trend-table'),['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');
 
   if(role!=='student'){
+   if(role==='admin')window.UDMAdminComparisons?.update(data,params=>load(params));
    const selector=document.getElementById('comparison-group');
    if(selector){
     const previous=selector.value;
@@ -1280,7 +1282,8 @@
   const ticket=++generation;
   if(controller)controller.abort();
   controller=new AbortController();
-  results.hidden=true;
+  results.hidden=!(role==='admin'&&activeTab==='comparisons');
+  if(role==='admin')window.UDMAdminComparisons?.loading();
   results.setAttribute('aria-busy','true');
   state.setAttribute('role','status');
   state.textContent='Loading academic review…';
@@ -1309,7 +1312,8 @@
    if(error.name==='AbortError'||ticket!==generation)return;
    state.setAttribute('role','alert');
    state.textContent='Academic review could not be loaded. Try applying the filters again.';
-   results.hidden=true;
+   results.hidden=!(role==='admin'&&activeTab==='comparisons');
+   if(role==='admin')window.UDMAdminComparisons?.failure();
    results.setAttribute('aria-busy','false');
   }
  }

@@ -640,6 +640,11 @@ tr:last-child td { border-bottom: none; }
     grid-template-columns: repeat(5, 1fr);
 }
 
+/* Four-Card Cohort Adaptation for .kpi-grid--five when 4 cards are present */
+.admin-dashboard .kpi-grid--four-cohort {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 @media (max-width: 1280px) and (min-width: 901px) {
     /* Intentional 3 + 2 layout at medium desktop (e.g. 1280x720) to prevent awkward 4+1 orphan card */
     .kpi-grid--five {
@@ -653,6 +658,15 @@ tr:last-child td { border-bottom: none; }
     .kpi-grid--five > *:nth-child(4),
     .kpi-grid--five > *:nth-child(5) {
         grid-column: span 3;
+    }
+}
+
+@media (max-width: 1280px) and (min-width: 601px) {
+    .admin-dashboard .kpi-grid--four-cohort {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .admin-dashboard .kpi-grid--four-cohort > * {
+        grid-column: span 1 !important;
     }
 }
 
@@ -2303,6 +2317,142 @@ textarea:focus-visible,
     }
 }
 
+/* ── Interpretability & Exact Chart Values (UI Refinement) ── */
+.admin-dashboard .point-change-card { position: relative; padding-right: 48px; }
+.admin-dashboard .comparison-help-trigger { position: absolute; top: 8px; right: 8px; width: 30px; min-height: 30px; padding: 0; border: 1px solid var(--border-color); border-radius: 50%; }
+.comparison-help-popover { position: fixed; z-index: 10000; box-sizing: border-box; width: min(320px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; padding: 16px; background: var(--card-bg); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px; }
+.comparison-help-popover h3 { font-size: 1rem; margin: 0 0 8px; }
+.comparison-help-popover ul { padding-left: 20px; margin: 8px 0 16px; }
+.analytics-page[data-role="admin"] .admin-overview-charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    column-gap: 24px;
+    row-gap: 0;
+    align-items: stretch;
+    margin-bottom: 24px;
+}
+.admin-overview-charts > * { min-width: 0; }
+.admin-overview-charts [hidden] { display: none !important; }
+.analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel],
+.analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details {
+    display: grid;
+    /* Shrink the inner column after a stacked canvas has acquired a wider intrinsic size. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+    grid-row: span 6;
+    box-sizing: border-box;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel] > *,
+.analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details > * {
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts .overview-chart-plot canvas {
+    display: block;
+    max-width: 100%;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--text-dark); }
+.chart-panel-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.overview-chart-plot { position: relative; width: 100%; align-self: center; }
+.overview-chart-plot--risk { height: 310px; }
+.overview-chart-plot--distinction { height: 270px; }
+.overview-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; padding: 0; list-style: none; color: var(--text-dark); font-size: .8rem; }
+.overview-chart-legend li { display: flex; gap: 6px; align-items: center; }
+.overview-chart-legend span { width: 10px; height: 10px; border-radius: 50%; }
+.admin-overview-charts [data-chart-panel] > ul { margin: 12px 0 0 !important; align-self: start; }
+.admin-overview-charts [data-chart-panel] > .chart-interpretation-text { margin: 16px 0 0 !important; align-self: end; }
+.focused-chart-details__body { grid-row: 2 / -1; min-height: 0; padding: 2px; align-self: start; }
+.focused-chart-details__body:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; border-radius: 4px; }
+.focused-chart-details p { font-size: .85rem; line-height: 1.5; margin-bottom: 12px; }
+.admin-overview-charts[data-focused="risk"] > [data-chart-panel="risk"] { order: 1; }
+.admin-overview-charts[data-focused="risk"] > .focused-chart-details { order: 2; }
+.admin-overview-charts[data-focused="distinction"] > [data-chart-panel="distinction"] { order: 2; }
+.admin-overview-charts[data-focused="distinction"] > .focused-chart-details { order: 1; }
+.focused-chart-details caption { position: sticky; top: 0; z-index: 3; background: var(--table-header-bg); color: var(--text-dark); padding: 8px; text-align: left; }
+.focused-chart-details .section-risk-table-scroll thead th { top: var(--exact-caption-height, 0px); }
+.analytics-page[data-role="admin"] .focused-chart-details caption,
+.analytics-page[data-role="admin"] .focused-chart-details thead th { background: linear-gradient(var(--table-header-bg), var(--table-header-bg)), var(--card-bg) !important; }
+.analytics-page[data-role="admin"] .focused-chart-details .section-risk-table-scroll,
+.analytics-page[data-role="admin"] .focused-chart-details .distinction-table-scroll { max-height: none; overflow: visible; }
+.analytics-page[data-role="admin"] .focused-chart-details .section-risk-table-scroll { max-height: 280px; overflow: auto; }
+.focused-chart-details table { width: 100%; }
+.focused-chart-details th { overflow-wrap: anywhere; }
+@media (max-width: 1100px) {
+    .analytics-page[data-role="admin"] .admin-overview-charts { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; row-gap: 24px; }
+    .analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel],
+    .analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details { display: block; grid-row: auto; height: auto; min-height: 0; }
+    .analytics-page[data-role="admin"] .focused-chart-details .section-risk-table-scroll { max-height: 340px; overflow: auto; }
+    .analytics-page[data-role="admin"] .focused-chart-details .distinction-table-scroll { overflow-x: auto; }
+    .admin-overview-charts[data-focused] > [data-chart-panel] { order: 1; }
+    .admin-overview-charts[data-focused] > .focused-chart-details { order: 2; }
+}
+.card-strip--compact {
+    padding: 10px 16px !important;
+    min-height: 44px;
+}
+
+.analytics-chart-data {
+    margin-top: 10px;
+}
+
+.analytics-chart-data summary {
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    padding: 4px 0;
+    user-select: none;
+}
+
+.analytics-chart-data summary:hover {
+    text-decoration: underline;
+}
+
+.analytics-chart-data summary:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.section-risk-table-scroll,
+.section-gwa-table-scroll {
+    max-height: 350px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.section-risk-table-scroll thead th,
+.section-gwa-table-scroll thead th {
+    position: sticky;
+    top: 0;
+    background: var(--table-header-bg);
+    z-index: 2;
+    box-shadow: 0 1px 0 var(--border-color);
+}
+
+.distinction-table-scroll {
+    max-height: none;
+    height: auto;
+    overflow-y: visible;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.chart-interpretation-text {
+    font-size: 0.82rem;
+    color: var(--text-gray);
+    line-height: 1.4;
+    margin: 10px 0 6px 0;
+}
 
 
 
