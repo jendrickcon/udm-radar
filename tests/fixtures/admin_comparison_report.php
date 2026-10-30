@@ -20,4 +20,4 @@ foreach ([['2025-2026',2],['2026-2027',1]] as [$year,$semester]) {
 if($scenario==='empty')$rows=[];
 $actor=['id'=>1,'role'=>'admin'];
 echo json_encode(analyticsBuildReport(['grades'=>$rows,'predictions'=>[],'faculty'=>[11=>'Synthetic Faculty 11',12=>'Synthetic Faculty 12',13=>'Synthetic Faculty 13'],
-    'cases'=>[],'referrals'=>[],'actions'=>[]],analyticsFilters($raw,$actor),$actor),JSON_THROW_ON_ERROR);
+    'cases'=>[],'referrals'=>[],'actions'=>[],'current_term'=>['school_year'=>'2026-2027','semester'=>1]],analyticsFilters($raw,$actor),$actor),JSON_THROW_ON_ERROR);

@@ -36,7 +36,27 @@
     const commonRow = make('div', undefined, { class: 'ac-control-grid' }), common = {};
     for (const [key, label] of Object.entries({ school_year: 'Common school year', semester: 'Common semester', subject: 'Common subject' })) {
         common[key] = field('ac-' + key, label); commonRow.append(common[key].box);
-        common[key].select.addEventListener('change', () => { keys = ['', '']; highlightedGroup = 'all'; request?.(parameters()); });
+        common[key].select.addEventListener('change', () => {
+            if (dimension === 'faculty_subject') {
+                if (key === 'school_year') {
+                    common.subject.select.value = ''; keys = ['', '']; highlightedGroup = 'all';
+                    announceFilter('Common school year updated; dependent subject and Faculty selections cleared.');
+                } else if (key === 'semester') {
+                    common.subject.select.value = ''; keys = ['', '']; highlightedGroup = 'all';
+                    announceFilter('Common semester updated; dependent subject and Faculty selections cleared.');
+                } else if (key === 'subject') {
+                    keys = ['', '']; highlightedGroup = 'all';
+                    const compSubjs = report?.comparable_subjects || [];
+                    const sel = compSubjs.find(s => String(s.subject_id) === String(common.subject.select.value));
+                    if (sel) {
+                        announceFilter(`${sel.code} has ${sel.distinct_faculty_count} comparable Faculty groups across ${sel.eligible_section_count} sections for ${sel.school_year} Semester ${sel.semester}.`);
+                    }
+                }
+            } else {
+                keys = ['', '']; highlightedGroup = 'all';
+            }
+            request?.(parameters());
+        });
     }
     const clear = make('button', 'Clear scope', { type: 'button', class: 'btn btn--quiet' });
     clear.addEventListener('click', () => { keys = ['', '']; highlightedGroup = 'all'; request?.(new URLSearchParams()); });
@@ -102,8 +122,8 @@
     }
     function options(select, list, current, prompt) {
         select.replaceChildren(make('option', prompt, { value: '' }));
-        list.forEach(item => select.append(make('option', item.label, { value: item.value ?? item.key })));
-        select.value = current || '';
+        list.forEach(item => select.append(make('option', item.label, { value: String(item.value ?? item.key ?? '') })));
+        select.value = String(current || '');
     }
     function draw() {
         scope.querySelectorAll('button').forEach(button => {
@@ -114,7 +134,22 @@
         helper.textContent = helpers[dimension];
         for (const [name, item] of Object.entries(common)) {
             item.select.disabled = dimension === name;
-            options(item.select, report?.options[name] || [], report?.filters[name] || '', dimension === 'faculty_subject' ? 'Choose ' + name.replace('_', ' ') : 'All recorded values');
+            if (dimension === 'faculty_subject' && name === 'subject') {
+                const compSubjects = report?.comparable_subjects || [];
+                if (compSubjects.length > 0) {
+                    options(item.select, compSubjects, report?.filters[name] || '', 'Choose a comparable subject');
+                    item.select.disabled = false;
+                    if (compSubjects.length === 1 && !report?.filters[name] && !item.select.value) {
+                        item.select.value = compSubjects[0].subject_id;
+                        announceFilter(`${compSubjects[0].code} has ${compSubjects[0].distinct_faculty_count} comparable Faculty groups across ${compSubjects[0].eligible_section_count} sections for ${compSubjects[0].school_year} Semester ${compSubjects[0].semester}.`);
+                    }
+                } else {
+                    item.select.replaceChildren(make('option', 'No comparable subject for this period', { value: '' }));
+                    item.select.disabled = true;
+                }
+            } else {
+                options(item.select, report?.options[name] || [], report?.filters[name] || '', dimension === 'faculty_subject' ? 'Choose ' + name.replace('_', ' ') : 'All recorded values');
+            }
         }
         const choices = candidates();
 
@@ -149,12 +184,20 @@
             } else if (index === 2) {
                 groupChoices = choices.filter(group => group.key !== keys[0] && group.key !== keys[1]);
             }
-            options(item.select, groupChoices, keys[index], 'Choose a group');
+            if (dimension === 'faculty_subject') {
+                const mapped = groupChoices.map(g => ({
+                    value: g.key,
+                    label: g.faculty_label || g.label
+                }));
+                options(item.select, mapped, keys[index], 'Choose a group');
+            } else {
+                options(item.select, groupChoices, keys[index], 'Choose a group');
+            }
             item.select.disabled = busy || !groupChoices.length;
         });
 
         add.disabled = keys.length === 3 || choices.length <= keys.length; remove.hidden = keys.length !== 3;
-        limit.textContent = keys.length === 3 ? 'Maximum three groups.' : choices.length <= keys.length ? 'No additional recorded group is available.' : 'Optional; up to three groups.';
+        limit.textContent = keys.length === 3 ? 'Maximum three groups.' : choices.length <= keys.length ? (dimension === 'faculty_subject' && choices.length === 2 ? 'Two comparable Faculty groups are available.' : 'No additional recorded group is available.') : 'Optional; up to three groups.';
         metricField.select.querySelectorAll('option').forEach(option => { option.disabled = ['prediction_coverage_pct', 'risk_distribution'].includes(option.value) && !['school_year', 'semester', 'section'].includes(dimension); });
         if (metricField.select.selectedOptions[0]?.disabled) { metric = 'gwa'; metricField.select.value = metric; }
         drawResult();
@@ -163,6 +206,16 @@
         if (failed) return ['Comparison records could not be loaded. Apply the scope again to retry.', compare];
         if (busy || !report) return ['Loading comparison records…', null];
         if (dimension === 'faculty_subject') {
+            if (!report.filters.school_year) return ['Choose a school year to compare verified Faculty assignments.', common.school_year.select];
+            if (!report.filters.semester) return ['Choose a semester to compare verified Faculty assignments.', common.semester.select];
+            const compList = report.comparable_subjects || [];
+            if (compList.length === 0) {
+                return ['No common subject is available for Faculty comparison in this period. Choose another school year or semester. Subjects are shown only when at least two verified Faculty assignments have eligible comparison data.', common.school_year.select];
+            }
+            if (!report.filters.subject) return ['Choose a comparable subject.', common.subject.select];
+            if (report.filters.subject && !compList.some(s => String(s.subject_id) === String(report.filters.subject))) {
+                return ['No comparable assignment is available. No common verified subject assignment is available for the selected Faculty members and period.', common.subject.select];
+            }
             for (const [name, item] of Object.entries(common)) {
                 if (!item.select.value || item.select.value !== report.filters[name]) return ['Choose the same school year, semester and subject for every Faculty assignment.', item.select];
             }
@@ -189,6 +242,23 @@
         notice.hidden = !error; notice.textContent = error?.[0] || ''; notice.setAttribute('role', focusInvalid ? 'alert' : 'status');
         if (error) {
             if (focusInvalid && error[1]) { error[1].setAttribute('aria-invalid', 'true'); error[1].setAttribute('aria-describedby', 'ac-notice'); error[1].focus(); }
+            if (error[0]?.includes('No common subject is available for Faculty comparison in this period')) {
+                const emptyCard = make('div', undefined, { class: 'card ac-empty-intersection', role: 'region', 'aria-label': 'No common subject available' });
+                const emptyHead = make('div', undefined, { class: 'ac-empty-header' });
+                emptyHead.append(
+                    make('h4', 'No common subject is available for Faculty comparison in this period.'),
+                    make('p', 'Choose another school year or semester. Subjects are shown only when at least two verified Faculty assignments have eligible comparison data.', { class: 'ac-helper' })
+                );
+                const emptyActions = make('div', undefined, { class: 'ac-empty-actions' });
+                const bYear = make('button', 'Change school year or semester', { type: 'button', class: 'btn btn--secondary' });
+                bYear.addEventListener('click', () => { common.school_year.select.focus(); });
+                const bDim = make('button', 'Change comparison dimension', { type: 'button', class: 'btn btn--quiet' });
+                bDim.addEventListener('click', () => { (scope.querySelector('[data-dimension="semester"]') || scope.querySelector('button'))?.focus(); });
+                emptyActions.append(bYear, bDim);
+                emptyCard.append(emptyHead, emptyActions);
+                result.append(emptyCard);
+                return;
+            }
             if (error[0]?.includes('No comparable assignment is available')) {
                 const emptyCard = make('div', undefined, { class: 'card ac-empty-intersection', role: 'region', 'aria-label': 'No comparable assignment available' });
                 const emptyHead = make('div', undefined, { class: 'ac-empty-header' });
@@ -588,10 +658,10 @@
                 // In Side-by-side mode: Period and group label beneath 0.00 baseline on one line
                 if (chartDisplayMode !== 'overlay') {
                     const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label' });
-                    const labelText = selected.length === 3 ? group.label.replace(/Semester\s+(\d+)/i, 'S$1') : group.label;
+                    const shortSub = dimension === 'faculty_subject' ? (group.faculty_label || group.label).split(' · ')[0] : group.label;
                     bottomLabel.append(
                         make('span', 'Group ' + letter, { class: 'ac-bar-label-group' }),
-                        make('span', labelText, { class: 'ac-bar-sub-label', title: group.label })
+                        make('span', shortSub, { class: 'ac-bar-sub-label', title: group.label })
                     );
                     col.append(bottomLabel);
                 }

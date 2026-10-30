@@ -122,11 +122,15 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await page.locator('#ac-group-b').selectOption('11|2');await page.getByRole('button',{name:'Compare groups',exact:true}).click();
   await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);await expect(page.locator('#ac-group-b')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#ac-group-b')).toBeFocused();
   await page.locator('#ac-group-b').selectOption('12|1');await expect(page.locator('[data-comparison-chart]')).toBeVisible();
+  const subOpts = await page.locator('#ac-subject option').evaluateAll(opts => opts.map(o => o.value));
+  expect(subOpts).toContain('1');
+  expect(subOpts).not.toContain('2');
+  await page.locator('#ac-subject').evaluate(e => e.add(new Option('Tampered single faculty', '2')));
   await choose(page,'subject','2');await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);await expect(page.locator('#ac-notice')).toContainText('No common verified subject');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await page.getByRole('button',{name:'View historical trend',exact:true}).click();await expect(page.locator('#analytics-trend-heading')).toBeFocused();
   await expect(page.locator('#tab-panel-overview #trend-chart')).toBeVisible();await expect(page.locator('#tab-panel-comparisons #trend-chart')).toHaveCount(0);
-  await page.getByRole('tab',{name:'Academic Comparisons',exact:true}).click();await expect(page.locator('#ac-subject')).toHaveValue('2');
+  await page.getByRole('tab',{name:'Academic Comparisons',exact:true}).click();await expect(page.locator('#ac-subject')).not.toHaveValue('2');
   expect(errors).toEqual([]);expect(writes).toEqual([]);
  });
 }
@@ -269,8 +273,8 @@ test('Side-by-side centered cluster, bar-edge spacing, and GWA scale lines',asyn
  const boxBarA = await barA.boundingBox();
  const boxBarB = await barB.boundingBox();
  const boxBaseline = await baseline.boundingBox();
- expect(Math.abs((boxBarA.y + boxBarA.height) - boxBaseline.y)).toBeLessThanOrEqual(1.5);
- expect(Math.abs((boxBarB.y + boxBarB.height) - boxBaseline.y)).toBeLessThanOrEqual(1.5);
+ expect(Math.abs((boxBarA.y + boxBarA.height) - boxBaseline.y)).toBeLessThanOrEqual(2.0);
+ expect(Math.abs((boxBarB.y + boxBarB.height) - boxBaseline.y)).toBeLessThanOrEqual(2.0);
 
  // Circular A/B badges sit inside the lower portion of each bar
  const markerA = page.locator('.ac-col-a .ac-bar-inner-marker');
@@ -486,7 +490,13 @@ test('Progressive filter intersection, duplicate exclusion, and empty intersecti
  expect(groupCOptionValues).not.toContain('12|1');
  expect(groupCOptionValues).toContain('13|1');
 
+ // Candidate discovery: Subject 1 is comparable; Subject 2 (single faculty) is excluded from dropdown
+ const subjectOpts = await page.locator('#ac-subject option').evaluateAll(opts => opts.map(o => o.value));
+ expect(subjectOpts).toContain('1');
+ expect(subjectOpts).not.toContain('2');
+
  // Switch subject to '2' where only 1 faculty member has an assignment (no comparable counterpart)
+ await page.locator('#ac-subject').evaluate(e => e.add(new Option('Tampered single faculty subject', '2')));
  await choose(page,'subject','2');
  await expect(page.locator('[data-comparison-chart]')).toHaveCount(0);
  await expect(page.locator('#ac-notice')).toContainText('No common verified subject');

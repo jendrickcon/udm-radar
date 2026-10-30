@@ -37,7 +37,7 @@ function analyticsChange(?float $previous,?float $current,bool $comparable=true)
 }
 
 function analyticsGroup(array $rows,string $dimension):array {
-    $buckets=[];$labels=[];
+    $buckets=[];$labels=[];$sectionsByGroup=[];
     foreach($rows as $r){
         [$key,$label]=match($dimension){
             'semester'=>[(string)($r['school_year']??'Unknown').'|'.($r['semester']??''),($r['school_year']??'Unknown').' · Semester '.($r['semester']??'Unknown')],
@@ -49,9 +49,28 @@ function analyticsGroup(array $rows,string $dimension):array {
             default=>throw new InvalidArgumentException('Unknown analytics grouping'),
         };
         $buckets[$key][]=$r;$labels[$key]=$label;
+        if($dimension==='faculty_subject'&&!empty($r['section'])){
+            $sectionsByGroup[$key][$r['section']]=true;
+        }
     }
     ksort($buckets,SORT_NATURAL);$out=[];
-    foreach($buckets as $key=>$group){$out[]=['key'=>(string)$key,'label'=>$labels[$key]]+analyticsAggregate($group);}
+    foreach($buckets as $key=>$group){
+        $item=['key'=>(string)$key,'label'=>$labels[$key]]+analyticsAggregate($group);
+        if($dimension==='faculty_subject'&&isset($sectionsByGroup[$key])){
+            $secs=array_keys($sectionsByGroup[$key]);
+            sort($secs,SORT_NATURAL);
+            $item['sections']=$secs;
+            if($secs){
+                $secText='Section'.(count($secs)>1?'s ':' ').implode(', ',$secs);
+                $parts=explode(' · ',$labels[$key]);
+                $facName=$parts[0]??'';
+                $subjCode=$parts[1]??'';
+                $item['label']=$facName.($subjCode?' · '.$subjCode:'').' · '.$secText;
+                $item['faculty_label']=$facName.' · '.$secText;
+            }
+        }
+        $out[]=$item;
+    }
     return $out;
 }
 

@@ -185,10 +185,10 @@
 .ac-y-tick-label { font-size: .75rem; color: var(--text-gray); font-family: monospace, sans-serif; white-space: nowrap; }
 .ac-chart-gridline { position: absolute; left: 54px; right: 0; border-top: 1px dashed var(--ac-gridline-color); opacity: 1; pointer-events: none; }
 .ac-chart-gridline.ac-gridline-minor { border-top-style: dotted; opacity: 0.38; }
-.ac-chart-baseline { position: absolute; left: 54px; right: 0; bottom: 0; height: 2px; background: var(--ac-baseline-color); pointer-events: none; z-index: 2; }
+.ac-chart-baseline { position: absolute; left: 54px; right: 0; bottom: 0; border-top: 2px solid var(--ac-baseline-color); pointer-events: none; z-index: 2; }
 
 /* Plot Area and Columns */
-.ac-chart-plot-area { position: absolute; left: 54px; right: 0; top: 0; bottom: 2px; display: flex; align-items: flex-end; }
+.ac-chart-plot-area { position: absolute; left: 54px; right: 0; top: 0; bottom: 0; display: flex; align-items: flex-end; }
 .ac-plot-side-by-side { justify-content: center; }
 .ac-plot-side-by-side.has-2-groups { gap: 64px; }
 .ac-plot-side-by-side.has-2-groups .ac-bar-column { width: 84px; max-width: 96px; min-width: 72px; }
@@ -380,8 +380,11 @@
 .ac-bar-bottom-label {
     position: absolute;
     top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     margin-top: 8px;
     text-align: center;
+    white-space: nowrap;
     z-index: 5;
     pointer-events: none;
 }
@@ -397,30 +400,17 @@
     color: var(--text-gray);
     font-weight: normal;
     margin-top: 2px;
-}
-
-/* Two groups: centered with nowrap */
-.has-2-groups .ac-bar-bottom-label {
-    left: 50%;
-    transform: translateX(-50%);
     white-space: nowrap;
 }
-.has-2-groups .ac-bar-sub-label {
-    white-space: nowrap;
-}
-
-/* Three groups: constrained to column width to prevent label collisions */
 .has-3-groups .ac-bar-bottom-label {
-    left: 0;
-    right: 0;
-    width: 100%;
+    max-width: 96px;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
 .has-3-groups .ac-bar-sub-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: .74rem;
 }
 
 /* Chart Difference Annotation */
