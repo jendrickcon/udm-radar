@@ -2337,12 +2337,25 @@ textarea:focus-visible,
 .analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel],
 .analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details {
     display: grid;
+    /* Shrink the inner column after a stacked canvas has acquired a wider intrinsic size. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: subgrid;
     grid-row: span 6;
     box-sizing: border-box;
     height: auto;
     min-height: 0;
     margin: 0;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts > [data-chart-panel] > *,
+.analytics-page[data-role="admin"] .admin-overview-charts > .focused-chart-details > * {
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.analytics-page[data-role="admin"] .admin-overview-charts .overview-chart-plot canvas {
+    display: block;
+    max-width: 100%;
 }
 .analytics-page[data-role="admin"] .admin-overview-charts h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--text-dark); }
 .chart-panel-actions { display: flex; justify-content: flex-end; margin-top: 16px; }

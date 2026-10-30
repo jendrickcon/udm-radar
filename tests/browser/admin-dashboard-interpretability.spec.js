@@ -186,3 +186,102 @@ for(const scenario of ['high','missing','empty','error'])test('[Generated] truth
  else expect(text).not.toContain('Most displayed Students are currently classified as Low Risk');
  await expect(page.locator('.kpi-grid--four-cohort > *')).toHaveCount(4);expect(errors).toEqual([]);
 });
+
+/** PR68-R01: shrinking must not depend on overflow clipping or stale canvas widths. */
+async function overviewResizeContained(page, label) {
+ await expect.poll(() => page.evaluate(() => {
+  const problems=[],root=document.documentElement,main=document.querySelector('.main-content');
+  if(root.scrollWidth>root.clientWidth+1)problems.push('document '+root.scrollWidth+' > '+root.clientWidth);
+  if(main.scrollWidth>main.clientWidth+1)problems.push('main '+main.scrollWidth+' > '+main.clientWidth);
+  const grid=document.querySelector('[data-overview-charts]'),gr=grid.getBoundingClientRect();
+  const columns=(getComputedStyle(grid).gridTemplateColumns.match(/[\d.]+px/g)||[]).map(parseFloat);
+  for(const card of grid.querySelectorAll(':scope > [data-chart-panel],:scope > .focused-chart-details')){
+   if(!card.getClientRects().length)continue;
+   const cr=card.getBoundingClientRect();
+   if(cr.left<gr.left-1||cr.right>gr.right+1||cr.width>Math.max(...columns)+1)problems.push((card.id||card.dataset.chartPanel)+' outside grid column');
+   const parts=card.matches('[data-chart-panel]')
+    ?card.querySelectorAll('h3,.overview-chart-plot,canvas,ul,ul li,.chart-interpretation-text,.chart-panel-actions,button')
+    :card.querySelectorAll('h3,.focused-chart-details__body,.section-risk-table-scroll,.distinction-table-scroll');
+   for(const part of parts){
+    if(!part.getClientRects().length)continue;
+    const pr=part.getBoundingClientRect();
+    if(pr.left<cr.left-1||pr.right>cr.right+1)problems.push((card.id||card.dataset.chartPanel)+' '+(part.id||part.className||part.tagName)+' outside card');
+    if(part.tagName==='BUTTON'&&(pr.left< -1||pr.right>innerWidth+1))problems.push(part.id+' outside viewport');
+    if(part.tagName==='CANVAS'){
+     const chart=Chart.getChart(part),wrapper=part.parentElement.getBoundingClientRect();
+     if(Math.abs(chart.width-wrapper.width)>2||Math.abs(chart.height-wrapper.height)>2)problems.push(part.id+' stale Chart.js dimensions');
+     if(Math.abs(part.width-chart.width*chart.currentDevicePixelRatio)>2||Math.abs(part.height-chart.height*chart.currentDevicePixelRatio)>2)problems.push(part.id+' stale canvas resolution');
+    }
+   }
+  }
+  return problems;
+ }),{message:label,timeout:2500}).toEqual([]);
+ const panels=page.locator('[data-overview-charts] > [data-chart-panel]:visible');
+ for(const panel of await panels.all()){
+  const gap=await panel.evaluate(n=>n.querySelector('.chart-panel-actions').getBoundingClientRect().top-n.querySelector('.chart-interpretation-text').getBoundingClientRect().bottom);
+  expect(gap,'Interpretation/action spacing at '+label).toBeGreaterThanOrEqual(12);
+  expect(gap,'No artificial action gap at '+label).toBeLessThanOrEqual(32);
+  expect(await panel.evaluate(n=>getComputedStyle(n).minHeight)).toBe('0px');
+ }
+ const cards=await page.locator('[data-overview-charts] > [data-chart-panel]:visible,[data-overview-charts] > .focused-chart-details:visible').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().toJSON()));
+ if((await page.viewportSize()).width>1100&&cards.length===2){
+  expect(Math.abs(cards[0].y-cards[1].y),'Side-by-side top alignment').toBeLessThanOrEqual(1);
+  expect(Math.abs(cards[0].height-cards[1].height),'Natural side-by-side bottom alignment').toBeLessThanOrEqual(1);
+ }else if(cards.length===2){
+  expect(cards[1].y,'Stacked content does not overlap').toBeGreaterThanOrEqual(cards[0].y+cards[0].height-1);
+ }
+ await expect.poll(()=>page.evaluate(async()=>{
+  const before=window.r01ResizeCalls;
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  return window.r01ResizeCalls-before;
+ }),{message:'Resize activity settles: '+label,timeout:2500}).toBe(0);
+ expect(await page.evaluate(()=>window.r01ResizeCalls),'Bounded resize work').toBeLessThan(150);
+ expect(await page.evaluate(()=>window.r01Charts.every((c,i)=>Chart.getChart(['sectionRiskChart','honorChart'][i])===c&&JSON.stringify(c.data)===window.r01ChartData[i])),'Chart identity and data stay intact').toBe(true);
+}
+const overviewResizePaths=[
+ ['fresh 1440',[[1440,900]]],
+ ['1440 to 1024 to 1440',[[1440,900],[1024,768],[1440,900]]],
+ ['1024 to 1280',[[1024,768],[1280,600]]],
+ ['1280 to 1024 to 1440',[[1280,600],[1024,768],[1440,900]]],
+];
+for(const theme of ['light','dark'])for(const [name,sizes] of overviewResizePaths){
+ test('[Generated] PR68-R01 '+theme+' '+name,async({page})=>{
+  const [width,height]=sizes[0];await page.setViewportSize({width,height});
+  const {errors,writes}=await open(page,'overview',theme);
+  const consoleErrors=[];page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
+  await page.locator('#analytics-school_year').selectOption('2026-2027');
+  await page.getByRole('button',{name:'Apply filters',exact:true}).click();
+  await expect(page.locator('#active-filters')).toContainText('2026-2027');
+  await page.evaluate(()=>{
+   window.r01Charts=['sectionRiskChart','honorChart'].map(id=>Chart.getChart(id));
+   window.r01ChartData=window.r01Charts.map(c=>JSON.stringify(c.data));
+   window.r01ResizeCalls=0;
+   const original=Chart.prototype.resize;
+   Chart.prototype.resize=function(...args){window.r01ResizeCalls++;return original.apply(this,args);};
+  });
+  for(const mode of ['normal','risk','distinction']){
+   await page.setViewportSize({width,height});
+   const button=mode==='normal'?null:page.locator('#'+mode+'-exact-values');
+   if(button){
+    await button.click();
+    await expect(button).toHaveText('Back to both charts');
+    await expect(page.getByRole('button',{name:'Back to both charts',exact:true})).toHaveCount(1);
+   }
+   for(const [nextWidth,nextHeight]of sizes){
+    await page.setViewportSize({width:nextWidth,height:nextHeight});
+    await overviewResizeContained(page,theme+' '+name+' '+mode+' '+nextWidth);
+    await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+    await expect(page.locator('#analytics-school_year')).toHaveValue('2026-2027');
+    await expect(page.locator('[data-chart-panel]:visible')).toHaveCount(mode==='normal'?2:1);
+    if(button)await expect(button).toHaveAttribute('aria-expanded','true');
+   }
+   if(button){
+    await button.click();await expect(button).toBeFocused();
+    await expect(button).toHaveText('Exact values');await expect(button).toHaveAttribute('aria-expanded','false');
+    await expect(page.locator('[data-chart-panel]:visible')).toHaveCount(2);
+    await overviewResizeContained(page,theme+' '+name+' restored '+mode);
+   }
+  }
+  expect(errors).toEqual([]);expect(consoleErrors).toEqual([]);expect(writes).toEqual([]);
+ });
+}
