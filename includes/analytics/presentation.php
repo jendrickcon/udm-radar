@@ -167,7 +167,7 @@ function renderAnalyticsTrendSection(): void {
                         <div id="trend-chart" class="analytics-chart"></div>
                         <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
                             <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700;  color: var(--text-dark);">Historical trend details</h4>
-                            <div id="trend-details-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px; font-size: 0.82rem;"></div>
+                            <div id="trend-details-content"></div>
                         </div>
                         <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
                             <table id="trend-table"></table>

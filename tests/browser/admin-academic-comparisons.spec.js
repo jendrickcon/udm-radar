@@ -217,6 +217,12 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  const topInfoB = page.locator('.ac-col-b .ac-bar-top-info');
  const opacityTopB = await topInfoB.evaluate(el => parseFloat(window.getComputedStyle(el).opacity));
  expect(opacityTopB).toBeGreaterThanOrEqual(0.85);
+
+ // Group A has a rich, solid, non-transparent teal fill in normal and highlighted states
+ const bgBarA = await barA.evaluate(el => window.getComputedStyle(el).backgroundColor);
+ expect(bgBarA).not.toBe('rgba(0, 0, 0, 0)');
+ expect(bgBarA).not.toBe('transparent');
+ expect(bgBarA).toMatch(/rgb\(13,\s*148,\s*136\)|rgb\(15,\s*143,\s*131\)/);
 });
 
 test('Overlay mode collision-aware layout, staggered lanes, and label isolation',async({page})=>{
@@ -232,6 +238,14 @@ test('Overlay mode collision-aware layout, staggered lanes, and label isolation'
  // Verify that in overlay mode, long period/subject sub-labels are isolated to prevent collisions
  const subLabels = page.locator('.ac-plot-overlay .ac-bar-sub-label');
  await expect(subLabels).toHaveCount(0);
+
+ // Verify that in overlay mode, bottom labels beneath the bars are hidden to prevent text collisions
+ const bottomLabels = page.locator('.ac-plot-overlay .ac-bar-bottom-label');
+ const countBottom = await bottomLabels.count();
+ if (countBottom > 0) {
+  const isHidden = await bottomLabels.first().evaluate(el => window.getComputedStyle(el).display);
+  expect(isHidden).toBe('none');
+ }
 
  // Columns have distinct horizontal positions
  const boxColA = await page.locator('.ac-col-a').boundingBox();
@@ -249,9 +263,55 @@ test('Overlay mode collision-aware layout, staggered lanes, and label isolation'
  expect(boxColC).not.toBeNull();
  expect(Math.abs(boxColB.x - boxColC.x)).toBeGreaterThanOrEqual(25);
 
- // Verify connectors and badges exist
+ // Verify side callouts or badges exist
  const badges = page.locator('.ac-bar-val-badge');
  await expect(badges.first()).toBeVisible();
+
+ // On wide desktop (1440px), verify side callouts render beside group rectangles
+ const calloutA = page.locator('.ac-callout-a');
+ const calloutB = page.locator('.ac-callout-b');
+ const calloutC = page.locator('.ac-callout-c');
+ await expect(calloutA).toBeVisible();
+ await expect(calloutB).toBeVisible();
+ await expect(calloutC).toBeVisible();
+
+ const boxA = await calloutA.boundingBox();
+ const boxB = await calloutB.boundingBox();
+ expect(boxA).not.toBeNull();
+ expect(boxB).not.toBeNull();
+ expect(boxA.x).toBeLessThan(boxB.x);
+});
+
+test('Overview tab displays full-width Level 1 metrics, Level 2 details grid, and historical trend details', async({ page }) => {
+ await open(page);
+ await page.locator('#tab-btn-overview').click();
+ await expect(page.locator('#analytics-summary')).toBeVisible();
+
+ // Level 1 metrics
+ const metricsGrid = page.locator('.analytics-metrics');
+ await expect(metricsGrid).toBeVisible();
+ await expect(metricsGrid.locator('dd[data-metric="average-gwa"]')).toBeVisible();
+
+ // Level 2 details workspace
+ const detailsWorkspace = page.locator('.analytics-details-workspace');
+ await expect(detailsWorkspace).toBeVisible();
+ await expect(detailsWorkspace.locator('.analytics-detail-block')).toHaveCount(4);
+
+ // Check important highlighted details
+ const detailsText = await detailsWorkspace.textContent();
+ expect(detailsText).toContain('Comparison period');
+ expect(detailsText).toContain('versus');
+ expect(detailsText).toContain('Point change');
+ expect(detailsText).toContain('Relative change');
+ expect(detailsText).toContain('Evidence used');
+ expect(detailsText).toContain('Data status');
+ expect(detailsText).toContain('Changes are unavailable when the compared term is incomplete or has no numeric GWA.');
+
+ // Historical semester trend details card
+ const trendCard = page.locator('#trend-details-card');
+ await expect(trendCard).toBeVisible();
+ const trendItems = page.locator('#trend-details-content .trend-detail-item');
+ await expect(trendItems.first()).toBeVisible();
 });
 
 test('Progressive filter intersection, duplicate exclusion, and empty intersection guidance',async({page})=>{

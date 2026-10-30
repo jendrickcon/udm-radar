@@ -191,36 +191,48 @@
             return { letter, group, raw, heightPct, index };
         });
 
-        const isConstrained = stageWidth <= 480 || (typeof window !== 'undefined' && window.innerWidth <= 1040);
-        const anyNearTop = items.some(it => it.heightPct > 82);
-
-        let closeValues = false;
-        for (let i = 0; i < items.length; i++) {
-            for (let j = i + 1; j < items.length; j++) {
-                if (items[i].raw !== null && items[j].raw !== null && Math.abs(items[i].raw - items[j].raw) <= 0.35) {
-                    closeValues = true;
-                }
-            }
-        }
-
-        if (isConstrained || (anyNearTop && closeValues)) {
+        const isConstrained = stageWidth <= 520 || (typeof window !== 'undefined' && window.innerWidth <= 1040);
+        if (isConstrained) {
             return {
                 strategy: 'compact-top-legend',
                 items: items.map(it => ({ ...it, lane: 0, offsetY: 0 }))
             };
         }
 
-        const laneOffsets2 = [32, 10];
-        const laneOffsets3 = [40, 22, 6];
-        const offsets = items.length === 3 ? laneOffsets3 : laneOffsets2;
+        // Calculate non-colliding side callout coordinates beside group bars
+        const calloutItems = [];
+        const itemA = { ...items[0], side: 'left', bottomPct: Math.max(14, Math.min(82, items[0].heightPct)) };
+        calloutItems.push(itemA);
+
+        if (items.length === 2) {
+            const itemB = { ...items[1], side: 'right', bottomPct: Math.max(14, Math.min(82, items[1].heightPct)) };
+            calloutItems.push(itemB);
+        } else if (items.length === 3) {
+            const b = items[1], c = items[2];
+            const bHigher = (b.heightPct >= c.heightPct);
+            const highItem = bHigher ? b : c;
+            const lowItem = bHigher ? c : b;
+
+            const highPct = Math.max(54, Math.min(84, highItem.heightPct));
+            const lowPct = Math.max(12, Math.min(44, lowItem.heightPct));
+
+            calloutItems.push({
+                ...b,
+                side: 'right',
+                lane: bHigher ? 'upper' : 'lower',
+                bottomPct: bHigher ? highPct : lowPct
+            });
+            calloutItems.push({
+                ...c,
+                side: 'right',
+                lane: bHigher ? 'lower' : 'upper',
+                bottomPct: bHigher ? lowPct : highPct
+            });
+        }
 
         return {
-            strategy: 'staggered-lanes',
-            items: items.map((it, idx) => ({
-                ...it,
-                lane: idx,
-                offsetY: offsets[idx] || 10
-            }))
+            strategy: 'side-callouts',
+            items: calloutItems
         };
     }
 
@@ -487,6 +499,33 @@
                     compactLegend.append(pill);
                 });
                 chartStage.append(compactLegend);
+            } else if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'side-callouts') {
+                // Non-colliding side callout cards beside group rectangles
+                layoutConfig.items.forEach(it => {
+                    const callout = make('div', undefined, {
+                        class: 'ac-overlay-callout ac-callout-' + it.letter.toLowerCase(),
+                        'data-group': it.letter,
+                        role: 'button',
+                        tabindex: '0',
+                        'aria-label': 'Group ' + it.letter + ': ' + valueText(it.group)
+                    });
+                    const offset = selected.length === 3 ? '46px' : '36px';
+                    if (it.side === 'left') {
+                        callout.style.right = 'calc(50% + ' + offset + ')';
+                    } else {
+                        callout.style.left = 'calc(50% + ' + offset + ')';
+                    }
+                    callout.style.bottom = it.bottomPct + '%';
+
+                    callout.append(
+                        make('span', glyphs[it.letter], { class: 'ac-marker-glyph ac-glyph-' + it.letter.toLowerCase(), 'aria-hidden': 'true' }),
+                        ' Group ' + it.letter + ': ',
+                        make('strong', valueText(it.group), { class: 'ac-bar-val-badge' })
+                    );
+                    callout.addEventListener('click', () => updateHighlight(it.letter));
+                    callout.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(it.letter); } });
+                    chartStage.append(callout);
+                });
             }
 
             // Plot Area with Vertical Bars
@@ -512,25 +551,14 @@
                     }));
 
                     // Top label with value badge
-                    if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'compact-top-legend') {
+                    if (chartDisplayMode === 'overlay') {
                         const topInfo = make('div', undefined, {
                             class: 'ac-bar-top-info ac-top-compact',
                             style: 'bottom: ' + heightPct + '%;'
                         });
                         topInfo.append(
-                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' })
-                        );
-                        col.append(topInfo);
-                    } else if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'staggered-lanes') {
-                        const itLayout = layoutConfig.items[index] || { lane: index, offsetY: 10 };
-                        const topInfo = make('div', undefined, {
-                            class: 'ac-bar-top-info ac-overlay-staggered ac-lane-' + itLayout.lane,
-                            style: 'bottom: calc(' + heightPct + '% + ' + itLayout.offsetY + 'px);'
-                        });
-                        topInfo.append(
                             make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                            make('span', valueText(group), { class: 'ac-bar-val-badge' }),
-                            make('span', undefined, { class: 'ac-label-connector', style: 'height: ' + itLayout.offsetY + 'px;' })
+                            make('span', valueText(group), { class: 'ac-bar-val-badge' })
                         );
                         col.append(topInfo);
                     } else {

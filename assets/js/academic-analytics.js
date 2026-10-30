@@ -1195,9 +1195,56 @@
    box.append(relative);
    box.append(el('p',`Current period: ${t.current?.label||'Unavailable'} · Previous recorded comparable period: ${t.previous?.label||'Unavailable'} · Direction: ${t.change.direction}.`));
   }else{
-   // Admin & Faculty Overview primary metrics
+   // Admin & Faculty Overview primary metrics (Level 1 Full Width)
    metrics(box,[['Weighted recorded-grade mean',num(data.summary.gwa),'average-gwa'],['Students (n)',String(data.summary.student_count),'student-count'],['Eligible grades',`${data.summary.eligible_grade_count} / ${data.summary.expected_grade_count}`,'eligible-grades'],['Numeric GWA coverage',pct(data.summary.numeric_coverage_pct),'numeric-coverage']]);
-   box.append(el('p',`Comparison period: ${t.current?.label||'Unavailable'} versus ${t.previous?.label||'Unavailable'} · Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct,'%')}.`));
+
+   // Level 2: Scannable 4-Block Full-Width Details Workspace
+   const detailsWorkspace = el('div', undefined, { class: 'analytics-details-workspace' });
+   const detailsGrid = el('div', undefined, { class: 'analytics-details-grid' });
+
+   // Block 1: Comparison period
+   const bPeriod = el('div', undefined, { class: 'analytics-detail-block' });
+   bPeriod.append(
+    el('h5', 'Comparison period'),
+    el('div', `${t.current?.label || 'Unavailable'} versus ${t.previous?.label || 'Unavailable'}`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', 'Selected term versus prior comparable term', { class: 'detail-sub' })
+   );
+
+   // Block 2: Term-over-term change
+   const bChange = el('div', undefined, { class: 'analytics-detail-block' });
+   bChange.append(
+    el('h5', 'Point change & Relative change'),
+    el('div', `Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct, '%')}`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', `Direction: ${t.change.direction || 'Unavailable'}`, { class: 'detail-sub' })
+   );
+
+   // Block 3: Evidence used
+   const bEvidence = el('div', undefined, { class: 'analytics-detail-block' });
+   bEvidence.append(
+    el('h5', 'Evidence used'),
+    el('div', `GWA uses ${data.summary.eligible_units} eligible credit units`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', `Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}`, { class: 'detail-sub' })
+   );
+
+   // Block 4: Data status
+   const bStatus = el('div', undefined, { class: 'analytics-detail-block' });
+   const statusVal = el('div', undefined, { class: 'detail-field-value' });
+   statusVal.append(el('span', data.summary.provisional ? 'Provisional' : 'Recorded outcomes resolved', {
+    class: 'card-status-badge ' + (data.summary.provisional ? 'badge-provisional' : 'badge-complete')
+   }));
+   bStatus.append(
+    el('h5', 'Data status'),
+    statusVal,
+    el('div', data.summary.provisional ? 'Some final outcomes or units are incomplete' : 'All expected outcomes recorded', { class: 'detail-sub' })
+   );
+
+   detailsGrid.append(bPeriod, bChange, bEvidence, bStatus);
+
+   const ruleExpl = el('div', 'Changes are unavailable when the compared term is incomplete or has no numeric GWA.', { class: 'analytics-rule-explanation' });
+   const textSummary = el('p', `Comparison period: ${t.current?.label || 'Unavailable'} versus ${t.previous?.label || 'Unavailable'} · Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct, '%')}. ${data.summary.provisional ? 'Provisional: some final outcomes or units are incomplete. ' : ''}GWA uses ${data.summary.eligible_units} eligible credit units. Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}. Changes are unavailable when the compared term is incomplete or has no numeric GWA.`, { class: 'sr-only' });
+
+   detailsWorkspace.append(detailsGrid, ruleExpl, textSummary);
+   box.append(detailsWorkspace);
 
    // Secondary Summary Row (Overview Tab)
    const secondary=document.getElementById('analytics-secondary-summary');
@@ -1231,7 +1278,9 @@
    }
   }
 
-  box.append(el('p',`${data.summary.provisional?'Provisional: some final outcomes or units are incomplete. ':''}GWA uses ${data.summary.eligible_units} eligible credit units. Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}. Changes are unavailable when the compared term is incomplete or has no numeric GWA.`));
+  if(role==='student'){
+   box.append(el('p',`${data.summary.provisional?'Provisional: some final outcomes or units are incomplete. ':''}GWA uses ${data.summary.eligible_units} eligible credit units. Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}. Changes are unavailable when the compared term is incomplete or has no numeric GWA.`));
+  }
   renderPrediction(data.prediction);
 
   const trendDesc=document.getElementById('trend-description');
