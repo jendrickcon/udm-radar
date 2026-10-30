@@ -57,11 +57,11 @@
 .ac-vertical-chart-card { position: relative; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px 16px 16px; margin: 16px 0 18px; }
 .ac-chart-stage { position: relative; height: 260px; display: flex; align-items: flex-end; padding-left: 54px; margin-bottom: 8px; }
 
-/* Y-Axis and Reference Gridlines */
-.ac-chart-y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 48px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-.ac-y-tick { position: relative; height: 0; display: flex; align-items: center; justify-content: flex-end; }
-.ac-y-tick-label { font-size: .75rem; color: var(--text-gray); font-family: monospace, sans-serif; white-space: nowrap; transform: translateY(-50%); }
-.ac-chart-gridline { position: absolute; left: 54px; right: 0; border-top: 1px dashed var(--border-color); opacity: 0.55; pointer-events: none; }
+/* Y-Axis and Reference Gridlines (Major Scale Only) */
+.ac-chart-y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 48px; pointer-events: none; }
+.ac-y-tick { position: absolute; right: 0; display: flex; align-items: center; justify-content: flex-end; transform: translateY(-50%); }
+.ac-y-tick-label { font-size: .75rem; color: var(--text-gray); font-family: monospace, sans-serif; white-space: nowrap; }
+.ac-chart-gridline { position: absolute; left: 54px; right: 0; border-top: 1px dashed var(--border-color); opacity: 0.35; pointer-events: none; }
 .ac-chart-baseline { position: absolute; left: 54px; right: 0; bottom: 0; border-top: 2px solid var(--border-color); pointer-events: none; }
 
 /* Plot Area and Columns */
@@ -82,110 +82,122 @@
 .ac-plot-overlay.has-3-groups .ac-col-b { width: 52px; left: 50%; transform: translateX(-50%); z-index: 2; }
 .ac-plot-overlay.has-3-groups .ac-col-c { width: 52px; left: 50%; transform: translateX(calc(-50% + 40px)); z-index: 3; }
 
-/* Top info / badges */
+/* Top info / badges (Side-by-side only; hidden in Overlay) */
 .ac-bar-top-info { position: absolute; transform: translateY(-100%); display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 6px; pointer-events: none; z-index: 5; }
 .ac-bar-val-badge { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); white-space: nowrap; }
 .ac-bar-glyph-icon { font-size: .8rem; }
 
-/* Staggered lane positioning in Overlay mode */
-.ac-bar-top-info.ac-overlay-staggered {
-    z-index: 6;
-}
-.ac-label-connector {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    width: 0;
-    border-left: 1px dotted var(--text-gray);
-    opacity: 0.65;
-    pointer-events: none;
-}
-
-/* Compact Top-Value Legend Ribbon */
-.ac-compact-top-legend {
-    position: absolute;
-    top: 6px;
-    left: 54px;
-    right: 12px;
+/* Top Value Strip for Overlay Mode */
+.ac-overlay-value-strip {
     display: flex;
     justify-content: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    z-index: 6;
-    pointer-events: auto;
-}
-.ac-compact-val-pill {
-    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 0 0 16px;
+    padding: 8px 16px;
     background: var(--table-header-bg);
     border: 1px solid var(--border-color);
-    border-radius: 9999px;
-    font-size: .84rem;
-    color: var(--text-dark);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 180ms cubic-bezier(0.2,0,0,1);
+    border-radius: 8px;
+    width: 100%;
 }
-.ac-compact-val-pill:hover, .ac-compact-val-pill:focus-visible {
-    border-color: var(--accent-blue);
-    background: var(--card-bg);
-    outline: none;
-}
-.ac-compact-val-pill .ac-bar-val-badge {
-    font-size: .9rem;
-}
-
-/* Minimal marker on bar top when compact legend is active */
-.ac-bar-top-info.ac-top-compact {
-    padding-bottom: 3px;
-}
-
-/* Overlay Mode Bottom Labels: completely suppress to prevent bottom collisions */
-.ac-plot-overlay .ac-bar-sub-label { display: none !important; }
-.ac-plot-overlay .ac-bar-bottom-label { display: none !important; }
-
-/* Overlay Side Callout Badges */
-.ac-overlay-callout {
-    position: absolute;
+.ac-value-strip-item {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: 8px;
+    padding: 6px 14px;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 9999px;
-    font-size: .82rem;
+    border-radius: 6px;
+    font-size: .875rem;
     font-weight: 600;
     color: var(--text-dark);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     cursor: pointer;
-    z-index: 7;
     transition: all 180ms cubic-bezier(0.2,0,0,1);
-    white-space: nowrap;
+    min-height: 38px;
+    user-select: none;
 }
-.ac-overlay-callout:hover, .ac-overlay-callout:focus-visible {
+.ac-value-strip-item:hover {
+    border-color: var(--accent-blue);
+    background: var(--table-header-bg);
+}
+.ac-value-strip-item:focus-visible {
     outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
+}
+.ac-value-strip-item[aria-pressed="true"],
+.ac-value-strip-item.is-selected {
+    background: var(--card-bg);
+    font-weight: 700;
+}
+.ac-value-strip-item.ac-item-a[aria-pressed="true"],
+.ac-value-strip-item.ac-item-a.is-selected {
+    border: 2px solid var(--comparison-a-border, #14b8a6);
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.25);
+}
+.ac-value-strip-item.ac-item-b[aria-pressed="true"],
+.ac-value-strip-item.ac-item-b.is-selected {
+    border: 2px solid var(--comparison-b-border, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+.ac-value-strip-item.ac-item-c[aria-pressed="true"],
+.ac-value-strip-item.ac-item-c.is-selected {
+    border: 2px solid var(--comparison-c-border, #f59e0b);
+    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25);
+}
+.ac-strip-key {
+    color: var(--text-dark);
+    font-size: .875rem;
+}
+.ac-strip-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-left: 2px;
+}
+
+/* Small Baseline Marker for Overlay Mode */
+.ac-bar-baseline-marker {
+    margin-top: 8px;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--text-gray);
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
     background: var(--table-header-bg);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+    transition: all 180ms cubic-bezier(0.2,0,0,1);
 }
-.ac-callout-a {
-    border-left: 3px solid var(--comparison-a-border, #14b8a6);
+.ac-bar-baseline-marker:hover {
+    color: var(--text-dark);
+    border-color: var(--accent-blue);
 }
-.ac-callout-b {
-    border-left: 3px solid var(--comparison-b-border, #3b82f6);
+[data-highlighted="A"] .ac-col-a .ac-bar-baseline-marker {
+    color: #fff;
+    background: var(--comparison-a-fill, #0d9488);
+    border-color: var(--comparison-a-border, #14b8a6);
 }
-.ac-callout-c {
-    border-left: 3px solid var(--comparison-c-border, #f59e0b);
+[data-highlighted="B"] .ac-col-b .ac-bar-baseline-marker {
+    color: #fff;
+    background: var(--comparison-b-fill, #2563eb);
+    border-color: var(--comparison-b-border, #3b82f6);
 }
-.ac-callout-connector {
-    position: absolute;
-    border-top: 1px dashed var(--text-gray);
-    opacity: 0.55;
-    pointer-events: none;
-    z-index: 4;
+[data-highlighted="C"] .ac-col-c .ac-bar-baseline-marker {
+    color: #fff;
+    background: var(--comparison-c-fill, #d97706);
+    border-color: var(--comparison-c-border, #f59e0b);
 }
+
+/* Overlay Mode: suppress duplicate top values and full bottom labels */
+.ac-plot-overlay .ac-bar-top-info { display: none !important; }
+.ac-plot-overlay .ac-bar-sub-label { display: none !important; }
+.ac-plot-overlay .ac-bar-bottom-label { display: none !important; }
 
 /* Vertical Bar Core Element */
 .ac-vertical-bar { width: 100%; max-width: 84px; border-radius: 6px 6px 0 0; cursor: pointer; position: relative; outline: none; transition: height 220ms cubic-bezier(0.2,0,0,1), opacity 200ms cubic-bezier(0.2,0,0,1), transform 200ms cubic-bezier(0.2,0,0,1), border-color 200ms cubic-bezier(0.2,0,0,1); }
@@ -204,10 +216,7 @@
 /* Unavailable bar */
 .ac-bar-unavailable { height: 18px !important; background: repeating-linear-gradient(45deg, var(--border-color), var(--border-color) 4px, var(--card-bg) 4px, var(--card-bg) 8px) !important; border: 1px dashed var(--text-gray) !important; }
 
-/* Bar Guideline across to Y-axis */
-.ac-bar-guideline { position: absolute; left: 54px; right: 0; border-top: 1px dotted var(--text-gray); opacity: 0.45; pointer-events: none; }
-
-/* Column bottom label */
+/* Column bottom label (Side-by-side) */
 .ac-bar-bottom-label { margin-top: 10px; text-align: center; font-size: .84rem; font-weight: 600; color: var(--text-dark); cursor: pointer; }
 .ac-bar-sub-label { display: block; font-size: .75rem; color: var(--text-gray); font-weight: normal; margin-top: 2px; }
 

@@ -225,27 +225,47 @@ test('Non-selected group visibility contract in side-by-side and highlight modes
  expect(bgBarA).toMatch(/rgb\(13,\s*148,\s*136\)|rgb\(15,\s*143,\s*131\)/);
 });
 
-test('Overlay mode collision-aware layout, staggered lanes, and label isolation',async({page})=>{
+test('Overlay mode top value strip, major gridlines only, and label isolation',async({page})=>{
  await open(page);
  await faculty(page);
 
- // Switch to Overlay mode
+ // 1. Verify Side-by-side mode: exact values above bars, full labels below, no value strip, no side callouts
+ await expect(page.locator('.ac-plot-side-by-side')).toBeVisible();
+ await expect(page.locator('.ac-overlay-value-strip')).toHaveCount(0);
+ await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
+ await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
+ await expect(page.locator('.ac-plot-side-by-side .ac-bar-top-info')).toHaveCount(2);
+ await expect(page.locator('.ac-plot-side-by-side .ac-bar-bottom-label')).toHaveCount(2);
+ await expect(page.locator('.ac-plot-side-by-side .ac-bar-sub-label')).toHaveCount(2);
+
+ // 2. Switch to Overlay mode
  await page.locator('[data-display-select="overlay"]').click();
  const plotArea = page.locator('.ac-chart-plot-area');
  await expect(plotArea).toHaveClass(/ac-plot-overlay/);
  await expect(plotArea).toHaveClass(/has-2-groups/);
 
- // Verify that in overlay mode, long period/subject sub-labels are isolated to prevent collisions
- const subLabels = page.locator('.ac-plot-overlay .ac-bar-sub-label');
- await expect(subLabels).toHaveCount(0);
+ // Gridlines: only major scale gridlines exist (<= 4), zero unlabeled dotted guidelines
+ await expect(page.locator('.ac-bar-guideline')).toHaveCount(0);
+ const gridlines = page.locator('.ac-chart-gridline');
+ expect(await gridlines.count()).toBeLessThanOrEqual(4);
 
- // Verify that in overlay mode, bottom labels beneath the bars are hidden to prevent text collisions
- const bottomLabels = page.locator('.ac-plot-overlay .ac-bar-bottom-label');
- const countBottom = await bottomLabels.count();
- if (countBottom > 0) {
-  const isHidden = await bottomLabels.first().evaluate(el => window.getComputedStyle(el).display);
-  expect(isHidden).toBe('none');
- }
+ // Top value strip is visible, with interactive button items
+ const valueStrip = page.locator('.ac-overlay-value-strip');
+ await expect(valueStrip).toBeVisible();
+ const stripItems = page.locator('.ac-value-strip-item');
+ await expect(stripItems).toHaveCount(2);
+
+ // Verify no side callouts, no duplicate values above bars, and no full labels below bars in overlay mode
+ await expect(page.locator('.ac-overlay-callout')).toHaveCount(0);
+ await expect(page.locator('.ac-plot-overlay .ac-bar-top-info')).toHaveCount(0);
+ await expect(page.locator('.ac-plot-overlay .ac-bar-sub-label')).toHaveCount(0);
+
+ // Two-group value strip buttons do not overlap
+ const boxItemA = await stripItems.nth(0).boundingBox();
+ const boxItemB = await stripItems.nth(1).boundingBox();
+ expect(boxItemA).not.toBeNull();
+ expect(boxItemB).not.toBeNull();
+ expect(boxItemA.x + boxItemA.width).toBeLessThanOrEqual(boxItemB.x + 2);
 
  // Columns have distinct horizontal positions
  const boxColA = await page.locator('.ac-col-a').boundingBox();
@@ -254,32 +274,50 @@ test('Overlay mode collision-aware layout, staggered lanes, and label isolation'
  expect(boxColB).not.toBeNull();
  expect(Math.abs(boxColA.x - boxColB.x)).toBeGreaterThanOrEqual(25);
 
- // Add Group C to verify three-group overlay layout
+ // 3. Add Group C to verify three-group overlay layout
  await page.getByRole('button',{name:'+ Add Group C',exact:true}).click();
  await expect(plotArea).toHaveClass(/has-3-groups/);
  await expect(page.locator('.ac-col-c')).toBeVisible();
+ await expect(stripItems).toHaveCount(3);
+
+ const boxItemC = await stripItems.nth(2).boundingBox();
+ expect(boxItemC).not.toBeNull();
 
  const boxColC = await page.locator('.ac-col-c').boundingBox();
  expect(boxColC).not.toBeNull();
  expect(Math.abs(boxColB.x - boxColC.x)).toBeGreaterThanOrEqual(25);
 
- // Verify side callouts or badges exist
- const badges = page.locator('.ac-bar-val-badge');
- await expect(badges.first()).toBeVisible();
+ // 4. Interactive selection on value strip buttons with aria-pressed synchronization
+ const stripBtnB = page.locator('.ac-value-strip-item.ac-item-b');
+ await stripBtnB.click();
+ await expect(stripBtnB).toHaveAttribute('aria-pressed', 'true');
+ await expect(page.locator('.ac-value-strip-item.ac-item-a')).toHaveAttribute('aria-pressed', 'false');
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted', 'B');
+ await expect(page.locator('[data-group-select="B"]').first()).toHaveAttribute('aria-pressed', 'true');
 
- // On wide desktop (1440px), verify side callouts render beside group rectangles
- const calloutA = page.locator('.ac-callout-a');
- const calloutB = page.locator('.ac-callout-b');
- const calloutC = page.locator('.ac-callout-c');
- await expect(calloutA).toBeVisible();
- await expect(calloutB).toBeVisible();
- await expect(calloutC).toBeVisible();
+ // Keyboard activation on value strip button A
+ const stripBtnA = page.locator('.ac-value-strip-item.ac-item-a');
+ await stripBtnA.focus();
+ await page.keyboard.press('Enter');
+ await expect(stripBtnA).toHaveAttribute('aria-pressed', 'true');
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted', 'A');
 
- const boxA = await calloutA.boundingBox();
- const boxB = await calloutB.boundingBox();
- expect(boxA).not.toBeNull();
- expect(boxB).not.toBeNull();
- expect(boxA.x).toBeLessThan(boxB.x);
+ // Group C remains contextual and does not alter A minus B difference
+ const diffTextBefore = await page.locator('.ac-chart-diff-annotation').textContent();
+ const stripBtnC = page.locator('.ac-value-strip-item.ac-item-c');
+ await stripBtnC.click();
+ await expect(stripBtnC).toHaveAttribute('aria-pressed', 'true');
+ await expect(page.locator('.ac-result-layout')).toHaveAttribute('data-highlighted', 'C');
+ const diffTextAfter = await page.locator('.ac-chart-diff-annotation').textContent();
+ expect(diffTextAfter).toBe(diffTextBefore);
+ expect(diffTextAfter).toContain('Group C contextual');
+
+ // 5. Constrained width responsiveness (1024x768)
+ await page.setViewportSize({ width: 1024, height: 768 });
+ await expect(valueStrip).toBeVisible();
+ const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+ const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+ expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2); // No horizontal overflow
 });
 
 test('Overview tab displays full-width Level 1 metrics, Level 2 details grid, and historical trend details', async({ page }) => {

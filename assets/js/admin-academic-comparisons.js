@@ -181,61 +181,6 @@
     const coverage = group => Number.isFinite(group.numeric_coverage_pct) ? group.numeric_coverage_pct.toFixed(2) + '%' : 'Unavailable';
     const status = group => group.provisional ? 'Provisional' : 'Recorded outcomes resolved';
 
-    // Label collision layout function
-    function computeLabelLayout({ selected, max, stageWidth, mode }) {
-        if (mode !== 'overlay') return { strategy: 'standard', items: [] };
-        const items = selected.map((group, index) => {
-            const letter = 'ABC'[index];
-            const raw = rawValue(group);
-            const heightPct = raw !== null ? Math.max(0, Math.min(100, (raw / max) * 100)) : 0;
-            return { letter, group, raw, heightPct, index };
-        });
-
-        const isConstrained = stageWidth <= 520 || (typeof window !== 'undefined' && window.innerWidth <= 1040);
-        if (isConstrained) {
-            return {
-                strategy: 'compact-top-legend',
-                items: items.map(it => ({ ...it, lane: 0, offsetY: 0 }))
-            };
-        }
-
-        // Calculate non-colliding side callout coordinates beside group bars
-        const calloutItems = [];
-        const itemA = { ...items[0], side: 'left', bottomPct: Math.max(14, Math.min(82, items[0].heightPct)) };
-        calloutItems.push(itemA);
-
-        if (items.length === 2) {
-            const itemB = { ...items[1], side: 'right', bottomPct: Math.max(14, Math.min(82, items[1].heightPct)) };
-            calloutItems.push(itemB);
-        } else if (items.length === 3) {
-            const b = items[1], c = items[2];
-            const bHigher = (b.heightPct >= c.heightPct);
-            const highItem = bHigher ? b : c;
-            const lowItem = bHigher ? c : b;
-
-            const highPct = Math.max(54, Math.min(84, highItem.heightPct));
-            const lowPct = Math.max(12, Math.min(44, lowItem.heightPct));
-
-            calloutItems.push({
-                ...b,
-                side: 'right',
-                lane: bHigher ? 'upper' : 'lower',
-                bottomPct: bHigher ? highPct : lowPct
-            });
-            calloutItems.push({
-                ...c,
-                side: 'right',
-                lane: bHigher ? 'lower' : 'upper',
-                bottomPct: bHigher ? lowPct : highPct
-            });
-        }
-
-        return {
-            strategy: 'side-callouts',
-            items: calloutItems
-        };
-    }
-
     function drawResult(focusInvalid = false) {
         modes.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
         modeHelp.textContent = mode === 'overlay' ? 'Show selected groups together on one scale.' : 'Show complete details for each group.';
@@ -298,6 +243,17 @@
                         : 'Group ' + letter + ' highlighted.';
                 }
             }
+            const stripItems = layout.querySelectorAll('.ac-value-strip-item');
+            stripItems.forEach(btn => {
+                const active = btn.dataset.groupSelect === letter;
+                btn.setAttribute('aria-pressed', String(active));
+                btn.classList.toggle('is-selected', active);
+            });
+            const baselineMarkers = layout.querySelectorAll('.ac-bar-baseline-marker');
+            baselineMarkers.forEach(m => {
+                const active = m.dataset.groupSelect === letter;
+                m.classList.toggle('is-selected', active);
+            });
             renderSummary();
         };
 
@@ -450,9 +406,37 @@
 
             // Recognizable Vertical Bar Comparison Chart Card
             const chartCard = make('div', undefined, { class: 'ac-vertical-chart-card', role: 'region', 'aria-label': 'Vertical bar comparison chart' });
+
+            // If overlay mode, insert the top value strip before the chart stage
+            if (chartDisplayMode === 'overlay') {
+                const valueStrip = make('div', undefined, {
+                    class: 'ac-overlay-value-strip',
+                    role: 'group',
+                    'aria-label': 'Current group values'
+                });
+                selected.forEach((group, index) => {
+                    const letter = 'ABC'[index];
+                    const valBtn = make('button', undefined, {
+                        type: 'button',
+                        class: 'ac-value-strip-item ac-item-' + letter.toLowerCase() + (highlightedGroup === letter ? ' is-selected' : ''),
+                        'data-group-select': letter,
+                        'aria-pressed': String(highlightedGroup === letter),
+                        'aria-label': 'Highlight Group ' + letter + ', ' + metrics[metric] + ' ' + valueText(group)
+                    });
+                    valBtn.append(
+                        make('span', glyphs[letter], { class: 'ac-marker-glyph ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
+                        make('span', 'Group ' + letter, { class: 'ac-strip-key' }),
+                        make('strong', valueText(group), { class: 'ac-strip-val' })
+                    );
+                    valBtn.addEventListener('click', () => updateHighlight(letter));
+                    valueStrip.append(valBtn);
+                });
+                chartCard.append(valueStrip);
+            }
+
             const chartStage = make('div', undefined, { class: 'ac-chart-stage' });
 
-            // Y-Axis and Ticks
+            // Y-Axis and Ticks (Major Scale Only)
             const yAxis = make('div', undefined, { class: 'ac-chart-y-axis', 'aria-hidden': 'true' });
             let yTicks = [4, 3, 2, 1, 0];
             if (metric.endsWith('_pct')) yTicks = [100, 75, 50, 25, 0];
@@ -473,61 +457,6 @@
             chartStage.append(make('div', undefined, { class: 'ac-chart-baseline' }));
             chartStage.append(yAxis);
 
-            const layoutConfig = computeLabelLayout({
-                selected,
-                max,
-                stageWidth: chartStage.clientWidth || (typeof window !== 'undefined' ? window.innerWidth * 0.5 : 600),
-                mode: chartDisplayMode
-            });
-
-            if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'compact-top-legend') {
-                const compactLegend = make('div', undefined, { class: 'ac-compact-top-legend', role: 'group', 'aria-label': 'Current group values' });
-                layoutConfig.items.forEach(it => {
-                    const pill = make('div', undefined, {
-                        class: 'ac-compact-val-pill ac-compact-' + it.letter.toLowerCase(),
-                        'data-group': it.letter,
-                        role: 'button',
-                        tabindex: '0'
-                    });
-                    pill.append(
-                        make('span', glyphs[it.letter], { class: 'ac-marker-glyph ac-glyph-' + it.letter.toLowerCase(), 'aria-hidden': 'true' }),
-                        ' Group ' + it.letter + ': ',
-                        make('strong', valueText(it.group), { class: 'ac-bar-val-badge' })
-                    );
-                    pill.addEventListener('click', () => updateHighlight(it.letter));
-                    pill.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(it.letter); } });
-                    compactLegend.append(pill);
-                });
-                chartStage.append(compactLegend);
-            } else if (chartDisplayMode === 'overlay' && layoutConfig.strategy === 'side-callouts') {
-                // Non-colliding side callout cards beside group rectangles
-                layoutConfig.items.forEach(it => {
-                    const callout = make('div', undefined, {
-                        class: 'ac-overlay-callout ac-callout-' + it.letter.toLowerCase(),
-                        'data-group': it.letter,
-                        role: 'button',
-                        tabindex: '0',
-                        'aria-label': 'Group ' + it.letter + ': ' + valueText(it.group)
-                    });
-                    const offset = selected.length === 3 ? '46px' : '36px';
-                    if (it.side === 'left') {
-                        callout.style.right = 'calc(50% + ' + offset + ')';
-                    } else {
-                        callout.style.left = 'calc(50% + ' + offset + ')';
-                    }
-                    callout.style.bottom = it.bottomPct + '%';
-
-                    callout.append(
-                        make('span', glyphs[it.letter], { class: 'ac-marker-glyph ac-glyph-' + it.letter.toLowerCase(), 'aria-hidden': 'true' }),
-                        ' Group ' + it.letter + ': ',
-                        make('strong', valueText(it.group), { class: 'ac-bar-val-badge' })
-                    );
-                    callout.addEventListener('click', () => updateHighlight(it.letter));
-                    callout.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(it.letter); } });
-                    chartStage.append(callout);
-                });
-            }
-
             // Plot Area with Vertical Bars
             const plotArea = make('div', undefined, {
                 class: 'ac-chart-plot-area ac-plot-' + chartDisplayMode + (selected.length === 3 ? ' has-3-groups' : ' has-2-groups')
@@ -544,24 +473,8 @@
                 if (raw !== null) {
                     const heightPct = Math.max(0, Math.min(100, (raw / max) * 100));
 
-                    // Dotted guideline to Y-axis
-                    chartStage.append(make('div', undefined, {
-                        class: 'ac-bar-guideline ac-guide-' + letter.toLowerCase(),
-                        style: 'bottom: ' + heightPct + '%;'
-                    }));
-
-                    // Top label with value badge
-                    if (chartDisplayMode === 'overlay') {
-                        const topInfo = make('div', undefined, {
-                            class: 'ac-bar-top-info ac-top-compact',
-                            style: 'bottom: ' + heightPct + '%;'
-                        });
-                        topInfo.append(
-                            make('span', glyphs[letter], { class: 'ac-bar-glyph-icon ac-glyph-' + letter.toLowerCase(), 'aria-hidden': 'true' }),
-                            make('span', valueText(group), { class: 'ac-bar-val-badge' })
-                        );
-                        col.append(topInfo);
-                    } else {
+                    // In side-by-side mode: exact value above bar
+                    if (chartDisplayMode !== 'overlay') {
                         const topInfo = make('div', undefined, {
                             class: 'ac-bar-top-info',
                             style: 'bottom: ' + heightPct + '%;'
@@ -586,12 +499,14 @@
                     bar.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
                     col.append(bar);
                 } else {
-                    const topInfo = make('div', undefined, {
-                        class: 'ac-bar-top-info',
-                        style: 'bottom: 20px;'
-                    });
-                    topInfo.append(make('span', 'Unavailable', { class: 'ac-bar-val-badge' }));
-                    col.append(topInfo);
+                    if (chartDisplayMode !== 'overlay') {
+                        const topInfo = make('div', undefined, {
+                            class: 'ac-bar-top-info',
+                            style: 'bottom: 20px;'
+                        });
+                        topInfo.append(make('span', 'Unavailable', { class: 'ac-bar-val-badge' }));
+                        col.append(topInfo);
+                    }
 
                     const bar = make('div', undefined, {
                         class: 'ac-vertical-bar ac-bar ac-bar-unavailable',
@@ -604,19 +519,28 @@
                     col.append(bar);
                 }
 
-                // Column Bottom Labels
-                const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label', role: 'button', tabindex: '0' });
+                // Column Bottom Labels: small baseline marker in Overlay, full label in Side-by-side
                 if (chartDisplayMode === 'overlay') {
-                    bottomLabel.append(make('span', 'Group ' + letter));
+                    const marker = make('div', letter, {
+                        class: 'ac-bar-baseline-marker' + (highlightedGroup === letter ? ' is-selected' : ''),
+                        role: 'button',
+                        tabindex: '0',
+                        'data-group-select': letter,
+                        'aria-label': 'Group ' + letter + ': ' + group.label
+                    });
+                    marker.addEventListener('click', () => updateHighlight(letter));
+                    marker.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
+                    col.append(marker);
                 } else {
+                    const bottomLabel = make('div', undefined, { class: 'ac-bar-bottom-label', role: 'button', tabindex: '0' });
                     bottomLabel.append(
                         make('span', 'Group ' + letter),
                         make('span', group.label, { class: 'ac-bar-sub-label' })
                     );
+                    bottomLabel.addEventListener('click', () => updateHighlight(letter));
+                    bottomLabel.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
+                    col.append(bottomLabel);
                 }
-                bottomLabel.addEventListener('click', () => updateHighlight(letter));
-                bottomLabel.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateHighlight(letter); } });
-                col.append(bottomLabel);
 
                 plotArea.append(col);
             });
