@@ -98,7 +98,7 @@ for(const [width,height] of [[1440,900],[1280,600],[1024,768]])for(const theme o
   await expect(page.locator('[data-group-select="all"]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#ac-highlight-announcement')).toHaveText('Both groups displayed.');
 
-  await page.getByText('View exact evidence',{exact:true}).click();
+  await page.locator('#ac-result').getByText('View exact evidence',{exact:true}).click();
   const rows=page.locator('#ac-result tbody tr');await expect(rows).toHaveCount(2);
   await expect(rows.nth(0).locator('td').nth(3)).toHaveText('2.50');await expect(rows.nth(1).locator('td').nth(3)).toHaveText('3.00');
   await expect(rows.nth(0).locator('td').nth(4)).toHaveText('2');await expect(rows.nth(0).locator('td').nth(5)).toHaveText('100.00%');

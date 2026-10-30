@@ -736,8 +736,87 @@
 #admin-comparisons .comparison-card .panel-title { font-size: 1.1rem; margin: 6px 0 2px; }
 #admin-comparisons .ac-limitation { font-size: .84rem; color: var(--text-gray); margin-bottom: 20px; }
 
-/* Evidence & Explanation */
-.ac-evidence summary,.ac-explanation summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: .875rem; font-weight: 600; }
+/* Evidence & Explanation Disclosures */
+.card.ac-evidence:not([open]),
+.card.ac-explanation:not([open]) {
+    padding: 0 16px !important;
+    min-height: 44px !important;
+    max-height: 52px !important;
+    display: flex;
+    align-items: center;
+}
+.card.ac-evidence[open],
+.card.ac-explanation[open] {
+    padding: 14px 18px !important;
+}
+.ac-evidence summary,
+.ac-explanation summary {
+    cursor: pointer;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: .875rem;
+    font-weight: 600;
+    list-style: none;
+    user-select: none;
+}
+.ac-evidence summary::-webkit-details-marker,
+.ac-explanation summary::-webkit-details-marker {
+    display: none;
+}
+.ac-evidence .summary-left,
+.ac-explanation .calc-help-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.ac-explanation .calc-help-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent-blue, #1e4db7);
+    color: var(--accent-blue, #1e4db7);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.ac-evidence .disclosure-chevron,
+.ac-explanation .disclosure-chevron {
+    transition: transform 180ms ease;
+    font-size: 0.85rem;
+    color: var(--text-gray);
+}
+.ac-evidence[open] .disclosure-chevron,
+.ac-explanation[open] .disclosure-chevron {
+    transform: rotate(180deg);
+}
+.ac-explanation .analytics-calc-bullets {
+    margin: 10px 0 12px 18px;
+    padding: 0;
+    font-size: 0.82rem;
+    color: var(--text-gray);
+    line-height: 1.5;
+}
+.ac-explanation .analytics-calc-bullets li {
+    margin-bottom: 4px;
+}
+.ac-explanation .analytics-calc-formulas {
+    margin-top: 8px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 8px;
+}
+.ac-explanation .analytics-calc-formulas-summary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    cursor: pointer;
+}
 .ac-evidence .data-table-scroll { margin-top: 12px; max-height: 340px; overflow: auto; }
 .ac-evidence thead th { position: sticky; top: 0; }
 .ac-evidence caption { text-align: left; }

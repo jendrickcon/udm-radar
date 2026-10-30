@@ -135,11 +135,18 @@
     svg.append(group);
    });
   }else{
-   // Horizontal reference grid lines for the active GWA scale (1.00 to 4.00)
+   // Major reference grid lines (1.00 to 4.00)
    [1.0, 2.0, 3.0, 4.0].forEach(val=>{
     const y=195-(val-1.0)/3.0*160;
-    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.08))','stroke-dasharray':'3 3','stroke-width':1}));
-    svg.append(svgEl('text',{x:40,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'600',fill:'currentColor'},val.toFixed(2)));
+    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line chart-grid-major',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.12))','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:38,y:y+4,'text-anchor':'end','font-size':'12px','font-weight':'600',opacity:'0.88',fill:'currentColor',class:'chart-axis-label chart-label-major'},val.toFixed(2)));
+   });
+
+   // Minor half-step reference grid lines (1.50, 2.50, 3.50) with subordinate styling
+   [1.5, 2.5, 3.5].forEach(val=>{
+    const y=195-(val-1.0)/3.0*160;
+    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line-minor',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'1 3','stroke-width':0.75,opacity:'0.38'}));
+    svg.append(svgEl('text',{x:38,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'400',opacity:'0.52',fill:'currentColor',class:'chart-axis-label chart-label-minor'},val.toFixed(2)));
    });
 
    // Subtle vertical guides for term alignment
@@ -151,7 +158,7 @@
    // Primary axis line
    svg.append(svgEl('line',{x1:45,x2:615,y1:195,y2:195,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
 
-   // Compact two-line period labels and primary points/lines
+   // Compact period labels and primary points/lines
    let segment=[];
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
@@ -168,18 +175,18 @@
     }else{
      sy=String(i+1);
     }
-    const termText=svgEl('text',{x,y:213,'text-anchor':'middle','font-size':'9px','font-weight':'600',fill:'currentColor'});
-    termText.append(svgEl('tspan',{x,dy:0},sy));
-    if(sem)termText.append(svgEl('tspan',{x,dy:11},' '+sem));
+    const termText=svgEl('text',{x,y:212,'text-anchor':'middle','font-size':'12px','font-weight':'600',fill:'currentColor',class:'chart-period-label'});
+    termText.append(svgEl('tspan',{x,dy:0,class:'chart-period-year'},sy));
+    if(sem)termText.append(svgEl('tspan',{x,dy:13,'font-size':'11px','font-weight':'500',fill:'var(--text-gray)',class:'chart-period-sem'},' '+sem));
     svg.append(termText);
 
     if(p.gwa===null){flush();return;}
     const y=195-(p.gwa-1)/3*160;
     segment.push(`${x},${y}`);
-    const dot=svgEl('circle',{cx:x,cy:y,r:5,class:'analytics-dot',tabindex:0});
+    const dot=svgEl('circle',{cx:x,cy:y,r:4.5,class:'analytics-dot',tabindex:0});
     const fullLabel=p.label?p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,', Semester '):'';
     dot.append(svgEl('title',{},`School Year ${fullLabel}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle',fill:'currentColor','font-size':'11px','font-weight':'700'},num(p.gwa)));
+    svg.append(dot,svgEl('text',{x,y:y-10,'text-anchor':'middle',fill:'currentColor','font-size':'12px','font-weight':'600',class:'chart-point-val'},num(p.gwa)));
    });
    flush();
   }
@@ -454,32 +461,62 @@
 
   const pointChange=t.change?.point_change;
   const relChange=t.change?.relative_change_pct;
-  const dir=t.change?.direction||'No change';
 
-  const itemTerms=el('div',undefined,{class:'trend-detail-item'});
-  itemTerms.append(el('h5','Terms recorded'),el('p',String(count)+' semesters',{class:'detail-val'}),el('p',`Total terms in series: ${t.series.length}`,{class:'detail-sub'}));
+  // Block 1: Recorded periods
+  const itemPeriods=el('div',undefined,{class:'trend-detail-item'});
+  itemPeriods.append(
+   el('h5','Recorded periods'),
+   el('p',`${count} recorded semesters`,{class:'detail-val'}),
+   el('p',`${t.series.length} period positions (terms recorded)`,{class:'detail-sub'})
+  );
 
+  // Block 2: Observed range
   const itemSpan=el('div',undefined,{class:'trend-detail-item'});
-  itemSpan.append(el('h5','Observed range'),el('p',`${earliest?earliest.label.replace(' · Semester ',' S'):'None'} to ${latest?latest.label.replace(' · Semester ',' S'):'None'}`,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','Ordered historical sequence',{class:'detail-sub'}));
+  const earliestLabel = earliest ? earliest.label.replace(' · Semester ',' · S').replace(' · Sem ',' · S') : 'None';
+  const latestLabel = latest ? latest.label.replace(' · Semester ',' · S').replace(' · Sem ',' · S') : 'None';
+  itemSpan.append(
+   el('h5','Observed range'),
+   el('p',`${earliestLabel} to ${latestLabel}`,{class:'detail-val','style':'font-size:0.88rem;'}),
+   el('p','Ordered historical sequence',{class:'detail-sub'})
+  );
 
+  // Block 3: Current change (consolidated single card)
   const itemChange=el('div',undefined,{class:'trend-detail-item'});
-  const chipSpan=document.createElement('div');
-  chipSpan.innerHTML=formatDeltaChipHtml(pointChange,'grade points');
-  itemChange.append(el('h5','Point change'),chipSpan,el('p',`Direction: ${dir}`,{class:'detail-sub'}));
+  if(pointChange === null || pointChange === undefined || isNaN(pointChange)){
+   itemChange.append(
+    el('h5','Current change'),
+    el('p','Unavailable',{class:'detail-val delta-chip delta-neutral'}),
+    el('p','Current or previous term is incomplete',{class:'detail-sub'})
+   );
+  } else {
+   const chipSpan=document.createElement('div');
+   chipSpan.innerHTML=formatDeltaChipHtml(pointChange,'grade points');
+   const relText = relChange !== null && relChange !== undefined ? `${relChange > 0 ? '+' : ''}${relChange.toFixed(1)}%` : 'Unavailable';
+   itemChange.append(
+    el('h5','Current change'),
+    chipSpan,
+    el('p',`Relative: ${relText}`,{class:'detail-sub'})
+   );
+  }
 
-  const itemRel=el('div',undefined,{class:'trend-detail-item'});
-  const relStr=relChange!==null&&relChange!==undefined?`${relChange>0?'+':''}${relChange.toFixed(1)}%`:'Unavailable';
-  itemRel.append(el('h5','Relative change'),el('p',relStr,{class:'detail-val'}),el('p','(latest − previous) / previous',{class:'detail-sub'}));
-
+  // Block 4: Highest and lowest
   const itemHighLow=el('div',undefined,{class:'trend-detail-item'});
   const hlText=maxPt&&minPt?`High: ${num(maxPt.gwa)} · Low: ${num(minPt.gwa)}`:'Unavailable';
-  itemHighLow.append(el('h5','Highest & Lowest recorded'),el('p',hlText,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','On active prototype 4.00–0.00 scale',{class:'detail-sub'}));
+  itemHighLow.append(
+   el('h5','Highest & Lowest recorded'),
+   el('p',hlText,{class:'detail-val','style':'font-size:0.92rem;'}),
+   el('p','On active prototype 4.00–0.00 scale',{class:'detail-sub'})
+  );
 
-  container.append(itemTerms,itemSpan,itemChange,itemRel,itemHighLow);
+  container.append(itemPeriods,itemSpan,itemChange,itemHighLow);
 
   if(t.series.some(s=>s.provisional)){
-   const provWarn=el('div',undefined,{class:'trend-detail-item',style:'grid-column: 1 / -1; margin-top: 4px; padding: 6px 10px; background: rgba(245, 158, 11, 0.1); border-radius: 6px; font-size: 0.78rem; color: var(--risk-mod);'});
-   provWarn.textContent='Note: One or more historical periods contain provisional or incomplete grade data. Interpret trend progression cautiously.';
+   const provWarn=el('div',undefined,{
+    class:'trend-warning-badge',
+    role:'status',
+    style:'grid-column: 1 / -1; margin-top: 6px; padding: 6px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; font-size: 0.8rem; color: var(--risk-mod); display: flex; align-items: center; gap: 6px;'
+   });
+   provWarn.innerHTML = `<span style="font-weight:700;" aria-hidden="true">ℹ</span> Some periods contain incomplete outcomes.`;
    container.append(provWarn);
   }
  }
@@ -1382,7 +1419,10 @@
   renderPrediction(data.prediction);
 
   const trendDesc=document.getElementById('trend-description');
-  if(trendDesc)trendDesc.textContent=`${t.series.length} recorded terms · n=${data.summary.student_count}. Points follow term order; gaps mean unavailable values. Refer to the table for periods and coverage.`;
+  if(trendDesc){
+   const validCount = t.series.filter(s=>s.gwa!==null).length;
+   trendDesc.textContent=`${validCount} recorded semesters across ${t.series.length} period positions · ${data.summary.student_count} Students. Gaps represent unavailable values.`;
+  }
   chart(document.getElementById('trend-chart'),t.series,'line','Historical semester GWA');
   renderTrendDetails(t);
   table(document.getElementById('trend-table'),['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');
@@ -1405,12 +1445,25 @@
    methods.replaceChildren();
    const introP=el('p','Recorded academic metrics provide decision-support context. Use the disclosures below to inspect specific calculation formulas, pooled-mean weighting, and analytical limitations.',{style:'font-size:0.85rem;color:var(--text-gray);margin-bottom:12px;line-height:1.45;'});
 
-   const d1=el('details',undefined,{class:'analytics-method-disclosure'});
-   const s1=el('summary','How this is calculated');
+   const d1=el('details',undefined,{class:'analytics-method-disclosure card analytics-calc-disclosure',id:'analytics-calc-help'});
+   const s1=el('summary',undefined,{class:'analytics-calc-summary',ariaLabel:'Explain how these results are interpreted and calculated'});
+   s1.innerHTML = `<span class="calc-help-left"><span class="calc-help-icon" aria-hidden="true">?</span><span class="calc-help-title">How to interpret these results</span></span><span class="disclosure-chevron" aria-hidden="true">▾</span>`;
+   const d1Body = el('div',undefined,{class:'analytics-calc-content'});
+   const bullets = el('ul',undefined,{class:'analytics-calc-bullets'});
+   bullets.append(
+    el('li','Recorded-grade averages use eligible finalized numeric outcomes.'),
+    el('li','Point and relative changes require comparable complete periods.'),
+    el('li','Gaps represent periods without an eligible numeric value.'),
+    el('li','Provisional or incomplete periods are not used for a definitive change.')
+   );
+   const subCalc = el('details',undefined,{class:'analytics-calc-formulas'});
+   const subSummary = el('summary','How this is calculated',{class:'analytics-calc-formulas-summary'});
    const p1a=el('p','Average GWA is the sum of eligible final points × credit units divided by eligible credit units. It is not an arithmetic sum of Student GWAs.');
    const p1b=el('p','Relative change is (current − previous) / previous × 100; it indicates observed percentage change and is not a predictive forecast.');
    const p1c=el('p','Unit-weighted calculations exclude incomplete (INC), dropped (DRP), and missing grades from grade sums and unit totals.');
-   d1.append(s1,p1a,p1b,p1c);
+   subCalc.append(subSummary,p1a,p1b,p1c);
+   d1Body.append(bullets,subCalc);
+   d1.append(s1,d1Body);
 
    const d2=el('details',undefined,{class:'analytics-method-disclosure'});
    const s2=el('summary','Data limitations & caveats');

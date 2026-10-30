@@ -161,17 +161,26 @@ function formatAdminRiskInterpretation(int $high, int $moderate, int $low, int $
 
 function renderAnalyticsTrendSection(): void {
     ?>
-                    <section aria-labelledby="analytics-trend-heading">
-                        <h2 id="analytics-trend-heading">Historical semester trend</h2>
-                        <p id="trend-description"></p>
+                    <section aria-labelledby="analytics-trend-heading" class="analytics-trend-section">
+                        <h2 id="analytics-trend-heading" class="analytics-trend-title">Historical semester trend</h2>
+                        <p id="trend-description" class="analytics-trend-subtitle"></p>
                         <div id="trend-chart" class="analytics-chart"></div>
-                        <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700;  color: var(--text-dark);">Historical trend details</h4>
+                        <div id="trend-details-card" class="card trend-details-card">
+                            <h4 class="trend-details-title" style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700; color: var(--text-dark);">Historical trend details</h4>
                             <div id="trend-details-content"></div>
                         </div>
-                        <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
-                            <table id="trend-table"></table>
-                        </div>
+                        <details id="trend-evidence-disclosure" class="card analytics-evidence-disclosure" role="region" aria-label="Exact historical evidence">
+                            <summary class="analytics-evidence-summary" aria-label="View exact evidence for historical semester trend">
+                                <span class="summary-left">
+                                    <svg class="evidence-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>
+                                    <span>View exact evidence</span>
+                                </span>
+                                <span class="disclosure-chevron" aria-hidden="true">▾</span>
+                            </summary>
+                            <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
+                                <table id="trend-table"></table>
+                            </div>
+                        </details>
                     </section>
 
     <?php
