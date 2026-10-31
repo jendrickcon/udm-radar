@@ -989,9 +989,9 @@
         }
 
         result.append(make('p', 'Recorded group results provide academic context; differences do not independently measure teaching performance.', { class: 'ac-limitation' }));
-        const evidence = make('details', undefined, { class: 'card ac-evidence analytics-evidence-disclosure' });
-        const evSum = make('summary', undefined, { class: 'analytics-evidence-summary', 'aria-label': 'View exact evidence for comparison groups' });
-        evSum.innerHTML = '<span class="summary-left"><svg class="evidence-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:8px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>View exact evidence</span></span><span class="disclosure-chevron" aria-hidden="true" style="margin-left:auto;">▾</span>';
+        const evidence = make('details', undefined, { class: 'card ac-evidence analytics-evidence-disclosure ac-disclosure-card' });
+        const evSum = make('summary', undefined, { class: 'ac-disclosure-summary analytics-evidence-summary', 'aria-label': 'View exact values for comparison groups' });
+        evSum.innerHTML = '<svg class="ac-disclosure-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span class="ac-disclosure-label">View exact values</span>';
         evidence.append(evSum);
         const scroll = make('div', undefined, { class: 'data-table-scroll', role: 'region', 'aria-label': 'Exact comparison evidence', tabindex: '0' });
         const table = make('table'), head = make('thead'), header = make('tr'), body = make('tbody');
@@ -1004,9 +1004,9 @@
             [dimensions[dimension], period, metrics[metric], valueText(group), String(group.student_count), coverage(group), status(group)].forEach(text => row.append(make('td', text))); body.append(row);
         });
         table.append(body); scroll.append(table); evidence.append(scroll); result.append(evidence);
-        const help = make('details', undefined, { class: 'card ac-explanation analytics-calc-disclosure' });
-        const helpSum = make('summary', undefined, { class: 'analytics-calc-summary', 'aria-label': 'Explain how these results are interpreted and calculated' });
-        helpSum.innerHTML = '<span class="calc-help-left"><span class="calc-help-icon" aria-hidden="true">?</span><span class="calc-help-title">How to interpret these results</span></span><span class="disclosure-chevron" aria-hidden="true" style="margin-left:auto;">▾</span>';
+        const help = make('details', undefined, { class: 'card ac-explanation analytics-calc-disclosure ac-disclosure-card' });
+        const helpSum = make('summary', undefined, { class: 'ac-disclosure-summary analytics-calc-summary', 'aria-label': 'How to interpret these results' });
+        helpSum.innerHTML = '<svg class="ac-disclosure-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="ac-disclosure-label">How to interpret these results</span>';
         const helpContent = make('div', undefined, { class: 'analytics-calc-content' });
         const helpBullets = make('ul', undefined, { class: 'analytics-calc-bullets' });
         helpBullets.append(
