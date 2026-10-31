@@ -109,3 +109,25 @@ function facultyAssessmentPriorStatus(): array {
     return ['status' => 'No dated prior assignment', 'available' => false,
         'reason' => 'No verified dated assignment is available for a comparable previous period.'];
 }
+
+/** Presentation availability only: never pool different latest class stages or average class means. */
+function facultyAssessmentOverview(array $loads, array $rows): array {
+    $summary = facultyAssessmentSummary($rows);
+    $classes = []; $latestStages = [];
+    foreach ($loads as $load) {
+        $classRows = array_values(array_filter($rows, static fn($row) =>
+            (int)$row['subject_id'] === (int)$load['subject_id'] && $row['section'] === $load['section']));
+        $classSummary = facultyAssessmentSummary($classRows);
+        $classes[] = ['load' => $load, 'summary' => $classSummary];
+        $latestStages[] = $classSummary['latest'];
+    }
+    $recordedStages = array_unique(array_filter($latestStages, static fn($stage) => $stage !== null));
+    $mixed = count($recordedStages) > 1;
+    $shared = count($loads) > 0 && count($recordedStages) === 1 && !in_array(null, $latestStages, true);
+    // Reuse the existing equal-weight Student-subject stage aggregate, including missing slots in coverage.
+    $assessment = $shared ? $summary['stages'][reset($recordedStages)] : null;
+    return ['summary' => $summary, 'classes' => $classes, 'assessment' => $assessment,
+        'mixed' => $mixed, 'status' => $mixed ? 'Mixed latest stages' : 'Unavailable',
+        'detail' => $assessment ? $assessment['label'].' · '.$assessment['count'].' of '.$assessment['expected'].' recorded'
+            : (count($recordedStages) ? 'Review class-level results below.' : 'No recorded assessment stage')];
+}

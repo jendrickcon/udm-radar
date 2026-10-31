@@ -65,5 +65,23 @@ faCheck(!str_contains($source,'Estimated Grade Point Trajectory')&&!str_contains
 faCheck(str_contains($source,'5 percentage points')&&str_contains($source,'Previous-semester comparison'),'Visible units and explicit prior unavailable state');
 faCheck(str_contains($source,'Final entries recorded'),'Final entries including INC are not described as finalized completion');
 faCheck(!str_contains(file_get_contents(__DIR__.'/../../assets/js/faculty-assessment.js'),'spanGaps:true'),'No false continuation through unrecorded stages');
+// The overview only decides whether a same-stage aggregate can be presented.
+$loads=[['subject_id'=>1,'section'=>'A'],['subject_id'=>2,'section'=>'B']];
+$rows=[faRow(1,50,60),faRow(2,80,90),faRow(3,80,90),faRow(4,80,90,subject:2)];
+foreach($rows as &$r)$r['section']=$r['subject_id']===1?'A':'B';unset($r);
+$view=facultyAssessmentOverview($loads,$rows);
+faCheck(!$view['mixed']&&$view['assessment']['label']==='Midterm','Overall named stage shared across classes');
+faCheck(faNear($view['assessment']['mean'],82.5),'Unequal class sizes use four record weights, not mean of class means (85)');
+faCheck($view['assessment']['count']===4&&$view['assessment']['expected']===4,'Overall same-stage denominator includes all current assigned slots');
+faCheck(count($view['classes'])===2&&faNear($view['classes'][0]['summary']['assessment']['mean'],80)&&faNear($view['classes'][1]['summary']['assessment']['mean'],90),'Independent per-class means and stable input order');
+$rows[0]['midterm']=null;$view=facultyAssessmentOverview($loads,$rows);
+faCheck(faNear($view['assessment']['mean'],90)&&$view['assessment']['count']===3&&faNear($view['assessment']['coverage'],75),'Partial same-stage coverage uses valid-score numerator and all-slot denominator');
+$rows[3]['prefinal']=95;$view=facultyAssessmentOverview($loads,$rows);
+faCheck($view['mixed']&&$view['assessment']===null&&$view['status']==='Mixed latest stages','Different latest class stages cannot silently pool');
+faCheck($view['detail']==='Review class-level results below.','Mixed overview directs class-level review');
+$rows[3]['prelim']=$rows[3]['midterm']=$rows[3]['prefinal']=null;$view=facultyAssessmentOverview($loads,$rows);
+faCheck(!$view['mixed']&&$view['assessment']===null,'Class without a recorded stage cannot imply a shared latest stage');
+$view=facultyAssessmentOverview($loads,[]);faCheck($view['assessment']===null&&$view['summary']['students']===0,'Empty overview never invents a zero mean');
+$view=facultyAssessmentOverview([],[]);faCheck(!$view['classes']&&$view['assessment']===null,'No loads preserve unavailable state');
 echo "SUMMARY: $passed passed, $failed failed; no database accessed.\n";
 exit($failed?1:0);

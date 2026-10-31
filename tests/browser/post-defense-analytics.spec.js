@@ -271,12 +271,14 @@ test('Administrator side-by-side comparison builder compares cohorts with matche
 test('Faculty dashboard features compact role-scoped assigned-class analytics cards',async({page})=>{
  await login(page,'faculty');
  await page.goto(base+'/faculty/dashboard.php');
- await expect(page.locator('[data-dashboard-metric="assigned-sections"]')).toBeVisible();
+ await expect(page.locator('[data-dashboard-metric="assigned-classes"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="assessment-coverage"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="assessment-mean"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="active-referrals"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="notices-issued"]')).toBeVisible();
- await page.getByText('Finalized outcomes and metric definitions',{exact:true}).click();
+ await expect(page.getByRole('link',{name:'Review assigned classes',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('region',{name:'Assigned-class assessment details'})).toBeVisible();
+ await expect(page.locator('.main-content details')).toHaveCount(0);
  await expect(page.locator('[data-dashboard-metric="grade-coverage"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="class-mean"]')).toBeVisible();
 });
