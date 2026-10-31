@@ -77,4 +77,29 @@ trendCheck($summerPair['change'] === 'Your GWA increased by 0.50 points (25.00%)
 trendCheck(str_contains(studentTrendModel([grade(1,'2024-2025',3,'2.50')], [])['change'], 'unavailable'), 'Summer without earlier Summer has unavailable change');
 $pendingSummer = studentTrendModel([grade(1,'2022-2023',3,'2.00'),grade(2,'2023-2024',3,null),grade(3,'2024-2025',3,'2.50')], []);
 trendCheck(str_contains($pendingSummer['change'], 'unavailable'), 'Known incomplete Summer prevents skipping to an older Summer');
+
+// Additional coverage for simplified student academic information flow
+$directGrowth = computeStudentGrowth($exampleRows, ['school_year' => '2026-2027', 'semester' => 1]);
+trendCheck($directGrowth['is_available'] === true, 'computeStudentGrowth reports availability for valid adjacent terms');
+trendCheck($directGrowth['point_change'] === 0.24, 'computeStudentGrowth point change is exactly +0.24');
+trendCheck($directGrowth['relative_change_pct'] === 7.74, 'computeStudentGrowth relative percent change is exactly +7.74%');
+trendCheck($directGrowth['direction'] === 'Improving', 'computeStudentGrowth direction is Improving');
+trendCheck(str_contains($directGrowth['formatted_points'], '+0.24 GWA points'), 'computeStudentGrowth formatted_points follows contract');
+trendCheck(str_contains($directGrowth['formatted_relative'], '+7.74% from previous comparable term'), 'computeStudentGrowth formatted_relative follows contract');
+
+$summerRegularGrowth = computeStudentGrowth([grade(1,'2024-2025',2,'2.00'), grade(2,'2024-2025',3,'3.00')]);
+trendCheck($summerRegularGrowth['is_available'] === false, 'computeStudentGrowth withholds comparison between Summer and regular semester');
+
+$growthModel = studentTrendModel($exampleRows, [], ['school_year' => '2026-2027', 'semester' => 1]);
+trendCheck(isset($growthModel['growth']) && $growthModel['growth']['is_available'] === true, 'studentTrendModel payload embeds growth contract');
+trendCheck(isset($growthModel['current_term_stages']) && is_array($growthModel['current_term_stages']), 'studentTrendModel payload embeds current_term_stages');
+trendCheck(isset($growthModel['accessible_summary']) && is_array($growthModel['accessible_summary']), 'studentTrendModel payload embeds accessible_summary');
+
+$stageRows = [grade(1, '2026-2027', 1, null, 1, 87.55, null)];
+$stageModel = studentTrendModel($stageRows, [], ['school_year' => '2026-2027', 'semester' => 1]);
+trendCheck($stageModel['current_term_stages']['prelim']['status'] === 'Recorded', 'Prelim stage accurately detects recorded raw score');
+trendCheck($stageModel['current_term_stages']['prelim']['percentage'] === 87.55, 'Prelim stage retains raw percentage 87.55% without GWA conversion');
+trendCheck($stageModel['current_term_stages']['midterm']['status'] === 'Not recorded', 'Midterm stage correctly reports unrecorded without zero fallback');
+trendCheck($stageModel['current_term_stages']['midterm']['percentage'] === null, 'Midterm percentage is null when unrecorded');
+
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";
