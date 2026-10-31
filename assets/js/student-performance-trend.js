@@ -7,10 +7,10 @@
     const status = document.getElementById('trend-chart-status');
     if (!points.some(point => point.value !== null)) {
         document.querySelector('.trend-chart').hidden = true;
-        status.textContent = 'No chart is available because there are no dated completed results, current progress values, or stored estimates to plot. Available record details remain in the evidence table below.';
+        status.textContent = 'No chart is available because there are no dated completed results, current progress values, or stored estimates to plot. Available record details remain in the exact values table below.';
         return;
     }
-    if (typeof Chart === 'undefined') { status.textContent = 'Chart unavailable. All values and point details are in the table below.'; return; }
+    if (typeof Chart === 'undefined') { status.textContent = 'Chart unavailable. All values and point details are in the exact values table below.'; return; }
     const root = document.documentElement;
     const palette = () => {
         const css = getComputedStyle(root);
@@ -152,7 +152,7 @@
             scales:{x:{ticks:{color:colors.text,font:{size:14},maxRotation:0,autoSkip:false},grid:{display:false}},
                 y:{min:axisMinimum,max:4,ticks:{color:colors.text,font:{size:14},stepSize:.25,autoSkip:axisMinimum<2.5,callback:value=>Number(value).toFixed(2)},grid:{color:colors.grid},title:{display:true,text:'GWA · Higher is better',font:{size:14},color:colors.text}}}}
     });
-    status.textContent = 'Open the evidence table to explore each period.';
+    status.textContent = 'Open the exact values table to explore each period.';
     const honorsToggle = document.getElementById('trend-honors-toggle');
     const honorsLegend = document.getElementById('trend-honors-legend');
     if (honorsToggle) {

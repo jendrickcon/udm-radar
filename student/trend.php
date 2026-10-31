@@ -67,23 +67,34 @@ require_once '../includes/sidebar.php';
     <p class="trend-change"><?= $escape($model['change']) ?></p>
 
     <!-- Main Historical GWA Chart (Completed Terms & Estimate) -->
-    <section class="card" aria-labelledby="trend-chart-heading">
-        <h2 id="trend-chart-heading">Your performance over time</h2>
-        <p id="trend-summary" class="trend-note">Current progress and estimates are not final grades.</p>
-        <div class="trend-chart-toolbar">
-            <ul class="trend-legend" aria-label="Evidence types">
-                <li>● Recorded completed-term GWA</li>
-                <li>◆ Estimated GWA (Provisional)</li>
-            </ul>
+    <section class="card trend-chart-card" aria-labelledby="trend-chart-heading">
+        <div class="trend-chart-header">
+            <div class="trend-chart-title-area">
+                <h2 id="trend-chart-heading">Your performance over time</h2>
+                <p id="trend-summary" class="trend-chart-subtitle">Recorded results, current progress, and estimate.</p>
+            </div>
+            <div class="trend-chart-legend-area">
+                <ul class="trend-series-legend" aria-label="Evidence types">
+                    <li><span class="legend-marker legend-marker--circle" aria-hidden="true"></span> Completed GWA</li>
+                    <li><span class="legend-marker legend-marker--diamond" aria-hidden="true"></span> Estimated GWA</li>
+                </ul>
+                <p class="trend-honors-disclaimer">
+                    Honors guides are reference thresholds. Official eligibility remains subject to institutional review.
+                </p>
+            </div>
         </div>
-        <p class="trend-honors-caption" style="font-size: 0.8rem; color: var(--text-gray); margin: 6px 0 8px 0;">Honors guides are reference thresholds. Official eligibility remains subject to institutional review.</p>
-        <ul id="trend-honors-legend" class="trend-distinction-legend" aria-label="Academic distinction reference thresholds">
+
+        <div class="trend-honors-guide-row" aria-label="Academic distinction reference thresholds">
         <?php foreach ($distinctionGuides as $guide): ?>
-            <li><span class="trend-guide-swatch trend-guide-<?= (int)$guide['style'] ?>" aria-hidden="true"></span><span><?= $escape(implode(' / ', $guide['names'])) ?>: <?= number_format($guide['value'], 2) ?></span></li>
+            <span class="trend-guide-item">
+                <span class="trend-guide-swatch trend-guide-<?= (int)$guide['style'] ?>" aria-hidden="true"></span>
+                <span><?= $escape(implode(' / ', $guide['names'])) ?> <strong><?= number_format($guide['value'], 2) ?></strong></span>
+            </span>
         <?php endforeach; ?>
-        </ul>
-        <div class="trend-chart"><canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact evidence table below for every value and its limitations.</canvas></div>
-        <p id="trend-chart-status" role="status">Open the evidence table to explore each period.</p>
+        </div>
+
+        <div class="trend-chart"><canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas></div>
+        <p id="trend-chart-status" role="status" class="trend-assistive-status">Open the exact values table to explore each period.</p>
     </section>
 
     <!-- Compact Current-Term Assessment Progress (0–100% Scale) -->
@@ -110,36 +121,71 @@ require_once '../includes/sidebar.php';
         </div>
     </section>
 
-    <!-- Accessible Value Summary (Clean Disclosure) -->
-    <section class="card" aria-labelledby="trend-table-heading">
-        <details id="trend-evidence">
-        <summary class="trend-evidence-toggle"><h2 id="trend-table-heading">Exact evidence and point details</h2><span class="trend-hide-table" aria-hidden="true">Hide table</span><span class="trend-show-table" aria-hidden="true">Show table</span></summary>
-        <div class="trend-table-scroll" role="region" aria-label="Academic evidence table" tabindex="0">
-        <table><caption id="trend-table-caption">Values share the chart's data model and two-decimal precision. Expand a period for its source and completeness.</caption>
-            <thead><tr><th scope="col">Period and details</th><th scope="col">Evidence type</th><th scope="col">GWA</th><th scope="col">Eligible change</th></tr></thead>
-            <tbody><?php foreach ($model['points'] as $index=>$point): ?>
-            <tr><th scope="row"><details><summary data-trend-point="<?= $index ?>"><?= $escape(str_replace('Latest stored estimate', 'Latest GWA estimate', $point['period'])) ?></summary><p><?= $escape($point['detail']) ?></p></details></th>
-                <td><?= $escape(str_replace(' snapshot', ' progress', $point['type'])) ?><br><span><?= $escape($point['state']) ?></span></td>
-                <td><?= $point['value'] === null ? $escape($point['state'] === 'Pending' ? 'Pending' : 'Unavailable') : number_format($point['value'],2) ?></td>
-                <td><?= $escape($point['comparison']) ?></td></tr>
-            <?php endforeach; ?></tbody>
-        </table></div>
-        <?php if ($model['latest'] === null): ?><p>No complete recorded GWA is available for the selected terms.</p><?php endif; ?>
-        </details>
-    </section>
+    <!-- View Exact Values Disclosure -->
+    <details id="trend-evidence" class="trend-disclosure">
+        <summary class="trend-disclosure-summary trend-evidence-toggle" aria-controls="trend-table-region">
+            <svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="3" y1="15" x2="21" y2="15"></line>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            <span class="trend-disclosure-title">View exact values</span>
+        </summary>
+        <div id="trend-table-region" class="trend-disclosure-content">
+            <div class="trend-table-scroll" role="region" aria-label="Academic performance table" tabindex="0">
+                <table class="trend-exact-table">
+                    <caption id="trend-table-caption">Academic performance summary across completed terms, current assessment progress, and advisory estimates.</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Academic period</th>
+                            <th scope="col">Result type</th>
+                            <th scope="col">Value</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($model['accessible_summary'] as $row): ?>
+                        <tr>
+                            <td><?= $escape($row['period']) ?></td>
+                            <td><?= $escape($row['result_type']) ?></td>
+                            <td><strong><?= $escape($row['value']) ?></strong></td>
+                            <td>
+                                <span class="status-pill <?= $row['status'] === 'Recorded' ? 'status-pill-success' : ($row['status'] === 'Provisional' ? 'status-pill-warning' : 'status-pill-muted') ?>" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                                    <?= $escape($row['status']) ?>
+                                </span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if ($model['latest'] === null): ?><p style="margin-top: 10px; color: var(--text-gray); font-size: 0.85rem;">No complete recorded GWA is available for the selected terms.</p><?php endif; ?>
+            <p class="trend-table-note" style="font-size: 0.80rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0; line-height: 1.45;">
+                Completed-term GWA uses resolved final outcomes. Current progress and estimated GWA remain separate and are not treated as completed results.
+            </p>
+        </div>
+    </details>
 
     <!-- Compact Help Disclosure -->
-    <section class="card" style="padding: 14px 18px;">
-        <details class="trend-help-disclosure">
-            <summary style="font-weight: 600; color: var(--text-dark); cursor: pointer; font-size: 0.88rem;">[?] About these results and reference guides</summary>
-            <ul style="margin-top: 10px; padding-left: 20px; font-size: 0.84rem; color: var(--text-gray); line-height: 1.5;">
+    <details class="trend-disclosure">
+        <summary class="trend-disclosure-summary" aria-controls="trend-help-content">
+            <svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span class="trend-disclosure-title">About these results and reference guides</span>
+        </summary>
+        <div id="trend-help-content" class="trend-disclosure-content">
+            <ul style="margin: 0; padding-left: 20px; font-size: 0.84rem; color: var(--text-gray); line-height: 1.6;">
                 <li>Honors guides are reference thresholds; official eligibility requires institutional review.</li>
                 <li>Estimates provide provisional decision support and do not replace official registrar evaluations.</li>
                 <li>Growth reflects point differences and relative change between consecutive comparable completed terms.</li>
                 <li>Preliminary and Midterm progress represent raw assessment stages on a 0–100% scale.</li>
             </ul>
-        </details>
-    </section>
+        </div>
+    </details>
 </main>
 <script id="student-trend-data" type="application/json"><?= json_encode($model['points'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
 <script id="student-trend-guides" type="application/json"><?= json_encode($distinctionGuides, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>

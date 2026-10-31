@@ -43,7 +43,17 @@ $completedCurrent = studentTrendModel([grade(1,'2025-2026',1,'3.00',1)], []);
 trendCheck($completedCurrent['latest'] === 3.0, 'Fully recorded current term can supply completed result');
 $source = file_get_contents(__DIR__.'/../../student/trend.php');
 trendCheck(str_contains($source,"WHERE g.student_id=?") && str_contains($source,"requireRole('student')"), 'Source inspection: Student session scoping retained (not live authorization proof)');
-trendCheck(str_contains($source,"foreach (\$model['points']") && str_contains($source,"json_encode(\$model['points']"), 'Source inspection: chart and table consume same point payload');
+trendCheck((str_contains($source,"foreach (\$model['accessible_summary']") || str_contains($source,"foreach (\$model['points']")) && str_contains($source,"json_encode(\$model['points']"), 'Source inspection: chart and table consume model payloads');
+$tableStart = strpos($source, '<table');
+$tableEnd = strpos($source, '</table>');
+$tableContent = ($tableStart !== false && $tableEnd !== false) ? substr($source, $tableStart, $tableEnd - $tableStart) : '';
+trendCheck($tableContent !== '' && !str_contains($tableContent, '<details'), 'No nested details elements inside exact values table');
+trendCheck($tableContent !== '' && !str_contains($tableContent, '<summary'), 'No nested summary elements inside exact values table');
+trendCheck(!str_contains($source, 'Expand a period for its source and completeness'), 'Technical instruction copy removed from table caption');
+trendCheck(str_contains($source, '<th scope="col">Academic period</th>') && str_contains($source, '<th scope="col">Result type</th>') && str_contains($source, '<th scope="col">Value</th>') && str_contains($source, '<th scope="col">Status</th>'), 'Table columns are Academic period, Result type, Value, and Status');
+trendCheck(!str_contains($source, '[?]'), 'Literal [?] replaced with SVG help icon');
+trendCheck(str_contains($source, 'Your performance over time') && str_contains($source, 'Recorded results, current progress, and estimate.'), 'Chart title and concise subtitle present');
+trendCheck(str_contains($source, 'Honors guides are reference thresholds. Official eligibility remains subject to institutional review.'), 'Honors disclaimer present under series legend');
 foreach ([['2.25','2.50','Your GWA increased by 0.25 points (11.11%)'],['2.50','2.25','Your GWA decreased by 0.25 points (10.00%)'],['2.50','2.50','Your GWA stayed the same (0.00%)']] as [$before,$after,$expected]) {
     $relative = studentTrendModel([grade(1,'2024-2025',1,$before),grade(2,'2024-2025',2,$after)], []);
     trendCheck(str_contains($relative['change'], $expected), 'Plain-language direction and relative percent '.$before.' to '.$after);

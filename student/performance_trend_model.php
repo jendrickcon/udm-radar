@@ -269,25 +269,46 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
             . 'Generation time alone does not verify that the latest grades were used. Estimate only; not a final grade or official standing.',
         'comparison' => 'Not a completed-term growth measure; forecast range unavailable.', 'connect' => false];
 
-    // Build accessible summary table rows (Period, Recorded GWA, Availability)
+    // Build accessible summary table rows (Academic period, Result type, Value, Status)
     $accessibleSummary = [];
     foreach ($series as $term) {
         $dated = studentTrendPeriodOrder($term['key']) !== null;
         if (!$dated) continue;
+        [$y, $s] = array_pad(explode('|', $term['key']), 2, '');
+        $periodLabel = $s === '3' ? "{$y} · Summer" : "{$y} · Semester {$s}";
         $val = !$term['provisional'] ? $term['gwa'] : null;
         $accessibleSummary[] = [
-            'period' => studentTrendPeriod($term['key']),
-            'type' => 'Recorded completed-term GWA',
+            'period' => $periodLabel,
+            'result_type' => 'Completed-term GWA',
+            'type' => 'Completed-term GWA',
+            'value' => $val !== null ? number_format($val, 2) : 'Unavailable',
             'gwa' => $val !== null ? number_format($val, 2) : 'Unavailable',
+            'status' => $val !== null ? 'Recorded' : ($term['provisional'] ? 'Pending' : 'Unavailable'),
             'availability' => $val !== null ? 'Recorded' : ($term['provisional'] ? 'Pending' : 'Unavailable'),
         ];
     }
-    if ($estimate['estimated_gwa'] !== null) {
+    if (!empty($currentStages['prelim']['percentage'])) {
+        $currPeriodLabel = $activeTerm['school_year'] . ' · Semester ' . $activeTerm['semester'];
         $accessibleSummary[] = [
-            'period' => 'Latest GWA estimate',
-            'type' => 'Estimated semester GWA',
+            'period' => $currPeriodLabel,
+            'result_type' => 'Current preliminary progress',
+            'type' => 'Current preliminary progress',
+            'value' => number_format((float)$currentStages['prelim']['percentage'], 2) . '%',
+            'gwa' => number_format((float)$currentStages['prelim']['percentage'], 2) . '%',
+            'status' => 'Recorded',
+            'availability' => 'Recorded',
+        ];
+    }
+    if ($estimate['estimated_gwa'] !== null) {
+        $currPeriodLabel = $activeTerm['school_year'] . ' · Semester ' . $activeTerm['semester'];
+        $accessibleSummary[] = [
+            'period' => $currPeriodLabel,
+            'result_type' => 'Estimated GWA',
+            'type' => 'Estimated GWA',
+            'value' => number_format($estimate['estimated_gwa'], 2),
             'gwa' => number_format($estimate['estimated_gwa'], 2),
-            'availability' => 'Provisional Estimate',
+            'status' => 'Provisional',
+            'availability' => 'Provisional',
         ];
     }
 

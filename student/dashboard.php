@@ -472,14 +472,14 @@ require_once '../includes/sidebar.php';
         <div class="stat-card" style="border-left: 4px solid var(--accent-blue);">
             <h4>Cumulative GWA</h4>
             <h2 id="gwa-card-value" style="color: var(--text-dark);"><?= $currentGwaDisplay ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical Cumulative GWA (Completed Semesters)</p>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Completed semesters</p>
         </div>
         <div class="stat-card" style="border-left: 4px solid <?= $honor_color ?>;">
             <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
                 <?php if ($prediction_source !== null): ?>
-                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><?= !empty($explanation['is_provisional']) ? ' (Provisional)' : '' ?><br>
+                    Projection source: <?= htmlspecialchars(getPredictionSourceDisplayLabel($prediction_source)) ?><br>
                 <?php endif; ?>
                 <?php if ($display_honor !== null): ?>
                     Latin Honor Status: <strong style="color: <?= $honor_color ?>;"><?= htmlspecialchars($display_honor) ?></strong>
@@ -504,15 +504,17 @@ require_once '../includes/sidebar.php';
             <?php endif; ?>
             <p style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current advisory classification</p>
         </div>
-        <div class="stat-card" style="border-left: 4px solid #0d9488;">
+        <div class="stat-card kpi-card--growth" style="border-left: 4px solid #0d9488;">
             <h4>Growth</h4>
-            <h2 style="color: #0d9488; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($growthData['formatted_points']) ?></h2>
+            <h2 class="growth-kpi-value" style="color: #0d9488; font-size: clamp(1.45rem, 1.8vw, 1.95rem); font-weight: 700; margin: 0; line-height: 1.15; overflow-wrap: normal;">
+                <?php if ($growthData['point_change'] !== null): ?>
+                    <?= ($growthData['point_change'] > 0 ? '+' : '') . number_format($growthData['point_change'], 2) ?>
+                    <span class="growth-unit" style="font-size: 0.92rem; font-weight: 600; color: var(--text-gray); display: inline-block; white-space: nowrap;">GWA points</span>
+                <?php else: ?>
+                    Unavailable
+                <?php endif; ?>
+            </h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($growthData['formatted_relative']) ?></p>
-            <?php if (!empty($growthData['current_term_label']) && !empty($growthData['previous_term_label'])): ?>
-                <p style="font-size: 0.70rem; color: var(--text-gray); margin-top: 2px;"><?= htmlspecialchars($growthData['previous_term_label']) ?> to <?= htmlspecialchars($growthData['current_term_label']) ?></p>
-            <?php else: ?>
-                <p style="font-size: 0.70rem; color: var(--text-gray); margin-top: 2px;">Completed terms comparison</p>
-            <?php endif; ?>
         </div>
     </div>
 
