@@ -226,22 +226,131 @@ function determineCurrentSubjectStatus(array $row): array {
 
 /**
  * Fetch student current-term grades strictly anchored to the active period.
+ * Does not require is_current = 1 after active period matching.
  */
 function fetchStudentCurrentGrades(PDO $db, int $studentId, ?array $activeTerm = null): array {
     if ($studentId <= 0) {
         return [];
     }
     $term = $activeTerm ?? getCurrentTerm();
+    $sy = normalizeSchoolYear($term['school_year'] ?? null) ?? ($term['school_year'] ?? '');
+    $sem = normalizeSemester($term['semester'] ?? null) ?? (int)($term['semester'] ?? 0);
 
     $stmt = $db->prepare("
-        SELECT g.*, s.code, s.title, s.units
+        SELECT g.id AS grade_id, g.id, g.student_id, g.subject_id,
+               g.school_year, g.semester, g.prelim, g.midterm, g.prefinal, g.final_grade, g.is_current,
+               s.id AS subject_id, s.code, s.title, s.units
         FROM grades g
         JOIN subjects s ON s.id = g.subject_id
         WHERE g.student_id = ? AND g.school_year = ? AND g.semester = ?
         ORDER BY s.code ASC
     ");
-    $stmt->execute([$studentId, $term['school_year'], $term['semester']]);
+    $stmt->execute([$studentId, $sy, $sem]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Compute unit-weighted current-term assessment progress and identify the latest recorded stage.
+ *
+ * @param array $currentSubjects List of subjects with prelim, midterm, prefinal, units
+ * @return array Multi-key structure containing:
+ *   - prelim_avg, midterm_avg, prefinal_avg (float|null)
+ *   - prelim_units, midterm_units, prefinal_units (float)
+ *   - prelim_count, midterm_count, prefinal_count (int)
+ *   - total_count (int)
+ *   - stages: array of stages ('prelim', 'midterm', 'prefinal')
+ *   - latest_stage: array|null
+ *   - latest_stage_field: string|null
+ *   - latest_stage_label: string|null
+ *   - converted_point: float|null (via convertPercentageToPoint)
+ *   - formatted_converted_point: string|null
+ *   - stage_based_label: string|null
+ *   - primary_value: string (e.g. '92.94%' or 'Not recorded')
+ *   - subtitle: string
+ *   - coverage_text: string
+ *   - earlier_context: string|null
+ *   - has_recorded_stage: bool
+ */
+function computeCurrentTermAssessmentProgress(array $currentSubjects): array {
+    $totalCount = count($currentSubjects);
+    $stages = [];
+    $stageConfigs = [
+        'prelim'   => 'Preliminary',
+        'midterm'  => 'Midterm',
+        'prefinal' => 'Pre-Final',
+    ];
+
+    foreach ($stageConfigs as $field => $label) {
+        $sum = 0.0;
+        $units = 0.0;
+        $recordedCount = 0;
+
+        foreach ($currentSubjects as $sub) {
+            $val = $sub[$field] ?? null;
+            $u = (float)($sub['units'] ?? 0);
+            if ($val !== null && trim((string)$val) !== '' && isValidTermPercentage($val) && $u > 0) {
+                $sum += (float)$val * $u;
+                $units += $u;
+                $recordedCount++;
+            }
+        }
+
+        $pct = ($units > 0 && $recordedCount > 0) ? round($sum / $units, 2) : null;
+        $stages[$field] = [
+            'field'                => $field,
+            'label'                => $label,
+            'percentage'           => $pct,
+            'status'               => $pct !== null ? 'Recorded' : 'Not recorded',
+            'formatted_percentage' => $pct !== null ? number_format($pct, 2) . '%' : 'Not recorded',
+            'coverage'             => $totalCount > 0 ? "{$recordedCount}/{$totalCount}" : '0/0',
+            'recorded_count'       => $recordedCount,
+            'total_count'          => $totalCount,
+            'units'                => $units,
+        ];
+    }
+
+    $latestStage = null;
+    $earlierStages = [];
+    foreach ($stageConfigs as $field => $label) {
+        if ($stages[$field]['percentage'] !== null) {
+            if ($latestStage !== null) {
+                $earlierStages[] = $latestStage['label'] . ': ' . $latestStage['formatted_percentage'];
+            }
+            $latestStage = $stages[$field];
+        }
+    }
+
+    $convertedAssessmentPoint = ($latestStage !== null && $latestStage['percentage'] !== null && function_exists('convertPercentageToPoint'))
+        ? convertPercentageToPoint($latestStage['percentage'])
+        : null;
+
+    $stageBasedLabel = $latestStage ? "{$latestStage['label']}-based" : null;
+
+    return [
+        'prelim_avg'               => $stages['prelim']['percentage'],
+        'midterm_avg'              => $stages['midterm']['percentage'],
+        'prefinal_avg'             => $stages['prefinal']['percentage'],
+        'prelim_units'             => $stages['prelim']['units'],
+        'midterm_units'            => $stages['midterm']['units'],
+        'prefinal_units'           => $stages['prefinal']['units'],
+        'prelim_count'             => $stages['prelim']['recorded_count'],
+        'midterm_count'            => $stages['midterm']['recorded_count'],
+        'prefinal_count'           => $stages['prefinal']['recorded_count'],
+        'total_count'              => $totalCount,
+        'stages'                   => $stages,
+        'latest_stage'             => $latestStage,
+        'latest_stage_field'       => $latestStage['field'] ?? null,
+        'latest_stage_label'       => $latestStage['label'] ?? null,
+        'percentage'               => $latestStage['percentage'] ?? null,
+        'converted_point'          => $convertedAssessmentPoint,
+        'formatted_converted_point'=> $convertedAssessmentPoint !== null ? number_format($convertedAssessmentPoint, 2) : null,
+        'stage_based_label'        => $stageBasedLabel,
+        'primary_value'            => $latestStage ? $latestStage['formatted_percentage'] : 'Not recorded',
+        'subtitle'                 => $latestStage ? "{$latestStage['label']} average" : 'Assessment progress pending',
+        'coverage_text'            => $latestStage ? "{$latestStage['recorded_count']} of {$latestStage['total_count']} subjects recorded" : '0 of 0 subjects recorded',
+        'earlier_context'          => !empty($earlierStages) ? implode(' · ', $earlierStages) : null,
+        'has_recorded_stage'       => ($latestStage !== null),
+    ];
 }
 
 /**

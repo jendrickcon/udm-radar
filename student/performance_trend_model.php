@@ -192,10 +192,9 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
         if ($value !== null) { $latest = $value; $latestChange = $comparison; }
     }
 
-    // Anchor current subjects strictly to the active academic period
+    // Anchor current subjects strictly to the active academic period without requiring is_current = 1
     $current = array_values(array_filter($rows, fn($row) =>
-        (int)($row['is_current'] ?? 0) === 1
-        && ($row['school_year'] ?? '') === $activeTerm['school_year']
+        ($row['school_year'] ?? '') === $activeTerm['school_year']
         && (int)($row['semester'] ?? 0) === (int)$activeTerm['semester']
     ));
 
