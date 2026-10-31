@@ -36,15 +36,48 @@ $stmtPred = $db->prepare("
 $stmtPred->execute([$user['id']]);
 $ml_prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 
+require_once __DIR__ . '/performance_trend_model.php';
+$currentTerm = getCurrentTerm();
+
 // 2. Fetch Current Semester Subjects & All Grades
 $stmtCurr = $db->prepare("
-    SELECT s.id AS subject_id, s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade
+    SELECT s.id AS subject_id, s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade, g.school_year, g.semester
     FROM grades g
     JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 1
+    WHERE g.student_id = ? AND g.is_current = 1 AND g.school_year = ? AND g.semester = ?
 ");
-$stmtCurr->execute([$user['id']]);
+$stmtCurr->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
 $current_subjects = $stmtCurr->fetchAll();
+
+// Fetch all student grades for Growth KPI
+$stmtAllGrades = $db->prepare("
+    SELECT g.id, g.student_id, g.school_year, g.semester, g.final_grade, g.prelim, g.midterm, g.prefinal, g.is_current, s.units
+    FROM grades g
+    JOIN subjects s ON s.id = g.subject_id
+    WHERE g.student_id = ?
+    ORDER BY g.school_year, g.semester, g.id
+");
+$stmtAllGrades->execute([$user['id']]);
+$allStudentGrades = $stmtAllGrades->fetchAll(PDO::FETCH_ASSOC);
+$growthData = computeStudentGrowth($allStudentGrades, $currentTerm);
+
+$currPrelimSum = 0; $currPrelimUnits = 0; $currPrelimCount = 0;
+$currMidtermSum = 0; $currMidtermUnits = 0; $currMidtermCount = 0;
+foreach ($current_subjects as $cs) {
+    $u = (float)($cs['units'] ?? 0);
+    if ($cs['prelim'] !== null && trim((string)$cs['prelim']) !== '' && isValidTermPercentage($cs['prelim']) && $u > 0) {
+        $currPrelimSum += (float)$cs['prelim'] * $u;
+        $currPrelimUnits += $u;
+        $currPrelimCount++;
+    }
+    if ($cs['midterm'] !== null && trim((string)$cs['midterm']) !== '' && isValidTermPercentage($cs['midterm']) && $u > 0) {
+        $currMidtermSum += (float)$cs['midterm'] * $u;
+        $currMidtermUnits += $u;
+        $currMidtermCount++;
+    }
+}
+$currPrelimAvg = ($currPrelimUnits > 0 && $currPrelimCount > 0) ? round($currPrelimSum / $currPrelimUnits, 2) : null;
+$currMidtermAvg = ($currMidtermUnits > 0 && $currMidtermCount > 0) ? round($currMidtermSum / $currMidtermUnits, 2) : null;
 
 // 3. Heuristic prediction & Subject Triage
 $prediction_rows = [];
@@ -243,6 +276,21 @@ require_once '../includes/sidebar.php';
 ?>
 
 <style>
+.student-dashboard .dashboard-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+@media (max-width: 1200px) {
+    .student-dashboard .dashboard-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 640px) {
+    .student-dashboard .dashboard-stat-grid {
+        grid-template-columns: 1fr;
+    }
+}
 .student-dashboard > .header { flex-wrap: wrap; gap: 16px; }
 .student-dashboard .analysis-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .student-dashboard .analysis-panels > * { min-width: 0; }
@@ -421,12 +469,12 @@ require_once '../includes/sidebar.php';
     </div>
 
     <div class="stat-grid dashboard-stat-grid" style="margin-bottom: 24px;">
-        <div class="stat-card" style="border-left-color: var(--accent-blue);">
+        <div class="stat-card" style="border-left: 4px solid var(--accent-blue);">
             <h4>Cumulative GWA</h4>
             <h2 id="gwa-card-value" style="color: var(--text-dark);"><?= $currentGwaDisplay ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Historical Cumulative GWA (Completed Semesters)</p>
         </div>
-        <div class="stat-card" style="border-left-color: <?= $honor_color ?>;">
+        <div class="stat-card" style="border-left: 4px solid <?= $honor_color ?>;">
             <h4>Projected Semester GWA <?= !empty($explanation['is_provisional']) ? '<span style="font-size: 0.72rem; color: var(--risk-mod); font-weight: 700;">(Provisional)</span>' : '' ?></h4>
             <h2 style="color: <?= $honor_color ?>;"><?= $display_predicted_gwa !== null ? number_format($display_predicted_gwa, 2) : 'N/A' ?></h2>
             <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">
@@ -440,7 +488,7 @@ require_once '../includes/sidebar.php';
                 <?php endif; ?>
             </p>
         </div>
-        <div class="stat-card" style="border-left-color: <?= $riskBg ?>;">
+        <div class="stat-card" style="border-left: 4px solid <?= $riskBg ?>;">
             <div class="stat-card-heading-with-info">
                 <h4 style="margin: 0;">Overall Academic Risk</h4>
                 <span class="custom-tooltip tooltip-top-left risk-info-icon" tabindex="0" aria-label="Risk explanation: <?= htmlspecialchars($riskTooltip) ?>" title="View risk details">
@@ -449,10 +497,22 @@ require_once '../includes/sidebar.php';
                 </span>
             </div>
             <h2 style="color: <?= $riskBg ?>; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($display_risk ?? 'N/A') ?></h2>
+            <?php if ($display_risk !== 'LOW' && $display_risk !== null): ?>
             <div style="font-size: 0.76rem; color: var(--text-dark); margin-top: 6px; font-weight: 600; line-height: 1.35;">
                 <?= htmlspecialchars($shortRiskSummary) ?>
             </div>
-            <p style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current Classification</p>
+            <?php endif; ?>
+            <p style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Current advisory classification</p>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #0d9488;">
+            <h4>Growth</h4>
+            <h2 style="color: #0d9488; font-size: 2rem; font-weight: 700; margin: 0;"><?= htmlspecialchars($growthData['formatted_points']) ?></h2>
+            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($growthData['formatted_relative']) ?></p>
+            <?php if (!empty($growthData['current_term_label']) && !empty($growthData['previous_term_label'])): ?>
+                <p style="font-size: 0.70rem; color: var(--text-gray); margin-top: 2px;"><?= htmlspecialchars($growthData['previous_term_label']) ?> to <?= htmlspecialchars($growthData['current_term_label']) ?></p>
+            <?php else: ?>
+                <p style="font-size: 0.70rem; color: var(--text-gray); margin-top: 2px;">Completed terms comparison</p>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -568,11 +628,32 @@ require_once '../includes/sidebar.php';
 
     <div class="card" style="margin-bottom: 24px;">
         <div class="subject-heading" style="margin-bottom: 16px;">
-            <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700;">Current Subjects & Predictions</h3>
+            <div>
+                <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Current Subjects & Predictions</h3>
+                <p style="font-size: 0.8rem; color: var(--text-gray); margin: 2px 0 0 0;">Active Term: <?= htmlspecialchars($currentTerm['school_year']) ?> · Semester <?= (int)$currentTerm['semester'] ?></p>
+            </div>
             <button type="button" onclick="toggleCalculator()" style="background: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
                 <span>Open Grade Goal Calculator</span>
             </button>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 14px; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.84rem;">
+            <span style="font-weight: 600; color: var(--text-dark);">Current Term Assessment Progress:</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <span style="color: var(--text-gray);">Preliminary:</span>
+                <strong style="color: <?= $currPrelimAvg !== null ? 'var(--accent-blue)' : 'var(--text-gray)' ?>;"><?= $currPrelimAvg !== null ? number_format($currPrelimAvg, 2) . '% (Recorded)' : 'Not recorded' ?></strong>
+            </span>
+            <span style="color: var(--border-color);">•</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <span style="color: var(--text-gray);">Midterm:</span>
+                <strong style="color: <?= $currMidtermAvg !== null ? 'var(--accent-blue)' : 'var(--text-gray)' ?>;"><?= $currMidtermAvg !== null ? number_format($currMidtermAvg, 2) . '% (Recorded)' : 'Not recorded' ?></strong>
+            </span>
+            <span style="color: var(--border-color);">•</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <span style="color: var(--text-gray);">Active Term:</span>
+                <strong style="color: var(--text-dark);"><?= htmlspecialchars($currentTerm['school_year']) ?> · Semester <?= (int)$currentTerm['semester'] ?></strong>
+            </span>
         </div>
         <div class="data-table-scroll" role="region" aria-label="Current subjects and predictions" tabindex="0">
         <table class="student-subjects-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
