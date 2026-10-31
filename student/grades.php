@@ -36,24 +36,26 @@ if (!function_exists('formatPercentage')) {
     }
 }
 
+$currentTerm = getCurrentTerm();
+
 $stmtCurrent = $db->prepare("
     SELECT g.*, s.code, s.title, s.units
     FROM grades g
     JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 1
+    WHERE g.student_id = ? AND g.is_current = 1 AND g.school_year = ? AND g.semester = ?
     ORDER BY s.code
 ");
-$stmtCurrent->execute([$user['id']]);
+$stmtCurrent->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
 $currentGrades = $stmtCurrent->fetchAll();
 
 $stmtHistory = $db->prepare("
     SELECT g.*, s.code, s.title, s.units
     FROM grades g
     JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 0
+    WHERE g.student_id = ? AND (g.is_current = 0 OR g.school_year != ? OR g.semester != ?)
     ORDER BY g.school_year DESC, g.semester DESC, s.code
 ");
-$stmtHistory->execute([$user['id']]);
+$stmtHistory->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
 $historyRows = $stmtHistory->fetchAll();
 
 $historyTerms = [];
@@ -209,7 +211,8 @@ require_once '../includes/sidebar.php';
     </div>
 
     <!-- CURRENT SEMESTER SECTION -->
-    <h2 style="margin-bottom: 16px; font-size: 1.25rem; color: var(--text-dark);">Current Semester Grades</h2>
+    <h2 style="margin-bottom: 4px; font-size: 1.25rem; color: var(--text-dark);">Current Semester Grades</h2>
+    <p style="margin-bottom: 16px; font-size: 0.85rem; color: var(--text-gray);">Academic Year <?= htmlspecialchars($currentTerm['school_year']) ?> · Semester <?= (int)$currentTerm['semester'] ?></p>
     
     <div class="card grades-card" style="margin-bottom: 32px;">
         <?php if (empty($currentGrades)): ?>
