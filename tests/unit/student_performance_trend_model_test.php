@@ -6,8 +6,8 @@ function trendCheck(bool $condition, string $label): void {
     if (!$condition) { fwrite(STDERR, "FAIL: $label\n"); exit(1); }
     echo "PASS: $label\n";
 }
-function grade(int $id, string $year, int $sem, mixed $final, int $current=0, mixed $prelim=null, mixed $midterm=null): array {
-    return ['id'=>$id,'student_id'=>1,'school_year'=>$year,'semester'=>$sem,'final_grade'=>$final,'is_current'=>$current,'prelim'=>$prelim,'midterm'=>$midterm,'prefinal'=>null,'units'=>3];
+function grade(int $id, string $year, int $sem, mixed $final, int $current=0, mixed $prelim=null, mixed $midterm=null, mixed $prefinal=null): array {
+    return ['id'=>$id,'student_id'=>1,'school_year'=>$year,'semester'=>$sem,'final_grade'=>$final,'is_current'=>$current,'prelim'=>$prelim,'midterm'=>$midterm,'prefinal'=>$prefinal,'units'=>3];
 }
 $empty = studentTrendModel([], []);
 trendCheck($empty['latest'] === null && $empty['estimate'] === null, 'Empty input invents no scalar or estimate');
@@ -122,5 +122,26 @@ trendCheck($currentPeriodSummary[0]['result_type'] === 'Preliminary progress' &&
 trendCheck($currentPeriodSummary[1]['result_type'] === 'Estimated GWA' && $currentPeriodSummary[1]['hide_period_visually'] === true, 'Second current-term row is Estimated GWA with visually grouped period');
 $unavailableCompletedRows = array_filter($summaryRows, fn($r) => $r['period'] === '2026-2027 · Semester 1' && $r['result_type'] === 'Completed-term GWA');
 trendCheck(count($unavailableCompletedRows) === 0, 'No unavailable completed-term GWA row exists for current term');
+
+// Latest actually recorded stage selection and context assertions
+trendCheck($consolidatedModel['current_progress']['latest_stage_field'] === 'prelim', 'Scenario A: Prelim-only latest stage is prelim');
+trendCheck($consolidatedModel['current_progress']['primary_value'] === '87.55%', 'Scenario A: Prelim-only primary value is 87.55%');
+trendCheck($consolidatedModel['current_progress']['subtitle'] === 'Preliminary average', 'Scenario A: Prelim-only subtitle is Preliminary average');
+trendCheck($consolidatedModel['current_progress']['earlier_context'] === null, 'Scenario A: Prelim-only earlier context is null');
+
+$twoStageRows = [grade(1, '2026-2027', 1, null, 1, 87.55, 91.20)];
+$twoStageModel = studentTrendModel($twoStageRows, [], ['school_year' => '2026-2027', 'semester' => 1]);
+trendCheck($twoStageModel['current_progress']['latest_stage_field'] === 'midterm', 'Scenario B: Prelim+Midterm latest stage is midterm');
+trendCheck($twoStageModel['current_progress']['primary_value'] === '91.20%', 'Scenario B: Prelim+Midterm primary value is Midterm percentage 91.20%');
+trendCheck($twoStageModel['current_progress']['subtitle'] === 'Midterm average', 'Scenario B: Prelim+Midterm subtitle is Midterm average');
+trendCheck($twoStageModel['current_progress']['earlier_context'] === 'Preliminary: 87.55%', 'Scenario B: Earlier stage context displays Preliminary: 87.55%');
+trendCheck($twoStageModel['current_progress']['primary_value'] !== '89.38%', 'Scenario B: Simple arithmetic mean across stages is rejected');
+
+$threeStageRows = [grade(1, '2026-2027', 1, null, 1, 87.55, 91.20, 94.00)];
+$threeStageModel = studentTrendModel($threeStageRows, [], ['school_year' => '2026-2027', 'semester' => 1]);
+trendCheck($threeStageModel['current_progress']['latest_stage_field'] === 'prefinal', 'Scenario C: Prelim+Midterm+PreFinal latest stage is prefinal');
+trendCheck($threeStageModel['current_progress']['primary_value'] === '94.00%', 'Scenario C: Three stages primary value is Pre-Final percentage 94.00%');
+trendCheck($threeStageModel['current_progress']['subtitle'] === 'Pre-Final average', 'Scenario C: Three stages subtitle is Pre-Final average');
+trendCheck($threeStageModel['current_progress']['earlier_context'] === 'Preliminary: 87.55% · Midterm: 91.20%', 'Scenario C: Earlier stage context displays Preliminary and Midterm');
 
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";

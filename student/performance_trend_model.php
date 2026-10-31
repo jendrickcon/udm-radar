@@ -269,6 +269,29 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
             . 'Generation time alone does not verify that the latest grades were used. Estimate only; not a final grade or official standing.',
         'comparison' => 'Not a completed-term growth measure; forecast range unavailable.', 'connect' => false];
 
+    // Determine the latest actually recorded stage and earlier-stage context
+    $latestStage = null;
+    $earlierStages = [];
+    foreach (['prelim' => 'Preliminary', 'midterm' => 'Midterm', 'prefinal' => 'Pre-Final'] as $field => $label) {
+        if ($currentStages[$field]['percentage'] !== null) {
+            if ($latestStage !== null) {
+                $earlierStages[] = $latestStage['label'] . ': ' . $latestStage['formatted_percentage'];
+            }
+            $latestStage = $currentStages[$field];
+        }
+    }
+
+    $currentProgressSummary = [
+        'has_recorded_stage' => ($latestStage !== null),
+        'latest_stage_field' => $latestStage['field'] ?? null,
+        'latest_stage_label' => $latestStage['label'] ?? null,
+        'primary_value' => $latestStage ? $latestStage['formatted_percentage'] : 'Not recorded',
+        'percentage' => $latestStage['percentage'] ?? null,
+        'subtitle' => $latestStage ? "{$latestStage['label']} average" : 'Assessment progress pending',
+        'coverage_text' => $latestStage ? "{$latestStage['recorded_count']} of {$latestStage['total_count']} subjects recorded" : '0 of 0 subjects recorded',
+        'earlier_context' => !empty($earlierStages) ? implode(' · ', $earlierStages) : null,
+    ];
+
     // Build accessible summary table rows (Academic period, Result type, Value, Status)
     $accessibleSummary = [];
     foreach ($series as $term) {
@@ -296,14 +319,14 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
     $currPeriodLabel = $activeTerm['school_year'] . ' · Semester ' . $activeTerm['semester'];
     $currentRowsAdded = 0;
 
-    // Actually recorded interim stage (e.g. Preliminary progress)
-    if (!empty($currentStages['prelim']['percentage'])) {
+    // Latest actually recorded interim stage (e.g. Preliminary progress, Midterm progress, or Pre-Final progress)
+    if ($latestStage !== null) {
         $accessibleSummary[] = [
             'period' => $currPeriodLabel,
-            'result_type' => 'Preliminary progress',
-            'type' => 'Preliminary progress',
-            'value' => number_format((float)$currentStages['prelim']['percentage'], 2) . '%',
-            'gwa' => number_format((float)$currentStages['prelim']['percentage'], 2) . '%',
+            'result_type' => "{$latestStage['label']} progress",
+            'type' => "{$latestStage['label']} progress",
+            'value' => $latestStage['formatted_percentage'],
+            'gwa' => $latestStage['formatted_percentage'],
             'status' => 'Recorded',
             'availability' => 'Recorded',
             'is_current_group' => true,
@@ -337,6 +360,7 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
         'change' => $latestChange,
         'growth' => $growth,
         'current_term_stages' => $currentStages,
+        'current_progress' => $currentProgressSummary,
         'accessible_summary' => $accessibleSummary,
         'active_term' => $activeTerm,
     ];

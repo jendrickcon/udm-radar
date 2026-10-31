@@ -49,8 +49,18 @@ require_once '../includes/sidebar.php';
         </div>
         <div class="stat-card kpi-card--teal">
             <h2>Current term progress</h2>
-            <p class="trend-value"><?= !empty($model['current_term_stages']['prelim']['percentage']) ? number_format($model['current_term_stages']['prelim']['percentage'], 2) . '%' : ($model['snapshot'] !== null ? number_format($model['snapshot'], 2) : 'Not recorded') ?></p>
-            <p class="trend-card-sub"><?= !empty($model['current_term_stages']['prelim']['percentage']) ? 'Preliminary average · Recorded' : 'Assessment progress pending' ?></p>
+            <p class="trend-value"><?= $escape($model['current_progress']['primary_value']) ?></p>
+            <p class="trend-card-sub">
+                <?= $escape($model['current_progress']['subtitle']) ?>
+                <?php if ($model['current_progress']['has_recorded_stage']): ?>
+                    · <?= $escape($model['current_progress']['coverage_text']) ?>
+                <?php endif; ?>
+            </p>
+            <?php if (!empty($model['current_progress']['earlier_context'])): ?>
+                <p class="trend-card-earlier" style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px; font-weight: 500;">
+                    <?= $escape($model['current_progress']['earlier_context']) ?>
+                </p>
+            <?php endif; ?>
         </div>
         <div class="stat-card kpi-card--amber">
             <h2>Estimated GWA <span class="provisional-badge">Provisional</span></h2>
@@ -99,22 +109,38 @@ require_once '../includes/sidebar.php';
 
     <!-- Compact Current-Term Assessment Progress (0–100% Scale) -->
     <section class="card trend-progress-card" aria-labelledby="trend-progress-heading">
-        <h2 id="trend-progress-heading" style="font-size: 1.05rem; font-weight: 700; color: var(--text-dark); margin: 0 0 4px 0;">Current Term Assessment Progress (0–100% Scale)</h2>
-        <p style="font-size: 0.82rem; color: var(--text-gray); margin-bottom: 14px;">Raw assessment percentages are evaluated separately and not converted into point-scale GWA.</p>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <div>
+                <h2 id="trend-progress-heading" style="font-size: 1.05rem; font-weight: 700; color: var(--text-dark); margin: 0 0 2px 0;">Current Term Assessment Progress</h2>
+                <p style="font-size: 0.80rem; color: var(--text-gray); margin: 0;">SY <?= $escape($model['active_term']['school_year']) ?> · Semester <?= (int)$model['active_term']['semester'] ?></p>
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-gray); margin: 0;">0–100% assessment scale · Not converted to GWA</p>
+        </div>
         <div class="trend-stages-strip">
-            <?php foreach ($model['current_term_stages'] as $stage): ?>
-            <div class="trend-stage-item">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-dark);"><?= $escape($stage['label']) ?></span>
-                    <span class="status-pill <?= $stage['status'] === 'Recorded' ? '' : 'status-pill-muted' ?>" style="font-size: 0.72rem; padding: 2px 8px;">
+            <?php foreach ($model['current_term_stages'] as $stage):
+                $isLatest = ($stage['field'] === ($model['current_progress']['latest_stage_field'] ?? null));
+            ?>
+            <div class="trend-stage-item<?= $isLatest ? ' trend-stage-item--latest' : '' ?>">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-dark);">
+                        <?= $escape($stage['label']) ?>
+                        <?php if ($isLatest): ?>
+                            <span class="trend-latest-badge">Latest</span>
+                        <?php endif; ?>
+                    </span>
+                    <span class="status-pill <?= $stage['status'] === 'Recorded' ? 'status-pill-success' : 'status-pill-muted' ?>" style="font-size: 0.70rem; padding: 1px 7px;">
                         <?= $escape($stage['status']) ?>
                     </span>
                 </div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: <?= $stage['percentage'] !== null ? 'var(--accent-blue)' : 'var(--text-gray)' ?>;">
+                <div style="font-size: 1.35rem; font-weight: 700; color: <?= $stage['percentage'] !== null ? 'var(--accent-blue)' : 'var(--text-gray)' ?>; line-height: 1.2;">
                     <?= $escape($stage['formatted_percentage']) ?>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">
-                    Recorded subjects: <?= $escape($stage['coverage']) ?>
+                <div style="font-size: 0.74rem; color: var(--text-gray); margin-top: 4px;">
+                    <?php if ($stage['status'] === 'Recorded'): ?>
+                        <?= $escape($stage['recorded_count']) ?> of <?= $escape($stage['total_count']) ?> subjects
+                    <?php else: ?>
+                        Assessment pending
+                    <?php endif; ?>
                 </div>
             </div>
             <?php endforeach; ?>

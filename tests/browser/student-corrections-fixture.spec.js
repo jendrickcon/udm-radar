@@ -94,7 +94,40 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
                 </div>
             </div>
         </div>
+        <div class="trend-chart">
+            <canvas id="semGwaChart"></canvas>
+        </div>
     </section>
+    <div class="card trend-progress-card">
+        <div class="trend-progress-header">
+            <h3>Current Term Assessment Progress</h3>
+            <span class="trend-progress-term">SY 2026-2027 · Semester 1</span>
+        </div>
+        <div class="trend-stages-strip">
+            <div class="trend-stage-item trend-stage-item--latest">
+                <div class="trend-stage-head">
+                    <span class="trend-stage-title">Preliminary</span>
+                    <span class="trend-latest-badge">Latest recorded</span>
+                </div>
+                <div class="trend-stage-value">87.55%</div>
+                <div class="trend-stage-status">Recorded</div>
+            </div>
+            <div class="trend-stage-item">
+                <div class="trend-stage-head">
+                    <span class="trend-stage-title">Midterm</span>
+                </div>
+                <div class="trend-stage-value trend-stage-value--pending">Not recorded</div>
+                <div class="trend-stage-status">Assessment pending</div>
+            </div>
+            <div class="trend-stage-item">
+                <div class="trend-stage-head">
+                    <span class="trend-stage-title">Pre-Final</span>
+                </div>
+                <div class="trend-stage-value trend-stage-value--pending">Not recorded</div>
+                <div class="trend-stage-status">Assessment pending</div>
+            </div>
+        </div>
+    </div>
     <details id="trend-evidence" class="trend-disclosure portal-info-disclosure">
         <summary class="trend-disclosure-summary trend-evidence-toggle">
             <svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line></svg>
@@ -175,6 +208,18 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
         // Verification: Native marker suppressed
         const markerStyle = await summaries.first().evaluate(el => getComputedStyle(el).listStyleType);
         expect(markerStyle).toBe('none');
+
+        // Verification: Plot border and compact styling
+        expect(await page.locator('.trend-chart').evaluate(el => getComputedStyle(el).borderStyle)).toBe('solid');
+        expect(await page.locator('.trend-chart').evaluate(el => getComputedStyle(el).borderRadius)).toBe('8px');
+
+        // Verification: Compact progress card and latest stage badge
+        await expect(page.locator('.trend-progress-card')).toBeVisible();
+        await expect(page.locator('.trend-progress-header h3')).toHaveText('Current Term Assessment Progress');
+        await expect(page.locator('.trend-progress-term')).toHaveText('SY 2026-2027 · Semester 1');
+        await expect(page.locator('.trend-latest-badge')).toBeVisible();
+        await expect(page.locator('.trend-latest-badge')).toHaveText('Latest recorded');
+        expect(await page.locator('.trend-stage-item').count()).toBe(3);
 
         // Verification: No horizontal overflow
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

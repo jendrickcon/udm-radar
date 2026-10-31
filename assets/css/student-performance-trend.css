@@ -6,7 +6,19 @@
 .student-performance-trend .card h2 { font-size:1.2rem; margin-bottom:12px; }
 .student-performance-trend .trend-change { margin:16px 0; }
 .student-performance-trend .trend-legend { display:flex; flex-wrap:wrap; gap:12px 24px; list-style:none; padding:12px 0; color:var(--text-dark); }
-.student-performance-trend .trend-chart { position:relative; height:400px; min-width:0; }
+.student-performance-trend .trend-chart {
+    position: relative;
+    height: 380px;
+    min-width: 0;
+    border: 1px solid rgba(71, 85, 105, 0.18);
+    border-radius: 8px;
+    padding: 6px 12px 10px 12px;
+    background: var(--card-bg);
+    box-sizing: border-box;
+}
+[data-theme="dark"] .student-performance-trend .trend-chart {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
 .student-performance-trend .trend-note { font-size:.85rem; margin-top:12px; }
 .student-performance-trend .trend-table-scroll { max-width:100%; overflow-x:auto; }
 .student-performance-trend table { border-collapse:collapse; width:100%; text-align:left; }
@@ -75,19 +87,47 @@
 .student-performance-trend .trend-progress-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 18px 22px;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
 }
 .student-performance-trend .trend-stages-strip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 1024px) {
+    .student-performance-trend .trend-stages-strip {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
 }
 .student-performance-trend .trend-stage-item {
     background: var(--bg-color);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 14px 18px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+.student-performance-trend .trend-stage-item--latest {
+    border-color: rgba(37, 99, 235, 0.45);
+    background: rgba(37, 99, 235, 0.03);
+}
+[data-theme="dark"] .student-performance-trend .trend-stage-item--latest {
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(56, 189, 248, 0.04);
+}
+.student-performance-trend .trend-latest-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    background: rgba(37, 99, 235, 0.1);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-left: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 /* Shared Secondary Disclosure Component */
@@ -165,7 +205,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px 24px;
-    margin-bottom: 16px; /* Title block to chart: 14px to 18px */
+    margin-bottom: 12px;
 }
 .student-performance-trend .trend-chart-title-area {
     flex: 1 1 auto;
