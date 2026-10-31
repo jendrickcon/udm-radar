@@ -117,11 +117,35 @@ trendCheck($stageModel['current_term_stages']['midterm']['percentage'] === null,
 $consolidatedModel = studentTrendModel($stageRows, ['predicted_gwa' => '2.15'], ['school_year' => '2026-2027', 'semester' => 1]);
 $summaryRows = $consolidatedModel['accessible_summary'];
 $currentPeriodSummary = array_values(array_filter($summaryRows, fn($r) => $r['period'] === '2026-2027 · Semester 1'));
-trendCheck(count($currentPeriodSummary) === 2, 'Exactly two current-term result records exist in accessible summary');
+trendCheck(count($currentPeriodSummary) === 3, 'Exactly three current-term result records exist in accessible summary');
 trendCheck($currentPeriodSummary[0]['result_type'] === 'Preliminary progress' && $currentPeriodSummary[0]['hide_period_visually'] === false, 'First current-term row is Preliminary progress with visible period');
-trendCheck($currentPeriodSummary[1]['result_type'] === 'Estimated GWA' && $currentPeriodSummary[1]['hide_period_visually'] === true, 'Second current-term row is Estimated GWA with visually grouped period');
+trendCheck($currentPeriodSummary[1]['result_type'] === 'Current-term assessment point' && $currentPeriodSummary[1]['value'] === '2.50' && $currentPeriodSummary[1]['hide_period_visually'] === true, 'Second current-term row is Current-term assessment point with converted point 2.50 and visually grouped period');
+trendCheck($currentPeriodSummary[2]['result_type'] === 'Estimated GWA' && $currentPeriodSummary[2]['hide_period_visually'] === true, 'Third current-term row is Estimated GWA with visually grouped period');
 $unavailableCompletedRows = array_filter($summaryRows, fn($r) => $r['period'] === '2026-2027 · Semester 1' && $r['result_type'] === 'Completed-term GWA');
 trendCheck(count($unavailableCompletedRows) === 0, 'No unavailable completed-term GWA row exists for current term');
+
+// 92.94% Preliminary conversion assertions
+$example92Rows = [grade(1, '2026-2027', 1, null, 1, 92.94, null)];
+$example92Model = studentTrendModel($example92Rows, ['predicted_gwa' => '3.05'], ['school_year' => '2026-2027', 'semester' => 1]);
+$example92Summary = array_values(array_filter($example92Model['accessible_summary'], fn($r) => $r['period'] === '2026-2027 · Semester 1'));
+trendCheck($example92Summary[1]['result_type'] === 'Current-term assessment point', '92.94% row 2 is Current-term assessment point');
+trendCheck($example92Summary[1]['value'] === '3.25', '92.94% converts to exactly 3.25 via authoritative conversion');
+trendCheck($example92Summary[1]['status'] === 'Converted · not completed GWA', '92.94% assessment status is Converted · not completed GWA');
+trendCheck($example92Model['current_progress']['converted_point'] === 3.25, 'Model current_progress converted_point is exactly 3.25');
+trendCheck($example92Model['current_progress']['stage_based_label'] === 'Preliminary-based', 'Model current_progress stage_based_label is Preliminary-based');
+
+// Authoritative percentage-to-point boundary checks
+trendCheck(convertPercentageToPoint(99.0) === 4.00, 'Boundary check: 99.0% -> 4.00');
+trendCheck(convertPercentageToPoint(97.0) === 3.75, 'Boundary check: 97.0% -> 3.75');
+trendCheck(convertPercentageToPoint(95.0) === 3.50, 'Boundary check: 95.0% -> 3.50');
+trendCheck(convertPercentageToPoint(92.94) === 3.25, 'Boundary check: 92.94% -> 3.25');
+trendCheck(convertPercentageToPoint(92.0) === 3.25, 'Boundary check: 92.0% -> 3.25');
+trendCheck(convertPercentageToPoint(90.0) === 3.00, 'Boundary check: 90.0% -> 3.00');
+trendCheck(convertPercentageToPoint(88.0) === 2.75, 'Boundary check: 88.0% -> 2.75');
+trendCheck(convertPercentageToPoint(86.0) === 2.50, 'Boundary check: 86.0% -> 2.50');
+trendCheck(convertPercentageToPoint(75.0) === 1.00, 'Boundary check: 75.0% -> 1.00');
+trendCheck(convertPercentageToPoint(74.99) === 0.00, 'Boundary check: 74.99% -> 0.00');
+trendCheck(convertPercentageToPoint(0.0) === 0.00, 'Boundary check: 0.0% -> 0.00');
 
 // Latest actually recorded stage selection and context assertions
 trendCheck($consolidatedModel['current_progress']['latest_stage_field'] === 'prelim', 'Scenario A: Prelim-only latest stage is prelim');

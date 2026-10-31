@@ -249,6 +249,15 @@
     border-radius: 50%;
     background: var(--accent-blue);
 }
+.student-performance-trend .legend-marker--circle-outline {
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid #0d9488;
+    box-sizing: border-box;
+}
+[data-theme="dark"] .student-performance-trend .legend-marker--circle-outline {
+    border-color: #2dd4bf;
+}
 .student-performance-trend .legend-marker--diamond {
     transform: rotate(45deg);
     background: #d97706;
@@ -335,6 +344,16 @@
     color: #d97706;
     border: 1px solid rgba(217, 119, 6, 0.25);
 }
+.status-pill-teal {
+    background: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+    border: 1px solid rgba(13, 148, 136, 0.25);
+}
+[data-theme="dark"] .status-pill-teal {
+    background: rgba(45, 212, 191, 0.15);
+    color: #2dd4bf;
+    border-color: rgba(45, 212, 191, 0.3);
+}
 .status-pill-muted {
     background: var(--bg-color);
     color: var(--text-gray);
@@ -357,102 +376,6 @@
 /* Current-term visually grouped rows */
 .student-performance-trend .trend-current-group-row + .trend-current-group-row td {
     border-top: 1px dashed var(--border-color);
-}
-
-/* Compact Current-Term Summary Callout inside Trend Chart */
-.student-performance-trend .trend-current-callout {
-    position: absolute;
-    left: 80.5%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: clamp(100px, 12%, 140px);
-    background: var(--card-bg);
-    background-color: rgba(13, 148, 136, 0.04);
-    border: 1px solid rgba(13, 148, 136, 0.35);
-    border-radius: 8px;
-    padding: 8px 6px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    z-index: 2;
-    box-sizing: border-box;
-}
-
-[data-theme="dark"] .student-performance-trend .trend-current-callout {
-    background-color: rgba(45, 212, 191, 0.08);
-    border-color: rgba(45, 212, 191, 0.4);
-}
-
-.student-performance-trend .trend-callout-heading {
-    display: block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: #0d9488;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 2px;
-}
-
-[data-theme="dark"] .student-performance-trend .trend-callout-heading {
-    color: #2dd4bf;
-}
-
-.student-performance-trend .trend-callout-period {
-    display: block;
-    font-size: 0.70rem;
-    font-weight: 600;
-    color: var(--text-gray);
-    line-height: 1.2;
-}
-
-.student-performance-trend .trend-callout-value {
-    font-size: clamp(1.2rem, 1.4vw, 1.45rem);
-    font-weight: 700;
-    color: #0d9488;
-    line-height: 1.15;
-    margin: 3px 0 2px 0;
-}
-
-[data-theme="dark"] .student-performance-trend .trend-callout-value {
-    color: #2dd4bf;
-}
-
-.student-performance-trend .trend-callout-stage {
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: var(--text-dark);
-    line-height: 1.2;
-}
-
-.student-performance-trend .trend-callout-coverage {
-    font-size: 0.68rem;
-    color: var(--text-gray);
-    margin-top: 2px;
-    line-height: 1.2;
-}
-
-.student-performance-trend .trend-callout-earlier {
-    font-size: 0.66rem;
-    color: var(--text-gray);
-    margin-top: 2px;
-    line-height: 1.2;
-}
-
-.student-performance-trend .trend-callout-badge {
-    display: inline-block;
-    margin-top: 6px;
-    padding: 2px 5px;
-    font-size: 0.60rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #0d9488;
-    background: rgba(13, 148, 136, 0.12);
-    border-radius: 4px;
-    line-height: 1.2;
-}
-
-[data-theme="dark"] .student-performance-trend .trend-callout-badge {
-    color: #2dd4bf;
-    background: rgba(45, 212, 191, 0.15);
 }
 
 /* Preserve legible chart text on narrow screens without page-wide overflow. */

@@ -79,6 +79,7 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
                 <p id="trend-summary" class="trend-chart-subtitle">Recorded results, current progress, and estimate.</p>
                 <ul class="trend-series-legend" aria-label="Evidence types">
                     <li><span class="legend-marker legend-marker--circle" aria-hidden="true"></span> Completed GWA</li>
+                    <li><span class="legend-marker legend-marker--circle-outline" aria-hidden="true"></span> Current assessment point</li>
                     <li><span class="legend-marker legend-marker--diamond" aria-hidden="true"></span> Estimated GWA</li>
                 </ul>
             </div>
@@ -96,14 +97,6 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
         </div>
         <div class="trend-chart">
             <canvas id="semGwaChart"></canvas>
-            <div id="trend-current-callout" class="trend-current-callout" role="region" aria-label="Current term assessment summary">
-                <span class="trend-callout-heading">Current term</span>
-                <span class="trend-callout-period">2026-2027 · Semester 1</span>
-                <div class="trend-callout-value">92.94%</div>
-                <div class="trend-callout-stage">Preliminary average</div>
-                <div class="trend-callout-coverage">6 of 6 subjects recorded</div>
-                <div class="trend-callout-badge">Assessment percentage · Not GWA</div>
-            </div>
         </div>
     </section>
     <div class="card trend-progress-card">
@@ -155,8 +148,9 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
                     <tbody>
                         <tr><td>2024-2025 · Semester 1</td><td>Completed-term GWA</td><td>3.00</td><td><span class="status-pill status-pill-success">Recorded</span></td></tr>
                         <tr><td>2024-2025 · Semester 2</td><td>Completed-term GWA</td><td>3.24</td><td><span class="status-pill status-pill-success">Recorded</span></td></tr>
-                        <tr class="trend-current-group-row"><td>2026-2027 · Semester 1</td><td>Preliminary progress</td><td>87.55%</td><td><span class="status-pill status-pill-success">Recorded</span></td></tr>
-                        <tr class="trend-current-group-row"><td><span class="sr-only">2026-2027 · Semester 1</span></td><td>Estimated GWA</td><td>2.15</td><td><span class="status-pill status-pill-warning">Provisional</span></td></tr>
+                        <tr class="trend-current-group-row"><td>2026-2027 · Semester 1</td><td>Preliminary progress</td><td>92.94%</td><td><span class="status-pill status-pill-success">Recorded</span></td></tr>
+                        <tr class="trend-current-group-row"><td><span class="sr-only">2026-2027 · Semester 1</span></td><td>Current-term assessment point</td><td>3.25</td><td><span class="status-pill status-pill-teal">Converted · not completed GWA</span></td></tr>
+                        <tr class="trend-current-group-row"><td><span class="sr-only">2026-2027 · Semester 1</span></td><td>Estimated GWA</td><td>3.05</td><td><span class="status-pill status-pill-warning">Provisional</span></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -204,12 +198,12 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
         expect(await page.locator('table details').count()).toBe(0);
         expect(await page.locator('table summary').count()).toBe(0);
 
-        // Verification: Opening disclosure reveals all 4 rows
+        // Verification: Opening disclosure reveals all 5 rows
         await summaries.first().click();
         await expect(page.locator('#trend-evidence')).toHaveAttribute('open', '');
         const rows = page.locator('#trend-evidence table tbody tr');
-        await expect(rows).toHaveCount(4);
-        for (let i = 0; i < 4; i++) {
+        await expect(rows).toHaveCount(5);
+        for (let i = 0; i < 5; i++) {
             await expect(rows.nth(i)).toBeVisible();
         }
 
@@ -221,17 +215,16 @@ for (const [width,height] of [[1440,900],[1280,600],[1024,768]]) for (const them
         expect(await page.locator('.trend-chart').evaluate(el => getComputedStyle(el).borderStyle)).toBe('solid');
         expect(await page.locator('.trend-chart').evaluate(el => getComputedStyle(el).borderRadius)).toBe('8px');
 
-        // Verification: Current term summary callout inside trend chart
-        const callout = page.locator('#trend-current-callout');
-        await expect(callout).toBeVisible();
-        await expect(callout.locator('.trend-callout-heading')).toHaveText('Current term');
-        await expect(callout.locator('.trend-callout-period')).toHaveText('2026-2027 · Semester 1');
-        await expect(callout.locator('.trend-callout-value')).toHaveText('92.94%');
-        await expect(callout.locator('.trend-callout-stage')).toHaveText('Preliminary average');
-        await expect(callout.locator('.trend-callout-coverage')).toHaveText('6 of 6 subjects recorded');
-        await expect(callout.locator('.trend-callout-badge')).toHaveText('Assessment percentage · Not GWA');
-        expect(await callout.evaluate(el => getComputedStyle(el).borderStyle)).toBe('solid');
-        expect(await callout.evaluate(el => getComputedStyle(el).textAlign)).toBe('center');
+        // Verification: Callout is removed in favor of single converted assessment endpoint
+        await expect(page.locator('#trend-current-callout')).toHaveCount(0);
+
+        // Verification: Three-item legend with outlined circle
+        const legendItems = page.locator('.trend-series-legend li');
+        await expect(legendItems).toHaveCount(3);
+        await expect(legendItems.nth(0)).toContainText('Completed GWA');
+        await expect(legendItems.nth(1)).toContainText('Current assessment point');
+        await expect(legendItems.nth(2)).toContainText('Estimated GWA');
+        await expect(page.locator('.legend-marker--circle-outline')).toBeVisible();
 
         // Verification: Compact progress card and latest stage badge
         await expect(page.locator('.trend-progress-card')).toBeVisible();
@@ -256,14 +249,6 @@ test('three-region layout geometry and scale separation contract', async ({page}
 <body class="student-performance-trend">
     <div class="trend-chart" style="position: relative; width: 800px; height: 380px;">
         <canvas id="semGwaChart" width="800" height="380"></canvas>
-        <div id="trend-current-callout" class="trend-current-callout" role="region">
-            <span class="trend-callout-heading">Current term</span>
-            <span class="trend-callout-period">2026-2027 · Semester 1</span>
-            <div class="trend-callout-value">92.94%</div>
-            <div class="trend-callout-stage">Preliminary average</div>
-            <div class="trend-callout-coverage">6 of 6 subjects recorded</div>
-            <div class="trend-callout-badge">Assessment percentage · Not GWA</div>
-        </div>
     </div>
     <p id="trend-chart-status"></p>
     <script id="student-trend-data" type="application/json">[
@@ -275,7 +260,7 @@ test('three-region layout geometry and scale separation contract', async ({page}
         {"key":"2025-2026|2","zone":"history","type":"Completed-term GWA","value":3.34,"connect":false},
         {"zone":"estimate","type":"Estimated semester GWA","value":3.05}
     ]</script>
-    <script id="student-trend-current-progress" type="application/json">{"has_recorded_stage":true,"latest_stage_field":"prelim","latest_stage_label":"Preliminary","primary_value":"92.94%","percentage":92.94,"subtitle":"Preliminary average","coverage_text":"6 of 6 subjects recorded","earlier_context":null}</script>
+    <script id="student-trend-current-progress" type="application/json">{"has_recorded_stage":true,"latest_stage_field":"prelim","latest_stage_label":"Preliminary","primary_value":"92.94%","percentage":92.94,"converted_point":3.25,"stage_based_label":"Preliminary-based","subtitle":"Preliminary average","coverage_text":"6 of 6 subjects recorded","earlier_context":null}</script>
     <script id="student-trend-active-term" type="application/json">{"school_year":"2026-2027","semester":1}</script>
     <script id="student-trend-guides" type="application/json">[
         {"names":["Dean's List","Cum Laude"],"value":3.25,"style":0},
@@ -325,43 +310,64 @@ test('three-region layout geometry and scale separation contract', async ({page}
         const canvas = document.getElementById('semGwaChart');
         return {
             histPoints: chart.data.datasets[0].data,
-            estimatePoints: chart.data.datasets[1].data,
-            bridgePoints: chart.data.datasets[2].data,
+            currentAssessmentPoints: chart.data.datasets[1].data,
+            estimatePoints: chart.data.datasets[2].data,
+            currentConnector: chart.data.datasets[3].data,
+            estimateConnector: chart.data.datasets[4].data,
             ariaLabel: canvas.getAttribute('aria-label'),
             histWidthPct: canvas.dataset.histWidthPct,
             currentWidthPct: canvas.dataset.currentWidthPct,
             estWidthPct: canvas.dataset.estWidthPct,
-            dividers: canvas.dataset.dividers
+            dividers: canvas.dataset.dividers,
+            currentAssessmentPoint: canvas.dataset.currentAssessmentPoint
         };
     });
 
     // Verification: Three region layout geometry
-    expect(Number(chartData.histWidthPct)).toBe(74);
-    expect(Number(chartData.currentWidthPct)).toBe(13);
-    expect(Number(chartData.estWidthPct)).toBe(13);
+    expect(Number(chartData.histWidthPct)).toBe(78);
+    expect(Number(chartData.currentWidthPct)).toBe(10);
+    expect(Number(chartData.estWidthPct)).toBe(12);
     expect(Number(chartData.dividers)).toBe(2);
+    expect(Number(chartData.currentAssessmentPoint)).toBe(3.25);
 
-    // Verification: Historical points fit strictly inside Region 1 (0 to 74)
+    // Verification: Historical points fit strictly inside Region 1 (0 to 78)
     expect(chartData.histPoints.length).toBe(6);
     expect(chartData.histPoints[0].x).toBeGreaterThan(0); // does not touch y-axis
-    expect(chartData.histPoints[chartData.histPoints.length - 1].x).toBeLessThan(74); // does not touch Divider 1
+    expect(chartData.histPoints[chartData.histPoints.length - 1].x).toBeLessThan(78); // does not touch Divider 1
 
-    // Verification: Estimate point is centered in Region 3 (87 to 100)
+    // Verification: Current assessment point is centered in Region 2 (78 to 88) at x = 83, y = 3.25
+    expect(chartData.currentAssessmentPoints.length).toBe(1);
+    expect(chartData.currentAssessmentPoints[0].x).toBe(83);
+    expect(chartData.currentAssessmentPoints[0].y).toBe(3.25);
+
+    // Verification: Estimate point is centered in Region 3 (88 to 100) at x = 94, y = 3.05
     expect(chartData.estimatePoints.length).toBe(1);
-    expect(chartData.estimatePoints[0].x).toBe(93.5);
+    expect(chartData.estimatePoints[0].x).toBe(94);
     expect(chartData.estimatePoints[0].y).toBe(3.05);
 
-    // Verification: Projection bridge directly connects last completed to estimate (2 points)
-    expect(chartData.bridgePoints.length).toBe(2);
-    expect(chartData.bridgePoints[0].y).toBe(3.34);
-    expect(chartData.bridgePoints[1].y).toBe(3.05);
+    // Verification: Independent branching dashed connectors from last completed GWA (3.34 at x = 72)
+    // Connector 1: to Current assessment point (3.25)
+    expect(chartData.currentConnector.length).toBe(2);
+    expect(chartData.currentConnector[0].y).toBe(3.34);
+    expect(chartData.currentConnector[1].y).toBe(3.25);
+
+    // Connector 2: to Estimated GWA (3.05)
+    expect(chartData.estimateConnector.length).toBe(2);
+    expect(chartData.estimateConnector[0].y).toBe(3.34);
+    expect(chartData.estimateConnector[1].y).toBe(3.05);
 
     // Verification: Raw percentage 92.94% is NOT in any GWA dataset
-    const allGwaValues = [...chartData.histPoints, ...chartData.estimatePoints, ...chartData.bridgePoints].map(p => p.y);
+    const allGwaValues = [
+        ...chartData.histPoints,
+        ...chartData.currentAssessmentPoints,
+        ...chartData.estimatePoints,
+        ...chartData.currentConnector,
+        ...chartData.estimateConnector
+    ].map(p => p.y);
     expect(allGwaValues.includes(92.94)).toBe(false);
 
     // Verification: Canvas accessible description distinguishes all three parts
     expect(chartData.ariaLabel).toContain('Completed GWA values range from 3.02 to 3.43 across 6 completed semesters');
-    expect(chartData.ariaLabel).toContain('current 2026-2027 Semester 1 Preliminary assessment average is 92.94 percent across 6 of 6 subjects recorded and is not GWA');
-    expect(chartData.ariaLabel).toContain('provisional estimated GWA is 3.05');
+    expect(chartData.ariaLabel).toContain('Current-term assessment point 3.25, converted from the recorded Preliminary average of 92.94 percent');
+    expect(chartData.ariaLabel).toContain('The provisional estimated GWA is 3.05');
 });

@@ -84,6 +84,7 @@ require_once '../includes/sidebar.php';
                 <p id="trend-summary" class="trend-chart-subtitle">Recorded results, current progress, and estimate.</p>
                 <ul class="trend-series-legend" aria-label="Evidence types">
                     <li><span class="legend-marker legend-marker--circle" aria-hidden="true"></span> Completed GWA</li>
+                    <li><span class="legend-marker legend-marker--circle-outline" aria-hidden="true"></span> Current assessment point</li>
                     <li><span class="legend-marker legend-marker--diamond" aria-hidden="true"></span> Estimated GWA</li>
                 </ul>
             </div>
@@ -103,22 +104,7 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <div class="trend-chart">
-            <canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas>
-            <?php if (!empty($model['current_progress']['has_recorded_stage'])): ?>
-            <div id="trend-current-callout" class="trend-current-callout" role="region" aria-label="Current term assessment summary">
-                <span class="trend-callout-heading">Current term</span>
-                <span class="trend-callout-period"><?= $escape($model['active_term']['school_year']) ?> · Semester <?= (int)$model['active_term']['semester'] ?></span>
-                <div class="trend-callout-value"><?= $escape($model['current_progress']['primary_value']) ?></div>
-                <div class="trend-callout-stage"><?= $escape($model['current_progress']['subtitle']) ?></div>
-                <div class="trend-callout-coverage"><?= $escape($model['current_progress']['coverage_text']) ?></div>
-                <?php if (!empty($model['current_progress']['earlier_context'])): ?>
-                    <div class="trend-callout-earlier"><?= $escape($model['current_progress']['earlier_context']) ?></div>
-                <?php endif; ?>
-                <div class="trend-callout-badge">Assessment percentage · Not GWA</div>
-            </div>
-            <?php endif; ?>
-        </div>
+        <div class="trend-chart"><canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas></div>
         <p id="trend-chart-status" role="status" class="trend-assistive-status">Open the exact values table to explore each period.</p>
     </section>
 
@@ -198,7 +184,12 @@ require_once '../includes/sidebar.php';
                             <td><?= $escape($row['result_type']) ?></td>
                             <td><strong><?= $escape($row['value']) ?></strong></td>
                             <td>
-                                <span class="status-pill <?= $row['status'] === 'Recorded' ? 'status-pill-success' : ($row['status'] === 'Provisional' ? 'status-pill-warning' : 'status-pill-muted') ?>" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                                <?php
+                                $statusClass = str_contains($row['status'], 'Converted')
+                                    ? 'status-pill-teal'
+                                    : ($row['status'] === 'Recorded' ? 'status-pill-success' : ($row['status'] === 'Provisional' ? 'status-pill-warning' : 'status-pill-muted'));
+                                ?>
+                                <span class="status-pill <?= $statusClass ?>" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
                                     <?= $escape($row['status']) ?>
                                 </span>
                             </td>
@@ -209,7 +200,7 @@ require_once '../includes/sidebar.php';
             </div>
             <?php if ($model['latest'] === null): ?><p style="margin-top: 10px; color: var(--text-gray); font-size: 0.85rem;">No complete recorded GWA is available for the selected terms.</p><?php endif; ?>
             <p class="trend-table-note" style="font-size: 0.80rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0; line-height: 1.45;">
-                Completed-term GWA uses finalized results. Current progress and estimated GWA are shown separately.
+                Completed-term GWA uses finalized results. Current progress and estimated GWA are shown separately. The current assessment point is converted from recorded assessment percentages. It is not a completed-term GWA.
             </p>
         </div>
     </details>
@@ -230,6 +221,7 @@ require_once '../includes/sidebar.php';
                 <li>Estimates provide provisional decision support and do not replace official registrar evaluations.</li>
                 <li>Growth reflects point differences and relative change between consecutive comparable completed terms.</li>
                 <li>Preliminary and Midterm progress represent raw assessment stages on a 0–100% scale.</li>
+                <li>The current assessment point is converted from recorded assessment percentages. It is not a completed-term GWA.</li>
             </ul>
         </div>
     </details>

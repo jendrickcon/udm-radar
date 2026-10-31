@@ -261,14 +261,6 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
         }
     }
 
-    $estimate = analyticsPrediction($prediction);
-    $points[] = ['period' => 'Latest stored estimate — target period not supplied by this record', 'key' => null, 'zone' => 'estimate',
-        'type' => 'Estimated semester GWA', 'value' => $estimate['estimated_gwa'], 'state' => $estimate['estimated_gwa'] === null ? 'Unavailable' : 'Estimated',
-        'detail' => $estimate['source_label'] . '; completeness: ' . $estimate['completeness'] . '. '
-            . ($estimate['generated_at'] ? 'Stored generation timestamp: ' . $estimate['generated_at'] . ' (timezone unverified). ' : 'Generation timestamp unavailable. ')
-            . 'Generation time alone does not verify that the latest grades were used. Estimate only; not a final grade or official standing.',
-        'comparison' => 'Not a completed-term growth measure; forecast range unavailable.', 'connect' => false];
-
     // Determine the latest actually recorded stage and earlier-stage context
     $latestStage = null;
     $earlierStages = [];
@@ -281,12 +273,46 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
         }
     }
 
+    $convertedAssessmentPoint = ($latestStage !== null && $latestStage['percentage'] !== null)
+        ? convertPercentageToPoint($latestStage['percentage'])
+        : null;
+    $stageBasedLabel = $latestStage ? "{$latestStage['label']}-based" : null;
+
+    if ($latestStage !== null && $convertedAssessmentPoint !== null) {
+        $points[] = [
+            'period' => $activeTerm['school_year'] . ' · Semester ' . $activeTerm['semester'],
+            'key' => $activeTerm['school_year'] . '|' . $activeTerm['semester'],
+            'zone' => 'current_assessment',
+            'type' => 'Current-term assessment point',
+            'value' => $convertedAssessmentPoint,
+            'state' => 'Converted',
+            'detail' => "Current-term assessment point " . number_format($convertedAssessmentPoint, 2) . ", converted from the recorded {$latestStage['label']} average of {$latestStage['formatted_percentage']}. This is not a completed-term GWA.",
+            'comparison' => 'Assessment-based point; not a completed-term GWA.',
+            'connect' => false,
+            'stage_label' => $stageBasedLabel,
+            'stage_name' => $latestStage['label'],
+            'raw_percentage' => $latestStage['formatted_percentage'],
+            'coverage_text' => "{$latestStage['recorded_count']} of {$latestStage['total_count']} subjects recorded",
+        ];
+    }
+
+    $estimate = analyticsPrediction($prediction);
+    $points[] = ['period' => 'Latest stored estimate — target period not supplied by this record', 'key' => null, 'zone' => 'estimate',
+        'type' => 'Estimated semester GWA', 'value' => $estimate['estimated_gwa'], 'state' => $estimate['estimated_gwa'] === null ? 'Unavailable' : 'Estimated',
+        'detail' => $estimate['source_label'] . '; completeness: ' . $estimate['completeness'] . '. '
+            . ($estimate['generated_at'] ? 'Stored generation timestamp: ' . $estimate['generated_at'] . ' (timezone unverified). ' : 'Generation timestamp unavailable. ')
+            . 'Generation time alone does not verify that the latest grades were used. Estimate only; not a final grade or official standing.',
+        'comparison' => 'Not a completed-term growth measure; forecast range unavailable.', 'connect' => false];
+
     $currentProgressSummary = [
         'has_recorded_stage' => ($latestStage !== null),
         'latest_stage_field' => $latestStage['field'] ?? null,
         'latest_stage_label' => $latestStage['label'] ?? null,
         'primary_value' => $latestStage ? $latestStage['formatted_percentage'] : 'Not recorded',
         'percentage' => $latestStage['percentage'] ?? null,
+        'converted_point' => $convertedAssessmentPoint,
+        'formatted_converted_point' => $convertedAssessmentPoint !== null ? number_format($convertedAssessmentPoint, 2) : null,
+        'stage_based_label' => $stageBasedLabel,
         'subtitle' => $latestStage ? "{$latestStage['label']} average" : 'Assessment progress pending',
         'coverage_text' => $latestStage ? "{$latestStage['recorded_count']} of {$latestStage['total_count']} subjects recorded" : '0 of 0 subjects recorded',
         'earlier_context' => !empty($earlierStages) ? implode(' · ', $earlierStages) : null,
@@ -333,6 +359,22 @@ function studentTrendModel(array $rows, array $prediction, ?array $currentTerm =
             'hide_period_visually' => false,
         ];
         $currentRowsAdded++;
+
+        // Converted current-term assessment point (discrete point grade from authoritative server conversion)
+        if ($convertedAssessmentPoint !== null) {
+            $accessibleSummary[] = [
+                'period' => $currPeriodLabel,
+                'result_type' => 'Current-term assessment point',
+                'type' => 'Current-term assessment point',
+                'value' => number_format($convertedAssessmentPoint, 2),
+                'gwa' => number_format($convertedAssessmentPoint, 2),
+                'status' => 'Converted · not completed GWA',
+                'availability' => 'Converted · not completed GWA',
+                'is_current_group' => true,
+                'hide_period_visually' => true,
+            ];
+            $currentRowsAdded++;
+        }
     }
 
     // Current provisional estimate
