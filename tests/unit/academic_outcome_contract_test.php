@@ -94,31 +94,18 @@ foreach ([
     checkOutcome($pdf['incomplete_count'], $incomplete, 'PDF unresolved count');
     checkOutcome($screen['recognized_outcome_count'], $recognized, 'Current analytics recognized denominator excludes INC');
 }
-// Actual Faculty Trends aggregation: encoded coverage must not be the mean divisor.
+// Actual Faculty assessment model: numeric final mean and recording coverage stay separate.
 function aggregateFacultyTrendFixture(array $finals): array {
-    $source = file_get_contents(dirname(__DIR__, 2) . '/faculty/trend.php');
-    $start = strpos($source, '$enrolledCount = count($grades);');
-    if ($start === false) {
-        throw new RuntimeException('Faculty trend aggregation start not found');
-    }
-    $end = strpos($source, '$chartLineData = [', $start);
-    if ($start === false || $end === false) {
-        throw new RuntimeException('Faculty trend aggregation boundaries not found');
-    }
-    $periods = ['Prelim', 'Midterm', 'Pre-Final', 'Final'];
-    $periodMeans = $chartMeans = array_fill_keys($periods, null);
-    $periodEncoded = array_fill_keys($periods, 0);
-    $riskMovement = array_fill_keys($periods, ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0]);
-    $significantChanges = [];
-    $grades = array_map(fn($grade) => ['first_name' => 'Synthetic', 'last_name' => 'Fixture',
-        'prelim' => null, 'midterm' => null, 'prefinal' => null, 'final_grade' => $grade], $finals);
-    eval('if (true) {' . substr($source, $start, $end - $start));
-    return [$periodMeans['Final'], $chartMeans['Final'], $periodEncoded['Final'], $latestMean];
+    require_once dirname(__DIR__,2).'/includes/faculty_assessment.php';
+    $rows=[];
+    foreach($finals as $index=>$grade)$rows[]=['student_id'=>$index+1,'subject_id'=>1,'units'=>3,'prelim'=>null,'midterm'=>null,'prefinal'=>null,'final_grade'=>$grade];
+    $s=facultyAssessmentSummary($rows);
+    return [$s['final']['mean'],$s['final']['recorded'],$s['final']['count']];
 }
-checkOutcome(aggregateFacultyTrendFixture(['4.00', '1.00', 'INC', 'P']), [2.5, 2.5, 4, '2.50'],
-    'Faculty numeric mean excludes textual finals while preserving encoded coverage');
-checkOutcome(aggregateFacultyTrendFixture(['INC', 'INC']), [null, null, 2, 'N/A'],
-    'All-INC Faculty means are absent, not numeric zero');
+checkOutcome(aggregateFacultyTrendFixture(['4.00','1.00','INC','P']),[2.5,4,2],
+    'Faculty finalized mean excludes text; recorded and numeric counts stay separate');
+checkOutcome(aggregateFacultyTrendFixture(['INC','INC']),[null,2,0],
+    'All-INC Faculty finalized mean remains absent, not numeric zero');
 
 echo "SUMMARY: Ran $checks tests, $failures failures.\n";
 exit($failures ? 1 : 0);
