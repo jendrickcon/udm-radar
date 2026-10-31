@@ -346,6 +346,7 @@ test('Overlay mode top value strip, major gridlines only, and label isolation',a
  const plotArea = page.locator('.ac-chart-plot-area');
  await expect(plotArea).toHaveClass(/ac-plot-overlay/);
  await expect(plotArea).toHaveClass(/has-2-groups/);
+ await expect(page.locator('.ac-plot-overlay .ac-bar-inner-val-badge')).toHaveCount(2);
 
  // Full-width plot and gridlines: lines extend across full available stage from Y-axis to right edge
  const stageBox = await page.locator('.ac-chart-stage').boundingBox();

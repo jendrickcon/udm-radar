@@ -453,7 +453,7 @@
     pointer-events: none;
     z-index: 3;
 }
-.ac-plot-overlay .ac-bar-inner-val-badge { display: none !important; }
+/* Pinned exact value badge inside upper portion of each bar (visible in both Side-by-side and Overlay modes) */
 
 /* Zero-value baseline presentation */
 .ac-bar-zero { height: 4px !important; border-radius: 2px 2px 0 0; }
