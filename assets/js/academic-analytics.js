@@ -2,7 +2,7 @@
  'use strict';
  const root=document.getElementById('academic-analytics');if(!root)return;
  const role=root.dataset.role, form=document.getElementById('analytics-filters'), results=document.getElementById('analytics-results'), state=document.getElementById('analytics-state');
- const labels={school_year:'School year',semester:'Semester',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty:'Faculty',case_status:'Case status',decision:'Referral decision'};
+ const labels={school_year:'School year',semester:'Semester',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty:'Faculty',case_status:'Case status',decision:'Referral status'};
  const dimensions={semester:'Semester',school_year:'School year',year_level:'Curriculum year',subject:'Subject',section:'Section',faculty_subject:'Faculty assignment'};
  const dimensionMetrics={
   semester:[
@@ -140,11 +140,18 @@
     svg.append(group);
    });
   }else{
-   // Horizontal reference grid lines for the active GWA scale (1.00 to 4.00)
+   // Major reference grid lines (1.00 to 4.00)
    [1.0, 2.0, 3.0, 4.0].forEach(val=>{
     const y=lineBase-(val-1.0)/3.0*lineRange;
-    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.08))','stroke-dasharray':'3 3','stroke-width':1}));
-    svg.append(svgEl('text',{x:40,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'600',fill:'currentColor'},val.toFixed(2)));
+    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line chart-grid-major',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.12))','stroke-dasharray':'3 3','stroke-width':1}));
+    svg.append(svgEl('text',{x:38,y:y+4,'text-anchor':'end','font-size':'12px','font-weight':'600',opacity:'0.88',fill:'currentColor',class:'chart-axis-label chart-label-major'},val.toFixed(2)));
+   });
+
+   // Minor half-step reference grid lines (1.50, 2.50, 3.50) with subordinate styling
+   [1.5, 2.5, 3.5].forEach(val=>{
+    const y=lineBase-(val-1.0)/3.0*lineRange;
+    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line-minor',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'1 3','stroke-width':0.75,opacity:'0.38'}));
+    svg.append(svgEl('text',{x:38,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'400',opacity:'0.52',fill:'currentColor',class:'chart-axis-label chart-label-minor'},val.toFixed(2)));
    });
 
    // Subtle vertical guides for term alignment
@@ -156,7 +163,7 @@
    // Primary axis line
    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:lineBase,y2:lineBase,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
 
-   // Compact two-line period labels and primary points/lines
+   // Compact period labels and primary points/lines
    let segment=[];
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
@@ -173,18 +180,21 @@
     }else{
      sy=String(i+1);
     }
-    const termText=svgEl('text',{x,y:studentHistory?249:213,'text-anchor':'middle','font-size':'9px','font-weight':'600',fill:'currentColor'});
-    termText.append(svgEl('tspan',{x,dy:0},sy));
-    if(sem)termText.append(svgEl('tspan',{x,dy:studentHistory?16:11},' '+sem));
+    const termY=studentHistory?249:212;
+    const termFontSize=studentHistory?'9px':'12px';
+    const termText=svgEl('text',{x,y:termY,'text-anchor':'middle','font-size':termFontSize,'font-weight':'600',fill:'currentColor',class:'chart-period-label'});
+    termText.append(svgEl('tspan',{x,dy:0,class:'chart-period-year'},sy));
+    if(sem)termText.append(svgEl('tspan',{x,dy:studentHistory?16:13,'font-size':studentHistory?'9px':'11px','font-weight':'500',fill:'var(--text-gray)',class:'chart-period-sem'},' '+sem));
     svg.append(termText);
 
     if(p.gwa===null){flush();return;}
     const y=lineBase-(p.gwa-1)/3*lineRange;
     segment.push(`${x},${y}`);
-    const dot=svgEl('circle',{cx:x,cy:y,r:5,class:'analytics-dot',tabindex:0});
+    const dot=svgEl('circle',{cx:x,cy:y,r:4.5,class:'analytics-dot',tabindex:0});
     const fullLabel=p.label?p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,', Semester '):'';
     dot.append(svgEl('title',{},`School Year ${fullLabel}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-(studentHistory?15:12),'text-anchor':'middle',fill:'currentColor','font-size':'11px','font-weight':'700'},num(p.gwa)));
+    const pointValY=y-(studentHistory?15:10);
+    svg.append(dot,svgEl('text',{x,y:pointValY,'text-anchor':'middle',fill:'currentColor','font-size':'12px','font-weight':'600',class:'chart-point-val'},num(p.gwa)));
    });
    flush();
   }
@@ -478,32 +488,62 @@
 
   const pointChange=t.change?.point_change;
   const relChange=t.change?.relative_change_pct;
-  const dir=t.change?.direction||'No change';
 
-  const itemTerms=el('div',undefined,{class:'trend-detail-item'});
-  itemTerms.append(el('h5','Terms recorded'),el('p',String(count)+' semesters',{class:'detail-val'}),el('p',`Total terms in series: ${t.series.length}`,{class:'detail-sub'}));
+  // Block 1: Recorded periods
+  const itemPeriods=el('div',undefined,{class:'trend-detail-item'});
+  itemPeriods.append(
+   el('h5','Recorded periods'),
+   el('p',`${count} recorded semesters`,{class:'detail-val'}),
+   el('p',`${t.series.length} period positions (terms recorded)`,{class:'detail-sub'})
+  );
 
+  // Block 2: Observed range
   const itemSpan=el('div',undefined,{class:'trend-detail-item'});
-  itemSpan.append(el('h5','Observed range'),el('p',`${earliest?earliest.label.replace(' · Semester ',' S'):'None'} to ${latest?latest.label.replace(' · Semester ',' S'):'None'}`,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','Ordered historical sequence',{class:'detail-sub'}));
+  const earliestLabel = earliest ? earliest.label.replace(' · Semester ',' · S').replace(' · Sem ',' · S') : 'None';
+  const latestLabel = latest ? latest.label.replace(' · Semester ',' · S').replace(' · Sem ',' · S') : 'None';
+  itemSpan.append(
+   el('h5','Observed range'),
+   el('p',`${earliestLabel} to ${latestLabel}`,{class:'detail-val','style':'font-size:0.88rem;'}),
+   el('p','Ordered historical sequence',{class:'detail-sub'})
+  );
 
+  // Block 3: Current change (consolidated single card)
   const itemChange=el('div',undefined,{class:'trend-detail-item'});
-  const chipSpan=document.createElement('div');
-  chipSpan.innerHTML=formatDeltaChipHtml(pointChange,'grade points');
-  itemChange.append(el('h5','Point change'),chipSpan,el('p',`Direction: ${dir}`,{class:'detail-sub'}));
+  if(pointChange === null || pointChange === undefined || isNaN(pointChange)){
+   itemChange.append(
+    el('h5','Current change'),
+    el('p','Unavailable',{class:'detail-val delta-chip delta-neutral'}),
+    el('p','Current or previous term is incomplete',{class:'detail-sub'})
+   );
+  } else {
+   const chipSpan=document.createElement('div');
+   chipSpan.innerHTML=formatDeltaChipHtml(pointChange,'grade points');
+   const relText = relChange !== null && relChange !== undefined ? `${relChange > 0 ? '+' : ''}${relChange.toFixed(1)}%` : 'Unavailable';
+   itemChange.append(
+    el('h5','Current change'),
+    chipSpan,
+    el('p',`Relative: ${relText}`,{class:'detail-sub'})
+   );
+  }
 
-  const itemRel=el('div',undefined,{class:'trend-detail-item'});
-  const relStr=relChange!==null&&relChange!==undefined?`${relChange>0?'+':''}${relChange.toFixed(1)}%`:'Unavailable';
-  itemRel.append(el('h5','Relative change'),el('p',relStr,{class:'detail-val'}),el('p','(latest − previous) / previous',{class:'detail-sub'}));
-
+  // Block 4: Highest and lowest
   const itemHighLow=el('div',undefined,{class:'trend-detail-item'});
   const hlText=maxPt&&minPt?`High: ${num(maxPt.gwa)} · Low: ${num(minPt.gwa)}`:'Unavailable';
-  itemHighLow.append(el('h5','Highest & Lowest recorded'),el('p',hlText,{class:'detail-val','style':'font-size:0.92rem;'}),el('p','On active prototype 4.00–0.00 scale',{class:'detail-sub'}));
+  itemHighLow.append(
+   el('h5','Highest & Lowest recorded'),
+   el('p',hlText,{class:'detail-val','style':'font-size:0.92rem;'}),
+   el('p','On active prototype 4.00–0.00 scale',{class:'detail-sub'})
+  );
 
-  container.append(itemTerms,itemSpan,itemChange,itemRel,itemHighLow);
+  container.append(itemPeriods,itemSpan,itemChange,itemHighLow);
 
   if(t.series.some(s=>s.provisional)){
-   const provWarn=el('div',undefined,{class:'trend-detail-item',style:'grid-column: 1 / -1; margin-top: 4px; padding: 6px 10px; background: rgba(245, 158, 11, 0.1); border-radius: 6px; font-size: 0.78rem; color: var(--risk-mod);'});
-   provWarn.textContent='Note: One or more historical periods contain provisional or incomplete grade data. Interpret trend progression cautiously.';
+   const provWarn=el('div',undefined,{
+    class:'trend-warning-badge',
+    role:'status',
+    style:'grid-column: 1 / -1; margin-top: 6px; padding: 6px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; font-size: 0.8rem; color: var(--risk-mod); display: flex; align-items: center; gap: 6px;'
+   });
+   provWarn.innerHTML = `<span style="font-weight:700;" aria-hidden="true">ℹ</span> Some periods contain incomplete outcomes.`;
    container.append(provWarn);
   }
  }
@@ -988,36 +1028,38 @@
    }else{
     const svg=svgEl('svg',{viewBox:'0 0 380 150',role:'img','aria-label':'Case and referral status chart',style:'width:100%;height:auto;max-height:160px;'});
     svg.append(svgEl('title',{},'Support Case and Referral Status'),svgEl('desc',{},'Horizontal comparison showing cases and referrals as separate record units.'));
-    const barW=260;
+    const barW=250;
     const casesOpenW=totalCases>0?Math.round((s.open_cases/totalCases)*barW):0;
     const casesClosedW=totalCases>0?barW-casesOpenW:0;
     svg.append(svgEl('text',{x:10,y:20,'font-size':'12px','font-weight':'600'},`Parent Cases (n=${totalCases})`));
     if(totalCases>0){
-     if(casesOpenW>0)svg.append(svgEl('rect',{x:10,y:28,width:casesOpenW,height:20,fill:'var(--teal, #008080)',rx:casesClosedW===0?4:0}));
-     if(casesClosedW>0)svg.append(svgEl('rect',{x:10+casesOpenW,y:28,width:casesClosedW,height:20,fill:'var(--accent-blue, #1e4db7)',rx:casesOpenW===0?4:0}));
-     svg.append(svgEl('text',{x:280,y:43,'font-size':'11px','font-weight':'500'},`${s.open_cases} Open · ${s.closed_cases} Closed`));
+     svg.append(svgEl('rect',{x:10,y:28,width:barW,height:18,fill:'var(--border-color)',opacity:'0.25',rx:4}));
+     if(casesOpenW>0)svg.append(svgEl('rect',{x:10,y:28,width:casesOpenW,height:18,fill:'var(--teal, #008080)',rx:casesClosedW===0?4:0}));
+     if(casesClosedW>0)svg.append(svgEl('rect',{x:10+casesOpenW,y:28,width:casesClosedW,height:18,fill:'var(--accent-blue, #1e4db7)',rx:casesOpenW===0?4:0}));
+     svg.append(svgEl('text',{x:270,y:41,'font-size':'11px','font-weight':'600'},`${s.open_cases} Open · ${s.closed_cases} Closed`));
     }else{
-     svg.append(svgEl('rect',{x:10,y:28,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
-     svg.append(svgEl('text',{x:15,y:42,'font-size':'11px',fill:'var(--text-gray)'},'No recorded cases'));
+     svg.append(svgEl('text',{x:10,y:40,'font-size':'11px',fill:'var(--text-gray)'},'No recorded parent cases in this scope'));
     }
     const refsRevW=totalRefs>0?Math.round((reviewed/totalRefs)*barW):0;
     const refsAwtW=totalRefs>0?barW-refsRevW:0;
     svg.append(svgEl('text',{x:10,y:80,'font-size':'12px','font-weight':'600'},`Referrals (n=${totalRefs})`));
     if(totalRefs>0){
-     if(refsRevW>0)svg.append(svgEl('rect',{x:10,y:88,width:refsRevW,height:20,fill:'var(--teal, #008080)',rx:refsAwtW===0?4:0}));
-     if(refsAwtW>0)svg.append(svgEl('rect',{x:10+refsRevW,y:88,width:refsAwtW,height:20,fill:'#f59e0b',rx:refsRevW===0?4:0}));
-     svg.append(svgEl('text',{x:280,y:103,'font-size':'11px','font-weight':'500'},`${reviewed} Rev · ${awaiting} Awaiting`));
+     svg.append(svgEl('rect',{x:10,y:88,width:barW,height:18,fill:'var(--border-color)',opacity:'0.25',rx:4}));
+     if(refsRevW>0)svg.append(svgEl('rect',{x:10,y:88,width:refsRevW,height:18,fill:'var(--teal, #008080)',rx:refsAwtW===0?4:0}));
+     if(refsAwtW>0)svg.append(svgEl('rect',{x:10+refsRevW,y:88,width:refsAwtW,height:18,fill:'#f59e0b',rx:refsRevW===0?4:0}));
+     svg.append(svgEl('text',{x:270,y:101,'font-size':'11px','font-weight':'600'},`${reviewed} Reviewed · ${awaiting} Awaiting`));
     }else{
-     svg.append(svgEl('rect',{x:10,y:88,width:barW,height:20,fill:'none',stroke:'var(--border-color)','stroke-dasharray':'3 3',rx:4}));
-     svg.append(svgEl('text',{x:15,y:102,'font-size':'11px',fill:'var(--text-gray)'},'No recorded referrals'));
+     svg.append(svgEl('text',{x:10,y:100,'font-size':'11px',fill:'var(--text-gray)'},'No recorded referrals in this scope'));
     }
     svg.append(
-     svgEl('circle',{cx:16,cy:132,r:4,fill:'var(--teal, #008080)'}),
-     svgEl('text',{x:26,y:136,'font-size':'10px'},'Open / Reviewed'),
-     svgEl('circle',{cx:125,cy:132,r:4,fill:'var(--accent-blue, #1e4db7)'}),
-     svgEl('text',{x:135,y:136,'font-size':'10px'},'Closed Case'),
-     svgEl('circle',{cx:215,cy:132,r:4,fill:'#f59e0b'}),
-     svgEl('text',{x:225,y:136,'font-size':'10px'},'Awaiting Review')
+     svgEl('circle',{cx:14,cy:132,r:4,fill:'var(--teal, #008080)'}),
+     svgEl('text',{x:22,y:135,'font-size':'10px','font-weight':'500'},'Open'),
+     svgEl('circle',{cx:74,cy:132,r:4,fill:'var(--accent-blue, #1e4db7)'}),
+     svgEl('text',{x:82,y:135,'font-size':'10px','font-weight':'500'},'Closed'),
+     svgEl('circle',{cx:138,cy:132,r:4,fill:'var(--teal, #008080)'}),
+     svgEl('text',{x:146,y:135,'font-size':'10px','font-weight':'500'},'Reviewed'),
+     svgEl('circle',{cx:214,cy:132,r:4,fill:'#f59e0b'}),
+     svgEl('text',{x:222,y:135,'font-size':'10px','font-weight':'500'},'Awaiting review')
     );
     statusContainer.append(svg);
    }
@@ -1027,7 +1069,7 @@
   const flowContainer=document.getElementById('chart-notice-flow');
   if(flowContainer){
    flowContainer.replaceChildren();
-   const svg=svgEl('svg',{viewBox:'0 0 460 170',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:175px;'});
+   const svg=svgEl('svg',{viewBox:'0 0 460 115',role:'img','aria-label':'Notice and receipt acknowledgment flow',style:'width:100%;height:auto;max-height:125px;'});
    svg.append(svgEl('title',{},'Notice and Receipt Flow'),svgEl('desc',{},'Progression from created referrals to issued notices and recorded receipt acknowledgments.'));
    const nodeW=115, nodeH=64;
 
@@ -1055,11 +1097,61 @@
    svg.append(svgEl('text',{x:334+nodeW/2,y:52,'text-anchor':'middle','font-size':'18px','font-weight':'700',fill:'var(--teal, #008080)'},String(s.student_acknowledgments||0)));
    svg.append(svgEl('text',{x:334+nodeW/2,y:67,'text-anchor':'middle','font-size':'9.5px',fill:'var(--teal, #008080)'},'Receipt confirmed'));
 
-   // Subtitles below nodes (wrapped, fully legible)
-   svg.append(svgEl('text',{x:12,y:105,'font-size':'11px','font-weight':'600',fill:'currentColor'},'MTR-19 is a bounded count of recorded student receipts.'));
-   svg.append(svgEl('text',{x:12,y:124,'font-size':'10px',fill:'var(--text-gray)'},'Acknowledgments are recorded receipt counts, not the canonical acknowledgment rate.'));
-   svg.append(svgEl('text',{x:12,y:141,'font-size':'9.5px',fill:'var(--text-gray)'},'Action progression records receipt only; does not imply fault, agreement, or punitive action.'));
+   // Concise 1-line text
+   svg.append(svgEl('text',{x:12,y:98,'font-size':'10px',fill:'var(--text-gray)'},'MTR-19 bounded count · Action progression records receipt only, not agreement or fault.'));
    flowContainer.append(svg);
+
+   const flowHelp=el('details',undefined,{class:'support-inline-disclosure'});
+   const flowSummary=el('summary',undefined,{class:'support-inline-summary'});
+   flowSummary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','How this flow is counted')
+   );
+   const flowBody=el('div',undefined,{class:'support-inline-help-body'});
+   flowBody.innerHTML=`
+    <ul style="margin:6px 0 0 0;padding-left:18px;font-size:0.78rem;color:var(--text-gray);line-height:1.5;">
+     <li><strong>Referrals created:</strong> Initial support referral logged for review.</li>
+     <li><strong>Notices issued:</strong> Formal academic advisory notices issued following review.</li>
+     <li><strong>Receipt confirmed:</strong> Confirmed student receipt acknowledgments (bounded count, not rate). Confirms receipt only, never agreement, fault, or admission.</li>
+    </ul>
+   `;
+   flowHelp.append(flowSummary,flowBody);
+   flowContainer.append(flowHelp);
+  }
+
+  // Workload Summary (5 Metrics)
+  const pendingReviews=Math.max(0,(s.referrals_created||0)-(s.referrals_reviewed||0));
+  const setSupportWorkload=(key,val)=>{
+   const el=document.querySelector(`[data-support-workload="${key}"]`);
+   if(el)el.textContent=String(val);
+  };
+  setSupportWorkload('pending-reviews',pendingReviews);
+  setSupportWorkload('open-cases',s.open_cases??0);
+  setSupportWorkload('referrals',s.referrals_created??0);
+  setSupportWorkload('notices',s.notices_issued??0);
+  setSupportWorkload('acknowledgments',s.student_acknowledgments??0);
+
+  // Empty State Guidance
+  const emptyGuidance=document.getElementById('support-empty-guidance');
+  const isSupportEmpty=(s.eligible_cases===0&&s.referrals_created===0);
+  if(emptyGuidance){
+   if(isSupportEmpty){
+    emptyGuidance.style.display='block';
+    emptyGuidance.replaceChildren();
+    const p=el('p','No support or intervention records are available for the selected scope.');
+    const actions=el('div',undefined,{class:'support-empty-actions'});
+    const clearBtn=el('button','Clear filters',{type:'button',class:'btn btn--secondary'});
+    clearBtn.addEventListener('click',()=>{
+     form.reset();
+     updateAdvancedFiltersBadge();
+     load(new URLSearchParams());
+    });
+    actions.append(clearBtn);
+    emptyGuidance.append(p,actions);
+   }else{
+    emptyGuidance.style.display='none';
+    emptyGuidance.replaceChildren();
+   }
   }
 
   // Chart 3: First-Notice Timing
@@ -1085,8 +1177,25 @@
    const titleParent=el('div','MEDIAN PARENT-CASE DURATION',{style:'font-size:0.75rem;font-weight:700;color:var(--text-gray);letter-spacing:0.4px;margin-bottom:4px;'});
    const valParentStr=s.median_closure_hours!==null?`${num(s.median_closure_hours)} hours (n=${s.closure_sample})`:'Unavailable';
    const valParentEl=el('div',valParentStr,{style:'font-size:1.15rem;font-weight:700;color:var(--text-dark);'});
-   const subParentEl=el('div','Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.',{style:'font-size:0.72rem;color:var(--text-gray);margin-top:2px;line-height:1.35;'});
-   timingBox.append(divider,titleParent,valParentEl,subParentEl);
+
+   const mtr21Details=el('details',undefined,{class:'support-inline-disclosure',style:'margin-top:8px;'});
+   const mtr21Summary=el('summary',undefined,{class:'support-inline-summary'});
+   mtr21Summary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','Why referral closure remains unavailable')
+   );
+   const mtr21Body=el('div',undefined,{class:'support-inline-help-body'});
+   mtr21Body.innerHTML=`
+    <p style="margin:4px 0;font-size:0.75rem;color:var(--text-gray);line-height:1.45;">
+     Limited indicator for currently closed parent support cases. This is not the canonical referral-closure metric.
+    </p>
+    <p style="margin:4px 0;font-size:0.75rem;color:var(--text-gray);line-height:1.45;font-style:italic;">
+     Canonical referral closure or reopening duration (MTR-21) remains unavailable until required referral-lifecycle data contracts exist.
+    </p>
+   `;
+   mtr21Details.append(mtr21Summary,mtr21Body);
+
+   timingBox.append(divider,titleParent,valParentEl,mtr21Details);
    timingContainer.append(timingBox);
   }
 
@@ -1104,14 +1213,105 @@
     }
    }
    if(key==='median_closure_hours'&&s[key]!==null)value=num(s[key])+` hours (n=${s.closure_sample})`;
-   return[label,el('span',value,{'data-support':key})];
+   return[el('span',label,{class:'support-metric-card-label'}),el('span',value,{'data-support':key,class:'support-metric-card-val'})];
   });
   const supTable=document.getElementById('support-table');
-  if(supTable)table(supTable,['Measure','Recorded result'],rows,'No cases match these filters.',`Cases n=${s.eligible_cases}; referrals n=${s.referrals_created}. Counts describe separate record types.`);
+  if(supTable){
+   supTable.className='support-metrics-table';
+   table(supTable,['Measure','Recorded result'],rows,'No cases match these filters.',`Cases n=${s.eligible_cases}; referrals n=${s.referrals_created}. Counts describe separate record types.`);
+  }
+
+  // Definition disclosure
+  const defContainer=document.getElementById('support-definitions-container');
+  if(defContainer){
+   defContainer.replaceChildren();
+   const defDetails=el('details',undefined,{class:'support-inline-disclosure card',style:'padding:12px 16px;'});
+   const defSummary=el('summary',undefined,{class:'support-inline-summary'});
+   defSummary.append(
+    el('span','?',{class:'circular-help-icon','aria-hidden':'true'}),
+    el('span','How support metrics are defined and calculated')
+   );
+   const defBody=el('div',undefined,{class:'support-inline-help-body',style:'margin-top:10px;'});
+   defBody.innerHTML=`
+    <ul style="margin:0;padding-left:18px;font-size:0.8rem;color:var(--text-gray);line-height:1.55;">
+     <li><strong>Recorded eligible cases:</strong> Count of distinct student cases within the filtered scope.</li>
+     <li><strong>Referrals created vs. reviewed:</strong> Separate record units representing initial referrals and faculty-reviewed decisions.</li>
+     <li><strong>Notices issued vs. deferred:</strong> Formal notices generated versus advisory notices intentionally postponed pending review.</li>
+     <li><strong>Receipt acknowledgments:</strong> Raw count of student receipt confirmations; does not constitute fault or agreement.</li>
+     <li><strong>First-notice duration (MTR-20):</strong> Mean elapsed hours from referral creation to the first recorded notice.</li>
+     <li><strong>Median parent-case duration:</strong> Limited indicator for closed cases; canonical MTR-21 referral closure remains unavailable.</li>
+    </ul>
+   `;
+   defDetails.append(defSummary,defBody);
+   defContainer.append(defDetails);
+  }
+
   const supLimits=document.getElementById('support-limits');
   if(supLimits)supLimits.textContent=s.deferral_reason+' MTR-20 is the arithmetic mean from each distinct referral creation to its first recorded notice; earlier unrecorded actions cannot be inferred. Missing, invalid or reversed times are excluded. Receipt acknowledgments are recorded counts, including valid legacy receipt timestamps without linked issuance evidence, not MTR-19 rates. The parent-case closed-duration median is a limited recorded indicator, not canonical MTR-21: referral closure and reopening equivalence remain blocked. No teaching-quality or causal claim follows from these durations.';
+
   const drillTable=document.getElementById('drilldown-table');
-  if(drillTable)table(drillTable,['Authorized record','Status'],report.drilldowns.map(d=>[el('a',d.label,{href:d.href}),d.status.replaceAll('_',' ')]),'No authorized records match these filters.');
+  if(drillTable){
+   drillTable.className='support-task-table';
+   drillTable.replaceChildren();
+   if(!report.drilldowns||report.drilldowns.length===0){
+    const tbody=el('tbody');
+    const tr=el('tr');
+    tr.append(el('td','No authorized records match these filters.',{colspan:3,class:'support-task-empty',style:'padding:16px;color:var(--text-gray);text-align:center;'}));
+    tbody.append(tr);
+    drillTable.append(tbody);
+   }else{
+    const tbody=el('tbody');
+    const total=report.drilldowns.length;
+    report.drilldowns.forEach((d,idx)=>{
+     const tr=el('tr',undefined,{class:idx>=5?'support-task-row support-task-row--extra':'support-task-row'});
+     if(idx>=5)tr.style.display='none';
+
+     const tdName=el('td',undefined,{class:'support-task-col-name'});
+     tdName.append(el('span',d.label,{class:'support-task-name'}));
+
+     const rawStatus=String(d.status||'').replaceAll('_',' ');
+     const sentenceStatus=rawStatus.charAt(0).toUpperCase()+rawStatus.slice(1).toLowerCase();
+     const tdBadge=el('td',undefined,{class:'support-task-col-status'});
+     const badge=el('span',sentenceStatus,{class:`support-status-badge support-status-badge--${d.status}`});
+     tdBadge.append(badge);
+
+     const tdAction=el('td',undefined,{class:'support-task-col-action',style:'text-align:right;'});
+     const actionVerb=(d.status==='open'||d.status==='pending')?'Open case':'View case';
+     const link=el('a',`${actionVerb} →`,{
+      href:d.href,
+      class:'btn btn--secondary btn--sm support-action-btn',
+      'aria-label':d.label
+     });
+     tdAction.append(link);
+
+     tr.append(tdName,tdBadge,tdAction);
+     tbody.append(tr);
+    });
+
+    if(total>5){
+     const toggleTr=el('tr',undefined,{class:'support-task-toggle-row'});
+     const toggleTd=el('td',undefined,{colspan:3,style:'text-align:center;padding:10px;'});
+     const toggleBtn=el('button',`View all ${total} cases ↓`,{
+      type:'button',
+      class:'btn btn--subtle btn--sm support-task-toggle-btn',
+      'aria-expanded':'false'
+     });
+     let expanded=false;
+     toggleBtn.addEventListener('click',()=>{
+      expanded=!expanded;
+      toggleBtn.setAttribute('aria-expanded',String(expanded));
+      toggleBtn.textContent=expanded?`Show fewer cases ↑`:`View all ${total} cases ↓`;
+      tbody.querySelectorAll('.support-task-row--extra').forEach(r=>{
+       r.style.display=expanded?'':'none';
+      });
+     });
+     toggleTd.append(toggleBtn);
+     toggleTr.append(toggleTd);
+     tbody.append(toggleTr);
+    }
+    drillTable.append(tbody);
+   }
+  }
  }
 
  function updateAdvancedFiltersBadge(){
@@ -1132,6 +1332,9 @@
   }
  }
 
+ let lastOverviewScopeStr = 'Current scope: All authorized recorded values';
+ let lastSupportScopeStr = 'Current support scope: All authorized recorded values';
+
  function switchTab(tabId){
   activeTab=tabId;
   const tabButtons=root.querySelectorAll('.analytics-tablist .tab-btn');
@@ -1147,11 +1350,50 @@
    const match=p.id==='tab-panel-'+tabId;
    p.hidden=!match;
   });
-  if(role==='admin')form.hidden=tabId==='comparisons';
 
-  const supFilters=document.getElementById('support-only-filters');
-  if(supFilters){
-   supFilters.style.display=(tabId==='support'?'block':'none');
+  const overviewSlot=document.getElementById('overview-filter-slot');
+  const supportSlot=document.getElementById('support-filter-slot');
+  const wsTitle=document.getElementById('filter-workspace-title');
+  const wsIntro=document.getElementById('filter-workspace-intro');
+  const overviewFields=form.querySelectorAll('.filter-field--overview');
+  const supportFields=form.querySelectorAll('.filter-field--support');
+  const activeFilters=document.getElementById('active-filters');
+
+  if(tabId==='overview'){
+   if(overviewSlot&&!overviewSlot.contains(form)){
+    overviewSlot.appendChild(form);
+   }
+   if(activeFilters&&overviewSlot&&!overviewSlot.contains(activeFilters)){
+    overviewSlot.parentElement.insertBefore(activeFilters, overviewSlot.nextSibling);
+   }
+   form.hidden=false;
+   if(wsTitle)wsTitle.textContent='Filter this view';
+   if(wsIntro)wsIntro.textContent='Choose the academic scope and cohorts to analyze.';
+   overviewFields.forEach(el=>el.style.display='');
+   supportFields.forEach(el=>el.style.display='none');
+   if(activeFilters){
+    activeFilters.style.display='';
+    activeFilters.textContent=lastOverviewScopeStr;
+   }
+  }else if(tabId==='support'){
+   if(supportSlot&&!supportSlot.contains(form)){
+    supportSlot.appendChild(form);
+   }
+   if(activeFilters&&supportSlot&&!supportSlot.contains(activeFilters)){
+    supportSlot.parentElement.insertBefore(activeFilters, supportSlot.nextSibling);
+   }
+   form.hidden=false;
+   if(wsTitle)wsTitle.textContent='Filter this view';
+   if(wsIntro)wsIntro.textContent='Filter support workload and recorded intervention activity by period and status.';
+   overviewFields.forEach(el=>el.style.display='none');
+   supportFields.forEach(el=>el.style.display='');
+   if(activeFilters){
+    activeFilters.style.display='';
+    activeFilters.textContent=lastSupportScopeStr;
+   }
+  }else if(tabId==='comparisons'||tabId==='trends'){
+   form.hidden=true;
+   if(activeFilters)activeFilters.style.display='none';
   }
 
   // Update URL without page reload
@@ -1205,8 +1447,28 @@
   form.querySelector('fieldset').disabled=false;
   updateAdvancedFiltersBadge();
 
-  const active=Object.entries(data.filters).filter(([,v])=>v!=='').map(([k,v])=>`${labels[k]}: ${(data.options[k]||[]).find(o=>o.value===v)?.label||v}`);
-  document.getElementById('active-filters').textContent=active.length?'Active filters · '+active.join(' · '):'Active filters · All authorized recorded values';
+  const formatScopeItem = (key, defaultText) => {
+   const val = data.filters[key];
+   if (!val) return defaultText;
+   const opt = (data.options[key] || []).find(o => o.value === val);
+   return opt ? opt.label : val;
+  };
+
+  const syText = formatScopeItem('school_year', 'All school years');
+  const semText = data.filters.semester ? (data.filters.semester === '1' ? 'Semester 1' : (data.filters.semester === '2' ? 'Semester 2' : (data.filters.semester === '3' ? 'Summer' : `Semester ${data.filters.semester}`))) : 'All semesters';
+  const yrText = data.filters.year_level ? `Year ${data.filters.year_level}` : 'All curriculum years';
+  const secText = data.filters.section ? `Section ${data.filters.section}` : 'All sections';
+  const caseText = formatScopeItem('case_status', 'All case statuses');
+  const decText = formatScopeItem('decision', 'All referral statuses');
+
+  lastOverviewScopeStr = `Current scope: ${syText} · ${semText} · ${yrText} · ${secText}`;
+  lastSupportScopeStr = `Current support scope: ${syText} · ${semText} · ${caseText} · ${decText} · ${secText}`;
+
+  const activeScopeText = activeTab === 'support' ? lastSupportScopeStr : lastOverviewScopeStr;
+  const activeFiltersEl = document.getElementById('active-filters');
+  if (activeFiltersEl) {
+   activeFiltersEl.textContent = activeScopeText;
+  }
 
   const box=document.getElementById('analytics-summary');
   box.replaceChildren();
@@ -1227,9 +1489,56 @@
    const noteP = el('p', `Current period: ${t.current?.label || 'Unavailable'} · Previous recorded comparable period: ${t.previous?.label || 'Unavailable'} · Direction: ${t.change?.direction || 'Unavailable'}.`, {style: 'font-size: 0.85rem; color: var(--text-gray); margin-top: 12px;'});
    box.append(noteP);
   }else{
-   // Admin & Faculty Overview primary metrics
+   // Admin & Faculty Overview primary metrics (Level 1 Full Width)
    metrics(box,[['Weighted recorded-grade mean',num(data.summary.gwa),'average-gwa'],['Students (n)',String(data.summary.student_count),'student-count'],['Eligible grades',`${data.summary.eligible_grade_count} / ${data.summary.expected_grade_count}`,'eligible-grades'],['Numeric GWA coverage',pct(data.summary.numeric_coverage_pct),'numeric-coverage']]);
-   box.append(el('p',`Comparison period: ${t.current?.label||'Unavailable'} versus ${t.previous?.label||'Unavailable'} · Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct,'%')}.`));
+
+   // Level 2: Scannable 4-Block Full-Width Details Workspace
+   const detailsWorkspace = el('div', undefined, { class: 'analytics-details-workspace' });
+   const detailsGrid = el('div', undefined, { class: 'analytics-details-grid' });
+
+   // Block 1: Comparison period
+   const bPeriod = el('div', undefined, { class: 'analytics-detail-block' });
+   bPeriod.append(
+    el('h5', 'Comparison period'),
+    el('div', `${t.current?.label || 'Unavailable'} versus ${t.previous?.label || 'Unavailable'}`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', 'Selected term versus prior comparable term', { class: 'detail-sub' })
+   );
+
+   // Block 2: Term-over-term change
+   const bChange = el('div', undefined, { class: 'analytics-detail-block' });
+   bChange.append(
+    el('h5', 'Point change & Relative change'),
+    el('div', `Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct, '%')}`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', `Direction: ${t.change.direction || 'Unavailable'}`, { class: 'detail-sub' })
+   );
+
+   // Block 3: Evidence used
+   const bEvidence = el('div', undefined, { class: 'analytics-detail-block' });
+   bEvidence.append(
+    el('h5', 'Evidence used'),
+    el('div', `GWA uses ${data.summary.eligible_units} eligible credit units`, { class: 'detail-field-value detail-value-highlight' }),
+    el('div', `Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}`, { class: 'detail-sub' })
+   );
+
+   // Block 4: Data status
+   const bStatus = el('div', undefined, { class: 'analytics-detail-block' });
+   const statusVal = el('div', undefined, { class: 'detail-field-value' });
+   statusVal.append(el('span', data.summary.provisional ? 'Provisional' : 'Recorded outcomes resolved', {
+    class: 'card-status-badge ' + (data.summary.provisional ? 'badge-provisional' : 'badge-complete')
+   }));
+   bStatus.append(
+    el('h5', 'Data status'),
+    statusVal,
+    el('div', data.summary.provisional ? 'Some final outcomes or units are incomplete' : 'All expected outcomes recorded', { class: 'detail-sub' })
+   );
+
+   detailsGrid.append(bPeriod, bChange, bEvidence, bStatus);
+
+   const ruleExpl = el('div', 'Changes are unavailable when the compared term is incomplete or has no numeric GWA.', { class: 'analytics-rule-explanation' });
+   const textSummary = el('p', `Comparison period: ${t.current?.label || 'Unavailable'} versus ${t.previous?.label || 'Unavailable'} · Point change: ${change(t.change.point_change)} · Relative change: ${change(t.change.relative_change_pct, '%')}. ${data.summary.provisional ? 'Provisional: some final outcomes or units are incomplete. ' : ''}GWA uses ${data.summary.eligible_units} eligible credit units. Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}. Changes are unavailable when the compared term is incomplete or has no numeric GWA.`, { class: 'sr-only' });
+
+   detailsWorkspace.append(detailsGrid, ruleExpl, textSummary);
+   box.append(detailsWorkspace);
 
    // Secondary Summary Row (Overview Tab)
    const secondary=document.getElementById('analytics-secondary-summary');
@@ -1272,7 +1581,12 @@
   const trendTable=document.getElementById('trend-table');
   const trendDesc=document.getElementById('trend-description');
   if(trendChart){
-   if(trendDesc)trendDesc.textContent=role==='student'?'Your semester results in order. Missing results appear as gaps.':`${t.series.length} recorded terms · n=${data.summary.student_count}. Points follow term order; gaps mean unavailable values. Refer to the table for periods and coverage.`;
+   if(trendDesc){
+    const validCount = t.series.filter(s=>s.gwa!==null).length;
+    trendDesc.textContent=role==='student'
+      ? 'Your semester results in order. Missing results appear as gaps.'
+      : `${validCount} recorded semesters across ${t.series.length} period positions · ${data.summary.student_count} Students. Gaps represent unavailable values.`;
+   }
    chart(trendChart,t.series,'line','Historical semester GWA');
    renderTrendDetails(t);
   }
@@ -1354,7 +1668,7 @@
    render(data);
    results.hidden=false;
    results.setAttribute('aria-busy','false');
-   state.textContent=document.getElementById('active-filters').textContent.replace('Active filters · ','Showing ')+'.';
+   state.textContent=document.getElementById('active-filters').textContent.replace('Current scope: ','Showing ').replace('Current support scope: ','Showing ').replace('Active filters · ','Showing ')+'.';
    // Only publish a successfully rendered scope; failed/stale requests keep it intact.
    try{
     const appliedUrl=new URL(location.href);

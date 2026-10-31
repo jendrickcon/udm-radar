@@ -95,10 +95,12 @@ function analyticsBuildReport(array $data,array $f,array $user):array {
     }
     $review=[];
     foreach($rows as $r){$canon=canonicalizeFinalGrade($r['final_grade']??null);if($canon!==null&&is_numeric($canon)&&computeRiskFromAvg((float)$canon)!=='LOW')$review[(int)$r['student_id']]=true;}
+    $comparableSubjects=analyticsComparableSubjects($data,$f,$user);
     return ['role'=>$role,'filters'=>$f,'options'=>analyticsOptions($data,$user),'summary'=>$summary,'trend'=>$trend,'groups'=>$groups,
         'prediction'=>$role==='student'?analyticsPrediction($data['predictions'][(int)$user['id']]??[]):null,'prediction_coverage'=>$coverage,
         'support'=>$support,'drilldowns'=>$drilldowns,'students_requiring_review'=>count($review),
         'faculty_comparison'=>['change'=>analyticsChange(null,null),'reason'=>'Prior class change unavailable: current teaching loads do not contain dated historical assignments.'],
+        'comparable_subjects'=>$comparableSubjects,
         'disclosure'=>'Prototype performance on synthetic academic records',
         'fairness'=>'Comparative academic patterns support authorized review and do not independently measure teaching performance. Differences may reflect Student composition, prior achievement, subject difficulty, class size, record completeness, and semester conditions.',
         'warnings'=>[
@@ -108,6 +110,94 @@ function analyticsBuildReport(array $data,array $f,array $user):array {
             'Subject, section, Faculty, curriculum-year and decision filters restrict support summaries to matching recorded referrals. Cases without that referral evidence are not attributed.',
             'Counts and before/after patterns do not prove that an intervention caused a grade change.',
         ]];
+}
+
+function analyticsComparableSubjects(array $data,array $f,array $user):array {
+    if(($user['role']??'')!=='admin')return [];
+    $currentTerm=$data['current_term']??(function_exists('getCurrentTerm')?getCurrentTerm():['school_year'=>'2026-2027','semester'=>1]);
+    $targetSY=$f['school_year']!==''?$f['school_year']:$currentTerm['school_year'];
+    $targetSem=$f['semester']!==''?$f['semester']:(string)$currentTerm['semester'];
+    if($targetSY!==$currentTerm['school_year']||(int)$targetSem!==(int)$currentTerm['semester'])return [];
+
+    $grades=array_filter($data['grades']??[],static function($g)use($currentTerm){
+        $isCur=((int)($g['is_current']??0)===1||empty($g['is_current']));
+        return $isCur&&
+               ($g['school_year']??'')===$currentTerm['school_year']&&
+               (int)($g['semester']??0)===(int)$currentTerm['semester']&&
+               !empty($g['faculty_id']);
+    });
+
+    $bySubj=[];
+    foreach($grades as $g){
+        $sid=(string)$g['subject_id'];$fid=(int)$g['faculty_id'];$sec=(string)($g['section']??'');
+        if(!isset($bySubj[$sid])){
+            $bySubj[$sid]=[
+                'subject_id'=>$sid,
+                'code'=>$g['code']??'Subject',
+                'title'=>$g['title']??'',
+                'school_year'=>$currentTerm['school_year'],
+                'semester'=>(string)$currentTerm['semester'],
+                'faculty'=>[]
+            ];
+        }
+        if(!isset($bySubj[$sid]['faculty'][$fid])){
+            $bySubj[$sid]['faculty'][$fid]=[
+                'id'=>$fid,
+                'name'=>$g['faculty_name']??'Faculty',
+                'sections'=>[],
+                'students'=>[],
+                'numeric_grades'=>0,
+                'total_grades'=>0
+            ];
+        }
+        if($sec!=='')$bySubj[$sid]['faculty'][$fid]['sections'][$sec]=true;
+        $bySubj[$sid]['faculty'][$fid]['students'][(string)$g['student_id']]=true;
+        $bySubj[$sid]['faculty'][$fid]['total_grades']++;
+        $grade=$g['final_grade']??null;
+        if(!isExcludedFromGwa($grade)&&isNumericFinalGrade($grade)){
+            $bySubj[$sid]['faculty'][$fid]['numeric_grades']++;
+        }
+    }
+
+    $out=[];
+    foreach($bySubj as $sid=>$info){
+        $facCount=count($info['faculty']);
+        if($facCount<2)continue;
+
+        $allSections=[];
+        $metricCounts=['student_count'=>0,'gwa'=>0,'numeric_coverage_pct'=>0,'final_coverage_pct'=>0,'prediction_coverage_pct'=>0,'risk_distribution'=>0];
+        foreach($info['faculty'] as $fData){
+            foreach(array_keys($fData['sections']) as $s)$allSections[$s]=true;
+            if(count($fData['students'])>0){
+                $metricCounts['student_count']++;
+                $metricCounts['numeric_coverage_pct']++;
+                $metricCounts['final_coverage_pct']++;
+            }
+            if($fData['numeric_grades']>0)$metricCounts['gwa']++;
+        }
+
+        $secCount=count($allSections);
+        $secList=array_keys($allSections);
+        sort($secList,SORT_NATURAL);
+
+        $out[]=[
+            'subject_id'=>$sid,
+            'code'=>$info['code'],
+            'title'=>$info['title'],
+            'school_year'=>$info['school_year'],
+            'semester'=>$info['semester'],
+            'distinct_faculty_count'=>$facCount,
+            'eligible_section_count'=>$secCount,
+            'sections'=>$secList,
+            'eligible_group_count_by_metric'=>$metricCounts,
+            'has_group_c'=>($facCount>=3),
+            'label'=>"{$info['code']} · {$info['title']} ({$facCount} comparable Faculty · {$secCount} sections)",
+            'compact_label'=>"{$info['code']} · {$facCount} Faculty · {$secCount} sections",
+            'value'=>$sid
+        ];
+    }
+    usort($out,static fn($a,$b)=>strcmp($a['code'],$b['code']));
+    return $out;
 }
 
 /** Optional term is trusted application context; never populated from GET/POST. */
