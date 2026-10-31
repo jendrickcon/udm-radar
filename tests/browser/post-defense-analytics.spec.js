@@ -272,10 +272,13 @@ test('Faculty dashboard features compact role-scoped assigned-class analytics ca
  await login(page,'faculty');
  await page.goto(base+'/faculty/dashboard.php');
  await expect(page.locator('[data-dashboard-metric="assigned-sections"]')).toBeVisible();
- await expect(page.locator('[data-dashboard-metric="grade-coverage"]')).toBeVisible();
- await expect(page.locator('[data-dashboard-metric="class-mean"]')).toBeVisible();
+ await expect(page.locator('[data-dashboard-metric="assessment-coverage"]')).toBeVisible();
+ await expect(page.locator('[data-dashboard-metric="assessment-mean"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="active-referrals"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="notices-issued"]')).toBeVisible();
+ await page.getByText('Finalized outcomes and metric definitions',{exact:true}).click();
+ await expect(page.locator('[data-dashboard-metric="grade-coverage"]')).toBeVisible();
+ await expect(page.locator('[data-dashboard-metric="class-mean"]')).toBeVisible();
 });
 
 test('Advanced filters progressive disclosure exposes curriculum year and faculty with active badge',async({page})=>{
