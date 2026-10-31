@@ -1297,8 +1297,9 @@
   if(methods){
    methods.replaceChildren();
    if(role==='student'){
-    const d=el('details',undefined,{class:'analytics-method-disclosure'});
-    const s=el('summary','[?] How these results are calculated');
+    const d=el('details',undefined,{class:'analytics-method-disclosure portal-info-disclosure'});
+    const s=el('summary',undefined,{class:'trend-disclosure-summary'});
+    s.innerHTML = '<svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span class="trend-disclosure-title">How these results are calculated</span>';
     const list=el('ul',undefined,{style:'margin-top:10px;padding-left:20px;font-size:0.85rem;color:var(--text-gray);line-height:1.5;'});
     list.append(
         el('li','Average GWA is calculated from eligible final grades weighted by credit units. Incomplete (INC), dropped (DRP), and zero entries are excluded from GWA.'),

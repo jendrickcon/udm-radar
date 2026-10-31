@@ -1,8 +1,12 @@
 (() => {
     'use strict';
     const allPoints = JSON.parse(document.getElementById('student-trend-data').textContent);
-    // Keep the incomplete current final result in the exact table, not as an extra history-axis slot.
-    const points = allPoints.map((point,sourceIndex)=>({...point,sourceIndex})).filter(point => !(point.zone === 'history' && point.state === 'Pending' && allPoints.some(other=>other.zone === 'current' && other.key === point.key)));
+    // Exclude pending history placeholder for current term and filter out interim snapshots from GWA axis
+    const points = allPoints.map((point,sourceIndex)=>({...point,sourceIndex})).filter(point => {
+        if (point.zone === 'history' && point.state === 'Pending') return false;
+        if (point.zone === 'current') return false;
+        return true;
+    });
     const pointLabel = point => point.type.replace(' snapshot',' progress');
     const status = document.getElementById('trend-chart-status');
     if (!points.some(point => point.value !== null)) {
@@ -15,18 +19,28 @@
     const palette = () => {
         const css = getComputedStyle(root);
         const guideStyle = getComputedStyle(document.querySelector('.student-performance-trend'));
-        return {text:root.dataset.theme === 'dark' ? '#f8fafc' : '#0f172a',
-            background:css.getPropertyValue('--card-bg').trim(),
-            divider:root.dataset.theme === 'dark' ? '#94a3b8' : '#64748b',grid:css.getPropertyValue('--border-color').trim(),
-            history:css.getPropertyValue('--accent-blue').trim(),current:root.dataset.theme === 'dark' ? '#5eead4' : '#0f766e',
-            estimate:root.dataset.theme === 'dark' ? '#fbbf24' : '#92400e',
-            guides:[0,1,2,3].map(index=>guideStyle.getPropertyValue('--trend-guide-'+index).trim())};
+        const isDark = root.dataset.theme === 'dark';
+        return {
+            text: isDark ? '#f8fafc' : '#0f172a',
+            background: css.getPropertyValue('--card-bg').trim(),
+            divider: isDark ? '#94a3b8' : '#64748b',
+            grid: css.getPropertyValue('--border-color').trim(),
+            history: css.getPropertyValue('--accent-blue').trim(),
+            estimate: isDark ? '#fbbf24' : '#d97706',
+            bridge: isDark ? 'rgba(251, 191, 36, 0.45)' : 'rgba(217, 119, 6, 0.45)',
+            guides: [0,1,2,3].map(index => guideStyle.getPropertyValue('--trend-guide-' + index).trim())
+        };
     };
     let colors = palette();
-    const zones = ['history','current','estimate'];
-    const zoneNames = {history:'Completed semesters',current:'Current semester',estimate:'Estimated result'};
+    const zones = ['history','estimate'];
+    const zoneNames = {history:'Completed semesters',estimate:'Estimated result'};
     const latest = zone => points.reduce((last,p,i) => p.zone === zone && p.value !== null ? i : last, -1);
-    const keyLabels = new Set([...['estimate','current','history'].map(latest).filter(i => i >= 0), ...points.map((p,i)=>p.zone==='history'&&p.value!==null?i:-1).filter(i=>i>=0)]);
+    const keyLabels = new Set([...['estimate','history'].map(latest).filter(i => i >= 0), ...points.map((p,i)=>p.zone==='history'&&p.value!==null?i:-1).filter(i=>i>=0)]);
+    const lastHistoryIndex = points.reduce((last, p, i) => p.zone === 'history' && p.value !== null ? i : last, -1);
+    const estimateIndex = points.findIndex(p => p.zone === 'estimate' && p.value !== null);
+    const hasBridge = lastHistoryIndex >= 0 && estimateIndex >= 0;
+    const bridgeData = points.map((p, i) => (i === lastHistoryIndex || i === estimateIndex) ? p.value : null);
+
     // Never crop a genuine low/zero result merely to tighten the usual GWA view.
     const lowestValue = Math.min(2.5, ...points.filter(p=>p.value!==null).map(p=>p.value));
     const axisMinimum = Math.max(0, Math.floor((lowestValue < 2.5 ? lowestValue - .1 : 2.5) * 4) / 4);
@@ -62,7 +76,7 @@
                 if (!indices.length) continue;
                 const left = scales.x.getPixelForValue(indices[0]), right = scales.x.getPixelForValue(indices.at(-1));
                 const label = zoneNames[zone];
-                const lines = zone==='current' ? ['Current','semester'] : zone==='estimate' ? ['Estimated','result'] : compact ? ['Completed','semesters'] : [label];
+                const lines = zone==='estimate' ? ['Estimated','result'] : compact ? ['Completed','semesters'] : [label];
                 const width = Math.max(...lines.map(line=>ctx.measureText(line).width));
                 const labelX = Math.max(chartArea.left+width/2,Math.min((left+right)/2,chart.width-8-width/2));
                 let labelY = chartArea.top-(lines.length>1?40:24);
@@ -78,8 +92,8 @@
             ctx.font = '600 15px sans-serif';
             const labelPlans = [];
             for (const index of keyLabels) {
-                const dataset = zones.indexOf(points[index].zone);
-                const marker = chart.getDatasetMeta(dataset).data[index];
+                const datasetIndex = zones.indexOf(points[index].zone);
+                const marker = chart.getDatasetMeta(datasetIndex).data[index];
                 if (!marker) continue;
                 const label = points[index].value.toFixed(2), metrics = ctx.measureText(label);
                 const width = metrics.width+6;
@@ -129,29 +143,79 @@
     };
     const chart = new Chart(document.getElementById('semGwaChart'), {
         type:'line',
-        data:{labels:points.map(axisLabel),
-            datasets:[...zones.map(zone=>({label:zoneNames[zone],data:points.map(p=>p.zone===zone?p.value:null),
-                borderColor:colors[zone],pointBackgroundColor:colors[zone],pointBorderColor:zone==='current'?colors.background:colors[zone],pointBorderWidth:zone==='current'?2.5:1,
-                pointStyle:zone==='history'?'circle':zone==='current'?'rect':'rectRot',pointRadius:6,pointHoverRadius:8,
-                showLine:zone==='history' && points.filter(p=>p.zone==='history'&&p.value!==null).length>=2,
-                spanGaps:false,tension:0,fill:false,borderWidth:3,
-                segment:{borderWidth:context=>points[context.p1DataIndex].connect && points[context.p1DataIndex].sourceIndex===points[context.p0DataIndex].sourceIndex+1?3:0}})),
-                ...guides.map(guide=>({label:`${guide.names.join(" / ")} (${guide.value.toFixed(2)}); full criteria apply`,data:points.map(()=>guide.value),pointRadius:0,hidden:false,borderColor:colors.guides[guide.style],borderWidth:1.25,borderDash:guide.style===1?[3,3]:[8,4],fill:false}))]},
+        data:{
+            labels:points.map(axisLabel),
+            datasets:[
+                {
+                    label:zoneNames.history,
+                    data:points.map(p=>p.zone==='history'?p.value:null),
+                    borderColor:colors.history,pointBackgroundColor:colors.history,pointBorderColor:colors.history,
+                    pointBorderWidth:1,pointStyle:'circle',pointRadius:6,pointHoverRadius:8,
+                    showLine:points.filter(p=>p.zone==='history'&&p.value!==null).length>=2,
+                    spanGaps:false,tension:0,fill:false,borderWidth:3,
+                    segment:{borderWidth:context=>points[context.p1DataIndex]?.connect && points[context.p1DataIndex]?.sourceIndex===points[context.p0DataIndex]?.sourceIndex+1?3:0}
+                },
+                {
+                    label:zoneNames.estimate,
+                    data:points.map(p=>p.zone==='estimate'?p.value:null),
+                    borderColor:colors.estimate,pointBackgroundColor:colors.estimate,pointBorderColor:colors.estimate,
+                    pointBorderWidth:1,pointStyle:'rectRot',pointRadius:7,pointHoverRadius:9,
+                    showLine:false,spanGaps:false,fill:false,borderWidth:2
+                },
+                {
+                    label:'Projection bridge',
+                    data:bridgeData,
+                    borderColor:colors.bridge,borderWidth:1.5,borderDash:[6,4],
+                    pointRadius:0,pointHoverRadius:0,showLine:hasBridge,spanGaps:true,fill:false
+                },
+                ...guides.map(guide=>({
+                    label:`${guide.names.join(" / ")} (${guide.value.toFixed(2)}); full criteria apply`,
+                    data:points.map(()=>guide.value),pointRadius:0,hidden:false,
+                    borderColor:colors.guides[guide.style],borderWidth:1.25,borderDash:guide.style===1?[3,3]:[8,4],fill:false
+                }))
+            ]
+        },
         plugins:[contextPlugin],
-        options:{responsive:true,maintainAspectRatio:false,animation:root.dataset.motion==='reduce'?false:undefined,
+        options:{
+            responsive:true,maintainAspectRatio:false,animation:root.dataset.motion==='reduce'?false:undefined,
             layout:{padding:{top:100,right:104}},
             onResize(chart,size) {
                 chart.options.layout.padding.top=size.width<640?184:100;
                 chart.options.scales.x.ticks.maxRotation=size.width<640?60:0;
                 chart.options.scales.x.ticks.minRotation=size.width<640?45:0;
-            },interaction:{mode:'nearest',intersect:true},
-            plugins:{legend:{display:false},tooltip:{filter:item=>item.datasetIndex<3,
-                callbacks:{title:items=>items.length?points[items[0].dataIndex].period.replace('Latest stored estimate','Latest GWA estimate'):'',
-                    label:item=>`${pointLabel(points[item.dataIndex])}: ${points[item.dataIndex].value.toFixed(2)}`,
-                    afterLabel:item=>[points[item.dataIndex].detail,points[item.dataIndex].comparison].flatMap(text=>text.match(/.{1,62}(?:\s|$)|\S+/g)||[text])}}},
-            scales:{x:{ticks:{color:colors.text,font:{size:14},maxRotation:0,autoSkip:false},grid:{display:false}},
-                y:{min:axisMinimum,max:4,ticks:{color:colors.text,font:{size:14},stepSize:.25,autoSkip:axisMinimum<2.5,callback:value=>Number(value).toFixed(2)},grid:{color:colors.grid},title:{display:true,text:'GWA · Higher is better',font:{size:14},color:colors.text}}}}
+            },
+            interaction:{mode:'nearest',intersect:true},
+            plugins:{
+                legend:{display:false},
+                tooltip:{
+                    filter:item=>item.datasetIndex<2,
+                    callbacks:{
+                        title:items=>items.length?(points[items[0].dataIndex].zone==='estimate'?'Estimated GWA':points[items[0].dataIndex].period):'',
+                        label:item=>{
+                            const p=points[item.dataIndex];
+                            if(p.zone==='estimate'){
+                                return `Estimated GWA: ${p.value.toFixed(2)} (Provisional advisory estimate)`;
+                            }
+                            return `${pointLabel(points[item.dataIndex])}: ${p.value.toFixed(2)}`;
+                        },
+                        afterLabel:item=>[points[item.dataIndex].detail,points[item.dataIndex].comparison].flatMap(text=>text?text.match(/.{1,62}(?:\s|$)|\S+/g)||[text]:[])
+                    }
+                }
+            },
+            scales:{
+                x:{ticks:{color:colors.text,font:{size:14},maxRotation:0,autoSkip:false},grid:{display:false}},
+                y:{min:axisMinimum,max:4,ticks:{color:colors.text,font:{size:14},stepSize:.25,autoSkip:axisMinimum<2.5,callback:value=>Number(value).toFixed(2)},grid:{color:colors.grid},title:{display:true,text:'GWA · Higher is better',font:{size:14},color:colors.text}}
+            }
+        }
     });
+    if (hasBridge) {
+        const lastVal = points[lastHistoryIndex].value.toFixed(2);
+        const estVal = points[estimateIndex].value.toFixed(2);
+        const canvas = document.getElementById('semGwaChart');
+        if (canvas) {
+            canvas.setAttribute('aria-label', `GWA evidence chart showing completed semesters up to ${lastVal}, with a projection bridge to the provisional estimated GWA of ${estVal}. Higher GWA is better.`);
+        }
+    }
     status.textContent = 'Open the exact values table to explore each period.';
     const honorsToggle = document.getElementById('trend-honors-toggle');
     const honorsLegend = document.getElementById('trend-honors-legend');
@@ -181,7 +245,11 @@
     const observer = new MutationObserver(()=>{
         colors=palette();chart.options.animation=root.dataset.motion==='reduce'?false:undefined;
         for (const axis of Object.values(chart.options.scales)) {axis.ticks.color=colors.text;axis.grid.color=colors.grid;if(axis.title)axis.title.color=colors.text;}
-        zones.forEach((zone,index)=>{Object.assign(chart.data.datasets[index],{borderColor:colors[zone],pointBackgroundColor:colors[zone],pointBorderColor:zone==='current'?colors.background:colors[zone]});});
+        Object.assign(chart.data.datasets[0],{borderColor:colors.history,pointBackgroundColor:colors.history,pointBorderColor:colors.history});
+        Object.assign(chart.data.datasets[1],{borderColor:colors.estimate,pointBackgroundColor:colors.estimate,pointBorderColor:colors.estimate});
+        if(chart.data.datasets[2]){
+            Object.assign(chart.data.datasets[2],{borderColor:colors.bridge});
+        }
         chart.data.datasets.slice(3).forEach((dataset,index)=>dataset.borderColor=colors.guides[guides[index].style]);chart.update('none');
     });
     observer.observe(root,{attributes:true,attributeFilter:['data-theme','data-color-style','data-motion']});

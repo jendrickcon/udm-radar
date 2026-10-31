@@ -91,6 +91,7 @@
 }
 
 /* Shared Secondary Disclosure Component */
+.portal-info-disclosure,
 .student-performance-trend .trend-disclosure {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -99,13 +100,16 @@
     transition: border-color 0.15s ease;
     overflow: hidden;
 }
+.portal-info-disclosure[open],
 .student-performance-trend .trend-disclosure[open] {
     border-color: rgba(37, 99, 235, 0.4);
 }
+[data-theme="dark"] .portal-info-disclosure[open],
 [data-theme="dark"] .student-performance-trend .trend-disclosure[open] {
     border-color: rgba(96, 165, 250, 0.45);
 }
 
+.portal-info-disclosure summary,
 .student-performance-trend .trend-disclosure summary {
     list-style: none;
     display: flex;
@@ -120,71 +124,72 @@
     user-select: none;
     box-sizing: border-box;
 }
+.portal-info-disclosure summary::-webkit-details-marker,
 .student-performance-trend .trend-disclosure summary::-webkit-details-marker {
     display: none;
 }
+.portal-info-disclosure summary::marker,
 .student-performance-trend .trend-disclosure summary::marker {
     display: none;
 }
+.portal-info-disclosure summary:focus-visible,
 .student-performance-trend .trend-disclosure summary:focus-visible {
     outline: 2px solid var(--accent-blue);
     outline-offset: -2px;
 }
 
+.portal-info-disclosure .trend-disclosure-icon,
 .student-performance-trend .trend-disclosure-icon {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
     color: var(--accent-blue);
 }
+.portal-info-disclosure .trend-disclosure-title,
 .student-performance-trend .trend-disclosure-title {
     flex: 1;
     font-size: 0.90rem;
     font-weight: 600;
     color: var(--text-dark);
 }
+.portal-info-disclosure .trend-disclosure-content,
 .student-performance-trend .trend-disclosure-content {
     padding: 0 16px 16px 16px;
     border-top: 1px solid var(--border-color);
     margin-top: 4px;
 }
 
-/* Chart Header and Top-Right Legend */
+/* Chart Header and Layout */
 .student-performance-trend .trend-chart-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    flex-wrap: wrap;
     gap: 16px 24px;
-    margin-bottom: 8px;
+    margin-bottom: 16px; /* Title block to chart: 14px to 18px */
 }
 .student-performance-trend .trend-chart-title-area {
-    flex: 1 1 260px;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .student-performance-trend .trend-chart-title-area h2 {
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--text-dark);
-    margin: 0 0 4px 0;
+    margin: 0 0 5px 0; /* Title to subtitle: 4px to 6px */
+    line-height: 1.25;
 }
 .student-performance-trend .trend-chart-subtitle {
     font-size: 0.85rem;
     color: var(--text-gray);
-    margin: 0;
-}
-.student-performance-trend .trend-chart-legend-area {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    flex: 0 1 auto;
-    text-align: right;
+    margin: 0 0 9px 0; /* Subtitle to series legend: 8px to 10px */
+    line-height: 1.35;
 }
 .student-performance-trend .trend-series-legend {
     display: flex;
     align-items: center;
     gap: 16px;
     list-style: none;
-    margin: 0 0 6px 0;
+    margin: 0;
     padding: 0;
     font-size: 0.85rem;
     font-weight: 600;
@@ -211,47 +216,58 @@
 [data-theme="dark"] .student-performance-trend .legend-marker--diamond {
     background: #fbbf24;
 }
+
+/* Honors block at top-right */
+.student-performance-trend .trend-honors-header-block {
+    flex: 0 1 auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
 .student-performance-trend .trend-honors-disclaimer {
     font-size: 0.75rem;
     color: var(--text-gray);
-    margin: 0;
+    margin: 0 0 6px 0;
     line-height: 1.35;
-    max-width: 440px;
+}
+.student-performance-trend .trend-disclaimer-line {
+    display: block;
+}
+.student-performance-trend .trend-honors-guide-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 16px;
+    font-size: 0.80rem;
+    color: var(--text-gray);
+    margin: 0;
+    padding: 0;
+}
+.student-performance-trend .trend-guide-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.student-performance-trend .trend-guide-item strong {
+    color: var(--text-dark);
 }
 
 @media (max-width: 1024px) {
     .student-performance-trend .trend-chart-header {
         flex-direction: column;
         align-items: stretch;
+        gap: 12px;
     }
-    .student-performance-trend .trend-chart-legend-area {
+    .student-performance-trend .trend-honors-header-block {
         align-items: flex-start;
         text-align: left;
     }
-    .student-performance-trend .trend-series-legend {
-        flex-wrap: wrap;
+    .student-performance-trend .trend-honors-guide-row {
+        justify-content: flex-start;
     }
-}
-
-/* Compact Honors Reference Guide Row */
-.student-performance-trend .trend-honors-guide-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px 24px;
-    padding: 10px 0 16px 0;
-    font-size: 0.84rem;
-    color: var(--text-gray);
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 14px;
-}
-.student-performance-trend .trend-guide-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-}
-.student-performance-trend .trend-guide-item strong {
-    color: var(--text-dark);
 }
 
 .student-performance-trend { --trend-guide-0:#2563eb; --trend-guide-1:#7e22ce; --trend-guide-2:#92400e; --trend-guide-3:#0f766e; }
@@ -283,6 +299,24 @@
     background: var(--bg-color);
     color: var(--text-gray);
     border: 1px solid var(--border-color);
+}
+
+/* Accessible hidden text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Current-term visually grouped rows */
+.student-performance-trend .trend-current-group-row + .trend-current-group-row td {
+    border-top: 1px dashed var(--border-color);
 }
 
 /* Preserve legible chart text on narrow screens without page-wide overflow. */

@@ -421,11 +421,11 @@ require_once '../includes/sidebar.php';
 </style>
 
 <div class="main-content student-dashboard">
-    <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
         <div>
-            <h1>Analytics Dashboard</h1>
-            <p style="color: var(--text-gray); font-size: 0.95rem;">Decision-support center and academic estimation.</p>
-            <p><a href="academic_analytics.php" class="btn btn--secondary">Review GWA trends and estimate details</a></p>
+            <h1 style="margin: 0 0 6px 0;">Analytics Dashboard</h1>
+            <p style="color: var(--text-gray); font-size: 0.95rem; margin: 0 0 10px 0;">Decision-support center and academic estimation.</p>
+            <div><a href="trend.php" class="btn btn--secondary" style="display: inline-flex; align-items: center; gap: 6px;">Review performance trend</a></div>
         </div>
         <div>
             <?php if (getPredictionSourceFamily($prediction_source) === 'model'): ?>
@@ -450,7 +450,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div style="flex: 1;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
@@ -540,8 +540,8 @@ require_once '../includes/sidebar.php';
         $accessibleGaugeSummary = "Historical cumulative GWA is not available because no numeric final grades have been recorded.";
     }
     ?>
-    <div class="analysis-panels" style="gap: 24px; margin-bottom: 24px; align-items: stretch;">
-        <div class="card" style="text-align: center; display: flex; flex-direction: column;">
+    <div class="analysis-panels" style="gap: 24px; margin-bottom: 30px; align-items: stretch;">
+        <div class="card" style="padding: 20px 24px; text-align: center; display: flex; flex-direction: column;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; text-align: left; display: flex; align-items: center; gap: 6px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
@@ -578,7 +578,7 @@ require_once '../includes/sidebar.php';
         </div>
 
         <!-- FIXED: Removed padding-bottom: 0 and added position: relative for the scroll fade effect -->
-        <div class="card" style="display: flex; flex-direction: column; overflow: hidden; position: relative; padding-bottom: 0;">
+        <div class="card" style="padding: 20px 24px 0 24px; display: flex; flex-direction: column; overflow: hidden; position: relative;">
             <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 <span>Risk Factor Analysis</span>
@@ -628,7 +628,7 @@ require_once '../includes/sidebar.php';
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 24px;">
+    <div class="card" style="padding: 20px 24px; margin-bottom: 24px;">
         <div class="subject-heading" style="margin-bottom: 16px;">
             <div>
                 <h3 style="color: var(--text-dark); font-size: 1.05rem; font-weight: 700; margin: 0;">Current Subjects & Predictions</h3>

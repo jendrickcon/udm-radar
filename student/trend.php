@@ -72,25 +72,25 @@ require_once '../includes/sidebar.php';
             <div class="trend-chart-title-area">
                 <h2 id="trend-chart-heading">Your performance over time</h2>
                 <p id="trend-summary" class="trend-chart-subtitle">Recorded results, current progress, and estimate.</p>
-            </div>
-            <div class="trend-chart-legend-area">
                 <ul class="trend-series-legend" aria-label="Evidence types">
                     <li><span class="legend-marker legend-marker--circle" aria-hidden="true"></span> Completed GWA</li>
                     <li><span class="legend-marker legend-marker--diamond" aria-hidden="true"></span> Estimated GWA</li>
                 </ul>
-                <p class="trend-honors-disclaimer">
-                    Honors guides are reference thresholds. Official eligibility remains subject to institutional review.
-                </p>
             </div>
-        </div>
-
-        <div class="trend-honors-guide-row" aria-label="Academic distinction reference thresholds">
-        <?php foreach ($distinctionGuides as $guide): ?>
-            <span class="trend-guide-item">
-                <span class="trend-guide-swatch trend-guide-<?= (int)$guide['style'] ?>" aria-hidden="true"></span>
-                <span><?= $escape(implode(' / ', $guide['names'])) ?> <strong><?= number_format($guide['value'], 2) ?></strong></span>
-            </span>
-        <?php endforeach; ?>
+            <div class="trend-honors-header-block" aria-label="Academic distinction reference thresholds">
+                <p class="trend-honors-disclaimer">
+                    <span class="trend-disclaimer-line">Honors guides are reference thresholds.</span>
+                    <span class="trend-disclaimer-line">Official eligibility remains subject to institutional review.</span>
+                </p>
+                <div class="trend-honors-guide-row">
+                <?php foreach ($distinctionGuides as $guide): ?>
+                    <span class="trend-guide-item">
+                        <span class="trend-guide-swatch trend-guide-<?= (int)$guide['style'] ?>" aria-hidden="true"></span>
+                        <span><?= $escape(implode(' / ', $guide['names'])) ?> <strong><?= number_format($guide['value'], 2) ?></strong></span>
+                    </span>
+                <?php endforeach; ?>
+                </div>
+            </div>
         </div>
 
         <div class="trend-chart"><canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas></div>
@@ -122,7 +122,7 @@ require_once '../includes/sidebar.php';
     </section>
 
     <!-- View Exact Values Disclosure -->
-    <details id="trend-evidence" class="trend-disclosure">
+    <details id="trend-evidence" class="trend-disclosure portal-info-disclosure">
         <summary class="trend-disclosure-summary trend-evidence-toggle" aria-controls="trend-table-region">
             <svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -146,8 +146,14 @@ require_once '../includes/sidebar.php';
                     </thead>
                     <tbody>
                         <?php foreach ($model['accessible_summary'] as $row): ?>
-                        <tr>
-                            <td><?= $escape($row['period']) ?></td>
+                        <tr<?= !empty($row['is_current_group']) ? ' class="trend-current-group-row"' : '' ?>>
+                            <td>
+                                <?php if (!empty($row['hide_period_visually'])): ?>
+                                    <span class="sr-only"><?= $escape($row['period']) ?></span>
+                                <?php else: ?>
+                                    <?= $escape($row['period']) ?>
+                                <?php endif; ?>
+                            </td>
                             <td><?= $escape($row['result_type']) ?></td>
                             <td><strong><?= $escape($row['value']) ?></strong></td>
                             <td>
@@ -162,13 +168,13 @@ require_once '../includes/sidebar.php';
             </div>
             <?php if ($model['latest'] === null): ?><p style="margin-top: 10px; color: var(--text-gray); font-size: 0.85rem;">No complete recorded GWA is available for the selected terms.</p><?php endif; ?>
             <p class="trend-table-note" style="font-size: 0.80rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0; line-height: 1.45;">
-                Completed-term GWA uses resolved final outcomes. Current progress and estimated GWA remain separate and are not treated as completed results.
+                Completed-term GWA uses finalized results. Current progress and estimated GWA are shown separately.
             </p>
         </div>
     </details>
 
     <!-- Compact Help Disclosure -->
-    <details class="trend-disclosure">
+    <details class="trend-disclosure portal-info-disclosure">
         <summary class="trend-disclosure-summary" aria-controls="trend-help-content">
             <svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="10"></circle>

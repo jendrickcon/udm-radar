@@ -53,7 +53,8 @@ trendCheck(!str_contains($source, 'Expand a period for its source and completene
 trendCheck(str_contains($source, '<th scope="col">Academic period</th>') && str_contains($source, '<th scope="col">Result type</th>') && str_contains($source, '<th scope="col">Value</th>') && str_contains($source, '<th scope="col">Status</th>'), 'Table columns are Academic period, Result type, Value, and Status');
 trendCheck(!str_contains($source, '[?]'), 'Literal [?] replaced with SVG help icon');
 trendCheck(str_contains($source, 'Your performance over time') && str_contains($source, 'Recorded results, current progress, and estimate.'), 'Chart title and concise subtitle present');
-trendCheck(str_contains($source, 'Honors guides are reference thresholds. Official eligibility remains subject to institutional review.'), 'Honors disclaimer present under series legend');
+trendCheck(str_contains($source, 'Honors guides are reference thresholds.') && str_contains($source, 'Official eligibility remains subject to institutional review.'), 'Honors disclaimer present with distinct reference lines');
+trendCheck(str_contains($source, 'Completed-term GWA uses finalized results. Current progress and estimated GWA are shown separately.'), 'Table note follows finalized results contract');
 foreach ([['2.25','2.50','Your GWA increased by 0.25 points (11.11%)'],['2.50','2.25','Your GWA decreased by 0.25 points (10.00%)'],['2.50','2.50','Your GWA stayed the same (0.00%)']] as [$before,$after,$expected]) {
     $relative = studentTrendModel([grade(1,'2024-2025',1,$before),grade(2,'2024-2025',2,$after)], []);
     trendCheck(str_contains($relative['change'], $expected), 'Plain-language direction and relative percent '.$before.' to '.$after);
@@ -111,5 +112,15 @@ trendCheck($stageModel['current_term_stages']['prelim']['status'] === 'Recorded'
 trendCheck($stageModel['current_term_stages']['prelim']['percentage'] === 87.55, 'Prelim stage retains raw percentage 87.55% without GWA conversion');
 trendCheck($stageModel['current_term_stages']['midterm']['status'] === 'Not recorded', 'Midterm stage correctly reports unrecorded without zero fallback');
 trendCheck($stageModel['current_term_stages']['midterm']['percentage'] === null, 'Midterm percentage is null when unrecorded');
+
+// Current-term consolidation checks in accessible_summary
+$consolidatedModel = studentTrendModel($stageRows, ['predicted_gwa' => '2.15'], ['school_year' => '2026-2027', 'semester' => 1]);
+$summaryRows = $consolidatedModel['accessible_summary'];
+$currentPeriodSummary = array_values(array_filter($summaryRows, fn($r) => $r['period'] === '2026-2027 · Semester 1'));
+trendCheck(count($currentPeriodSummary) === 2, 'Exactly two current-term result records exist in accessible summary');
+trendCheck($currentPeriodSummary[0]['result_type'] === 'Preliminary progress' && $currentPeriodSummary[0]['hide_period_visually'] === false, 'First current-term row is Preliminary progress with visible period');
+trendCheck($currentPeriodSummary[1]['result_type'] === 'Estimated GWA' && $currentPeriodSummary[1]['hide_period_visually'] === true, 'Second current-term row is Estimated GWA with visually grouped period');
+$unavailableCompletedRows = array_filter($summaryRows, fn($r) => $r['period'] === '2026-2027 · Semester 1' && $r['result_type'] === 'Completed-term GWA');
+trendCheck(count($unavailableCompletedRows) === 0, 'No unavailable completed-term GWA row exists for current term');
 
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";
