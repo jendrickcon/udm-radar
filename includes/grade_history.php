@@ -1,20 +1,412 @@
-﻿<?php
+<?php
 /**
  * Shared Grade History Repository and View Model Helper
  *
  * Extracts and unifies academic history querying and grouping across:
  * - admin/students.php (Student profile directory modal)
  * - admin/grades.php / admin/grades_data.php (Admin grades modal read-only history)
+ * - student/grades.php (Student portal Grades & History view)
  *
- * Enforces institutional grading rules from config/constants.php:
- * - Read-only historical grades from completed terms (is_current = 0)
- * - Excludes null final grades
- * - Groups by School Year and Curriculum Year / Semester
+ * Enforces institutional grading rules and chronological period boundaries:
+ * - Strict period normalization and chronological ranking
+ * - Future period exclusion and active-term separation
+ * - Read-only historical grades from completed terms (rank < activeRank)
+ * - Excludes null, empty, or placeholder final grades from academic history
  * - Formats final grades and textual outcomes accurately without coercion
  * - Computes optional Term GWA via canonical computeWeightedGWA()
  */
 
 require_once __DIR__ . '/../config/constants.php';
+
+/**
+ * Normalize a semester representation to an integer:
+ * 1 => First Semester
+ * 2 => Second Semester
+ * 3 => Summer / Midyear
+ * Returns null if unrecognized or invalid.
+ */
+function normalizeSemester(mixed $sem): ?int {
+    if ($sem === null) {
+        return null;
+    }
+    $s = strtolower(trim((string)$sem));
+    if ($s === '') {
+        return null;
+    }
+    return match ($s) {
+        '1', 'sem 1', 'semester 1', 'first semester', '1st sem' => 1,
+        '2', 'sem 2', 'semester 2', 'second semester', '2nd sem' => 2,
+        '3', 'summer', 'midyear', 'sem 3', 'semester 3', '3rd sem' => 3,
+        default => null,
+    };
+}
+
+/**
+ * Normalize a school year representation to 'YYYY-YYYY'.
+ * Strict requirement: End year must equal start year + 1.
+ * Returns null if unrecognized or invalid.
+ */
+function normalizeSchoolYear(mixed $sy): ?string {
+    if ($sy === null) {
+        return null;
+    }
+    $s = trim((string)$sy);
+    if (!preg_match('/^(\d{4})-(\d{4})$/', $s, $m)) {
+        return null;
+    }
+    $start = (int)$m[1];
+    $end = (int)$m[2];
+    if ($end !== $start + 1) {
+        return null;
+    }
+    return sprintf('%04d-%04d', $start, $end);
+}
+
+/**
+ * Compute an integer chronological rank for an academic period.
+ * Formula: (start_year * 3) + normalized_semester
+ * Returns null if either component is invalid.
+ */
+function periodChronologicalRank(?string $schoolYear, mixed $semester): ?int {
+    $sy = normalizeSchoolYear($schoolYear);
+    $sem = normalizeSemester($semester);
+    if ($sy === null || $sem === null) {
+        return null;
+    }
+    $startYear = (int)explode('-', $sy)[0];
+    return ($startYear * 3) + $sem;
+}
+
+/**
+ * Determine whether a given period occurred strictly before the active term.
+ */
+function isHistoricalPeriod(?string $schoolYear, mixed $semester, ?array $activeTerm = null): bool {
+    $term = $activeTerm ?? getCurrentTerm();
+    $rank = periodChronologicalRank($schoolYear, $semester);
+    $activeRank = periodChronologicalRank($term['school_year'] ?? null, $term['semester'] ?? null);
+    if ($rank === null || $activeRank === null) {
+        return false;
+    }
+    return $rank < $activeRank;
+}
+
+/**
+ * Determine whether a given period matches the active term.
+ */
+function isCurrentPeriod(?string $schoolYear, mixed $semester, ?array $activeTerm = null): bool {
+    $term = $activeTerm ?? getCurrentTerm();
+    $sy = normalizeSchoolYear($schoolYear);
+    $sem = normalizeSemester($semester);
+    $activeSy = normalizeSchoolYear($term['school_year'] ?? null);
+    $activeSem = normalizeSemester($term['semester'] ?? null);
+    if ($sy === null || $sem === null || $activeSy === null || $activeSem === null) {
+        return false;
+    }
+    return ($sy === $activeSy && $sem === $activeSem);
+}
+
+/**
+ * Determine whether a given period is strictly after the active term.
+ */
+function isFuturePeriod(?string $schoolYear, mixed $semester, ?array $activeTerm = null): bool {
+    $term = $activeTerm ?? getCurrentTerm();
+    $rank = periodChronologicalRank($schoolYear, $semester);
+    $activeRank = periodChronologicalRank($term['school_year'] ?? null, $term['semester'] ?? null);
+    if ($rank === null || $activeRank === null) {
+        return false;
+    }
+    return $rank > $activeRank;
+}
+
+/**
+ * Validate whether a grade represents a finalized historical outcome.
+ * Accepts numeric points (0.00 - 4.00) or recognized official statuses (INC, DRP, P, etc.).
+ * Null, empty string, and placeholder em-dash are strictly rejected.
+ */
+function isFinalizedHistoricalGrade(mixed $val): bool {
+    if ($val === null) {
+        return false;
+    }
+    $s = trim((string)$val);
+    if ($s === '' || $s === '—') {
+        return false;
+    }
+    if (is_numeric($s)) {
+        $num = (float)$s;
+        return $num >= 0.00 && $num <= 4.00;
+    }
+    $upper = strtoupper($s);
+    if (defined('FINAL_GRADE_STATUSES') && in_array($upper, FINAL_GRADE_STATUSES, true)) {
+        return true;
+    }
+    return in_array($upper, ['INC', 'DRP', 'P', 'DO', 'DU', 'FA', 'UD', 'PASSED'], true);
+}
+
+/**
+ * Determine the current subject status and stage descriptor for current-term tables.
+ * Returns an array:
+ * [
+ *   'type' => 'finalized_numeric' | 'finalized_status' | 'prefinal_recorded' | 'midterm_recorded' | 'prelim_recorded' | 'pending',
+ *   'label' => string,
+ *   'value' => float | string | null,
+ *   'is_finalized' => bool,
+ * ]
+ */
+function determineCurrentSubjectStatus(array $row): array {
+    $finalGradeRaw = $row['final_grade'] ?? null;
+    $finalGradeStatus = null;
+    $finalGrade = null;
+    if ($finalGradeRaw !== null) {
+        $fgStr = strtoupper(trim((string)$finalGradeRaw));
+        if ($fgStr !== '' && $fgStr !== '—') {
+            if (defined('FINAL_GRADE_STATUSES') && in_array($fgStr, FINAL_GRADE_STATUSES, true)) {
+                $finalGradeStatus = $fgStr;
+            } elseif (is_numeric($fgStr)) {
+                $finalGrade = (float)$fgStr;
+            }
+        }
+    }
+
+    if ($finalGrade !== null) {
+        return [
+            'type' => 'finalized_numeric',
+            'label' => formatFinalGrade($finalGrade),
+            'value' => $finalGrade,
+            'is_finalized' => true,
+        ];
+    }
+    if ($finalGradeStatus !== null) {
+        return [
+            'type' => 'finalized_status',
+            'label' => $finalGradeStatus,
+            'value' => $finalGradeStatus,
+            'is_finalized' => true,
+        ];
+    }
+
+    $prefinal = (isset($row['prefinal']) && $row['prefinal'] !== null && trim((string)$row['prefinal']) !== '' && isValidTermPercentage($row['prefinal']))
+        ? (float)$row['prefinal'] : null;
+    $midterm = (isset($row['midterm']) && $row['midterm'] !== null && trim((string)$row['midterm']) !== '' && isValidTermPercentage($row['midterm']))
+        ? (float)$row['midterm'] : null;
+    $prelim = (isset($row['prelim']) && $row['prelim'] !== null && trim((string)$row['prelim']) !== '' && isValidTermPercentage($row['prelim']))
+        ? (float)$row['prelim'] : null;
+
+    if ($prefinal !== null) {
+        return [
+            'type' => 'prefinal_recorded',
+            'label' => 'Pre-Final recorded',
+            'value' => $prefinal,
+            'is_finalized' => false,
+        ];
+    }
+    if ($midterm !== null) {
+        return [
+            'type' => 'midterm_recorded',
+            'label' => 'Midterm recorded',
+            'value' => $midterm,
+            'is_finalized' => false,
+        ];
+    }
+    if ($prelim !== null) {
+        return [
+            'type' => 'prelim_recorded',
+            'label' => 'Preliminary recorded',
+            'value' => $prelim,
+            'is_finalized' => false,
+        ];
+    }
+
+    return [
+        'type' => 'pending',
+        'label' => 'Final grade pending',
+        'value' => null,
+        'is_finalized' => false,
+    ];
+}
+
+/**
+ * Fetch student current-term grades strictly anchored to the active period.
+ * Does not require is_current = 1 after active period matching.
+ */
+function fetchStudentCurrentGrades(PDO $db, int $studentId, ?array $activeTerm = null): array {
+    if ($studentId <= 0) {
+        return [];
+    }
+    $term = $activeTerm ?? getCurrentTerm();
+    $sy = normalizeSchoolYear($term['school_year'] ?? null) ?? ($term['school_year'] ?? '');
+    $sem = normalizeSemester($term['semester'] ?? null) ?? (int)($term['semester'] ?? 0);
+
+    $stmt = $db->prepare("
+        SELECT g.id AS grade_id, g.id, g.student_id, g.subject_id,
+               g.school_year, g.semester, g.prelim, g.midterm, g.prefinal, g.final_grade, g.is_current,
+               s.id AS subject_id, s.code, s.title, s.units
+        FROM grades g
+        JOIN subjects s ON s.id = g.subject_id
+        WHERE g.student_id = ? AND g.school_year = ? AND g.semester = ?
+        ORDER BY s.code ASC
+    ");
+    $stmt->execute([$studentId, $sy, $sem]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Compute unit-weighted current-term assessment progress and identify the latest recorded stage.
+ *
+ * @param array $currentSubjects List of subjects with prelim, midterm, prefinal, units
+ * @return array Multi-key structure containing:
+ *   - prelim_avg, midterm_avg, prefinal_avg (float|null)
+ *   - prelim_units, midterm_units, prefinal_units (float)
+ *   - prelim_count, midterm_count, prefinal_count (int)
+ *   - total_count (int)
+ *   - stages: array of stages ('prelim', 'midterm', 'prefinal')
+ *   - latest_stage: array|null
+ *   - latest_stage_field: string|null
+ *   - latest_stage_label: string|null
+ *   - converted_point: float|null (via convertPercentageToPoint)
+ *   - formatted_converted_point: string|null
+ *   - stage_based_label: string|null
+ *   - primary_value: string (e.g. '92.94%' or 'Not recorded')
+ *   - subtitle: string
+ *   - coverage_text: string
+ *   - earlier_context: string|null
+ *   - has_recorded_stage: bool
+ */
+function computeCurrentTermAssessmentProgress(array $currentSubjects): array {
+    $totalCount = count($currentSubjects);
+    $stages = [];
+    $stageConfigs = [
+        'prelim'   => 'Preliminary',
+        'midterm'  => 'Midterm',
+        'prefinal' => 'Pre-Final',
+    ];
+
+    foreach ($stageConfigs as $field => $label) {
+        $sum = 0.0;
+        $units = 0.0;
+        $recordedCount = 0;
+
+        foreach ($currentSubjects as $sub) {
+            $val = $sub[$field] ?? null;
+            $u = (float)($sub['units'] ?? 0);
+            if ($val !== null && trim((string)$val) !== '' && isValidTermPercentage($val) && $u > 0) {
+                $sum += (float)$val * $u;
+                $units += $u;
+                $recordedCount++;
+            }
+        }
+
+        $pct = ($units > 0 && $recordedCount > 0) ? round($sum / $units, 2) : null;
+        $stages[$field] = [
+            'field'                => $field,
+            'label'                => $label,
+            'percentage'           => $pct,
+            'status'               => $pct !== null ? 'Recorded' : 'Not recorded',
+            'formatted_percentage' => $pct !== null ? number_format($pct, 2) . '%' : 'Not recorded',
+            'coverage'             => $totalCount > 0 ? "{$recordedCount}/{$totalCount}" : '0/0',
+            'recorded_count'       => $recordedCount,
+            'total_count'          => $totalCount,
+            'units'                => $units,
+        ];
+    }
+
+    $latestStage = null;
+    $earlierStages = [];
+    foreach ($stageConfigs as $field => $label) {
+        if ($stages[$field]['percentage'] !== null) {
+            if ($latestStage !== null) {
+                $earlierStages[] = $latestStage['label'] . ': ' . $latestStage['formatted_percentage'];
+            }
+            $latestStage = $stages[$field];
+        }
+    }
+
+    $convertedAssessmentPoint = ($latestStage !== null && $latestStage['percentage'] !== null && function_exists('convertPercentageToPoint'))
+        ? convertPercentageToPoint($latestStage['percentage'])
+        : null;
+
+    $stageBasedLabel = $latestStage ? "{$latestStage['label']}-based" : null;
+
+    return [
+        'prelim_avg'               => $stages['prelim']['percentage'],
+        'midterm_avg'              => $stages['midterm']['percentage'],
+        'prefinal_avg'             => $stages['prefinal']['percentage'],
+        'prelim_units'             => $stages['prelim']['units'],
+        'midterm_units'            => $stages['midterm']['units'],
+        'prefinal_units'           => $stages['prefinal']['units'],
+        'prelim_count'             => $stages['prelim']['recorded_count'],
+        'midterm_count'            => $stages['midterm']['recorded_count'],
+        'prefinal_count'           => $stages['prefinal']['recorded_count'],
+        'total_count'              => $totalCount,
+        'stages'                   => $stages,
+        'latest_stage'             => $latestStage,
+        'latest_stage_field'       => $latestStage['field'] ?? null,
+        'latest_stage_label'       => $latestStage['label'] ?? null,
+        'percentage'               => $latestStage['percentage'] ?? null,
+        'converted_point'          => $convertedAssessmentPoint,
+        'formatted_converted_point'=> $convertedAssessmentPoint !== null ? number_format($convertedAssessmentPoint, 2) : null,
+        'stage_based_label'        => $stageBasedLabel,
+        'primary_value'            => $latestStage ? $latestStage['formatted_percentage'] : 'Not recorded',
+        'subtitle'                 => $latestStage ? "{$latestStage['label']} average" : 'Assessment progress pending',
+        'coverage_text'            => $latestStage ? "{$latestStage['recorded_count']} of {$latestStage['total_count']} subjects recorded" : '0 of 0 subjects recorded',
+        'earlier_context'          => !empty($earlierStages) ? implode(' · ', $earlierStages) : null,
+        'has_recorded_stage'       => ($latestStage !== null),
+    ];
+}
+
+/**
+ * Fetch and organize student academic history strictly for completed historical periods.
+ * Excludes active period, future periods, and rows without a finalized grade.
+ * Groups by normalized term and sorts descending by chronological rank.
+ */
+function fetchStudentCompletedAcademicHistory(PDO $db, int $studentId, ?array $activeTerm = null): array {
+    if ($studentId <= 0) {
+        return [];
+    }
+    $term = $activeTerm ?? getCurrentTerm();
+
+    $stmt = $db->prepare("
+        SELECT g.*, s.code, s.title, s.units
+        FROM grades g
+        JOIN subjects s ON s.id = g.subject_id
+        WHERE g.student_id = ?
+        ORDER BY s.code ASC
+    ");
+    $stmt->execute([$studentId]);
+    $allRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $historyTerms = [];
+    $termRanks = [];
+
+    foreach ($allRows as $r) {
+        if (!isHistoricalPeriod($r['school_year'] ?? null, $r['semester'] ?? null, $term)) {
+            continue;
+        }
+        if (!isFinalizedHistoricalGrade($r['final_grade'] ?? null)) {
+            continue;
+        }
+
+        $normSy = normalizeSchoolYear($r['school_year']);
+        $normSem = normalizeSemester($r['semester']);
+        $rank = periodChronologicalRank($normSy, $normSem);
+
+        $semLabel = match ($normSem) {
+            1 => 'Sem 1',
+            2 => 'Sem 2',
+            3 => 'Summer',
+            default => 'Sem ' . $normSem,
+        };
+        $termLabel = $normSy . ' — ' . $semLabel;
+
+        $historyTerms[$termLabel][] = $r;
+        $termRanks[$termLabel] = $rank;
+    }
+
+    uksort($historyTerms, function ($a, $b) use ($termRanks) {
+        return ($termRanks[$b] ?? 0) <=> ($termRanks[$a] ?? 0);
+    });
+
+    return $historyTerms;
+}
 
 /**
  * Fetch raw historical grade records for a single student.

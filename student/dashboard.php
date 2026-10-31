@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../includes/goal_calculator.php';
 require_once '../config/db.php';
+require_once '../includes/grade_history.php';
 
 requireRole('student');
 $user = currentUser();
@@ -39,15 +40,8 @@ $ml_prediction = $stmtPred->fetch(PDO::FETCH_ASSOC);
 require_once __DIR__ . '/performance_trend_model.php';
 $currentTerm = getCurrentTerm();
 
-// 2. Fetch Current Semester Subjects & All Grades
-$stmtCurr = $db->prepare("
-    SELECT s.id AS subject_id, s.code, s.title, s.units, g.prelim, g.midterm, g.prefinal, g.final_grade, g.school_year, g.semester
-    FROM grades g
-    JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 1 AND g.school_year = ? AND g.semester = ?
-");
-$stmtCurr->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
-$current_subjects = $stmtCurr->fetchAll();
+// 2. Fetch Current Semester Subjects & All Grades using authoritative shared helper
+$current_subjects = fetchStudentCurrentGrades($db, (int)$user['id'], $currentTerm);
 
 // Fetch all student grades for Growth KPI
 $stmtAllGrades = $db->prepare("
@@ -61,23 +55,9 @@ $stmtAllGrades->execute([$user['id']]);
 $allStudentGrades = $stmtAllGrades->fetchAll(PDO::FETCH_ASSOC);
 $growthData = computeStudentGrowth($allStudentGrades, $currentTerm);
 
-$currPrelimSum = 0; $currPrelimUnits = 0; $currPrelimCount = 0;
-$currMidtermSum = 0; $currMidtermUnits = 0; $currMidtermCount = 0;
-foreach ($current_subjects as $cs) {
-    $u = (float)($cs['units'] ?? 0);
-    if ($cs['prelim'] !== null && trim((string)$cs['prelim']) !== '' && isValidTermPercentage($cs['prelim']) && $u > 0) {
-        $currPrelimSum += (float)$cs['prelim'] * $u;
-        $currPrelimUnits += $u;
-        $currPrelimCount++;
-    }
-    if ($cs['midterm'] !== null && trim((string)$cs['midterm']) !== '' && isValidTermPercentage($cs['midterm']) && $u > 0) {
-        $currMidtermSum += (float)$cs['midterm'] * $u;
-        $currMidtermUnits += $u;
-        $currMidtermCount++;
-    }
-}
-$currPrelimAvg = ($currPrelimUnits > 0 && $currPrelimCount > 0) ? round($currPrelimSum / $currPrelimUnits, 2) : null;
-$currMidtermAvg = ($currMidtermUnits > 0 && $currMidtermCount > 0) ? round($currMidtermSum / $currMidtermUnits, 2) : null;
+$currAssessment = computeCurrentTermAssessmentProgress($current_subjects);
+$currPrelimAvg = $currAssessment['prelim_avg'];
+$currMidtermAvg = $currAssessment['midterm_avg'];
 
 // 3. Heuristic prediction & Subject Triage
 $prediction_rows = [];
