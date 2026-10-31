@@ -18,7 +18,8 @@
     const root = document.documentElement;
     const palette = () => {
         const css = getComputedStyle(root);
-        const guideStyle = getComputedStyle(document.querySelector('.student-performance-trend'));
+        const guideContainer = document.querySelector('.student-performance-trend') || document.body;
+        const guideStyle = getComputedStyle(guideContainer);
         const isDark = root.dataset.theme === 'dark';
         return {
             text: isDark ? '#f8fafc' : '#0f172a',
@@ -40,13 +41,18 @@
     const hasEstimate = estimatePoint && estimatePoint.value !== null;
     const numHistory = historyPoints.length;
 
-    // Completed-semester region: 84% to 88% (85%); estimated-result region: 12% to 16% (15%)
-    const histMaxX = hasEstimate ? 85 : 100;
+    // Three visual regions:
+    // 1. Completed semesters: 74% width (x in [0, 74])
+    //    Points spaced evenly across x in [4, 68] to cushion from y-axis (x=0) and divider (x=74)
+    // 2. Current term: 13% width (x in [74, 87]), centered at x = 80.5
+    // 3. Estimated result: 13% width (x in [87, 100]), estimate point centered at x = 93.5
+    const histStartX = 4;
+    const histEndX = 68;
     historyPoints.forEach((p, i) => {
-        p.x = numHistory > 1 ? (i / (numHistory - 1)) * histMaxX : (hasEstimate ? 42.5 : 50);
+        p.x = numHistory > 1 ? histStartX + (i / (numHistory - 1)) * (histEndX - histStartX) : 37;
     });
     if (estimatePoint) {
-        estimatePoint.x = 100;
+        estimatePoint.x = 93.5;
     }
 
     const lastHistoryIndex = points.reduce((last, p, i) => p.zone === 'history' && p.value !== null ? i : last, -1);
@@ -87,25 +93,50 @@
                 ctx.fillStyle=colors.text; ctx.fillText(label,x,y); ctx.restore();
             };
 
-            // Plot heading to first horizontal grid line: exactly 16px (in 14px to 20px range)
+            // Plot headings: exactly 16px above top horizontal grid line
             const labelY = chartArea.top - 16;
-            const histLeft = scales.x.getPixelForValue(0);
-            const histRight = scales.x.getPixelForValue(hasEstimate ? 85 : 100);
-            const histCenter = (histLeft + histRight) / 2;
-            ctx.fillText('Completed semesters', histCenter, labelY);
+            const div1X = scales.x.getPixelForValue(74);
+            const div2X = scales.x.getPixelForValue(87);
 
-            if (hasEstimate) {
-                const estCenter = (scales.x.getPixelForValue(87.5) + scales.x.getPixelForValue(100)) / 2;
-                ctx.fillText('Estimated result', estCenter, labelY);
+            // Subtle vertical dividers between the three regions
+            ctx.save();
+            ctx.strokeStyle = colors.divider;
+            ctx.lineWidth = 1;
 
-                // Thin subtle vertical divider between completed-semester region and estimated-result region
-                const divX = scales.x.getPixelForValue(87.5);
-                ctx.strokeStyle = colors.divider;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(divX, chartArea.top);
-                ctx.lineTo(divX, chartArea.bottom);
-                ctx.stroke();
+            // Divider 1: Completed semesters | Current term
+            ctx.beginPath();
+            ctx.moveTo(div1X, chartArea.top);
+            ctx.lineTo(div1X, chartArea.bottom);
+            ctx.stroke();
+
+            // Divider 2: Current term | Estimated result
+            ctx.beginPath();
+            ctx.moveTo(div2X, chartArea.top);
+            ctx.lineTo(div2X, chartArea.bottom);
+            ctx.stroke();
+
+            // Restrained tinted surface for Current term region
+            ctx.fillStyle = root.dataset.theme === 'dark' ? 'rgba(45, 212, 191, 0.05)' : 'rgba(13, 148, 136, 0.035)';
+            ctx.fillRect(div1X, chartArea.top, div2X - div1X, chartArea.bottom - chartArea.top);
+
+            // Region headings above content
+            ctx.fillStyle = colors.text;
+            ctx.font = '600 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Completed semesters', scales.x.getPixelForValue(37), labelY);
+            ctx.fillText('Current term', scales.x.getPixelForValue(80.5), labelY);
+            ctx.fillText('Estimated result', scales.x.getPixelForValue(93.5), labelY);
+            ctx.restore();
+
+            // Position callout element inside Current-term region
+            const callout = document.getElementById('trend-current-callout');
+            if (callout) {
+                const canvas = chart.canvas;
+                const centerX = (div1X + div2X) / 2;
+                const centerY = (chartArea.top + chartArea.bottom) / 2;
+                callout.style.left = `${canvas.offsetLeft + centerX}px`;
+                callout.style.top = `${canvas.offsetTop + centerY}px`;
+                callout.style.transform = 'translate(-50%, -50%)';
             }
 
             // Numeric values placed directly above markers
@@ -223,13 +254,51 @@
         }
     });
 
+    const completedVals = historyPoints.filter(p => p.value !== null).map(p => p.value);
+    const minCompleted = completedVals.length ? Math.min(...completedVals).toFixed(2) : null;
+    const maxCompleted = completedVals.length ? Math.max(...completedVals).toFixed(2) : null;
+    const countCompleted = completedVals.length;
+
+    let accessibleDesc = '';
+    if (countCompleted > 0) {
+        accessibleDesc += `Completed GWA values range from ${minCompleted} to ${maxCompleted} across ${countCompleted} completed semester${countCompleted === 1 ? '' : 's'}. `;
+    }
+
+    const progScript = document.getElementById('student-trend-current-progress');
+    const progData = progScript ? JSON.parse(progScript.textContent) : null;
+    const termScript = document.getElementById('student-trend-active-term');
+    const termData = termScript ? JSON.parse(termScript.textContent) : null;
+
+    if (progData && progData.has_recorded_stage && termData) {
+        const semName = termData.semester === 3 ? 'Summer' : `Semester ${termData.semester}`;
+        const stageName = progData.latest_stage_label || 'Assessment';
+        accessibleDesc += `The current ${termData.school_year} ${semName} ${stageName} assessment average is ${progData.primary_value.replace('%', ' percent')} across ${progData.coverage_text} and is not GWA. `;
+    }
+
+    if (estimatePoint && estimatePoint.value !== null) {
+        accessibleDesc += `The provisional estimated GWA is ${estimatePoint.value.toFixed(2)}. `;
+    }
     if (hasBridge) {
-        const lastVal = points[lastHistoryIndex].value.toFixed(2);
-        const estVal = points[estimateIndex].value.toFixed(2);
-        const canvas = document.getElementById('semGwaChart');
-        if (canvas) {
-            canvas.setAttribute('aria-label', `GWA evidence chart showing completed semesters up to ${lastVal}, with a projection bridge to the provisional estimated GWA of ${estVal}. Higher GWA is better.`);
-        }
+        accessibleDesc += `A faint dashed bridge connects completed GWA to provisional estimated GWA. `;
+    }
+    accessibleDesc += 'Higher GWA is better.';
+
+    const canvas = document.getElementById('semGwaChart');
+    if (canvas) {
+        canvas.setAttribute('aria-label', accessibleDesc.trim());
+        canvas.dataset.histWidthPct = '74';
+        canvas.dataset.currentWidthPct = '13';
+        canvas.dataset.estWidthPct = '13';
+        canvas.dataset.dividers = '2';
+        canvas.dataset.regions = '3';
+    }
+    const trendWrap = document.querySelector('.trend-chart');
+    if (trendWrap) {
+        trendWrap.dataset.histWidthPct = '74';
+        trendWrap.dataset.currentWidthPct = '13';
+        trendWrap.dataset.estWidthPct = '13';
+        trendWrap.dataset.dividers = '2';
+        trendWrap.dataset.regions = '3';
     }
     status.textContent = 'Open the exact values table to explore each period.';
     const honorsToggle = document.getElementById('trend-honors-toggle');

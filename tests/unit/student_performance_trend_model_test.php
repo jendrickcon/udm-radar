@@ -144,4 +144,11 @@ trendCheck($threeStageModel['current_progress']['primary_value'] === '94.00%', '
 trendCheck($threeStageModel['current_progress']['subtitle'] === 'Pre-Final average', 'Scenario C: Three stages subtitle is Pre-Final average');
 trendCheck($threeStageModel['current_progress']['earlier_context'] === 'Preliminary: 87.55% · Midterm: 91.20%', 'Scenario C: Earlier stage context displays Preliminary and Midterm');
 
+// Scale separation and non-GWA current-term average contracts
+trendCheck($consolidatedModel['latest'] === null, 'Scale separation: Incomplete current term produces no completed GWA');
+trendCheck($consolidatedModel['current_progress']['percentage'] === 87.55, 'Scale separation: Assessment value remains raw percentage without 4.00 point scale conversion');
+trendCheck($consolidatedModel['current_progress']['primary_value'] === '87.55%', 'Scale separation: Primary value formatted with explicit % unit');
+trendCheck($model['latest'] === 3.0, 'Scale separation: Completed GWA scalar strictly excludes current term');
+trendCheck($model['estimate'] === 2.15, 'Scale separation: Advisory estimate scalar remains 2.15 point value');
+
 echo "SUMMARY: $checks checks passed; 0 failures. No database accessed.\n";

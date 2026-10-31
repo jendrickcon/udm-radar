@@ -103,7 +103,22 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
 
-        <div class="trend-chart"><canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas></div>
+        <div class="trend-chart">
+            <canvas id="semGwaChart" role="img" aria-label="GWA evidence chart. Higher GWA is better; 4.00 is highest. The axis expands to include results below 1.00 when present." aria-describedby="trend-summary trend-table-caption">Read the exact values table below for every value and its limitations.</canvas>
+            <?php if (!empty($model['current_progress']['has_recorded_stage'])): ?>
+            <div id="trend-current-callout" class="trend-current-callout" role="region" aria-label="Current term assessment summary">
+                <span class="trend-callout-heading">Current term</span>
+                <span class="trend-callout-period"><?= $escape($model['active_term']['school_year']) ?> · Semester <?= (int)$model['active_term']['semester'] ?></span>
+                <div class="trend-callout-value"><?= $escape($model['current_progress']['primary_value']) ?></div>
+                <div class="trend-callout-stage"><?= $escape($model['current_progress']['subtitle']) ?></div>
+                <div class="trend-callout-coverage"><?= $escape($model['current_progress']['coverage_text']) ?></div>
+                <?php if (!empty($model['current_progress']['earlier_context'])): ?>
+                    <div class="trend-callout-earlier"><?= $escape($model['current_progress']['earlier_context']) ?></div>
+                <?php endif; ?>
+                <div class="trend-callout-badge">Assessment percentage · Not GWA</div>
+            </div>
+            <?php endif; ?>
+        </div>
         <p id="trend-chart-status" role="status" class="trend-assistive-status">Open the exact values table to explore each period.</p>
     </section>
 
@@ -220,6 +235,8 @@ require_once '../includes/sidebar.php';
     </details>
 </main>
 <script id="student-trend-data" type="application/json"><?= json_encode($model['points'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
+<script id="student-trend-current-progress" type="application/json"><?= json_encode($model['current_progress'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
+<script id="student-trend-active-term" type="application/json"><?= json_encode($model['active_term'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
 <script id="student-trend-guides" type="application/json"><?= json_encode($distinctionGuides, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?= BASE_URL ?>assets/js/student-performance-trend.js?v=<?= substr(hash_file('sha256', __DIR__.'/../assets/js/student-performance-trend.js'),0,12) ?>"></script>
