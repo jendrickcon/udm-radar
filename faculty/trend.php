@@ -2,623 +2,88 @@
 require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../config/db.php';
-
+require_once '../includes/faculty_assessment_repository.php';
 requireRole('faculty');
-$user = currentUser();
-$db = getDB();
-
-// Safety fallback with explicit type-hints
-if (!function_exists('normalizePointGrade')) {
-    function normalizePointGrade(mixed $val): ?float {
-        if ($val === null || !is_numeric($val)) return null;
-        return (float)$val;
-    }
-}
-
-$currentTerm = getCurrentTerm();
-$currentSy = $currentTerm['school_year'];
-$currentSem = (string) $currentTerm['semester'];
-
-$syFilter  = trim((string)($_GET['sy'] ?? $currentSy));
-$semFilter = trim((string)($_GET['sem'] ?? $_GET['semester'] ?? $currentSem));
-$isCurrentTerm = ($syFilter === $currentSy && (string)$semFilter === (string)$currentSem);
-
-$lifecycleCondition = $isCurrentTerm 
-    ? "sp.record_status = 'Active'" 
-    : "sp.record_status IN ('Active', 'Graduated')";
-
-$currentCondition = $isCurrentTerm 
-    ? "g.is_current = 1" 
-    : "g.is_current = 0";
-
-$stmtLoads = $db->prepare("
-    SELECT fcl.subject_id, fcl.section, s.code, s.title 
-    FROM faculty_class_loads fcl 
-    JOIN subjects s ON s.id = fcl.subject_id 
-    WHERE fcl.faculty_user_id = ?
-    ORDER BY s.title, fcl.section
-");
-$stmtLoads->execute([$user['id']]);
-$myLoads = $stmtLoads->fetchAll(PDO::FETCH_ASSOC);
-
-$uniqueStudents = [];
-$overallAttention = 0;
-$overallExpected = 0; $overallEncoded = 0;
-$portfolioTable = [];
-
-$overallPctSum = 0; $overallPctCount = 0;
-$overallPtSum = 0; $overallPtCount = 0;
-
+$user = currentUser(); $db = getDB(); $currentTerm = getCurrentTerm();
+try {
+    $data = facultyAssessmentRead($db, (int)$user['id'], $currentTerm);
+    $scope = facultyAssessmentSelect($data['loads'], $_GET, $currentTerm);
+} catch (InvalidArgumentException $e) { http_response_code(422); exit('Invalid assessment filters. Choose an assigned class and a valid academic period.');
+} catch (DomainException $e) { http_response_code(403); exit('Assessment access denied. Choose a class assigned to your account.'); }
+$myLoads = $data['loads']; $rows = $scope['current'] ? $data['rows'] : [];
+$overall = facultyAssessmentSummary($rows); $selectedRows = []; $portfolio = [];
 foreach ($myLoads as $load) {
-    $stmtClassGrades = $db->prepare("
-        SELECT g.student_id, g.prelim, g.midterm, g.prefinal, g.final_grade
-        FROM grades g
-        JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND $currentCondition AND $lifecycleCondition
-    ");
-    $stmtClassGrades->execute([$load['subject_id'], $load['section'], $syFilter, $semFilter]);
-    $grades = $stmtClassGrades->fetchAll(PDO::FETCH_ASSOC);
-
-    $classStudents = count($grades);
-    $overallExpected += $classStudents;
-
-    $classPctSum = 0; $classPctCount = 0;
-    $classPtSum = 0; $classPtCount = 0;
-    $classAttention = 0;
-
-    foreach ($grades as $g) {
-        $uniqueStudents[$g['student_id']] = true;
-
-        $latestVal = null;
-        $latestType = '';
-        if ($g['final_grade'] !== null && trim((string)$g['final_grade']) !== '') { $latestVal = $g['final_grade']; $latestType = 'final_grade'; }
-        elseif ($g['prefinal'] !== null && trim((string)$g['prefinal']) !== '') { $latestVal = $g['prefinal']; $latestType = 'prefinal'; }
-        elseif ($g['midterm'] !== null && trim((string)$g['midterm']) !== '') { $latestVal = $g['midterm']; $latestType = 'midterm'; }
-        elseif ($g['prelim'] !== null && trim((string)$g['prelim']) !== '') { $latestVal = $g['prelim']; $latestType = 'prelim'; }
-
-        if ($latestVal !== null) {
-            $overallEncoded++;
-
-            if ($latestType === 'final_grade') {
-                if (in_array(strtoupper(trim((string)$latestVal)), FINAL_GRADE_FAILING_STATUSES, true) || in_array(trim((string)$latestVal), LEGACY_FINAL_GRADE_VALUES, true)) {
-                    $classAttention++;
-                    $overallAttention++;
-                } else {
-                    $canon = canonicalizeFinalGrade($latestVal);
-                    $pt = $canon !== null && is_numeric($canon) ? (float)$canon : null;
-                    if ($pt !== null) {
-                        $classPtSum += $pt; $classPtCount++;
-                        $overallPtSum += $pt; $overallPtCount++;
-                        $risk = computeRiskFromAvg($pt);
-                        if ($risk === 'HIGH' || $risk === 'MODERATE') {
-                            $classAttention++;
-                            $overallAttention++;
-                        }
-                    }
-                }
-            } else {
-                $pct = (float)$latestVal;
-                $classPctSum += $pct; $classPctCount++;
-                $overallPctSum += $pct; $overallPctCount++;
-                
-                $pt = normalizeTermGrade($pct);
-                if ($pt !== null) {
-                    $risk = computeRiskFromAvg($pt);
-                    if ($risk === 'HIGH' || $risk === 'MODERATE') {
-                        $classAttention++;
-                        $overallAttention++;
-                    }
-                }
-            }
-        }
-    }
-
-    $meanStr = '—';
-    if ($classPtCount > 0 && $classPctCount > 0) {
-        $meanStr = number_format($classPtSum / $classPtCount, 2) . ' / ' . round($classPctSum / $classPctCount) . '%';
-    } elseif ($classPtCount > 0) {
-        $meanStr = number_format($classPtSum / $classPtCount, 2);
-    } elseif ($classPctCount > 0) {
-        $meanStr = round($classPctSum / $classPctCount) . '%';
-    }
-
-    // FIXED: Use Title instead of Code for the Comparison Table
-    $portfolioTable[] = [
-        'title' => $load['title'],
-        'section' => $load['section'],
-        'students' => $classStudents,
-        'mean' => $meanStr,
-        'attention' => $classAttention,
-        'completeness' => $classStudents > 0 ? (($classPtCount + $classPctCount) / $classStudents) * 100 : 0
-    ];
+    $classRows = array_values(array_filter($rows, fn($r) => (int)$r['subject_id'] === (int)$load['subject_id'] && $r['section'] === $load['section']));
+    $portfolio[] = ['load' => $load, 'summary' => facultyAssessmentSummary($classRows)];
+    if ($scope['load'] && (int)$scope['load']['load_id'] === (int)$load['load_id']) $selectedRows = $classRows;
 }
-
-$uniqueStudentsCount = count($uniqueStudents);
-$overallCompletenessPct = $overallExpected > 0 ? ($overallEncoded / $overallExpected) * 100 : 0;
-
-$overallMeanStr = '—';
-if ($overallPtCount > 0 && $overallPctCount > 0) {
-    $overallMeanStr = number_format($overallPtSum / $overallPtCount, 2) . ' / ' . round($overallPctSum / $overallPctCount) . '%';
-} elseif ($overallPtCount > 0) {
-    $overallMeanStr = number_format($overallPtSum / $overallPtCount, 2);
-} elseif ($overallPctCount > 0) {
-    $overallMeanStr = round($overallPctSum / $overallPctCount) . '%';
-}
-
-$loadFilter = $_GET['load'] ?? '';
-$subjFilter = null; $secFilter = null;
-
-if (!empty($myLoads)) {
-    if ($loadFilter === '') {
-        $subjFilter = $myLoads[0]['subject_id'];
-        $secFilter = $myLoads[0]['section'];
-        $loadFilter = $subjFilter . '|' . $secFilter;
-    } else {
-        $parts = explode('|', $loadFilter);
-        if (count($parts) === 2) {
-            $subjFilter = $parts[0];
-            $secFilter = $parts[1];
-        }
-    }
-}
-
-$enrolledCount = 0; $latestMean = null; $latestPeriodName = 'Preliminary';
-$attentionCount = 0; $completenessPct = 0;
-$periods = ['Prelim', 'Midterm', 'Pre-Final', 'Final'];
-
-$periodMeans = ['Prelim' => null, 'Midterm' => null, 'Pre-Final' => null, 'Final' => null];
-$chartMeans  = ['Prelim' => null, 'Midterm' => null, 'Pre-Final' => null, 'Final' => null];
-$periodEncoded = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
-
-$riskMovement = [
-    'Prelim'    => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
-    'Midterm'   => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
-    'Pre-Final' => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0],
-    'Final'     => ['HIGH' => 0, 'MODERATE' => 0, 'LOW' => 0, 'NONE' => 0]
-];
-$significantChanges = [];
-
-if ($subjFilter && $secFilter) {
-    $stmtGrades = $db->prepare("
-        SELECT g.student_id, u.first_name, u.last_name,
-               g.prelim, g.midterm, g.prefinal, g.final_grade
-        FROM grades g
-        JOIN users u ON u.id = g.student_id
-        JOIN student_profiles sp ON sp.user_id = g.student_id
-        WHERE g.subject_id = ? AND sp.section = ? AND g.school_year = ? AND g.semester = ? AND $currentCondition AND $lifecycleCondition
-    ");
-    $stmtGrades->execute([$subjFilter, $secFilter, $syFilter, $semFilter]);
-    $grades = $stmtGrades->fetchAll(PDO::FETCH_ASSOC);
-
-    $enrolledCount = count($grades);
-    
-    $rawSums = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
-    $ptSums  = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
-    // Encoding coverage includes textual outcomes; numeric means must not.
-    $numericCounts = ['Prelim' => 0, 'Midterm' => 0, 'Pre-Final' => 0, 'Final' => 0];
-
-    foreach ($grades as $g) {
-        $stuName = formatNameLastFirst($g['first_name'], '', $g['last_name']);
-
-        $pMap = ['Prelim' => 'prelim', 'Midterm' => 'midterm', 'Pre-Final' => 'prefinal', 'Final' => 'final_grade'];
-        foreach ($pMap as $pName => $dbCol) {
-            if ($g[$dbCol] !== null && trim((string)$g[$dbCol]) !== '') {
-                $periodEncoded[$pName]++;
-                
-                if ($dbCol === 'final_grade') {
-                    $val = trim(strtoupper($g[$dbCol]));
-                    if (in_array($val, FINAL_GRADE_FAILING_STATUSES, true) || in_array($val, LEGACY_FINAL_GRADE_VALUES, true)) {
-                        $riskMovement[$pName]['HIGH']++;
-                        continue;
-                    }
-                    $canon = canonicalizeFinalGrade($val);
-                    $pt = $canon !== null && is_numeric($canon) ? (float)$canon : null;
-                    if ($pt !== null) {
-                        $rawSums[$pName] += $pt;
-                        $ptSums[$pName] += $pt;
-                        $numericCounts[$pName]++;
-                        $riskMovement[$pName][computeRiskFromAvg($pt)]++;
-                    }
-                } else {
-                    $pct = (float)$g[$dbCol];
-                    $rawSums[$pName] += $pct;
-                    $pt = normalizeTermGrade($pct);
-                    if ($pt !== null) {
-                        $ptSums[$pName] += $pt;
-                        $numericCounts[$pName]++;
-                        $riskMovement[$pName][computeRiskFromAvg($pt)]++;
-                    }
-                }
-            } else {
-                $riskMovement[$pName]['NONE']++;
-            }
-        }
-
-        if ($g['prelim'] !== null && $g['midterm'] !== null && trim((string)$g['prelim']) !== '' && trim((string)$g['midterm']) !== '') {
-            $pPct = (float)$g['prelim'];
-            $mPct = (float)$g['midterm'];
-            $diff = $mPct - $pPct;
-            
-            if (abs($diff) >= 5.0) { 
-                $ptTerm = normalizeTermGrade($mPct) ?? 0.0;
-                $significantChanges[] = [
-                    'name' => $stuName,
-                    'diff' => $diff,
-                    'current_risk' => computeRiskFromAvg($ptTerm)
-                ];
-            }
-        }
-    }
-
-    foreach ($periods as $p) {
-        if ($numericCounts[$p] > 0) {
-            $periodMeans[$p] = $rawSums[$p] / $numericCounts[$p];
-            $chartMeans[$p]  = round($ptSums[$p] / $numericCounts[$p], 2);
-        }
-    }
-
-    if ($periodEncoded['Final'] > 0) {
-        $latestPeriodName = 'Final';
-        $latestMean = $periodMeans['Final'] !== null ? number_format($periodMeans['Final'], 2) : 'N/A';
-        $attentionCount = $riskMovement['Final']['HIGH'] + $riskMovement['Final']['MODERATE'];
-        $completenessPct = ($periodEncoded['Final'] / $enrolledCount) * 100;
-    } elseif ($periodEncoded['Pre-Final'] > 0) {
-        $latestPeriodName = 'Pre-Final';
-        $latestMean = round((float) $periodMeans['Pre-Final']) . '%';
-        $attentionCount = $riskMovement['Pre-Final']['HIGH'] + $riskMovement['Pre-Final']['MODERATE'];
-        $completenessPct = ($periodEncoded['Pre-Final'] / $enrolledCount) * 100;
-    } elseif ($periodEncoded['Midterm'] > 0) {
-        $latestPeriodName = 'Midterm';
-        $latestMean = round((float) $periodMeans['Midterm']) . '%';
-        $attentionCount = $riskMovement['Midterm']['HIGH'] + $riskMovement['Midterm']['MODERATE'];
-        $completenessPct = ($periodEncoded['Midterm'] / $enrolledCount) * 100;
-    } elseif ($periodEncoded['Prelim'] > 0) {
-        $latestPeriodName = 'Preliminary';
-        $latestMean = round((float) $periodMeans['Prelim']) . '%';
-        $attentionCount = $riskMovement['Prelim']['HIGH'] + $riskMovement['Prelim']['MODERATE'];
-        $completenessPct = ($periodEncoded['Prelim'] / $enrolledCount) * 100;
-    }
-
-    usort($significantChanges, fn($a, $b) => $a['diff'] <=> $b['diff']);
-}
-
-$chartLineData = [
-    $chartMeans['Prelim'] ?? null, 
-    $chartMeans['Midterm'] ?? null, 
-    $chartMeans['Pre-Final'] ?? null, 
-    $chartMeans['Final'] ?? null
-];
-
+$selected = facultyAssessmentSummary($selectedRows); $assessment = $selected['assessment']; $change = $selected['change'];
+$prior = facultyAssessmentPriorStatus();
+$escape = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+$pct = fn($v) => $v === null ? 'Unavailable' : number_format($v, 1) . '%';
+$signed = fn($v) => ($v > 0 ? '+' : '') . number_format($v, 2);
+$periodLabel = 'SY ' . $scope['school_year'] . ' Â· ' . ([1=>'First Semester',2=>'Second Semester',3=>'Summer'][$scope['semester']]);
 $pageTitle = 'Class Performance Trends';
-$navItems = [
-    ['Home',               'index.php',     ''],
-    ['Dashboard',          'dashboard.php', ''],
-    ['Class Analytics',    'analytics.php', ''],
-    ['Performance Trends', 'trend.php',     ''],
-    ['Term Grade Submission', 'grades.php', ''],
-    ['Concerns & Reports', 'feedback.php',  ''],
-    ['Settings',           'settings.php',  ''],
-];
-
-require_once '../includes/header.php';
-require_once '../includes/sidebar.php';
+$navItems = [['Home','index.php',''],['Dashboard','dashboard.php',''],['Class Analytics','analytics.php',''],['Performance Trends','trend.php',''],['Term Grade Submission','grades.php',''],['Concerns & Reports','feedback.php',''],['Settings','settings.php','']];
+require_once '../includes/header.php'; require_once '../includes/sidebar.php';
 ?>
-
-<style>
-.analytics-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
-.class-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
-.analytics-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
-@media (max-width: 1400px) { .analytics-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1200px) { .class-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analytics-chart-grid { grid-template-columns: 1fr; } }
-@media (max-width: 800px) { .analytics-stat-grid { grid-template-columns: 1fr; } .class-stat-grid { grid-template-columns: 1fr; } }
-</style>
-
-<div class="main-content">
-    <div class="header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div>
-            <h1 style="text-transform: uppercase; letter-spacing: 0.5px;">Class Performance Trends</h1>
-            <p style="color: var(--text-gray);">Performance progression and risk movement across grading periods for the selected class.</p>
-        </div>
-        <div style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 8px; text-align: center;">
-            <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;"><?= $isCurrentTerm ? 'Current Academic Term' : 'Historical Completed Term' ?></div>
-            <div style="font-size: 1rem; color: var(--text-dark); font-weight: 700;">S.Y. <?= htmlspecialchars($syFilter) ?>, <?= $semFilter === '1' ? 'First' : 'Second' ?> Semester</div>
-        </div>
+<link rel="stylesheet" href="<?= BASE_URL ?>assets/css/faculty-assessment.css?v=<?= substr(hash_file('sha256',__DIR__.'/../assets/css/faculty-assessment.css'),0,12) ?>">
+<main class="main-content faculty-assessment">
+  <div class="header"><div><h1>Class Performance Trends</h1><p>Recorded assessment progress in your assigned classes.</p></div><p class="faculty-period"><?= $escape($periodLabel) ?></p></div>
+  <?php if (!$scope['current']): ?><p class="faculty-note" role="status">Historical Faculty comparison is unavailable without verified dated assignments. <a href="trend.php">Return to the current term</a>.</p><?php endif; ?>
+  <?php if (!$myLoads): ?><section class="card"><h2>No assigned classes</h2><p>No current class loads are assigned to your account.</p></section><?php else: ?>
+  <section aria-labelledby="faculty-overview-heading">
+    <h2 id="faculty-overview-heading">Assigned classes overview</h2>
+    <div class="faculty-kpis">
+      <?php $latest = $overall['assessment']; $cards = [
+        ['Class Loads',count($myLoads),'Assigned subject-sections','blue','class-loads'],
+        ['Unique Students',$overall['students'],'Distinct Students with current assigned records','neutral','unique-students'],
+        ['Latest Assessment Mean',$pct($latest['mean'] ?? null),$latest ? $latest['label'].' percentage average' : 'No recorded assessment percentages','teal','assessment-mean'],
+        ['Requiring Attention',$overall['attention'],'Distinct Students with Moderate or High advisory risk','amber','attention'],
+        ['Assessment Completeness',$latest ? $pct($latest['coverage']) : 'Unavailable',$latest ? $latest['count'].' of '.$latest['expected'].' '.$latest['label'].' scores recorded' : 'No recorded assessment stage','violet','assessment-coverage']
+      ]; foreach ($cards as [$title,$value,$description,$accent,$metric]): ?>
+      <div class="stat-card faculty-kpi faculty-kpi--<?= $accent ?>"><h3><?= $escape($title) ?></h3><p class="faculty-value" data-faculty-overview="<?= $metric ?>"><?= $escape($value) ?></p><p class="faculty-subtext"><?= $escape($description) ?></p></div>
+      <?php endforeach; ?>
     </div>
-
-    <?php if (empty($myLoads)): ?>
-        <div class="card"><p class="empty-state">No section class loads assigned to your account for the current term.</p></div>
-    <?php else: ?>
-
-    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 24px; font-weight: 700; text-transform: uppercase;">Assigned Classes Overview</h2>
-
-    <div class="analytics-stat-grid">
-        <div class="stat-card" style="border-left-color: var(--accent-blue);">
-            <h4>Class Loads</h4>
-            <h2 style="color: var(--text-dark);"><?= count($myLoads) ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Assigned subject-sections</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--text-dark);">
-            <h4>Unique Students</h4>
-            <h2 style="color: var(--text-dark);"><?= $uniqueStudentsCount ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Distinct learners reached</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--risk-low);">
-            <h4>Overall Mean Grade</h4>
-            <h2 style="color: var(--risk-low);"><?= $overallMeanStr ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Across latest encoded periods</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--risk-mod);">
-            <h4>Requiring Attention</h4>
-            <h2 style="color: <?= $overallAttention > 0 ? 'var(--risk-mod)' : 'var(--text-dark)' ?>;"><?= $overallAttention ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Students at Moderate/High risk</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--text-gray);">
-            <h4>Grade Completeness</h4>
-            <h2 style="color: var(--text-dark);"><?= number_format($overallCompletenessPct, 1) ?>%</h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Latest period encoded</p>
-        </div>
+    <details class="faculty-help"><summary>About these assessment values</summary><p>Percentage averages use valid recorded scores from one named stage, with equal weight per assigned Studentâ€“subject record. Coverage counts these recorded slots, not an inferred enrollment population. Missing scores remain unavailable; numeric zero is recorded. Attention uses each Student's latest recorded assessment or finalized outcome in your assignments, counted once across classes.</p><p>Advisory risk is not official academic standing. Class differences do not measure teaching quality.</p></details>
+    <details class="faculty-help"><summary>Assigned-class details</summary><div class="faculty-table-scroll" role="region" aria-label="Assigned-class assessment details" tabindex="0"><table><caption>Current assigned classes. Each mean identifies its own assessment stage.</caption><thead><tr><th scope="col">Subject and section</th><th scope="col">Students with records</th><th scope="col">Latest assessment</th><th scope="col">Requiring attention</th><th scope="col">Assessment completeness</th></tr></thead><tbody>
+      <?php foreach ($portfolio as $item): $s=$item['summary'];$a=$s['assessment']; ?><tr><th scope="row"><?= $escape($item['load']['title'].' â€” '.$item['load']['section']) ?></th><td><?= $s['students'] ?></td><td><?= $pct($a['mean'] ?? null) ?><br><span class="faculty-subtext"><?= $escape($a['label'] ?? 'Not recorded') ?></span></td><td><?= $s['attention'] ?></td><td><?= $a ? $a['count'].' of '.$a['expected'].' Â· '.$pct($a['coverage']) : 'Unavailable' ?></td></tr><?php endforeach; ?>
+    </tbody></table></div></details>
+  </section>
+  <section aria-labelledby="faculty-selected-heading">
+    <h2 id="faculty-selected-heading">Selected class analysis</h2>
+    <form method="GET" action="trend.php" class="faculty-class-filter card"><div><label for="faculty-load">Assigned class</label><select id="faculty-load" name="load"><?php foreach ($myLoads as $load): $key=$load['subject_id'].'|'.$load['section']; ?><option value="<?= $escape($key) ?>"<?= $scope['key']===$key ? ' selected' : '' ?>><?= $escape($load['title'].' â€” '.$load['section']) ?></option><?php endforeach; ?></select></div><button type="submit" class="btn btn--primary">Analyze class</button><a class="btn btn--secondary" href="grades.php?class=<?= $escape($scope['load']['subject_id'].'_'.$scope['load']['section']) ?>">Open term grade submission</a></form>
+    <p id="faculty-class-scope" class="faculty-subtext"><?= $escape($scope['load']['title'].' â€” '.$scope['load']['section'].' Â· '.$periodLabel) ?></p>
+    <div class="faculty-kpis">
+      <?php $cards = [
+        ['Students Enrolled',$selected['students'],'Students with current records in the selected class','blue','students'],
+        ['Latest Assessment Mean',$pct($assessment['mean'] ?? null),$assessment ? $assessment['label'].' percentage average' : 'No recorded assessment percentages','teal','assessment-mean'],
+        ['Requiring Attention',$selected['attention'],'Moderate or High advisory risk','amber','attention'],
+        ['Assessment Completeness',$assessment ? $pct($assessment['coverage']) : 'Unavailable',$assessment ? $assessment['count'].' of '.$assessment['expected'].' '.$assessment['label'].' scores recorded' : 'No recorded assessment stage','violet','assessment-coverage'],
+        ['Class change',$change['point_change'] === null ? 'Unavailable' : $signed($change['point_change']).' pp',$change['point_change'] === null ? $change['reason'] : $change['from'].' to '.$change['to'].' Â· '.$change['sample'].' matched Students'.($change['provisional'] ? ' Â· Provisional subset' : ''),'blue','class-change']
+      ]; foreach ($cards as [$title,$value,$description,$accent,$metric]): ?>
+      <div class="stat-card faculty-kpi faculty-kpi--<?= $accent ?>"><h3><?= $escape($title) ?></h3><p class="faculty-value" data-faculty-selected="<?= $metric ?>"><?= $escape($value) ?></p><p class="faculty-subtext"><?= $escape($description) ?></p><?php if ($metric==='class-change' && $change['point_change']!==null): ?><span class="faculty-subtext">Percentage points<?php if($change['relative_change']!==null): ?> Â· <?= $signed($change['relative_change']) ?>% relative change<?php endif; ?></span><?php endif; ?></div>
+      <?php endforeach; ?>
     </div>
-
-    <div class="card" style="margin-bottom: 40px;">
-        <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Assigned Class-Load Comparison</div>
-        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
-                <thead>
-                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
-                        <th style="padding: 12px; text-align: left; color: var(--text-dark); white-space: nowrap;">Subject</th>
-                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Students</th>
-                        <th style="padding: 12px; text-align: center; color: var(--text-dark); white-space: nowrap;">Latest Mean</th>
-                        <th style="padding: 12px; text-align: center; color: var(--risk-mod); white-space: nowrap;">Attention Required</th>
-                        <th style="padding: 12px; text-align: center; color: var(--accent-blue); white-space: nowrap;">Completeness</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($portfolioTable as $pt): ?>
-                    <tr style="border-bottom: 1px solid var(--border-color);">
-                        <!-- FIXED: Table uses title instead of code, limits width to prevent stretching -->
-                        <td style="padding: 12px; font-weight: 700; color: var(--text-dark); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?= htmlspecialchars($pt['title']) ?>"><?= htmlspecialchars($pt['title']) ?> <span style="color: var(--text-gray); font-weight: normal; margin-left: 6px;">— <?= htmlspecialchars($pt['section']) ?></span></td>
-                        <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?= $pt['students'] ?></td>
-                        <td style="padding: 12px; text-align: center; color: var(--text-dark); font-weight: 600;"><?= $pt['mean'] ?></td>
-                        <td style="padding: 12px; text-align: center; color: var(--text-dark);"><?php if($pt['attention']>0): ?><span class="badge" style="background: var(--risk-mod);"><?= $pt['attention'] ?></span><?php else: ?><span style="color: var(--text-gray);">0</span><?php endif; ?></td>
-                        <td style="padding: 12px; text-align: center; color: var(--text-dark); font-weight: 600;"><?= number_format($pt['completeness'], 1) ?>%</td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+    <details class="faculty-help" id="faculty-metric-help"><summary>Finalized outcomes and calculation details</summary><dl class="faculty-final-status"><div><dt>Final numeric-grade coverage</dt><dd data-faculty-selected="final-coverage"><?= $pct($selected['final']['coverage']) ?> Â· <?= $selected['final']['count'] ?> of <?= $selected['expected'] ?> eligible numeric outcomes</dd></div><div><dt>Assigned-class finalized mean</dt><dd data-faculty-selected="final-mean"><?= $selected['final']['mean'] === null ? 'Unavailable â€” no eligible finalized numeric outcomes are recorded.' : number_format($selected['final']['mean'],2).' finalized eligible grade points' ?></dd></div></dl><p>Class change is the later assessment mean minus the earlier assessment mean, using only the same Students recorded at both adjacent stages. Unmatched Students are excluded from both comparison means; any partial matched set is labeled provisional. Relative change divides by the earlier matched mean and is unavailable when that mean is zero.</p><p>Final points, cumulative GWA and estimates are separate from raw percentages. Finalized mean preserves canonical unit weighting and exclusions. Class change does not measure teaching quality or establish official standing.</p></details>
+    <section class="faculty-prior" aria-labelledby="faculty-prior-heading"><h3 id="faculty-prior-heading">Previous-semester comparison</h3><p><strong>Unavailable</strong> â€” <?= $escape($prior['reason']) ?></p></section>
+    <div class="faculty-chart-grid">
+      <section class="card" aria-labelledby="assessment-chart-heading"><h3 id="assessment-chart-heading">Class assessment trend</h3><p id="assessment-chart-summary">Recorded percentage averages by grading period for the selected class. Missing stages are gaps; Final is recorded separately in grade points.</p><div class="faculty-chart-wrap"><canvas id="progressionChart" role="img" aria-label="Recorded assessment percentage averages, zero to one hundred" aria-describedby="assessment-chart-summary faculty-stage-caption">Exact values appear in the assessment table below.</canvas></div><p id="faculty-chart-status" role="status">Exact values remain available below if charts cannot load.</p></section>
+      <section class="card" aria-labelledby="risk-chart-heading"><h3 id="risk-chart-heading">Advisory risk by recorded stage</h3><p>High, Moderate, Low or No Data within recorded stages. Unrecorded stages have no distribution bars.</p><div class="faculty-chart-wrap"><canvas id="riskMovementChart" role="img" aria-label="Advisory risk counts for recorded stages" aria-describedby="faculty-risk-caption">Exact counts appear in the risk table below.</canvas></div><p class="faculty-subtext">Pre-Final and Final are not classified until records exist. Risk is not official standing.</p></section>
     </div>
-
-    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 32px 0;">
-
-    <h2 style="font-size: 1.15rem; color: var(--text-dark); margin-bottom: 16px; font-weight: 700; text-transform: uppercase;">Selected Class Analysis</h2>
-
-    <form method="GET" action="trend.php" class="card" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 24px; padding: 16px 24px; flex-wrap: wrap;">
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-gray);">Assigned Class Load</label>
-            <select name="load" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-dark); font-family: inherit; min-width: 250px;">
-                <?php foreach($myLoads as $l): 
-                    $val = $l['subject_id'] . '|' . $l['section'];
-                    // FIXED: Dropdown uses Title instead of Code
-                    $label = $l['title'] . ' — ' . $l['section'];
-                ?>
-                    <option value="<?= htmlspecialchars($val) ?>" <?= $loadFilter === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center; height: 100%;">
-            <button type="submit" style="background: var(--accent-blue); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
-                Analyze Class
-            </button>
-        </div>
-    </form>
-
-    <div class="class-stat-grid">
-        <div class="stat-card" style="border-left-color: var(--accent-blue);">
-            <h4>Students Enrolled</h4>
-            <h2 style="color: var(--text-dark);"><?= $enrolledCount ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">In selected class</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--risk-low);">
-            <h4>Latest Period Mean</h4>
-            <h2 style="color: var(--risk-low);"><?= $latestMean !== null ? $latestMean : '—' ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($latestPeriodName) ?> grades</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--risk-mod);">
-            <h4>Requiring Attention</h4>
-            <h2 style="color: <?= $attentionCount > 0 ? 'var(--risk-mod)' : 'var(--text-dark)' ?>;"><?= $attentionCount ?></h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Moderate & High Risk</p>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--text-gray);">
-            <h4>Data Completeness</h4>
-            <h2 style="color: var(--text-dark);"><?= number_format($completenessPct, 1) ?>%</h2>
-            <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;"><?= htmlspecialchars($latestPeriodName) ?> period encoded</p>
-        </div>
-    </div>
-
-    <?php if ($periodEncoded['Midterm'] == 0 && $periodEncoded['Prelim'] > 0): ?>
-        <div style="background: rgba(13, 110, 253, 0.1); border-left: 4px solid var(--accent-blue); padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; color: var(--text-dark); font-size: 0.9rem;">
-            <strong>Baseline Analysis:</strong> Trend analysis will become available when at least two grading periods have been encoded. Current Preliminary performance is shown as the baseline.
-        </div>
-    <?php endif; ?>
-
-    <div class="analytics-chart-grid">
-        <div class="card" style="position: relative; height: 380px;">
-            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Estimated Grade Point Trajectory</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Tracking the cohort's academic projection by converting percentages to their final point equivalents.</p>
-            <div style="position: relative; height: 280px; width: 100%;"><canvas id="progressionChart"></canvas></div>
-        </div>
-        
-        <div class="card" style="position: relative; height: 380px;">
-            <div style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Risk Distribution Across Grading Periods</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Monitoring whether the class is accumulating academic risk over time.</p>
-            <div style="position: relative; height: 280px; width: 100%;"><canvas id="riskMovementChart"></canvas></div>
-        </div>
-    </div>
-
-    <div class="analytics-chart-grid">
-        <div class="card">
-            <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Grade Encoding Progress</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Total encoded records per period out of <?= $enrolledCount ?> enrolled students.</p>
-            
-            <?php foreach ($periods as $p): 
-                $pct = $enrolledCount > 0 ? ($periodEncoded[$p] / $enrolledCount) * 100 : 0;
-                $color = $pct === 100 ? 'var(--risk-low)' : ($pct > 0 ? 'var(--risk-mod)' : 'var(--border-color)');
-            ?>
-            <div style="display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem;">
-                <span style="width: 80px; font-weight: 600; color: var(--text-dark);"><?= $p ?></span>
-                <div style="flex: 1; max-width: 280px; height: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; margin: 0 16px; overflow: hidden;">
-                    <div style="width: <?= $pct ?>%; height: 100%; background: <?= $color ?>; border-radius: 4px;"></div>
-                </div>
-                <span style="color: var(--text-dark); font-weight: 600; font-size: 0.85rem;">
-                    <?= $periodEncoded[$p] ?> / <?= $enrolledCount ?> <span style="color: var(--text-gray); font-weight: normal;">encoded</span>
-                </span>
-            </div>
-            <?php endforeach; ?>
-        </div>
-
-        <div class="card">
-            <div class="table-title" style="margin-bottom: 16px; color: var(--text-dark);">Students With Significant Changes</div>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">Students dropping or improving by ≥ 5% between Prelim and Midterm.</p>
-            
-            <?php if ($periodEncoded['Midterm'] == 0): ?>
-                <p class="empty-state" style="margin-top: 40px;">Requires Midterm data to compare.</p>
-            <?php elseif (empty($significantChanges)): ?>
-                <p class="empty-state" style="margin-top: 40px;">No students shifted by ≥ 5%.</p>
-            <?php else: ?>
-            <div style="overflow-y: auto; max-height: 220px; padding-right: 8px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid var(--border-color);">
-                            <th style="padding: 8px; text-align: left; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Student</th>
-                            <th style="padding: 8px; text-align: center; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Change</th>
-                            <th style="padding: 8px; text-align: left; color: var(--text-dark); position: sticky; top: 0; background: var(--card-bg);">Current Risk</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($significantChanges as $stu): 
-                            $diffColor = $stu['diff'] > 0 ? 'var(--risk-low)' : 'var(--risk-high)';
-                            $diffSign = $stu['diff'] > 0 ? '↑ +' : '↓ '; 
-                            
-                            $riskRaw = $stu['current_risk'];
-                            $riskColor = $riskRaw === 'HIGH' ? 'var(--risk-high)' : ($riskRaw === 'MODERATE' ? 'var(--risk-mod)' : 'var(--risk-low)');
-                        ?>
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 10px 8px; color: var(--text-dark); font-weight: 600;"><?= htmlspecialchars($stu['name']) ?></td>
-                            <td style="padding: 10px 8px; text-align: center; font-weight: 700; color: <?= $diffColor ?>;">
-                                <?= $diffSign . number_format(abs($stu['diff']), 1) ?>%
-                            </td>
-                            <td style="padding: 10px 8px; color: <?= $riskColor ?>; font-weight: 600; font-size: 0.85rem;">
-                                <?= htmlspecialchars($riskRaw) ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <?php endif; ?>
-</div>
-
-<?php if (!empty($myLoads)): ?>
+    <section class="card" aria-labelledby="faculty-encoding-heading"><h3 id="faculty-encoding-heading">Assessment recording progress</h3><div class="faculty-table-scroll" role="region" aria-label="Assessment recording and exact averages" tabindex="0"><table><caption id="faculty-stage-caption">Recorded current Studentâ€“subject slots. Final outcomes use a separate point scale; they are never plotted as percentages.</caption><thead><tr><th scope="col">Stage</th><th scope="col">Recorded</th><th scope="col">Coverage</th><th scope="col">Average and scale</th><th scope="col">Status</th></tr></thead><tbody>
+      <?php foreach ($selected['stages'] as $field=>$stage): ?><tr data-assessment-stage="<?= $field ?>"><th scope="row"><?= $escape($stage['label']) ?></th><td><?= $stage['count'] ?> of <?= $stage['expected'] ?></td><td><?= $pct($stage['coverage']) ?></td><td><?= $stage['mean']===null ? 'Unavailable' : number_format($stage['mean'],2).'%' ?></td><td><?= $stage['count']===0 ? 'Not recorded' : ($stage['count']<$stage['expected'] ? 'Partially recorded' : 'Recorded') ?></td></tr><?php endforeach; ?>
+      <tr data-assessment-stage="final"><th scope="row">Final</th><td><?= $selected['final']['recorded'] ?> of <?= $selected['expected'] ?> outcomes</td><td><?= $selected['expected'] ? $pct($selected['final']['recorded']/$selected['expected']*100) : 'Unavailable' ?></td><td><?= $selected['final']['mean']===null ? 'Unavailable Â· point scale' : number_format($selected['final']['mean'],2).' eligible grade points (unit-weighted)' ?></td><td><?= $selected['final']['recorded'] ? 'Final entries recorded' : 'Not recorded' ?></td></tr>
+    </tbody></table></div>
+    <details class="faculty-help"><summary>Exact advisory risk counts</summary><div class="faculty-table-scroll" tabindex="0" role="region" aria-label="Advisory risk counts"><table><caption id="faculty-risk-caption">Risk for recorded stages; No Data includes missing or unclassifiable records only within an observed stage.</caption><thead><tr><th scope="col">Stage</th><th scope="col">High Risk</th><th scope="col">Moderate Risk</th><th scope="col">Low Risk</th><th scope="col">No Data</th></tr></thead><tbody><?php $risks=[];foreach($selected['stages'] as $s)$risks[$s['label']]=$s['risk'];$risks['Final']=$selected['final']['risk']; foreach($risks as $label=>$risk): ?><tr><th scope="row"><?= $escape($label) ?></th><?php if($risk===null): ?><td colspan="4">Not recorded</td><?php else: foreach($risk as $count): ?><td><?= $count ?></td><?php endforeach; endif; ?></tr><?php endforeach; ?></tbody></table></div></details></section>
+    <section class="card" aria-labelledby="faculty-notable-heading"><h3 id="faculty-notable-heading">Students with notable assessment changes</h3><p>Students whose recorded percentage changed by at least 5 percentage points between Preliminary and Midterm. This is a review threshold, not statistical significance.</p><div class="faculty-table-scroll faculty-notable-scroll" role="region" aria-label="Notable assessment changes in selected class" tabindex="0"><table><thead><tr><th scope="col">Student</th><th scope="col">Preliminary</th><th scope="col">Midterm</th><th scope="col">Change</th><th scope="col">Current advisory risk and source</th></tr></thead><tbody><?php foreach($selected['notable'] as $row): ?><tr><th scope="row"><?= $escape($row['name']) ?></th><td><?= number_format($row['prelim'],2) ?>%</td><td><?= number_format($row['midterm'],2) ?>%</td><td><?= $signed($row['change']) ?> percentage points</td><td><?= $escape($row['current_risk']==='NONE' ? 'No Data' : $row['current_risk']) ?> Â· <?= $escape($row['risk_stage']) ?></td></tr><?php endforeach; ?><?php if(!$selected['notable']): ?><tr><td colspan="5"><?= $selected['stages']['prelim']['count'] && $selected['stages']['midterm']['count'] ? 'No matched Student records changed by at least 5 percentage points.' : 'Recorded Preliminary and Midterm values are required.' ?></td></tr><?php endif; ?></tbody></table></div></section>
+  </section>
+  <?php endif; ?>
+  <p class="faculty-subtext">Prototype performance on synthetic academic records.</p>
+</main>
+<?php if ($myLoads): ?>
+<script id="faculty-assessment-data" type="application/json"><?= json_encode(['stages'=>$selected['stages'],'final'=>$selected['final'],'expected'=>$selected['expected']],JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-function getChartTheme() {
-    const root = getComputedStyle(document.documentElement);
-    return {
-        text: root.getPropertyValue('--text-gray').trim(),
-        border: root.getPropertyValue('--border-color').trim(),
-        blue: root.getPropertyValue('--accent-blue').trim(),
-        none: '#64748B', high: '#DC2626', mod: '#D97706', low: '#059669'
-    };
-}
-let theme = getChartTheme();
-
-const ctxProg = document.getElementById('progressionChart').getContext('2d');
-const progChart = new Chart(ctxProg, {
-    type: 'line',
-    data: {
-        labels: <?= json_encode($periods) ?>,
-        datasets: [{
-            label: 'Estimated Grade Point',
-            data: <?= json_encode($chartLineData) ?>,
-            borderColor: theme.blue,
-            backgroundColor: 'rgba(108, 142, 239, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: theme.blue,
-            pointRadius: 6,
-            pointHoverRadius: 8,
-            fill: true,
-            tension: 0.1,
-            spanGaps: true
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: theme.text }, grid: { color: theme.border } },
-            y: { 
-                min: 1.0, max: 4.0, 
-                ticks: { stepSize: 0.5, color: theme.text }, 
-                grid: { color: theme.border },
-                title: { display: true, text: 'Grade Point Equivalent (1.00-4.00)', color: theme.text }
-            }
-        }
-    }
-});
-
-const rawRiskData = <?= json_encode(array_values($riskMovement)) ?>;
-const ctxRisk = document.getElementById('riskMovementChart').getContext('2d');
-const riskChart = new Chart(ctxRisk, {
-    type: 'bar',
-    data: {
-        labels: <?= json_encode($periods) ?>,
-        datasets: [
-            { label: 'High Risk', data: rawRiskData.map(r => r.HIGH), backgroundColor: theme.high, stack: 'Stack 0' },
-            { label: 'Moderate Risk', data: rawRiskData.map(r => r.MODERATE), backgroundColor: theme.mod, stack: 'Stack 0' },
-            { label: 'Low Risk', data: rawRiskData.map(r => r.LOW), backgroundColor: theme.low, stack: 'Stack 0' },
-            { label: 'No Data', data: rawRiskData.map(r => r.NONE), backgroundColor: theme.none, stack: 'Stack 0' }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { color: theme.text, usePointStyle: true, boxWidth: 8 } } },
-        scales: {
-            x: { stacked: true, ticks: { color: theme.text }, grid: { display: false } },
-            y: { stacked: true, ticks: { stepSize: 1, color: theme.text }, grid: { color: theme.border }, title: { display: true, text: 'Number of Students', color: theme.text } }
-        }
-    }
-});
-
-const observer = new MutationObserver(() => {
-    theme = getChartTheme();
-    const isReducedMotion = document.documentElement.getAttribute('data-motion') === 'reduce';
-    
-    progChart.options.animation = !isReducedMotion;
-    progChart.options.scales.x.ticks.color = theme.text;
-    progChart.options.scales.x.grid.color = theme.border;
-    progChart.options.scales.y.ticks.color = theme.text;
-    progChart.options.scales.y.grid.color = theme.border;
-    progChart.options.scales.y.title.color = theme.text;
-    progChart.data.datasets[0].borderColor = theme.blue;
-    progChart.data.datasets[0].pointBackgroundColor = theme.blue;
-    progChart.update('none');
-
-    riskChart.options.animation = !isReducedMotion;
-    riskChart.options.scales.x.ticks.color = theme.text;
-    riskChart.options.scales.y.ticks.color = theme.text;
-    riskChart.options.scales.y.grid.color = theme.border;
-    riskChart.options.scales.y.title.color = theme.text;
-    riskChart.options.plugins.legend.labels.color = theme.text;
-    riskChart.update('none');
-});
-observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-style', 'data-theme', 'data-motion'] });
-</script>
+<script src="<?= BASE_URL ?>assets/js/faculty-assessment.js?v=<?= substr(hash_file('sha256',__DIR__.'/../assets/js/faculty-assessment.js'),0,12) ?>"></script>
 <?php endif; ?>
-
 <?php require_once '../includes/footer.php'; ?>
