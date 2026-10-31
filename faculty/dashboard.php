@@ -263,7 +263,7 @@ require_once '../includes/sidebar.php';
 }
 </style>
 
-<div class="main-content faculty-assessment">
+<div class="main-content faculty-assessment faculty-dashboard">
 
     <div class="header" style="margin-bottom:24px;">
         <div>
@@ -302,7 +302,7 @@ require_once '../includes/sidebar.php';
         </div>
     <?php endif; ?>
 
-    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+    <div id="faculty-advisory" class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div>
             <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
@@ -321,26 +321,27 @@ require_once '../includes/sidebar.php';
 
     <div class="faculty-summary-grid">
         <section class="card faculty-summary-card" aria-labelledby="faculty-snapshot-heading">
-            <div class="faculty-summary-card__header"><div class="faculty-summary-card__intro"><h2 id="faculty-snapshot-heading">Assigned classes</h2>
-            <p class="faculty-subtext">SY <?= $escape($currentTerm['school_year']) ?> · <?= (int)$currentTerm['semester']===3?'Summer':'Semester '.(int)$currentTerm['semester'] ?><?= $a?' · '.$escape($a['label']):'' ?></p></div><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
+            <div class="faculty-summary-card__intro"><h2 id="faculty-snapshot-heading">Assigned classes</h2><p><span class="faculty-summary-period">SY <?= $escape($currentTerm['school_year']) ?> · <?php if((int)$currentTerm['semester']===3): ?>Summer<?php else: ?><abbr title="Semester <?= (int)$currentTerm['semester'] ?>" aria-label="Semester <?= (int)$currentTerm['semester'] ?>">S<?= (int)$currentTerm['semester'] ?></abbr><?php endif; ?></span><span class="faculty-summary-stage"><?= $a?$escape($a['label']):'See class stages in Trends' ?></span></p></div>
             <ul class="faculty-summary-values">
-                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> subject-sections · <strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
-                <li><?php if($a): ?><strong data-faculty-summary="assessment-mean"><?= $pct($a['mean']) ?></strong> latest assessment mean<?php else: ?>Latest assessment mean: <strong data-faculty-summary="assessment-mean"><?= $escape($facOverview['status']) ?></strong><?php endif; ?> · <strong data-faculty-summary="assessment-coverage"><?= $a?$pct($a['coverage']):'Unavailable' ?></strong> coverage</li>
-                <li><strong data-faculty-summary="attention"><?= $facAssessment['attention'] ?></strong> requiring attention</li>
+                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> classes<span class="sr-only"> (assigned subject-sections)</span> · <strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
+                <li><strong data-faculty-summary="assessment-mean"><?= $a?$pct($a['mean']):$escape($facOverview['status']) ?></strong><span class="sr-only"> latest assessment</span> mean · <strong data-faculty-summary="assessment-coverage"><?= $a?preg_replace('/\.0%$/','%',$pct($a['coverage'])):'Unavailable' ?></strong> coverage</li>
             </ul>
+            <div class="faculty-summary-card__action"><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
         </section>
         <section class="card faculty-summary-card" aria-labelledby="faculty-support-heading">
-            <div class="faculty-summary-card__header"><h2 id="faculty-support-heading">Support work</h2><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
+            <div class="faculty-summary-card__intro"><h2 id="faculty-support-heading">Support work</h2><p>Current authorized workload</p></div>
             <ul class="faculty-summary-values">
-                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong> active referral<?= $facReferrals===1?'':'s' ?> · <strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?> issued</li>
-                <li><strong data-dashboard-metric="pending-support"><?= $openConcernCount+$supportReviewCount ?></strong> concerns and support reviews</li>
+                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong><span class="sr-only"> active</span> referral<?= $facReferrals===1?'':'s' ?> · <strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?><span class="sr-only"> issued</span></li>
+                <li><strong data-dashboard-metric="pending-support"><?= $openConcernCount+$supportReviewCount ?></strong><span class="sr-only"> concerns and support</span> reviews</li>
             </ul>
+            <div class="faculty-summary-card__action"><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
         </section>
     </div>
 
-    <h2>Student review by section</h2>
-    <p class="faculty-subtext">Cumulative GWA below describes Student history, separately from current class assessment percentages.</p>
-    <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
+    <div class="faculty-section-review">
+    <h2 id="faculty-section-review-heading">Student review by section</h2>
+    <p id="faculty-section-review-description" class="faculty-subtext">Recorded cumulative GWA for Students in each assigned section.</p>
+    <div id="faculty-section-grid" class="stat-grid faculty-section-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
         <?php foreach ($section_data as $sec_name => $data):
             $count    = count($data['students']);
             $gwaCount = $data['gwa_count'] ?? 0;
@@ -372,6 +373,8 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
         <?php endforeach; ?>
+    </div>
+
     </div>
 
     <div id="section-roster-card" class="data-table-card data-table-card--active roster-panel" style="display:none; margin-bottom:24px;">
