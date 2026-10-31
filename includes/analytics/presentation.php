@@ -161,17 +161,26 @@ function formatAdminRiskInterpretation(int $high, int $moderate, int $low, int $
 
 function renderAnalyticsTrendSection(): void {
     ?>
-                    <section aria-labelledby="analytics-trend-heading">
-                        <h2 id="analytics-trend-heading">Historical semester trend</h2>
-                        <p id="trend-description"></p>
+                    <section aria-labelledby="analytics-trend-heading" class="analytics-trend-section">
+                        <h2 id="analytics-trend-heading" class="analytics-trend-title">Historical semester trend</h2>
+                        <p id="trend-description" class="analytics-trend-subtitle"></p>
                         <div id="trend-chart" class="analytics-chart"></div>
-                        <div id="trend-details-card" class="card trend-details-card" style="margin-top: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700;  color: var(--text-dark);">Historical trend details</h4>
-                            <div id="trend-details-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px; font-size: 0.82rem;"></div>
+                        <div id="trend-details-card" class="card trend-details-card">
+                            <h4 class="trend-details-title" style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700; color: var(--text-dark);">Historical trend details</h4>
+                            <div id="trend-details-content"></div>
                         </div>
-                        <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
-                            <table id="trend-table"></table>
-                        </div>
+                        <details id="trend-evidence-disclosure" class="card analytics-evidence-disclosure" role="region" aria-label="Exact historical evidence">
+                            <summary class="analytics-evidence-summary" aria-label="View exact evidence for historical semester trend">
+                                <span class="summary-left">
+                                    <svg class="evidence-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>
+                                    <span>View exact evidence</span>
+                                </span>
+                                <span class="disclosure-chevron" aria-hidden="true">▾</span>
+                            </summary>
+                            <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
+                                <table id="trend-table"></table>
+                            </div>
+                        </details>
                     </section>
 
     <?php
@@ -235,12 +244,12 @@ function analyticsPage(string $role): void {
     $labels = [
         'school_year' => 'School year',
         'semester' => 'Semester',
-        'year_level' => 'Subject curriculum year',
+        'year_level' => 'Curriculum year',
         'subject' => 'Subject',
         'section' => 'Section',
         'faculty' => 'Current Faculty assignment',
         'case_status' => 'Case status',
-        'decision' => 'Referral decision',
+        'decision' => 'Referral status',
     ];
 
     $primaryKeys = match ($role) {
@@ -298,10 +307,6 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </header>
 
-        <?php if ($role !== 'student'): ?>
-        <p class="analytics-disclosure">Prototype performance on synthetic academic records</p>
-        <?php endif; ?>
-
         <?php if (!empty($tabs)): ?>
         <!-- Accessible Tab Navigation Bar -->
         <div class="analytics-tabs-wrapper">
@@ -323,57 +328,89 @@ function analyticsPage(string $role): void {
         <?php endif; ?>
 
         <!-- Redesigned Filter Form with Progressive Disclosure -->
-        <form id="analytics-filters" class="card" aria-label="Academic review filters" style="margin-bottom: 24px;">
+        <?php
+        $renderFilterForm = function() use ($role, $escape) {
+        ?>
+        <form id="analytics-filters" class="card analytics-filter-workspace" aria-label="Academic review filters">
+            <div class="filter-workspace-header">
+                <h3 id="filter-workspace-title" class="filter-workspace-title">Filter this view</h3>
+                <p id="filter-workspace-intro" class="filter-workspace-intro">
+                    <?= $role === 'student' ? 'Filter academic review by school year and semester.' : 'Choose the academic scope and cohorts to analyze.' ?>
+                </p>
+            </div>
             <fieldset disabled>
                 <legend class="sr-only">Review scope filters</legend>
 
-                <!-- Primary Always-Visible Filters (Max 4) -->
-                <div class="analytics-filter-grid analytics-primary-filters">
-                    <?php foreach ($primaryKeys as $key): ?>
-                        <div>
-                            <label for="analytics-<?= $escape($key) ?>"><?= $escape($labels[$key]) ?></label>
-                            <select id="analytics-<?= $escape($key) ?>" name="<?= $escape($key) ?>" class="filter-select">
-                                <option value="">All recorded values</option>
-                            </select>
-                        </div>
-                    <?php endforeach; ?>
+                <?php if ($role === 'student'): ?>
+                <div class="analytics-filter-grid">
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-school_year">School year</label>
+                        <select id="analytics-school_year" name="school_year" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-semester">Semester</label>
+                        <select id="analytics-semester" name="semester" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="analytics-filter-grid">
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-school_year">School year</label>
+                        <select id="analytics-school_year" name="school_year" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-semester">Semester</label>
+                        <select id="analytics-semester" name="semester" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--shared">
+                        <label for="analytics-section">Section</label>
+                        <select id="analytics-section" name="section" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--overview">
+                        <label for="analytics-year_level">Curriculum year</label>
+                        <select id="analytics-year_level" name="year_level" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--support" style="display: none;">
+                        <label for="analytics-case_status">Case status</label>
+                        <select id="analytics-case_status" name="case_status" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
+                    <div class="filter-field filter-field--support" style="display: none;">
+                        <label for="analytics-decision">Referral status</label>
+                        <select id="analytics-decision" name="decision" class="filter-select">
+                            <option value="">All recorded values</option>
+                        </select>
+                    </div>
                 </div>
 
-                <?php if (!empty($advancedKeys)): ?>
-                <!-- Advanced Academic Filters Disclosure -->
-                <details id="analytics-advanced-details" class="analytics-advanced-disclosure">
+                <details id="analytics-advanced-details" class="analytics-advanced-disclosure" style="display: none;">
                     <summary id="analytics-advanced-summary">
                         <span class="accordion-arrow" aria-hidden="true">&#9656;</span>
                         <span>Advanced filters</span>
                         <span id="analytics-advanced-badge" class="analytics-advanced-badge" style="display: none;"></span>
                     </summary>
                     <div class="analytics-filter-grid" style="margin-top: 14px;">
-                        <?php foreach ($advancedKeys as $key): ?>
-                            <div>
-                                <label for="analytics-<?= $escape($key) ?>"><?= $escape($labels[$key]) ?></label>
-                                <select id="analytics-<?= $escape($key) ?>" name="<?= $escape($key) ?>" class="filter-select">
-                                    <option value="">All recorded values</option>
-                                </select>
-                            </div>
-                        <?php endforeach; ?>
+                        <div>
+                            <label for="analytics-faculty">Current Faculty assignment</label>
+                            <select id="analytics-faculty" name="faculty" class="filter-select">
+                                <option value="">All recorded values</option>
+                            </select>
+                        </div>
                     </div>
                 </details>
-                <?php endif; ?>
-
-                <?php if (!empty($supportKeys)): ?>
-                <!-- Support-Only Filters (Visible only in Support & Interventions tab) -->
-                <div id="support-only-filters" class="support-filters-container" style="display: none;">
-                    <div class="analytics-filter-grid">
-                        <?php foreach ($supportKeys as $key): ?>
-                            <div>
-                                <label for="analytics-<?= $escape($key) ?>"><?= $escape($labels[$key]) ?></label>
-                                <select id="analytics-<?= $escape($key) ?>" name="<?= $escape($key) ?>" class="filter-select">
-                                    <option value="">All recorded values</option>
-                                </select>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
                 <?php endif; ?>
             </fieldset>
 
@@ -384,16 +421,22 @@ function analyticsPage(string $role): void {
 
             <?php if ($role !== 'student'): ?>
             <p class="analytics-note">
-                Case status and referral decision apply to the support summary. Academic section and Faculty comparisons use verified current assignments; undated history is not attributed to a teacher.
+                Case status and referral status apply to the support workload shown below.
             </p>
             <?php endif; ?>
         </form>
+        <?php
+        };
+        ?>
 
         <p id="analytics-state" role="status" aria-live="polite" style="font-size: 0.82rem; color: var(--text-gray); margin: 6px 0 16px 0;">Showing all authorized recorded values.</p>
 
-        <div id="analytics-results" hidden aria-busy="true">
-            <p id="active-filters" class="analytics-context"></p>
+        <?php if ($role === 'student'): ?>
+            <?php $renderFilterForm(); ?>
+            <p id="active-filters" class="analytics-context analytics-scope-strip" style="display: none;"></p>
+        <?php endif; ?>
 
+        <div id="analytics-results" hidden aria-busy="true">
             <?php if ($role === 'student'): ?>
                 <!-- Student View: Concise Decision Summary -->
                 <section aria-labelledby="analytics-summary-heading">
@@ -414,6 +457,28 @@ function analyticsPage(string $role): void {
                      aria-labelledby="tab-btn-overview"
                      class="analytics-tab-panel" tabindex="0">
 
+                    <div class="analytics-tab-header">
+                        <h2 class="analytics-tab-title">Program Analytics Overview</h2>
+                        <p class="analytics-tab-intro">Understand recorded academic results and historical patterns.</p>
+                    </div>
+
+                    <div id="overview-filter-slot" class="analytics-tab-filter-slot">
+                        <?php $renderFilterForm(); ?>
+                    </div>
+
+                    <p id="active-filters" class="analytics-context analytics-scope-strip">Current scope: All authorized recorded values</p>
+
+                    <!-- Primary Results: Recorded Academic Results (Level 1 metrics + Level 2 details) -->
+                    <section aria-labelledby="analytics-summary-heading">
+                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
+                        <div id="analytics-summary"></div>
+                    </section>
+                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
+
+                    <!-- Historical Semester Trend -->
+                    <?php if ($role === 'admin') renderAnalyticsTrendSection(); ?>
+
+                    <!-- Section and Outcome Visuals -->
                     <?php if ($role === 'admin' && $overview !== null): ?>
                     <p class="analytics-note" id="student-overview-scope">Current active-student snapshot<?= !empty($_GET['section']) ? ' · Section ' . $escape($_GET['section']) : '' ?><?= !empty($_GET['year_level']) ? ' · Curriculum year ' . $escape($_GET['year_level']) : '' ?>. Academic filters refresh the comparison and support results; this student overview reflects the scope when the page opened.</p>
                     <!-- RESTORED: Program Overview Primary 4-Card Analytical KPI Grid -->
@@ -582,24 +647,9 @@ function analyticsPage(string $role): void {
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php else: ?>
-                    <!-- Faculty Overview Workspace -->
-                    <section aria-labelledby="analytics-summary-heading">
-                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
-                        <div id="analytics-summary"></div>
-                        <div id="analytics-secondary-summary" class="analytics-secondary-metrics"></div>
-                    </section>
-                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
+                    <?php elseif ($role === 'faculty'): ?>
+                    <div id="analytics-secondary-summary" class="analytics-secondary-metrics"></div>
                     <?php endif; ?>
-
-                    <?php if ($role === 'admin'): ?>
-                    <section aria-labelledby="analytics-summary-heading">
-                        <h2 id="analytics-summary-heading">Recorded academic results</h2>
-                        <div id="analytics-summary"></div>
-                    </section>
-                    <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
-                    <?php endif; ?>
-                    <?php if ($role === 'admin') renderAnalyticsTrendSection(); ?>
 
                     <section aria-labelledby="analytics-method-heading">
                         <h2 id="analytics-method-heading">Reading these results</h2>
@@ -620,9 +670,11 @@ function analyticsPage(string $role): void {
 
                     <?php if ($role === 'admin'): ?>
                     <section id="admin-comparisons" aria-labelledby="admin-comparison-heading">
+                        <div class="analytics-tab-header">
+                            <h2 id="admin-comparison-heading" class="analytics-tab-title">Academic Comparisons</h2>
+                            <p class="ac-intro analytics-tab-intro">Compare academic groups using the same scope, period, and metric.</p>
+                        </div>
                         <div class="card ac-workspace">
-                            <h2 id="admin-comparison-heading">Academic Comparisons</h2>
-                            <p class="ac-intro">Compare academic groups using the same scope, period, and metric.</p>
                             <div id="ac-controls"></div>
                         </div>
                         <div id="ac-notice" role="status" class="ac-notice" hidden></div>
@@ -773,13 +825,48 @@ function analyticsPage(string $role): void {
                      aria-labelledby="tab-btn-support"
                      class="analytics-tab-panel" tabindex="0"
                      hidden>
-                    <section aria-labelledby="analytics-support-heading">
-                        <h2 id="analytics-support-heading" style="margin-bottom: 4px;">Support review summary</h2>
-                        <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 0; margin-bottom: 20px;">
-                            Recorded cases and referrals support follow-up. Counts do not prove that an intervention caused a grade change.
-                        </p>
+                    <div class="analytics-tab-header">
+                        <h2 class="analytics-tab-title">Support and Interventions</h2>
+                        <p class="analytics-tab-intro">Review support workload and recorded intervention activity.</p>
+                    </div>
 
-                        <!-- VISUAL SUPPORT CHARTS (Part 7) -->
+                    <div id="support-filter-slot" class="analytics-tab-filter-slot"></div>
+
+                    <div id="support-empty-guidance" class="card support-empty-guidance" style="display: none;"></div>
+
+                    <section aria-labelledby="analytics-support-heading">
+                        <h3 id="analytics-support-heading" class="sr-only">Support review summary</h3>
+
+                        <!-- Workload Summary (5 KPI Cards) -->
+                        <div id="support-workload-summary" class="support-workload-grid">
+                            <div class="stat-card" style="border-left-color: var(--risk-mod);">
+                                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Pending Reviews</h4>
+                                <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-support-workload="pending-reviews">0</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Referrals awaiting review</p>
+                            </div>
+                            <div class="stat-card" style="border-left-color: var(--accent-blue);">
+                                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Open Cases</h4>
+                                <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-support-workload="open-cases">0</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Active student cases</p>
+                            </div>
+                            <div class="stat-card" style="border-left-color: var(--primary-light, #2d9cdb);">
+                                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Referrals</h4>
+                                <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-support-workload="referrals">0</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Distinct referrals created</p>
+                            </div>
+                            <div class="stat-card" style="border-left-color: var(--gold, #e8b923);">
+                                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Notices</h4>
+                                <h2 style="color: var(--text-dark); font-size: 1.8rem; margin: 0;" data-support-workload="notices">0</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Formal notices issued</p>
+                            </div>
+                            <div class="stat-card" style="border-left-color: var(--teal, #008080);">
+                                <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Acknowledgments</h4>
+                                <h2 style="color: var(--teal, #008080); font-size: 1.8rem; margin: 0;" data-support-workload="acknowledgments">0</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px; font-weight: 600;">Student receipt confirmed</p>
+                            </div>
+                        </div>
+
+                        <!-- VISUAL SUPPORT CHARTS -->
                         <div class="support-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; margin-bottom: 24px;">
                             <!-- Chart 1: Case & Referral Status -->
                             <div class="card" style="padding: 18px 20px; border: 1px solid var(--border-color); border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between;">
@@ -809,15 +896,22 @@ function analyticsPage(string $role): void {
                             </div>
                         </div>
 
-                        <div class="data-table-scroll" role="region" aria-label="Support summary data" tabindex="0">
-                            <table id="support-table"></table>
-                        </div>
-                        <p id="support-limits"></p>
-                        <h3 style="margin-top: 24px;">Open authorized records</h3>
-                        <p>These links open existing review workspaces; this view creates no notice or decision.</p>
-                        <div class="data-table-scroll" role="region" aria-label="Authorized case links" tabindex="0">
-                            <table id="drilldown-table"></table>
-                        </div>
+                        <section class="support-authorized-actions" aria-labelledby="support-actions-heading" style="margin-bottom: 24px;">
+                            <h3 id="support-actions-heading" style="margin-top: 24px; font-size: 1.05rem; font-weight: 700;">Authorized next actions</h3>
+                            <p style="color: var(--text-gray); font-size: 0.85rem; margin-top: 2px;">These links open existing review workspaces; this view creates no notice or decision.</p>
+                            <div class="data-table-scroll" role="region" aria-label="Authorized case links" tabindex="0">
+                                <table id="drilldown-table"></table>
+                            </div>
+                        </section>
+
+                        <section class="support-evidence-section" aria-labelledby="support-evidence-heading">
+                            <h3 id="support-evidence-heading" style="margin-top: 24px; font-size: 1.05rem; font-weight: 700;">Support evidence &amp; metrics</h3>
+                            <div class="data-table-scroll" role="region" aria-label="Support summary data" tabindex="0">
+                                <table id="support-table"></table>
+                            </div>
+                            <div id="support-definitions-container" style="margin-top: 14px;"></div>
+                            <p id="support-limits" class="analytics-limits" style="font-size: 0.82rem; color: var(--text-gray); margin-top: 10px; line-height: 1.5;"></p>
+                        </section>
                     </section>
                 </div>
             <?php endif; ?>

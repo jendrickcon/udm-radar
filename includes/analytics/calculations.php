@@ -5,6 +5,8 @@ require_once __DIR__.'/../../config/constants.php';
 /** Recorded grade slots, never a cross-product or an inferred enrollment population. */
 function analyticsAggregate(array $rows):array {
     $seen=[];$students=[];$contributors=[];$eligible=[];$recorded=0;$resolved=0;$recognized=0;$pending=0;$invalidUnits=0;
+    $prelimScores=[];$prelimStudents=[];
+    $midtermScores=[];$midtermStudents=[];
     foreach($rows as $index=>$r){
         $key=(string)($r['id']??'row-'.$index);
         if(isset($seen[$key]))continue;
@@ -18,13 +20,32 @@ function analyticsAggregate(array $rows):array {
             $units=is_numeric($r['units']??null)?(int)$r['units']:0;
             if($units>0){$eligible[]=['grade'=>$grade,'units'=>$units];$contributors[$sid]=true;}else{$invalidUnits++;}
         }
+        $p=$r['prelim']??null;
+        if($p!==null&&is_numeric($p)){
+            $prelimScores[]=(float)$p;
+            $prelimStudents[$sid]=true;
+        }
+        $m=$r['midterm']??null;
+        if($m!==null&&is_numeric($m)){
+            $midtermScores[]=(float)$m;
+            $midtermStudents[$sid]=true;
+        }
     }
     $expected=count($seen);$unitCount=array_sum(array_column($eligible,'units'));
-    return ['gwa'=>computeWeightedGWA($eligible),'student_count'=>count($students),'contributing_student_count'=>count($contributors),
+    $stdCount=count($students);
+    $pCount=count($prelimScores);
+    $mCount=count($midtermScores);
+    return ['gwa'=>computeWeightedGWA($eligible),'student_count'=>$stdCount,'contributing_student_count'=>count($contributors),
         'expected_grade_count'=>$expected,'eligible_grade_count'=>count($eligible),'eligible_units'=>$unitCount,
         'recorded_outcome_count'=>$recorded,'resolved_final_count'=>$resolved,'recognized_outcome_count'=>$recognized,
         'numeric_coverage_pct'=>$expected?round(count($eligible)/$expected*100,2):null,
         'final_coverage_pct'=>$expected?round($resolved/$expected*100,2):null,
+        'prelim_avg'=>$pCount>0?round(array_sum($prelimScores)/$pCount,2):null,
+        'prelim_coverage_pct'=>$stdCount>0?round(count($prelimStudents)/$stdCount*100,2):null,
+        'prelim_student_count'=>count($prelimStudents),
+        'midterm_avg'=>$mCount>0?round(array_sum($midtermScores)/$mCount,2):null,
+        'midterm_coverage_pct'=>$stdCount>0?round(count($midtermStudents)/$stdCount*100,2):null,
+        'midterm_student_count'=>count($midtermStudents),
         'provisional'=>$expected>0&&($pending>0||$invalidUnits>0),'pending_grade_count'=>$pending,'invalid_unit_count'=>$invalidUnits];
 }
 
@@ -37,7 +58,7 @@ function analyticsChange(?float $previous,?float $current,bool $comparable=true)
 }
 
 function analyticsGroup(array $rows,string $dimension):array {
-    $buckets=[];$labels=[];
+    $buckets=[];$labels=[];$sectionsByGroup=[];
     foreach($rows as $r){
         [$key,$label]=match($dimension){
             'semester'=>[(string)($r['school_year']??'Unknown').'|'.($r['semester']??''),($r['school_year']??'Unknown').' · Semester '.($r['semester']??'Unknown')],
@@ -49,9 +70,28 @@ function analyticsGroup(array $rows,string $dimension):array {
             default=>throw new InvalidArgumentException('Unknown analytics grouping'),
         };
         $buckets[$key][]=$r;$labels[$key]=$label;
+        if($dimension==='faculty_subject'&&!empty($r['section'])){
+            $sectionsByGroup[$key][$r['section']]=true;
+        }
     }
     ksort($buckets,SORT_NATURAL);$out=[];
-    foreach($buckets as $key=>$group){$out[]=['key'=>(string)$key,'label'=>$labels[$key]]+analyticsAggregate($group);}
+    foreach($buckets as $key=>$group){
+        $item=['key'=>(string)$key,'label'=>$labels[$key]]+analyticsAggregate($group);
+        if($dimension==='faculty_subject'&&isset($sectionsByGroup[$key])){
+            $secs=array_keys($sectionsByGroup[$key]);
+            sort($secs,SORT_NATURAL);
+            $item['sections']=$secs;
+            if($secs){
+                $secText='Section'.(count($secs)>1?'s ':' ').implode(', ',$secs);
+                $parts=explode(' · ',$labels[$key]);
+                $facName=$parts[0]??'';
+                $subjCode=$parts[1]??'';
+                $item['label']=$facName.($subjCode?' · '.$subjCode:'').' · '.$secText;
+                $item['faculty_label']=$facName.' · '.$secText;
+            }
+        }
+        $out[]=$item;
+    }
     return $out;
 }
 
