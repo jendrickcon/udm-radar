@@ -2,6 +2,7 @@
 require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../config/db.php';
+require_once '../includes/grade_history.php';
 
 requireRole('student');
 $user = currentUser();
@@ -38,31 +39,11 @@ if (!function_exists('formatPercentage')) {
 
 $currentTerm = getCurrentTerm();
 
-$stmtCurrent = $db->prepare("
-    SELECT g.*, s.code, s.title, s.units
-    FROM grades g
-    JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND g.is_current = 1 AND g.school_year = ? AND g.semester = ?
-    ORDER BY s.code
-");
-$stmtCurrent->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
-$currentGrades = $stmtCurrent->fetchAll();
+// Current semester subjects anchored strictly to active academic term
+$currentGrades = fetchStudentCurrentGrades($db, (int)$user['id'], $currentTerm);
 
-$stmtHistory = $db->prepare("
-    SELECT g.*, s.code, s.title, s.units
-    FROM grades g
-    JOIN subjects s ON s.id = g.subject_id
-    WHERE g.student_id = ? AND (g.is_current = 0 OR g.school_year != ? OR g.semester != ?)
-    ORDER BY g.school_year DESC, g.semester DESC, s.code
-");
-$stmtHistory->execute([$user['id'], $currentTerm['school_year'], $currentTerm['semester']]);
-$historyRows = $stmtHistory->fetchAll();
-
-$historyTerms = [];
-foreach ($historyRows as $r) {
-    $key = ($r['school_year'] ?? 'Unknown') . ' — Sem ' . ($r['semester'] ?? '?');
-    $historyTerms[$key][] = $r;
-}
+// Completed historical periods strictly earlier than the active term with finalized grades
+$historyTerms = fetchStudentCompletedAcademicHistory($db, (int)$user['id'], $currentTerm);
 
 $riskBadgeClass = fn(string $risk) => match (strtoupper($risk)) {
     'LOW' => 'low', 'MODERATE' => 'mod', 'HIGH' => 'high', default => 'na',
@@ -216,7 +197,7 @@ require_once '../includes/sidebar.php';
     
     <div class="card grades-card" style="margin-bottom: 32px;">
         <?php if (empty($currentGrades)): ?>
-            <p class="empty-state">No current-semester grades have been encoded yet.</p>
+            <p class="empty-state">No current-semester subjects are available.</p>
         <?php else: ?>
             <div class="grades-table-scroll" role="region" aria-label="Current semester grades" tabindex="0">
             <table class="current-grades-table">
@@ -228,16 +209,17 @@ require_once '../includes/sidebar.php';
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Prelim</th>
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Midterm</th>
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Pre-Final</th>
-                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Final Grade</th>
+                        <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Status / Final Grade</th>
                         <th class="compact-cell" style="padding: 12px; text-align: left; color: var(--text-dark);">Current Subject Risk</th>
                         <th class="compact-cell" style="padding: 12px; text-align: center; color: var(--text-dark);">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($currentGrades as $g): 
-                        $prelim   = $g['prelim'] !== null ? (float)$g['prelim'] : null;
-                        $midterm  = $g['midterm'] !== null ? (float)$g['midterm'] : null;
-                        $prefinal = $g['prefinal'] !== null ? (float)$g['prefinal'] : null;
+                        $subjStatus = determineCurrentSubjectStatus($g);
+                        $prelim   = ($g['prelim'] !== null && trim((string)$g['prelim']) !== '' && isValidTermPercentage($g['prelim'])) ? (float)$g['prelim'] : null;
+                        $midterm  = ($g['midterm'] !== null && trim((string)$g['midterm']) !== '' && isValidTermPercentage($g['midterm'])) ? (float)$g['midterm'] : null;
+                        $prefinal = ($g['prefinal'] !== null && trim((string)$g['prefinal']) !== '' && isValidTermPercentage($g['prefinal'])) ? (float)$g['prefinal'] : null;
 
                         // final_grade can be a real point-scale number OR a
                         // special status (INC/DO/DU/FA/UD). Casting straight
@@ -297,13 +279,15 @@ require_once '../includes/sidebar.php';
                         <td class="compact-cell" data-label="Midterm" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($midterm) ?></td>
                         <td class="compact-cell" data-label="Pre-Final" style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-dark);"><?= formatPercentage($prefinal) ?></td>
                         
-                        <td class="compact-cell" data-label="Final Grade" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);">
-                            <?php if ($finalGrade !== null): ?>
-                                <?= formatFinalGrade($finalGrade) ?>
-                            <?php elseif ($finalGradeStatus !== null): ?>
-                                <span style="color:var(--text-gray); font-size:0.85rem;"><?= htmlspecialchars($finalGradeStatus) ?></span>
+                        <td class="compact-cell" data-label="Status / Final Grade" style="padding: 12px; text-align: center; font-weight: 700; color: var(--text-dark);">
+                            <?php if ($subjStatus['is_finalized']): ?>
+                                <?php if ($subjStatus['type'] === 'finalized_numeric'): ?>
+                                    <?= formatFinalGrade($subjStatus['value']) ?>
+                                <?php else: ?>
+                                    <span style="color:var(--text-gray); font-size:0.85rem; font-weight: 600;"><?= htmlspecialchars((string)$subjStatus['label']) ?></span>
+                                <?php endif; ?>
                             <?php else: ?>
-                                <span style="color:var(--text-gray); font-size:0.85rem;">In Progress</span>
+                                <span style="color:var(--text-gray); font-size:0.85rem; font-weight: 500;"><?= htmlspecialchars((string)$subjStatus['label']) ?></span>
                             <?php endif; ?>
                         </td>
                         <td class="compact-cell" data-label="Subject Risk" style="padding: 12px; text-align: left;">
@@ -330,9 +314,36 @@ require_once '../includes/sidebar.php';
                 </tbody>
             </table>
             </div>
-            <p style="font-size: 0.85rem; color: var(--text-gray); margin-top: 12px; margin-bottom: 0;">
-                Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
-            </p>
+            <div style="margin-top: 12px;">
+                <?php
+                $allFinalGradesPending = true;
+                $hasAnyInterim = false;
+                foreach ($currentGrades as $cg) {
+                    $st = determineCurrentSubjectStatus($cg);
+                    if ($st['is_finalized']) {
+                        $allFinalGradesPending = false;
+                    }
+                    if (($cg['prelim'] !== null && trim((string)$cg['prelim']) !== '')
+                        || ($cg['midterm'] !== null && trim((string)$cg['midterm']) !== '')
+                        || ($cg['prefinal'] !== null && trim((string)$cg['prefinal']) !== '')) {
+                        $hasAnyInterim = true;
+                    }
+                }
+                ?>
+                <?php if ($allFinalGradesPending): ?>
+                    <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0 0 4px 0;">
+                        Final grades have not yet been recorded for the current semester.
+                    </p>
+                <?php endif; ?>
+                <?php if ($hasAnyInterim): ?>
+                    <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0 0 4px 0;">
+                        Recorded Preliminary or Midterm results are available in <a href="trend.php" style="color: var(--accent-blue); text-decoration: underline;">Performance Trend</a>.
+                    </p>
+                <?php endif; ?>
+                <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0;">
+                    Recorded grading-period results are shown separately. A missing grade means that no value is currently available; it is not treated as zero.
+                </p>
+            </div>
         <?php endif; ?>
     </div>
 
