@@ -734,70 +734,124 @@
 .ac-separate-cards { grid-column: 1 / -1; }
 .ac-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #admin-comparisons .comparison-card .panel-title { font-size: 1.1rem; margin: 6px 0 2px; }
-#admin-comparisons .ac-limitation { font-size: .84rem; color: var(--text-gray); margin-bottom: 20px; }
+#admin-comparisons .ac-result-layout {
+    margin-bottom: 12px !important;
+}
 
-/* Evidence & Explanation Disclosures */
-.card.ac-evidence:not([open]),
-.card.ac-explanation:not([open]) {
-    padding: 0 16px !important;
+#admin-comparisons .ac-limitation {
+    font-size: .84rem;
+    color: var(--text-gray);
+    margin-top: 14px !important;
+    margin-bottom: 12px !important;
+    line-height: 1.45;
+}
+
+/* Shared Compact Disclosures Component (View exact values & How to interpret these results) */
+.ac-disclosure-card {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    overflow: hidden;
+}
+
+/* Closed state styling: 44px to 48px height, 14px to 16px horizontal padding */
+.ac-disclosure-card:not([open]) {
     min-height: 44px !important;
-    max-height: 52px !important;
-    display: flex;
-    align-items: center;
+    height: 46px !important;
+    max-height: 48px !important;
+    padding: 0 16px !important;
+    display: flex !important;
+    align-items: center !important;
 }
-.card.ac-evidence[open],
-.card.ac-explanation[open] {
-    padding: 14px 18px !important;
+
+.ac-disclosure-card.ac-evidence {
+    margin: 0 0 10px 0 !important;
 }
-.ac-evidence summary,
-.ac-explanation summary {
+
+.ac-disclosure-card.ac-explanation {
+    margin: 0 0 16px 0 !important;
+}
+
+/* Open state styling */
+.ac-disclosure-card[open] {
+    padding: 12px 16px !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+/* Summary element: left-aligned, one-line, 8px to 10px gap */
+.ac-disclosure-summary {
     cursor: pointer;
     min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    height: 46px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
     width: 100%;
-    font-size: .875rem;
-    font-weight: 600;
-    list-style: none;
+    padding: 10px 0 !important;
+    margin: 0 !important;
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    color: var(--text-dark) !important;
+    list-style: none !important;
     user-select: none;
+    gap: 9px !important;
+    outline: none;
+    white-space: nowrap !important;
 }
-.ac-evidence summary::-webkit-details-marker,
-.ac-explanation summary::-webkit-details-marker {
-    display: none;
+
+/* Remove native triangles, markers, and right-side arrows/indicators */
+.ac-disclosure-summary::-webkit-details-marker,
+.ac-disclosure-summary::marker {
+    display: none !important;
 }
-.ac-evidence .summary-left,
-.ac-explanation .calc-help-left {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+.ac-disclosure-summary::before,
+.ac-disclosure-summary::after {
+    content: none !important;
+    display: none !important;
 }
-.ac-explanation .calc-help-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 1.5px solid var(--accent-blue, #1e4db7);
-    color: var(--accent-blue, #1e4db7);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 800;
-    line-height: 1;
-    flex-shrink: 0;
+
+/* Visible keyboard focus */
+.ac-disclosure-summary:focus-visible {
+    outline: 2px solid var(--accent-blue) !important;
+    outline-offset: 3px !important;
+    border-radius: 6px;
 }
-.ac-evidence .disclosure-chevron,
-.ac-explanation .disclosure-chevron {
-    transition: transform 180ms ease;
-    font-size: 0.85rem;
-    color: var(--text-gray);
+
+/* Fixed Inline SVG Icon: 18px by 18px, currentColor */
+.ac-disclosure-icon {
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
+    color: currentColor !important;
+    display: inline-block;
+    vertical-align: middle;
 }
-.ac-evidence[open] .disclosure-chevron,
-.ac-explanation[open] .disclosure-chevron {
-    transform: rotate(180deg);
+
+/* One-line label */
+.ac-disclosure-label {
+    white-space: nowrap !important;
+    line-height: 1.2;
+    color: var(--text-dark);
+    font-size: 14.5px;
+    font-weight: 600;
 }
+
+/* Content spacing inside open disclosures */
+.ac-evidence[open] .data-table-scroll {
+    margin-top: 10px;
+    max-height: 340px;
+    overflow: auto;
+}
+.ac-explanation[open] .analytics-calc-content {
+    margin-top: 10px;
+}
+
 .ac-explanation .analytics-calc-bullets {
-    margin: 10px 0 12px 18px;
+    margin: 8px 0 12px 18px;
     padding: 0;
     font-size: 0.82rem;
     color: var(--text-gray);
@@ -817,11 +871,25 @@
     color: var(--accent-blue);
     cursor: pointer;
 }
-.ac-evidence .data-table-scroll { margin-top: 12px; max-height: 340px; overflow: auto; }
+
 .ac-evidence thead th { position: sticky; top: 0; }
 .ac-evidence caption { text-align: left; }
-.ac-history { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 24px; }
-#admin-comparisons .ac-history p { margin: 0; font-size: .84rem; color: var(--text-gray); }
+
+/* Historical Context Row below Disclosures */
+.ac-history {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+    margin-top: 16px !important;
+}
+#admin-comparisons .ac-history p {
+    margin: 0;
+    font-size: .84rem;
+    color: var(--text-gray);
+}
 
 /* Empty Intersection State */
 .ac-empty-intersection { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center; }
