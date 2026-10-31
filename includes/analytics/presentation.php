@@ -307,9 +307,6 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </header>
 
-        <?php if ($role !== 'student'): ?>
-        <p class="analytics-disclosure">Prototype performance on synthetic academic records</p>
-        <?php endif; ?>
         <?php if (!empty($tabs)): ?>
         <!-- Accessible Tab Navigation Bar -->
         <div class="analytics-tabs-wrapper">
