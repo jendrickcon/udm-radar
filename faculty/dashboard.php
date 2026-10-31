@@ -295,9 +295,6 @@ require_once '../includes/sidebar.php';
                 <?php if ($openConcernCount > 0): ?>
                     <a href="feedback.php?tab=inbox" class="dashboard-banner-btn control-btn">Open Concerns</a>
                 <?php endif; ?>
-                <?php if ($supportReviewCount > 0): ?>
-                    <a href="feedback.php?tab=support" class="dashboard-banner-btn control-btn">Review Support Cases</a>
-                <?php endif; ?>
                 <?php if ($pendingBatchCount > 0): ?>
                     <a href="grades.php" class="dashboard-banner-btn control-btn" style="background: var(--card-bg) !important; color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;">View Grade Submissions</a>
                 <?php endif; ?>
@@ -309,31 +306,42 @@ require_once '../includes/sidebar.php';
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div>
             <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
-            <div style="line-height: 1.45; color: var(--text-dark);">Student risk and projected outcomes support academic review. They do not replace official grades or Faculty evaluation.</div>
+            <div style="line-height: 1.45; color: var(--text-dark);">Student risk and projected outcomes support academic review. They do not replace official grades or Faculty evaluation.</div><p class="faculty-subtext">Prototype performance on synthetic academic records.</p>
         </div>
     </div>
 
     <?php $a=$facOverview['assessment']; $escape=fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8'); $pct=fn($v)=>$v===null?'Unavailable':number_format($v,1).'%'; $cards=[
         ['Assigned Classes',count($facAssessmentData['loads']),'Current assigned subject-sections','blue','assigned-classes'],
         ['Unique Students',$facAssessment['students'],'Distinct Students with current assigned records','neutral','unique-students'],
-        ['Overall Latest Assessment Mean',$a?$pct($a['mean']):$facOverview['status'],$facOverview['detail'],'teal','assessment-mean'],
-        ['Assessment Coverage',$a?$pct($a['coverage']):'Unavailable',$a?'Across '.count($facAssessmentData['loads']).' assigned classes':'See coverage for each class below','violet','assessment-coverage'],
+        ['Overall Latest Assessment Mean',$a?$pct($a['mean']):$facOverview['status'],$a?$facOverview['detail']:'Review class-level results in Performance Trends.','teal','assessment-mean'],
+        ['Assessment Coverage',$a?$pct($a['coverage']):'Unavailable',$a?'Across '.count($facAssessmentData['loads']).' assigned classes':'See class coverage in Performance Trends','violet','assessment-coverage'],
         ['Requiring Attention',$facAssessment['attention'],'Distinct Students with Moderate or High advisory risk','amber','attention']
     ]; ?>
     <div class="faculty-kpis" aria-label="Primary Faculty summary"><?php foreach($cards as [$title,$value,$detail,$accent,$metric]): ?><div class="stat-card faculty-kpi faculty-kpi--<?= $accent ?>"><h3><?= $escape($title) ?></h3><p class="faculty-value" data-dashboard-metric="<?= $metric ?>"><?= $escape($value) ?></p><p class="faculty-subtext"><?= $escape($detail) ?></p><?php if($metric==='assessment-mean'): ?><p class="faculty-subtext">Across <?= count($facAssessmentData['loads']) ?> assigned classes</p><?php endif; ?></div><?php endforeach; ?></div>
 
-    <section class="card" aria-labelledby="faculty-snapshot-heading">
-        <div class="header"><div><h2 id="faculty-snapshot-heading">Assigned-Class Academic Analytics</h2><p class="faculty-subtext">SY <?= $escape($currentTerm['school_year']) ?> · <?= (int)$currentTerm['semester']===3?'Summer':'Semester '.(int)$currentTerm['semester'] ?> · <?= $a?$escape($a['label']):'See each class stage below' ?></p></div><a href="trend.php" class="btn btn--primary">Review assigned classes</a></div>
-        <div class="faculty-table-scroll" role="region" aria-label="Assigned-class assessment details" tabindex="0"><table class="faculty-class-table"><caption>Current assigned classes. Differences support review; they do not establish teaching quality or causation.</caption><thead><tr><th scope="col">Subject and section</th><th scope="col">Students with records</th><th scope="col">Latest stage</th><th scope="col">Latest assessment mean</th><th scope="col">Coverage</th><th scope="col">Requiring attention</th><th scope="col">Action</th></tr></thead><tbody>
-        <?php foreach($facOverview['classes'] as $item): $s=$item['summary'];$ca=$s['assessment'];$key=$item['load']['subject_id'].'|'.$item['load']['section']; ?><tr><th scope="row"><?= $escape($item['load']['title'].' — '.$item['load']['section']) ?></th><td><?= $s['students'] ?></td><td><?= $escape($ca['label']??'Not recorded') ?></td><td><?= $pct($ca['mean']??null) ?></td><td><?= $ca?$ca['count'].' of '.$ca['expected'].' · '.$pct($ca['coverage']):'Unavailable' ?></td><td><?= $s['attention'] ?></td><td><a href="trend.php?load=<?= $escape(rawurlencode($key)) ?>#faculty-selected-heading" class="btn btn--secondary btn--sm">Review class</a></td></tr><?php endforeach; ?>
-        <?php if(!$facOverview['classes']): ?><tr><td colspan="7">No assigned classes with available assessment records.</td></tr><?php endif; ?>
-        </tbody></table></div>
-        <?php $final=$facAssessment['final']; if($final['count']>0&&$final['mean']!==null): ?>
-        <p class="faculty-subtext faculty-final-note"><strong>Assigned-Class Finalized Mean:</strong> <span data-dashboard-metric="class-mean"><?= number_format($final['mean'],2) ?> grade points</span> · unit-weighted, 0.00–4.00 point scale · <span data-dashboard-metric="grade-coverage"><?= $final['count'] ?> of <?= $final['expected'] ?> eligible numeric outcomes (<?= $pct($final['coverage']) ?>)</span></p>
-        <?php else: ?><p class="faculty-subtext faculty-final-note">Final-grade averages will appear after eligible final outcomes are recorded.</p><?php endif; ?>
-    </section>
-
-    <section aria-labelledby="faculty-support-heading"><h2 id="faculty-support-heading">Support summary</h2><dl class="faculty-support-summary"><div><dt>Active referrals</dt><dd data-dashboard-metric="active-referrals"><?= $facReferrals ?></dd></div><div><dt>Notices issued</dt><dd data-dashboard-metric="notices-issued"><?= $facNotices ?></dd></div><div><dt>Pending support work</dt><dd><?= $openConcernCount+$supportReviewCount ?> concerns and support reviews</dd></div></dl></section>
+    <div class="faculty-summary-grid">
+        <section class="card faculty-summary-card" aria-labelledby="faculty-snapshot-heading">
+            <h2 id="faculty-snapshot-heading">Assigned classes</h2>
+            <p class="faculty-subtext">SY <?= $escape($currentTerm['school_year']) ?> · <?= (int)$currentTerm['semester']===3?'Summer':'Semester '.(int)$currentTerm['semester'] ?><?= $a?' · '.$escape($a['label']):'' ?></p>
+            <ul class="faculty-summary-values">
+                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> subject-sections</li>
+                <li><strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
+                <li><?php if($a): ?><strong data-faculty-summary="assessment-mean"><?= $pct($a['mean']) ?></strong> latest assessment mean<?php else: ?>Latest assessment mean: <strong data-faculty-summary="assessment-mean"><?= $escape($facOverview['status']) ?></strong><?php endif; ?></li>
+                <li><strong data-faculty-summary="assessment-coverage"><?= $a?$pct($a['coverage']):'Unavailable' ?></strong> assessment coverage</li>
+                <li><strong data-faculty-summary="attention"><?= $facAssessment['attention'] ?></strong> requiring attention</li>
+            </ul>
+            <div class="faculty-summary-action"><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
+        </section>
+        <section class="card faculty-summary-card" aria-labelledby="faculty-support-heading">
+            <h2 id="faculty-support-heading">Support work</h2>
+            <ul class="faculty-summary-values">
+                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong> active referral<?= $facReferrals===1?'':'s' ?></li>
+                <li><strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?> issued</li>
+                <li><strong data-dashboard-metric="pending-support"><?= $openConcernCount+$supportReviewCount ?></strong> concerns and support reviews</li>
+            </ul>
+            <div class="faculty-summary-action"><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
+        </section>
+    </div>
 
     <h2>Student review by section</h2>
     <p class="faculty-subtext">Cumulative GWA below describes Student history, separately from current class assessment percentages.</p>

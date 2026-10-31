@@ -33,10 +33,34 @@
 .faculty-table-scroll { overflow-x:auto; max-width:100%; }
 .faculty-class-table { min-width:850px; }
 .faculty-class-table .btn { white-space:nowrap; }
-.faculty-support-summary { display:flex; gap:12px 28px; flex-wrap:wrap; }
-.faculty-support-summary > div { flex:1 1 180px; }
-.faculty-support-summary dt { font-size:.85rem; color:var(--text-gray); }
-.faculty-support-summary dd { margin:4px 0; font-weight:650; }
+.faculty-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:18px; margin:20px 0 24px; }
+.faculty-summary-card { display:flex; flex-direction:column; min-width:0; margin:0; }
+.faculty-summary-card h2 { margin:0 0 8px; }
+.faculty-summary-card > p { margin:0 0 10px; }
+.faculty-summary-values { list-style:none; padding:0; margin:0; line-height:1.6; }
+.faculty-summary-values li { margin:3px 0; }
+.faculty-summary-action { display:flex; justify-content:flex-end; margin-top:auto; padding-top:16px; }
+.faculty-summary-action .btn { white-space:normal; text-align:center; }
+.faculty-table-panel { padding:16px; margin-top:18px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); }
+.faculty-table-panel > .faculty-subtext { margin:6px 0 12px; }
+.faculty-table-panel thead { background:var(--table-header-bg); }
+.faculty-assessment :is(.faculty-class-table,.faculty-selected-table) :is(th,td) { padding:10px 12px; }
+.faculty-cell-main,.faculty-cell-sub { display:block; }
+.faculty-cell-main { font-weight:600; }
+.faculty-selected-table { min-width:1000px; }
+.faculty-change-cell { min-width:300px; }
+.faculty-change-cell > div { width:max-content; }
+.faculty-change-line { display:block; white-space:nowrap; color:var(--text-gray); font-size:.8rem; line-height:1.5; margin-top:3px; }
+.faculty-copy-compact { display:none; }
+.faculty-info-disclosure { margin-top:16px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); }
+.faculty-info-disclosure > summary { display:flex; align-items:center; gap:10px; min-height:46px; padding:10px 16px; box-sizing:border-box; cursor:pointer; list-style:none; color:var(--text-dark); font-size:.9rem; font-weight:600; border-radius:8px; }
+.faculty-info-disclosure > summary::marker { content:""; }
+.faculty-info-disclosure > summary::-webkit-details-marker { display:none; }
+.faculty-info-disclosure > summary > svg { flex:0 0 20px; width:20px; height:20px; }
+.faculty-info-disclosure[open] { background:var(--bg-color); }
+.faculty-info-disclosure[open] > summary { border-bottom:1px solid var(--border-color); border-radius:8px 8px 0 0; }
+.faculty-info-disclosure > .faculty-table-scroll { margin:0 12px 12px; }
+.faculty-info-disclosure .faculty-risk-empty { padding:0 16px 12px; }
 .faculty-final-note { margin:12px 0 18px; }
 .faculty-assessment table { border-collapse:collapse; width:100%; text-align:left; font-size:.85rem; }
 .faculty-assessment th,.faculty-assessment td { padding:12px 10px; border-bottom:1px solid var(--border-color); vertical-align:top; overflow-wrap:anywhere; }
@@ -50,4 +74,6 @@
 .faculty-prior p { color:var(--text-gray); font-size:.85rem; }
 .faculty-note { padding:14px; background:var(--bg-color); border-left:3px solid var(--accent-blue); margin-bottom:20px; }
 @media(max-width:1400px) { .faculty-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:1300px) { .faculty-copy-wide { display:none; } .faculty-copy-compact { display:inline; } .faculty-change-cell { min-width:260px; } }
 @media(max-width:1100px) { .faculty-chart-grid { grid-template-columns:1fr; } .faculty-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:1100px) { .faculty-summary-grid { grid-template-columns:1fr; align-items:start; } }

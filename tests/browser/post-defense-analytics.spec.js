@@ -276,11 +276,12 @@ test('Faculty dashboard features compact role-scoped assigned-class analytics ca
  await expect(page.locator('[data-dashboard-metric="assessment-mean"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="active-referrals"]')).toBeVisible();
  await expect(page.locator('[data-dashboard-metric="notices-issued"]')).toBeVisible();
- await expect(page.getByRole('link',{name:'Review assigned classes',exact:true})).toHaveCount(1);
- await expect(page.getByRole('region',{name:'Assigned-class assessment details'})).toBeVisible();
- await expect(page.locator('.main-content details')).toHaveCount(0);
- await expect(page.locator('[data-dashboard-metric="grade-coverage"]')).toBeVisible();
- await expect(page.locator('[data-dashboard-metric="class-mean"]')).toBeVisible();
+ await expect(page.getByRole('link',{name:'View performance trends',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('link',{name:'Review support cases',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('region',{name:'Assigned classes',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Support work',exact:true})).toBeVisible();
+ await expect(page.locator('.main-content .faculty-class-table,.main-content details')).toHaveCount(0);
+ await expect(page.locator('[data-dashboard-metric="grade-coverage"],[data-dashboard-metric="class-mean"]')).toHaveCount(0);
 });
 
 test('Advanced filters progressive disclosure exposes curriculum year and faculty with active badge',async({page})=>{
