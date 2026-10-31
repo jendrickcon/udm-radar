@@ -45,19 +45,6 @@
         afterDatasetDraw(chart, args) {
             if (args.index >= 3) chart.ctx.restore();
         },
-        // A visual reading aid only; never part of a data series or comparison.
-        beforeDatasetsDraw(chart) {
-            const indices = [latest('history'), ...points.map((point,index) => point.zone === 'current' && point.value !== null ? index : -1), latest('estimate')].filter(index => index >= 0);
-            if (indices.length < 2) return;
-            const {ctx,chartArea,scales} = chart;
-            ctx.save();ctx.beginPath();ctx.rect(chartArea.left,chartArea.top,chartArea.width,chartArea.height);ctx.clip();
-            ctx.strokeStyle=colors.text;ctx.globalAlpha=.22;ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();
-            indices.forEach((index,position) => {
-                const x=scales.x.getPixelForValue(index),y=scales.y.getPixelForValue(points[index].value);
-                if(position===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-            });
-            ctx.stroke();ctx.restore();
-        },
         afterDatasetsDraw(chart) {
             const {ctx,chartArea,scales} = chart;
             ctx.save(); ctx.fillStyle = colors.text; ctx.font = '600 18px sans-serif'; ctx.textAlign = 'center';
@@ -149,7 +136,7 @@
                 showLine:zone==='history' && points.filter(p=>p.zone==='history'&&p.value!==null).length>=2,
                 spanGaps:false,tension:0,fill:false,borderWidth:3,
                 segment:{borderWidth:context=>points[context.p1DataIndex].connect && points[context.p1DataIndex].sourceIndex===points[context.p0DataIndex].sourceIndex+1?3:0}})),
-                ...guides.map(guide=>({label:`${guide.names.join(" / ")} (${guide.value.toFixed(2)}); full criteria apply`,data:points.map(()=>guide.value),pointRadius:0,hidden:true,borderColor:colors.guides[guide.style],borderWidth:1.25,borderDash:guide.style===1?[3,3]:[8,4],fill:false}))]},
+                ...guides.map(guide=>({label:`${guide.names.join(" / ")} (${guide.value.toFixed(2)}); full criteria apply`,data:points.map(()=>guide.value),pointRadius:0,hidden:false,borderColor:colors.guides[guide.style],borderWidth:1.25,borderDash:guide.style===1?[3,3]:[8,4],fill:false}))]},
         plugins:[contextPlugin],
         options:{responsive:true,maintainAspectRatio:false,animation:root.dataset.motion==='reduce'?false:undefined,
             layout:{padding:{top:100,right:104}},
@@ -168,12 +155,15 @@
     status.textContent = 'Open the evidence table to explore each period.';
     const honorsToggle = document.getElementById('trend-honors-toggle');
     const honorsLegend = document.getElementById('trend-honors-legend');
-    honorsToggle.disabled = false;
-    honorsToggle.addEventListener('change', () => {
-        guides.forEach((guide,index) => chart.setDatasetVisibility(index+3,honorsToggle.checked));
-        honorsLegend.hidden = !honorsToggle.checked;
-        chart.update('none');
-    });
+    if (honorsToggle) {
+        honorsToggle.disabled = false;
+        honorsToggle.checked = true;
+        honorsToggle.addEventListener('change', () => {
+            guides.forEach((guide,index) => chart.setDatasetVisibility(index+3,honorsToggle.checked));
+            if (honorsLegend) honorsLegend.hidden = !honorsToggle.checked;
+            chart.update('none');
+        });
+    }
     const clearSelection = () => { chart.setActiveElements([]);chart.tooltip.setActiveElements([],{x:0,y:0});chart.update('none'); };
     document.querySelectorAll('[data-trend-point]').forEach(control=>{
         const select = () => {
