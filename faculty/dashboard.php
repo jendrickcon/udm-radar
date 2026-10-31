@@ -2,10 +2,13 @@
 require_once '../includes/auth.php';
 require_once '../config/constants.php';
 require_once '../config/db.php';
+require_once '../includes/faculty_assessment_repository.php';
 
 requireRole('faculty');
+header('Content-Type: text/html; charset=UTF-8');
 $user = currentUser();
 $db   = getDB();
+$currentTerm = getCurrentTerm();
 
 $stmtConcernCount = $db->prepare("
     SELECT COUNT(DISTINCT f.id)
@@ -83,10 +86,12 @@ if (!empty($my_sections)) {
             ORDER BY p2.generated_at DESC, p2.id DESC
             LIMIT 1
         )
-        WHERE sp.section IN ($inSec) AND u.role = 'student' AND sp.record_status = 'Active'
+        WHERE sp.section IN ($inSec) AND u.role = 'student' AND u.is_active=1 AND sp.record_status = 'Active'
+        AND EXISTS(SELECT 1 FROM grades own_grade JOIN faculty_class_loads own_load ON own_load.subject_id=own_grade.subject_id AND own_load.section=sp.section
+            WHERE own_grade.student_id=u.id AND own_load.faculty_user_id=? AND own_grade.is_current=1 AND own_grade.school_year=? AND own_grade.semester=?)
         ORDER BY sp.section, u.last_name, u.first_name
     ");
-    $stmt->execute($my_sections);
+    $stmt->execute([...$my_sections,$user['id'],$currentTerm['school_year'],(int)$currentTerm['semester']]);
     $students = $stmt->fetchAll();
     foreach ($students as &$s) {
         $s['full_name']  = formatNameLastFirst($s['first_name'], $s['middle_name'], $s['last_name']);
@@ -112,16 +117,16 @@ if (!empty($my_class_loads)) {
                g.risk_level
         FROM grades g
         JOIN student_profiles sp ON g.student_id = sp.user_id
-        WHERE ($where) AND g.is_current = 1 AND sp.record_status = 'Active'
+        WHERE ($where) AND g.is_current = 1 AND g.school_year=? AND g.semester=? AND sp.record_status = 'Active'
     ");
-    $stmt->execute($params);
+    $stmt->execute([...$params,$currentTerm['school_year'],(int)$currentTerm['semester']]);
     foreach ($stmt->fetchAll() as $gr) {
         $subject_grades[$gr['student_id']][$gr['subject_id']] = [
             'prelim'      => $gr['prelim'],
             'midterm'     => $gr['midterm'],
             'prefinal'    => $gr['prefinal'],
             'final_grade' => $gr['final_grade'],
-            'risk'        => $gr['risk_level'],
+            'risk'        => facultyAssessmentRisk($gr)['risk'],
         ];
     }
 }
@@ -178,8 +183,12 @@ try {
     $facSummary = $facAnalytics['summary'];
     $facSectionCount = count($facAnalytics['groups']['section'] ?? []);
     $facReviewCount = $facAnalytics['students_requiring_review'] ?? 0;
-    $facReferrals = $facAnalytics['support']['referrals_created'] ?? 0;
+    $facReferrals = count(array_filter($facAnalytics['drilldowns'] ?? [], static fn($r) => $r['status'] !== 'closed'));
     $facNotices = $facAnalytics['support']['notices_issued'] ?? 0;
+    $facAssessmentData = facultyAssessmentRead($db,(int)$user['id'],$currentTerm);
+    $facOverview = facultyAssessmentOverview($facAssessmentData['loads'], $facAssessmentData['rows']);
+    $facAssessment = $facOverview['summary'];
+    $facSectionCount = count(array_unique(array_column($facAssessmentData['loads'],'section')));
 } catch (Throwable $e) {
     error_log('Faculty dashboard analytics snapshot unavailable: ' . $e->getMessage());
     $facSummary = ['gwa' => null, 'student_count' => 0, 'eligible_grade_count' => 0, 'expected_grade_count' => 0, 'numeric_coverage_pct' => null];
@@ -187,6 +196,9 @@ try {
     $facReviewCount = 0;
     $facReferrals = 0;
     $facNotices = 0;
+    $facAssessmentData = ['loads'=>[], 'rows'=>[]];
+    $facOverview = facultyAssessmentOverview([], []);
+    $facAssessment = $facOverview['summary'];
 }
 
 $pageTitle = 'Dashboard';
@@ -203,6 +215,7 @@ $navItems = [
 require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
+<link rel="stylesheet" href="<?= BASE_URL ?>assets/css/faculty-assessment.css?v=<?= substr(hash_file('sha256',__DIR__.'/../assets/css/faculty-assessment.css'),0,12) ?>">
 
 <style>
 .tab-bar  { display:flex; gap:6px; margin-bottom:18px; border-bottom:2px solid var(--border-color); }
@@ -250,14 +263,13 @@ require_once '../includes/sidebar.php';
 }
 </style>
 
-<div class="main-content">
+<div class="main-content faculty-assessment faculty-dashboard">
 
     <div class="header" style="margin-bottom:24px;">
         <div>
-            <h1>Section Overview</h1>
+            <h1>Faculty Dashboard</h1>
             <p style="color:var(--text-gray); font-size:0.95rem;">
-                Click a section card to open its student roster.
-                <em style="color:var(--text-gray); font-size:0.82rem;">At-risk counts reflect performance in your assigned class loads only.</em>
+                Review current results across your assigned classes.
             </p>
         </div>
     </div>
@@ -283,9 +295,6 @@ require_once '../includes/sidebar.php';
                 <?php if ($openConcernCount > 0): ?>
                     <a href="feedback.php?tab=inbox" class="dashboard-banner-btn control-btn">Open Concerns</a>
                 <?php endif; ?>
-                <?php if ($supportReviewCount > 0): ?>
-                    <a href="feedback.php?tab=support" class="dashboard-banner-btn control-btn">Review Support Cases</a>
-                <?php endif; ?>
                 <?php if ($pendingBatchCount > 0): ?>
                     <a href="grades.php" class="dashboard-banner-btn control-btn" style="background: var(--card-bg) !important; color: var(--accent-blue) !important; border-color: var(--accent-blue) !important;">View Grade Submissions</a>
                 <?php endif; ?>
@@ -293,80 +302,46 @@ require_once '../includes/sidebar.php';
         </div>
     <?php endif; ?>
 
-    <div class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
+    <div id="faculty-advisory" class="card" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.82rem; color: var(--text-gray); display: flex; align-items: flex-start; gap: 12px;">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent-blue); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <div>
             <div style="color: var(--text-dark); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Faculty Decision-Support Advisory</div>
-            <div style="line-height: 1.45; color: var(--text-dark);">Advisory Notice: Student risk assessments and projected academic outcomes are decision-support indicators intended to guide early mentoring and support referrals. They do not replace faculty evaluation or official grades.</div>
+            <div style="line-height: 1.45; color: var(--text-dark);">Student risk and projected outcomes support academic review. They do not replace official grades or Faculty evaluation.</div><p class="faculty-subtext">Prototype performance on synthetic academic records.</p>
         </div>
     </div>
 
-    <div class="stat-grid" style="margin-bottom:24px;">
-        <div class="stat-card" style="border-left-color: var(--text-dark) !important;">
-            <h4>Total Students</h4>
-            <h2 style="color: var(--text-dark);"><?= $total_students ?></h2>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--risk-high) !important;">
-            <h4>At-Risk <span style="font-size:0.65rem;color:var(--text-gray);font-weight:400;">(your classes)</span></h4>
-            <h2 style="color: var(--risk-high);"><?= $at_risk_total ?></h2>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--gold) !important;">
-            <h4>Irregular</h4>
-            <h2 style="color: var(--gold);"><?= $irregular_total ?></h2>
-        </div>
-        <div class="stat-card" style="border-left-color: var(--teal) !important;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <h4>Overall Avg Cumulative GWA</h4>
-                <span class="custom-tooltip tooltip-top-right" tabindex="0" aria-label="Calculation Scope">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-gray);"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span class="tooltip-text" role="tooltip">Completed semesters across enrolled students</span>
-                </span>
-            </div>
-            <h2 style="color: var(--teal);"><?= number_format($overall_avg_gwa, 2) ?></h2>
-        </div>
+    <?php $a=$facOverview['assessment']; $escape=fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8'); $pct=fn($v)=>$v===null?'Unavailable':number_format($v,1).'%'; $cards=[
+        ['Assigned Classes',count($facAssessmentData['loads']),'Current assigned subject-sections','blue','assigned-classes'],
+        ['Unique Students',$facAssessment['students'],'Distinct Students with current assigned records','neutral','unique-students'],
+        ['Overall Latest Assessment Mean',$a?$pct($a['mean']):$facOverview['status'],$a?$facOverview['detail']:'Review class-level results in Performance Trends.','teal','assessment-mean'],
+        ['Assessment Coverage',$a?$pct($a['coverage']):'Unavailable',$a?'Across '.count($facAssessmentData['loads']).' assigned classes':'See class coverage in Performance Trends','violet','assessment-coverage'],
+        ['Requiring Attention',$facAssessment['attention'],'Distinct Students with Moderate or High advisory risk','amber','attention']
+    ]; ?>
+    <div class="faculty-kpis" aria-label="Primary Faculty summary"><?php foreach($cards as [$title,$value,$detail,$accent,$metric]): ?><div class="stat-card faculty-kpi faculty-kpi--<?= $accent ?>"><h3><?= $escape($title) ?></h3><p class="faculty-value" data-dashboard-metric="<?= $metric ?>"><?= $escape($value) ?></p><p class="faculty-subtext"><?= $escape($detail) ?></p><?php if($metric==='assessment-mean'): ?><p class="faculty-subtext">Across <?= count($facAssessmentData['loads']) ?> assigned classes</p><?php endif; ?></div><?php endforeach; ?></div>
+
+    <div class="faculty-summary-grid">
+        <section class="card faculty-summary-card" aria-labelledby="faculty-snapshot-heading">
+            <div class="faculty-summary-card__intro"><h2 id="faculty-snapshot-heading">Assigned classes</h2><p><span class="faculty-summary-period">SY <?= $escape($currentTerm['school_year']) ?> · <?php if((int)$currentTerm['semester']===3): ?>Summer<?php else: ?><abbr title="Semester <?= (int)$currentTerm['semester'] ?>" aria-label="Semester <?= (int)$currentTerm['semester'] ?>">S<?= (int)$currentTerm['semester'] ?></abbr><?php endif; ?></span><span class="faculty-summary-stage"><?= $a?$escape($a['label']):'See class stages in Trends' ?></span></p></div>
+            <ul class="faculty-summary-values">
+                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> classes<span class="sr-only"> (assigned subject-sections)</span> · <strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
+                <li><strong data-faculty-summary="assessment-mean"><?= $a?$pct($a['mean']):$escape($facOverview['status']) ?></strong><span class="sr-only"> latest assessment</span> mean · <strong data-faculty-summary="assessment-coverage"><?= $a?preg_replace('/\.0%$/','%',$pct($a['coverage'])):'Unavailable' ?></strong> coverage</li>
+            </ul>
+            <div class="faculty-summary-card__action"><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
+        </section>
+        <section class="card faculty-summary-card" aria-labelledby="faculty-support-heading">
+            <div class="faculty-summary-card__intro"><h2 id="faculty-support-heading">Support work</h2><p>Current authorized workload</p></div>
+            <ul class="faculty-summary-values">
+                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong><span class="sr-only"> active</span> referral<?= $facReferrals===1?'':'s' ?> · <strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?><span class="sr-only"> issued</span></li>
+                <li><strong data-dashboard-metric="pending-support"><?= $openConcernCount+$supportReviewCount ?></strong><span class="sr-only"> concerns and support</span> reviews</li>
+            </ul>
+            <div class="faculty-summary-card__action"><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
+        </section>
     </div>
 
-    <!-- COMPACT ASSIGNED-CLASS ANALYTICS CARD -->
-    <div class="card" style="margin-bottom: 24px; padding: 20px 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
-            <div>
-                <h3 style="margin: 0 0 4px 0; color: var(--text-dark); font-size: 1.1rem; font-weight: 700;">Assigned-Class Academic Analytics</h3>
-                <p style="margin: 0; color: var(--text-gray); font-size: 0.85rem;">Role-scoped recorded grade patterns, active support referrals, and grade coverage.</p>
-            </div>
-            <a href="assigned_analytics.php" class="btn btn--secondary" style="min-height: 40px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600;">
-                View Assigned-Class Analytics
-            </a>
-        </div>
-        <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 16px; margin-bottom: 0;">
-            <div class="stat-card" style="border-left-color: var(--teal) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Assigned Sections</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="assigned-sections"><?= $facSectionCount ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Current teaching load</div>
-            </div>
-            <div class="stat-card" style="border-left-color: var(--accent-blue) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Grade Coverage</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="grade-coverage"><?= $facSummary['numeric_coverage_pct'] !== null ? number_format($facSummary['numeric_coverage_pct'], 1) . '%' : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;"><?= $facSummary['eligible_grade_count'] ?> of <?= $facSummary['expected_grade_count'] ?> recorded</div>
-            </div>
-            <div class="stat-card" style="border-left-color: var(--gold) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Assigned-Class Mean</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="class-mean"><?= $facSummary['gwa'] !== null ? number_format($facSummary['gwa'], 2) : 'Unavailable' ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Weighted eligible points</div>
-            </div>
-            <div class="stat-card" style="border-left-color: var(--risk-mod) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Active Referrals</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--risk-mod);" data-dashboard-metric="active-referrals"><?= $facReferrals ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Within your assignments</div>
-            </div>
-            <div class="stat-card" style="border-left-color: var(--risk-low) !important;">
-                <h4 style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-gray); margin: 0 0 4px 0;">Notices Issued</h4>
-                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-dark);" data-dashboard-metric="notices-issued"><?= $facNotices ?></h2>
-                <div class="stat-card-subtext" style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">Support follow-ups</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
+    <div class="faculty-section-review">
+    <h2 id="faculty-section-review-heading">Student review by section</h2>
+    <p id="faculty-section-review-description" class="faculty-subtext">Recorded cumulative GWA for Students in each assigned section.</p>
+    <div id="faculty-section-grid" class="stat-grid faculty-section-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:24px;">
         <?php foreach ($section_data as $sec_name => $data):
             $count    = count($data['students']);
             $gwaCount = $data['gwa_count'] ?? 0;
@@ -381,13 +356,13 @@ require_once '../includes/sidebar.php';
             </div>
             <div style="padding:16px;text-align:center;">
                 <h2 style="color:var(--accent-blue);font-size:2rem;margin-bottom:2px;"><?= $avg > 0 ? number_format($avg, 2) : '—' ?></h2>
-                <p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:12px;">Avg GWA</p>
+                <p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:12px;">Average cumulative GWA</p>
                 <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:12px;border-top:1px solid var(--border-color);padding-top:8px;">
                     <span style="color:<?= $risk_col ?>;font-weight:600;">At-Risk: <?= $data['at_risk'] ?></span>
                     <span style="color:var(--text-gray);font-weight:600;">Irregular: <?= $data['irregular'] ?></span>
                 </div>
                 <button type="button"
-                    class="btn btn--primary view-students-btn"
+                    class="btn btn--secondary view-students-btn"
                     data-section="<?= htmlspecialchars($sec_name) ?>"
                     aria-controls="section-roster-card"
                     aria-expanded="false"
@@ -398,6 +373,8 @@ require_once '../includes/sidebar.php';
             </div>
         </div>
         <?php endforeach; ?>
+    </div>
+
     </div>
 
     <div id="section-roster-card" class="data-table-card data-table-card--active roster-panel" style="display:none; margin-bottom:24px;">

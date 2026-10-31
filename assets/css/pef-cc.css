@@ -553,3 +553,13 @@ html[data-reduced-motion="reduce"] .pef-cc-btn-spinner {
         gap: 12px;
     }
 }
+
+/* Student manual planning: ordinary-click subject selection. */
+.pef-cc-subject-checklist { min-width:0; margin:0; padding:12px; border:1px solid var(--border-color); border-radius:8px; }
+.pef-cc-subject-checklist legend { padding:0 6px; font-weight:600; }
+.pef-cc-subject-options { max-height:300px; overflow-y:auto; }
+.pef-cc-subject-option { display:flex; align-items:flex-start; gap:10px; padding:10px 8px; cursor:pointer; border-radius:4px; }
+.pef-cc-subject-option input[type="checkbox"] { flex:0 0 auto; width:18px; height:18px; margin:2px 0 0; accent-color:var(--accent-blue); }
+.pef-cc-subject-option span { min-width:0; overflow-wrap:anywhere; }
+.pef-cc-subject-option:focus-within { outline:2px solid var(--accent-blue); outline-offset:-2px; }
+.pef-cc-subject-option:has(input:disabled) { opacity:.6; cursor:default; }

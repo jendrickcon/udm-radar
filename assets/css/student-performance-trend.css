@@ -1,0 +1,384 @@
+.student-performance-trend { min-width:0; }
+.student-performance-trend .header p,.student-performance-trend caption,.student-performance-trend .trend-note { color:var(--text-gray); }
+.student-performance-trend .stat-card h2 { font-size:.9rem; color:var(--text-gray); }
+.student-performance-trend .trend-value { font-size:2rem; font-weight:750; color:var(--text-dark); }
+.student-performance-trend .card { min-width:0; margin:20px 0; }
+.student-performance-trend .card h2 { font-size:1.2rem; margin-bottom:12px; }
+.student-performance-trend .trend-change { margin:16px 0; }
+.student-performance-trend .trend-legend { display:flex; flex-wrap:wrap; gap:12px 24px; list-style:none; padding:12px 0; color:var(--text-dark); }
+.student-performance-trend .trend-chart {
+    position: relative;
+    height: 380px;
+    min-width: 0;
+    border: 1px solid rgba(71, 85, 105, 0.18);
+    border-radius: 8px;
+    padding: 6px 12px 10px 12px;
+    background: var(--card-bg);
+    box-sizing: border-box;
+}
+[data-theme="dark"] .student-performance-trend .trend-chart {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+.student-performance-trend .trend-note { font-size:.85rem; margin-top:12px; }
+.student-performance-trend .trend-table-scroll { max-width:100%; overflow-x:auto; }
+.student-performance-trend table { border-collapse:collapse; width:100%; text-align:left; }
+.student-performance-trend th,.student-performance-trend td { padding:12px; border-bottom:1px solid var(--border-color); vertical-align:top; overflow-wrap:anywhere; }
+.student-performance-trend th { font-weight:600; }
+.student-performance-trend caption { text-align:left; padding:0 0 12px; }
+.student-performance-trend summary { cursor:pointer; }
+.student-performance-trend details p { margin-top:10px; font-weight:400; }
+.student-performance-trend summary:focus-visible,.student-performance-trend .trend-table-scroll:focus-visible { outline:2px solid var(--accent-blue); outline-offset:3px; }
+@media (max-width:1080px) { .student-performance-trend .stat-grid:not(.kpi-grid--four) { grid-template-columns:1fr; } }
+.student-performance-trend .kpi-grid--four {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 16px;
+}
+@media (max-width: 1100px) {
+    .student-performance-trend .kpi-grid--four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 600px) {
+    .student-performance-trend .kpi-grid--four {
+        grid-template-columns: 1fr;
+    }
+}
+
+.student-performance-trend .kpi-card--blue { border-left: 4px solid var(--accent-blue); }
+.student-performance-trend .kpi-card--teal { border-left: 4px solid #0d9488; }
+.student-performance-trend .kpi-card--amber { border-left: 4px solid #d97706; }
+.student-performance-trend .kpi-card--growth { border-left: 4px solid #0284c7; }
+.student-performance-trend .kpi-card--growth .trend-value,
+.growth-kpi-value {
+    font-size: clamp(1.4rem, 1.8vw, 1.85rem) !important;
+    line-height: 1.15;
+    overflow-wrap: normal;
+}
+.growth-unit {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-gray);
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.student-performance-trend .provisional-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #d97706;
+    background: rgba(217, 119, 6, 0.12);
+    border: 1px solid rgba(217, 119, 6, 0.25);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.student-performance-trend .trend-card-sub {
+    font-size: 0.75rem;
+    color: var(--text-gray);
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.student-performance-trend .trend-progress-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+}
+.student-performance-trend .trend-stages-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 1024px) {
+    .student-performance-trend .trend-stages-strip {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+}
+.student-performance-trend .trend-stage-item {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+.student-performance-trend .trend-stage-item--latest {
+    border-color: rgba(37, 99, 235, 0.45);
+    background: rgba(37, 99, 235, 0.03);
+}
+[data-theme="dark"] .student-performance-trend .trend-stage-item--latest {
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(56, 189, 248, 0.04);
+}
+.student-performance-trend .trend-latest-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    background: rgba(37, 99, 235, 0.1);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-left: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Shared Secondary Disclosure Component */
+.portal-info-disclosure,
+.student-performance-trend .trend-disclosure {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin: 16px 0;
+    transition: border-color 0.15s ease;
+    overflow: hidden;
+}
+.portal-info-disclosure[open],
+.student-performance-trend .trend-disclosure[open] {
+    border-color: rgba(37, 99, 235, 0.4);
+}
+[data-theme="dark"] .portal-info-disclosure[open],
+[data-theme="dark"] .student-performance-trend .trend-disclosure[open] {
+    border-color: rgba(96, 165, 250, 0.45);
+}
+
+.portal-info-disclosure summary,
+.student-performance-trend .trend-disclosure summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    min-height: 46px;
+    padding: 11px 16px;
+    font-size: 0.90rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    user-select: none;
+    box-sizing: border-box;
+}
+.portal-info-disclosure summary::-webkit-details-marker,
+.student-performance-trend .trend-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+.portal-info-disclosure summary::marker,
+.student-performance-trend .trend-disclosure summary::marker {
+    display: none;
+}
+.portal-info-disclosure summary:focus-visible,
+.student-performance-trend .trend-disclosure summary:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: -2px;
+}
+
+.portal-info-disclosure .trend-disclosure-icon,
+.student-performance-trend .trend-disclosure-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--accent-blue);
+}
+.portal-info-disclosure .trend-disclosure-title,
+.student-performance-trend .trend-disclosure-title {
+    flex: 1;
+    font-size: 0.90rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+.portal-info-disclosure .trend-disclosure-content,
+.student-performance-trend .trend-disclosure-content {
+    padding: 0 16px 16px 16px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 4px;
+}
+
+/* Chart Header and Layout */
+.student-performance-trend .trend-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px 24px;
+    margin-bottom: 12px;
+}
+.student-performance-trend .trend-chart-title-area {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.student-performance-trend .trend-chart-title-area h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 5px 0; /* Title to subtitle: 4px to 6px */
+    line-height: 1.25;
+}
+.student-performance-trend .trend-chart-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-gray);
+    margin: 0 0 9px 0; /* Subtitle to series legend: 8px to 10px */
+    line-height: 1.35;
+}
+.student-performance-trend .trend-series-legend {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+.student-performance-trend .trend-series-legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.student-performance-trend .legend-marker {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+}
+.student-performance-trend .legend-marker--circle {
+    border-radius: 50%;
+    background: var(--accent-blue);
+}
+.student-performance-trend .legend-marker--circle-outline {
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid #0d9488;
+    box-sizing: border-box;
+}
+[data-theme="dark"] .student-performance-trend .legend-marker--circle-outline {
+    border-color: #2dd4bf;
+}
+.student-performance-trend .legend-marker--diamond {
+    transform: rotate(45deg);
+    background: #d97706;
+}
+[data-theme="dark"] .student-performance-trend .legend-marker--diamond {
+    background: #fbbf24;
+}
+
+/* Honors block at top-right */
+.student-performance-trend .trend-honors-header-block {
+    flex: 0 1 auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.student-performance-trend .trend-honors-disclaimer {
+    font-size: 0.75rem;
+    color: var(--text-gray);
+    margin: 0 0 6px 0;
+    line-height: 1.35;
+}
+.student-performance-trend .trend-disclaimer-line {
+    display: block;
+}
+.student-performance-trend .trend-honors-guide-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 16px;
+    font-size: 0.80rem;
+    color: var(--text-gray);
+    margin: 0;
+    padding: 0;
+}
+.student-performance-trend .trend-guide-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.student-performance-trend .trend-guide-item strong {
+    color: var(--text-dark);
+}
+
+@media (max-width: 1024px) {
+    .student-performance-trend .trend-chart-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .student-performance-trend .trend-honors-header-block {
+        align-items: flex-start;
+        text-align: left;
+    }
+    .student-performance-trend .trend-honors-guide-row {
+        justify-content: flex-start;
+    }
+}
+
+.student-performance-trend { --trend-guide-0:#2563eb; --trend-guide-1:#7e22ce; --trend-guide-2:#92400e; --trend-guide-3:#0f766e; }
+[data-theme="dark"] .student-performance-trend { --trend-guide-0:#60a5fa; --trend-guide-1:#c084fc; --trend-guide-2:#facc15; --trend-guide-3:#5eead4; }
+.student-performance-trend .trend-guide-swatch { display:inline-block; width:24px; border-top:3px dashed var(--trend-guide-color); }
+.student-performance-trend .trend-guide-0 { --trend-guide-color:var(--trend-guide-0); }
+.student-performance-trend .trend-guide-1 { --trend-guide-color:var(--trend-guide-1); border-top-style:dotted; }
+.student-performance-trend .trend-guide-2 { --trend-guide-color:var(--trend-guide-2); }
+.student-performance-trend .trend-guide-3 { --trend-guide-color:var(--trend-guide-3); }
+
+.student-performance-trend .trend-about { margin-top:16px; color:var(--text-gray); font-size:.85rem; }
+.student-performance-trend .trend-about summary { color:var(--text-dark); padding:6px 0; }
+.student-performance-trend .trend-assistive-status { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+.student-performance-trend #trend-chart-status { margin-top:32px; font-size:.85rem; color:var(--text-gray); }
+
+/* Status pills in exact values table */
+.status-pill-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.status-pill-warning {
+    background: rgba(217, 119, 6, 0.12);
+    color: #d97706;
+    border: 1px solid rgba(217, 119, 6, 0.25);
+}
+.status-pill-teal {
+    background: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+    border: 1px solid rgba(13, 148, 136, 0.25);
+}
+[data-theme="dark"] .status-pill-teal {
+    background: rgba(45, 212, 191, 0.15);
+    color: #2dd4bf;
+    border-color: rgba(45, 212, 191, 0.3);
+}
+.status-pill-muted {
+    background: var(--bg-color);
+    color: var(--text-gray);
+    border: 1px solid var(--border-color);
+}
+
+/* Accessible hidden text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Current-term visually grouped rows */
+.student-performance-trend .trend-current-group-row + .trend-current-group-row td {
+    border-top: 1px dashed var(--border-color);
+}
+
+/* Preserve legible chart text on narrow screens without page-wide overflow. */
+@media (max-width:640px) {
+    .student-performance-trend .trend-chart { height:540px; }
+}

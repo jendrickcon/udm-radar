@@ -121,8 +121,13 @@
    return;
   }
   const data=kind==='bar'?series.slice(0,12):series;
-  const height=kind==='bar'?Math.max(100,data.length*34+25):240;
-  const svg=svgEl('svg',{viewBox:`0 0 640 ${height}`,role:'img','aria-label':title,'aria-describedby':'active-filters'});
+  const studentHistory=role==='student'&&target.id==='trend-chart'&&kind==='line';
+  const chartWidth=studentHistory?900:640;
+  const lineBase=studentHistory?225:195, lineRange=studentHistory?190:160;
+  const plotSpan=studentHistory?800:550, gridRight=studentHistory?865:615;
+  const height=kind==='bar'?Math.max(100,data.length*34+25):(studentHistory?280:240);
+  const svg=svgEl('svg',{viewBox:`0 0 ${chartWidth} ${height}`,role:'img','aria-label':title,'aria-describedby':'active-filters'});
+  if(studentHistory)svg.classList.add('student-history-chart');
   svg.append(svgEl('title',{},title),svgEl('desc',{},'Values, Student counts and coverage appear in the adjacent data table.'));
   if(kind==='bar'){
    data.forEach((p,i)=>{
@@ -137,56 +142,59 @@
   }else{
    // Major reference grid lines (1.00 to 4.00)
    [1.0, 2.0, 3.0, 4.0].forEach(val=>{
-    const y=195-(val-1.0)/3.0*160;
-    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line chart-grid-major',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.12))','stroke-dasharray':'3 3','stroke-width':1}));
+    const y=lineBase-(val-1.0)/3.0*lineRange;
+    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line chart-grid-major',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.12))','stroke-dasharray':'3 3','stroke-width':1}));
     svg.append(svgEl('text',{x:38,y:y+4,'text-anchor':'end','font-size':'12px','font-weight':'600',opacity:'0.88',fill:'currentColor',class:'chart-axis-label chart-label-major'},val.toFixed(2)));
    });
 
    // Minor half-step reference grid lines (1.50, 2.50, 3.50) with subordinate styling
    [1.5, 2.5, 3.5].forEach(val=>{
-    const y=195-(val-1.0)/3.0*160;
-    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line-minor',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'1 3','stroke-width':0.75,opacity:'0.38'}));
+    const y=lineBase-(val-1.0)/3.0*lineRange;
+    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line-minor',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'1 3','stroke-width':0.75,opacity:'0.38'}));
     svg.append(svgEl('text',{x:38,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'400',opacity:'0.52',fill:'currentColor',class:'chart-axis-label chart-label-minor'},val.toFixed(2)));
    });
 
    // Subtle vertical guides for term alignment
    data.forEach((p,i)=>{
-    const x=50+(data.length===1?0:i/(data.length-1)*550);
-    svg.append(svgEl('line',{x1:x,x2:x,y1:35,y2:195,class:'chart-grid-vertical',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'2 4','stroke-width':0.75,opacity:0.5}));
+    const x=50+(data.length===1?0:i/(data.length-1)*plotSpan);
+    svg.append(svgEl('line',{x1:x,x2:x,y1:35,y2:lineBase,class:'chart-grid-vertical',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'2 4','stroke-width':0.75,opacity:0.5}));
    });
 
    // Primary axis line
-   svg.append(svgEl('line',{x1:45,x2:615,y1:195,y2:195,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
+   svg.append(svgEl('line',{x1:45,x2:gridRight,y1:lineBase,y2:lineBase,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
 
    // Compact period labels and primary points/lines
    let segment=[];
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
-    const x=50+(data.length===1?0:i/(data.length-1)*550);
+    const x=50+(data.length===1?0:i/(data.length-1)*plotSpan);
     let sy='', sem='';
     if(p.label){
      const match=p.label.match(/^(\d{4}-\d{4})\s*[\u00B7\u00C2·]?\s*Sem(?:ester)?\s*([1-2])/i);
      if(match){
-      sy=match[1];
-      sem='S'+match[2];
+      sy=studentHistory?match[1].replace(/^(\d{4})-\d{2}(\d{2})$/,'$1–$2'):match[1];
+      sem=(studentHistory?'Sem ':'S')+match[2];
      }else{
       sy=p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,' S').replace(/\s*Sem\s*/i,' S');
      }
     }else{
      sy=String(i+1);
     }
-    const termText=svgEl('text',{x,y:212,'text-anchor':'middle','font-size':'12px','font-weight':'600',fill:'currentColor',class:'chart-period-label'});
+    const termY=studentHistory?249:212;
+    const termFontSize=studentHistory?'9px':'12px';
+    const termText=svgEl('text',{x,y:termY,'text-anchor':'middle','font-size':termFontSize,'font-weight':'600',fill:'currentColor',class:'chart-period-label'});
     termText.append(svgEl('tspan',{x,dy:0,class:'chart-period-year'},sy));
-    if(sem)termText.append(svgEl('tspan',{x,dy:13,'font-size':'11px','font-weight':'500',fill:'var(--text-gray)',class:'chart-period-sem'},' '+sem));
+    if(sem)termText.append(svgEl('tspan',{x,dy:studentHistory?16:13,'font-size':studentHistory?'9px':'11px','font-weight':'500',fill:'var(--text-gray)',class:'chart-period-sem'},' '+sem));
     svg.append(termText);
 
     if(p.gwa===null){flush();return;}
-    const y=195-(p.gwa-1)/3*160;
+    const y=lineBase-(p.gwa-1)/3*lineRange;
     segment.push(`${x},${y}`);
     const dot=svgEl('circle',{cx:x,cy:y,r:4.5,class:'analytics-dot',tabindex:0});
     const fullLabel=p.label?p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,', Semester '):'';
     dot.append(svgEl('title',{},`School Year ${fullLabel}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-10,'text-anchor':'middle',fill:'currentColor','font-size':'12px','font-weight':'600',class:'chart-point-val'},num(p.gwa)));
+    const pointValY=y-(studentHistory?15:10);
+    svg.append(dot,svgEl('text',{x,y:pointValY,'text-anchor':'middle',fill:'currentColor','font-size':'12px','font-weight':'600',class:'chart-point-val'},num(p.gwa)));
    });
    flush();
   }
@@ -199,6 +207,25 @@
   if(!box)return;
   box.replaceChildren();
   if(!p)return;
+  if(role==='student'){
+      const card = el('div', undefined, {class: 'card', style: 'padding: 16px 20px; border-radius: 8px; margin-bottom: 20px;'});
+      const heading = el('h3', 'Advisory Classification & Suggested Action', {style: 'font-size: 1rem; font-weight: 700; margin: 0 0 10px 0; color: var(--text-dark);'});
+      const statusRow = el('div', undefined, {style: 'display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 10px; font-size: 0.88rem;'});
+      const riskPill = el('span', p.advisory_indicator || 'Advisory available', {
+          class: 'status-pill',
+          style: 'font-weight: 700; font-size: 0.8rem; padding: 3px 10px;'
+      });
+      const compSpan = el('span', `Completeness: ${p.completeness ? p.completeness.replaceAll('_', ' ') : 'Complete records'}`, {style: 'color: var(--text-gray); font-size: 0.82rem;'});
+      statusRow.append(riskPill, compSpan);
+
+      const actionP = el('p', 'Suggested next step: Review your current subjects and consider discussing remaining terms with your Faculty adviser during consultation hours.', {
+          style: 'margin: 0; font-size: 0.88rem; color: var(--text-dark); line-height: 1.45;'
+      });
+
+      card.append(heading, statusRow, actionP);
+      box.append(card);
+      return;
+  }
   box.append(el('h2','Latest stored estimate'),el('p',p.explanation));
   metrics(box,[['Estimated GWA',num(p.estimated_gwa),'estimate'],['Lower estimate',p.lower===null?'Unavailable':num(p.lower),'lower'],['Upper estimate',p.upper===null?'Unavailable':num(p.upper),'upper'],['Advisory indicator',p.advisory_indicator||'Unavailable','advisory']]);
   box.append(el('p',p.source_label),el('p',`${p.is_provisional?'Provisional · ':''}Completeness: ${p.completeness.replaceAll('_',' ')} · Generated: ${p.generated_at||'Unavailable'}`),el('p',p.range_reason));
@@ -1448,11 +1475,19 @@
   const t=data.trend;
 
   if(role==='student'){
-   metrics(box,[['Current selected term GWA',num(t.current?.gwa),'current-gwa'],['Previous comparable GWA',num(t.previous?.gwa),'previous-gwa'],['Point change',change(t.change.point_change),'point-change']]);
-   const relative=el('p','Relative change (supporting context): ',{class:'analytics-note'});
-   relative.append(el('span',change(t.change.relative_change_pct,'%'),{'data-metric':'relative-change'}));
-   box.append(relative);
-   box.append(el('p',`Current period: ${t.current?.label||'Unavailable'} · Previous recorded comparable period: ${t.previous?.label||'Unavailable'} · Direction: ${t.change.direction}.`));
+   const growthPoints = t.change?.point_change !== null ? (t.change.point_change > 0 ? '+' : '') + t.change.point_change.toFixed(2) + ' GWA points' : 'Unavailable';
+   const growthRel = t.change?.relative_change_pct !== null ? (t.change.relative_change_pct > 0 ? '+' : '') + t.change.relative_change_pct.toFixed(2) + '%' : '';
+   const growthDisplay = growthRel ? `${growthPoints} (${growthRel})` : growthPoints;
+
+   metrics(box,[
+       ['Current selected term GWA', num(t.current?.gwa), 'current-gwa'],
+       ['Previous comparable GWA', num(t.previous?.gwa), 'previous-gwa'],
+       ['Growth', growthDisplay, 'point-change'],
+       ['Latest estimate', num(data.prediction?.estimated_gwa) + (data.prediction?.is_provisional ? ' (Provisional)' : ''), 'estimate']
+   ]);
+
+   const noteP = el('p', `Current period: ${t.current?.label || 'Unavailable'} · Previous recorded comparable period: ${t.previous?.label || 'Unavailable'} · Direction: ${t.change?.direction || 'Unavailable'}.`, {style: 'font-size: 0.85rem; color: var(--text-gray); margin-top: 12px;'});
+   box.append(noteP);
   }else{
    // Admin & Faculty Overview primary metrics (Level 1 Full Width)
    metrics(box,[['Weighted recorded-grade mean',num(data.summary.gwa),'average-gwa'],['Students (n)',String(data.summary.student_count),'student-count'],['Eligible grades',`${data.summary.eligible_grade_count} / ${data.summary.expected_grade_count}`,'eligible-grades'],['Numeric GWA coverage',pct(data.summary.numeric_coverage_pct),'numeric-coverage']]);
@@ -1537,19 +1572,27 @@
    }
   }
 
-  if(role==='student'){
+  if(role!=='student'){
    box.append(el('p',`${data.summary.provisional?'Provisional: some final outcomes or units are incomplete. ':''}GWA uses ${data.summary.eligible_units} eligible credit units. Final-outcome coverage: ${pct(data.summary.final_coverage_pct)}. Changes are unavailable when the compared term is incomplete or has no numeric GWA.`));
   }
   renderPrediction(data.prediction);
 
+  const trendChart=document.getElementById('trend-chart');
+  const trendTable=document.getElementById('trend-table');
   const trendDesc=document.getElementById('trend-description');
-  if(trendDesc){
-   const validCount = t.series.filter(s=>s.gwa!==null).length;
-   trendDesc.textContent=`${validCount} recorded semesters across ${t.series.length} period positions · ${data.summary.student_count} Students. Gaps represent unavailable values.`;
+  if(trendChart){
+   if(trendDesc){
+    const validCount = t.series.filter(s=>s.gwa!==null).length;
+    trendDesc.textContent=role==='student'
+      ? 'Your semester results in order. Missing results appear as gaps.'
+      : `${validCount} recorded semesters across ${t.series.length} period positions · ${data.summary.student_count} Students. Gaps represent unavailable values.`;
+   }
+   chart(trendChart,t.series,'line','Historical semester GWA');
+   renderTrendDetails(t);
   }
-  chart(document.getElementById('trend-chart'),t.series,'line','Historical semester GWA');
-  renderTrendDetails(t);
-  table(document.getElementById('trend-table'),['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');
+  if(trendTable){
+   table(trendTable,['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');
+  }
 
   if(role!=='student'){
    if(role==='admin')window.UDMAdminComparisons?.update(data,params=>load(params));
@@ -1567,38 +1610,40 @@
   const methods=document.getElementById('analytics-method');
   if(methods){
    methods.replaceChildren();
-   const introP=el('p','Recorded academic metrics provide decision-support context. Use the disclosures below to inspect specific calculation formulas, pooled-mean weighting, and analytical limitations.',{style:'font-size:0.85rem;color:var(--text-gray);margin-bottom:12px;line-height:1.45;'});
+   if(role==='student'){
+    const d=el('details',undefined,{class:'analytics-method-disclosure portal-info-disclosure'});
+    const s=el('summary',undefined,{class:'trend-disclosure-summary'});
+    s.innerHTML = '<svg class="trend-disclosure-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span class="trend-disclosure-title">How these results are calculated</span>';
+    const list=el('ul',undefined,{style:'margin-top:10px;padding-left:20px;font-size:0.85rem;color:var(--text-gray);line-height:1.5;'});
+    list.append(
+        el('li','Average GWA is calculated from eligible final grades weighted by credit units. Incomplete (INC), dropped (DRP), and zero entries are excluded from GWA.'),
+        el('li','Growth reflects the point change and relative percentage between consecutive comparable completed terms.'),
+        el('li','Estimates provide provisional decision support and do not replace official registrar evaluations or academic standing.'),
+        el('li','Summer terms are compared only with prior Summer terms.')
+    );
+    d.append(s,list);
+    methods.append(d);
+   }else{
+    const introP=el('p','Recorded academic metrics provide decision-support context. Use the disclosures below to inspect specific calculation formulas, pooled-mean weighting, and analytical limitations.',{style:'font-size:0.85rem;color:var(--text-gray);margin-bottom:12px;line-height:1.45;'});
 
-   const d1=el('details',undefined,{class:'analytics-method-disclosure card analytics-calc-disclosure',id:'analytics-calc-help'});
-   const s1=el('summary',undefined,{class:'analytics-calc-summary',ariaLabel:'Explain how these results are interpreted and calculated'});
-   s1.innerHTML = `<span class="calc-help-left"><span class="calc-help-icon" aria-hidden="true">?</span><span class="calc-help-title">How to interpret these results</span></span><span class="disclosure-chevron" aria-hidden="true">▾</span>`;
-   const d1Body = el('div',undefined,{class:'analytics-calc-content'});
-   const bullets = el('ul',undefined,{class:'analytics-calc-bullets'});
-   bullets.append(
-    el('li','Recorded-grade averages use eligible finalized numeric outcomes.'),
-    el('li','Point and relative changes require comparable complete periods.'),
-    el('li','Gaps represent periods without an eligible numeric value.'),
-    el('li','Provisional or incomplete periods are not used for a definitive change.')
-   );
-   const subCalc = el('details',undefined,{class:'analytics-calc-formulas'});
-   const subSummary = el('summary','How this is calculated',{class:'analytics-calc-formulas-summary'});
-   const p1a=el('p','Average GWA is the sum of eligible final points × credit units divided by eligible credit units. It is not an arithmetic sum of Student GWAs.');
-   const p1b=el('p','Relative change is (current − previous) / previous × 100; it indicates observed percentage change and is not a predictive forecast.');
-   const p1c=el('p','Unit-weighted calculations exclude incomplete (INC), dropped (DRP), and missing grades from grade sums and unit totals.');
-   subCalc.append(subSummary,p1a,p1b,p1c);
-   d1Body.append(bullets,subCalc);
-   d1.append(s1,d1Body);
+    const d1=el('details',undefined,{class:'analytics-method-disclosure'});
+    const s1=el('summary','How this is calculated');
+    const p1a=el('p','Average GWA is the sum of eligible final points × credit units divided by eligible credit units. It is not an arithmetic sum of Student GWAs.');
+    const p1b=el('p','Relative change is (current − previous) / previous × 100; it indicates observed percentage change and is not a predictive forecast.');
+    const p1c=el('p','Unit-weighted calculations exclude incomplete (INC), dropped (DRP), and missing grades from grade sums and unit totals.');
+    d1.append(s1,p1a,p1b,p1c);
 
-   const d2=el('details',undefined,{class:'analytics-method-disclosure'});
-   const s2=el('summary','Data limitations & caveats');
-   d2.append(s2);
-   (role==='student'?[data.warnings[0],data.warnings[2]]:data.warnings).forEach(w=>d2.append(el('p',w)));
-   if(role!=='student'){
-    d2.append(el('p',`Latest stored prediction coverage: ${data.prediction_coverage.available_count} of ${data.prediction_coverage.student_count} represented Students; model ${data.prediction_coverage.model_count}, calculation ${data.prediction_coverage.calculation_count}, provisional/unknown-completeness ${data.prediction_coverage.provisional_count}. Provisional status overlaps the model/calculation counts; these are not additive categories. Complete versus provisional fallback cross-tabs are not provided. These snapshots are separate from historical comparison periods and do not measure prediction accuracy or full active-population coverage.`));
+    const d2=el('details',undefined,{class:'analytics-method-disclosure'});
+    const s2=el('summary','Data limitations & caveats');
+    d2.append(s2);
+    (role==='student'?[data.warnings[0],data.warnings[2]]:data.warnings).forEach(w=>d2.append(el('p',w)));
+    if(role!=='student'){
+     d2.append(el('p',`Latest stored prediction coverage: ${data.prediction_coverage.available_count} of ${data.prediction_coverage.student_count} represented Students; model ${data.prediction_coverage.model_count}, calculation ${data.prediction_coverage.calculation_count}, provisional/unknown-completeness ${data.prediction_coverage.provisional_count}. Provisional status overlaps the model/calculation counts; these are not additive categories. Complete versus provisional fallback cross-tabs are not provided. These snapshots are separate from historical comparison periods and do not measure prediction accuracy or full active-population coverage.`));
+    }
+    d2.append(el('p','Prototype performance on synthetic academic records. Predictions and triage categories provide non-punitive decision support and do not constitute official registrar evaluations.'));
+
+    methods.append(introP,d1,d2);
    }
-   d2.append(el('p','Prototype performance on synthetic academic records. Predictions and triage categories provide non-punitive decision support and do not constitute official registrar evaluations.'));
-
-   methods.append(introP,d1,d2);
   }
  }
 

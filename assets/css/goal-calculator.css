@@ -5,3 +5,8 @@
     overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
 }
 #calculator-section .calc-term-input:disabled { background:var(--bg-color) !important; }
+
+/* A target-generated requirement is an output until the target is cleared. */
+#calculator-section .calc-term-input[readonly] { appearance:textfield; -moz-appearance:textfield; }
+#calculator-section .calc-term-input[readonly]::-webkit-inner-spin-button,
+#calculator-section .calc-term-input[readonly]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }

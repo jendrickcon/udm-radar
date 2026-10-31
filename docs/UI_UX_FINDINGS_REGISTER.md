@@ -41,6 +41,7 @@ This register converts qualitative audits, static inspection findings, and usabi
 | **UX-012** | Post-defense prediction meaning, comparison context and support interpretability | Cross-portal | High | In Progress | `POST-DEFENSE-ANALYTICS-MVP` | Disposable actual-handler desktop verification; local branch, unmerged |
 | **UX-013** | Admin/Faculty analytics controls, scope feedback and chart accessibility | Admin/Faculty; shared Student regression | Medium | Verified | `MEMBER1-VINCENT-ADMIN-FACULTY-PORTALS-WP2` | Authenticated / controlled response / generated checkpoint; owner retest pending |
 | **UX-014** | Incompatible Faculty differences and legacy anonymous comparison redirect | Admin/Faculty | Medium | Verified | `MEMBER1-VINCENT-ADMIN-FACULTY-PORTALS-WP2` | Two observed RED→GREEN fixes; final categorized acceptance checkpoint |
+| **UX-015** | Faculty definitions/disclosures obscure class means and duplicate review actions | Faculty | Medium | Verified | `FACULTY-PORTAL-SIMPLIFICATION` | Actual-handler desktop and source-encoding checks; local candidate, owner retest pending; [contract and verification](audits/FACULTY_METRIC_CLARITY_AND_GROWTH.md) |
 
 ---
 

@@ -48,9 +48,15 @@
             section.setCustomValidity(section.value !== fixedSection ? 'Regular students must retain their recorded section for this semester.' : '');
         }
         if (!subjects || !counter) return;
-        const count = subjects.selectedOptions.length;
-        counter.textContent = String(count);
-        subjects.setCustomValidity(count > Number(subjects.dataset.max) ? 'Choose at most twelve proposed subjects. No selections will be truncated.' : '');
+        const choices = Array.from(subjects.querySelectorAll('input[type="checkbox"]'));
+        const checked = choices.filter(choice => choice.checked);
+        const maximum = Number(subjects.dataset.max);
+        counter.textContent = String(checked.length);
+        for (const choice of choices) {
+            choice.disabled = !choice.checked && checked.length >= maximum;
+            choice.setCustomValidity('');
+        }
+        if (checked.length > maximum) checked[0].setCustomValidity('Choose at most twelve proposed subjects. Uncheck a subject before continuing.');
     };
 
     const invalidate = () => {
@@ -74,7 +80,6 @@
         }
         if (refreshSubmit) {
             refreshSubmit.classList.replace('btn--secondary', 'btn--primary');
-            refreshSubmit.focus();
         }
         if (previewSubmit) {
             previewSubmit.textContent = 'Refresh preview';

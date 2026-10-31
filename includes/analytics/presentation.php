@@ -307,6 +307,9 @@ function analyticsPage(string $role): void {
             <?php endif; ?>
         </header>
 
+        <?php if ($role !== 'student'): ?>
+        <p class="analytics-disclosure">Prototype performance on synthetic academic records</p>
+        <?php endif; ?>
         <?php if (!empty($tabs)): ?>
         <!-- Accessible Tab Navigation Bar -->
         <div class="analytics-tabs-wrapper">
@@ -438,22 +441,13 @@ function analyticsPage(string $role): void {
 
         <div id="analytics-results" hidden aria-busy="true">
             <?php if ($role === 'student'): ?>
-                <!-- Student View: Unified Progression -->
+                <!-- Student View: Concise Decision Summary -->
                 <section aria-labelledby="analytics-summary-heading">
-                    <h2 id="analytics-summary-heading">Recorded academic results</h2>
+                    <h2 id="analytics-summary-heading" style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; color: var(--text-dark);">Academic Results & Growth Summary</h2>
                     <div id="analytics-summary"></div>
                 </section>
-                <section id="analytics-prediction" aria-label="Estimated GWA and advisory meaning"></section>
-                <section aria-labelledby="analytics-trend-heading">
-                    <h2 id="analytics-trend-heading">Historical semester trend</h2>
-                    <p id="trend-description"></p>
-                    <div id="trend-chart" class="analytics-chart"></div>
-                    <div class="data-table-scroll" role="region" aria-label="Historical semester data" tabindex="0">
-                        <table id="trend-table"></table>
-                    </div>
-                </section>
-                <section aria-labelledby="analytics-method-heading">
-                    <h2 id="analytics-method-heading">Reading these results</h2>
+                <section id="analytics-prediction" aria-label="Advisory classification and next step" style="margin: 20px 0;"></section>
+                <section aria-labelledby="analytics-method-heading" style="margin-top: 20px;">
                     <div id="analytics-method"></div>
                 </section>
 
