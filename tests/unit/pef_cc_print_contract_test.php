@@ -120,8 +120,13 @@ foreach(['record','proposed','identity'] as $case){
     pefTestCheck($x->query('//*[@aria-invalid="true" and @aria-describedby="pef-print-limit-explanation"]')->length>0,'Actual generated page highlights '.$case.' fields accessibly');
     pefTestCheck($x->query('//*[@id="pef-cc-download-form"]')->length===0,'Rejected '.$case.' page offers no download');
     pefTestCheck($x->query('//*[@data-testid="cc-preview"]//*[@aria-invalid]')->length===0,'Proposed/identity print errors never mark reference CC fields: '.$case);
-    pefTestCheck($x->query('//*[@id="proposed-section"]/option[@value="IT-32" and @selected]')->length===1&&$x->query('//*[@id="pef-cc-subjects"]/option[@selected]')->length===2,'Rejected '.$case.' page retains safe section and subject choices');
+    pefTestCheck($x->query('//*[@id="proposed-section"]/option[@value="IT-32" and @selected]')->length===1
+        && $x->query('//*[@id="pef-cc-subjects"]//input[@type="checkbox" and @checked]')->length===2
+        && $x->query('//*[@id="pef-cc-subjects"]//input[@checked and (@value="1" or @value="2")]')->length===2,
+        'Rejected '.$case.' page retains exact safe section and subject choices');
 }
+// Explicit public subset: does not certify the private workbook or PDF output.
+if (in_array('--public-only', $argv ?? [], true)) pefTestFinish();
 foreach(['A'=>'normal','B'=>'provisional','C'=>'review','C-pending'=>'review','D'=>'invalid'] as $state=>$expectedMode){
     [$ctx,$inputs,$current]=pefTestPlanningState($state);
     $m=pefCcBuildViewModel($ctx,$inputs,pefCcTemplateReference($config),$config,$current);

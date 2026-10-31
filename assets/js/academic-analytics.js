@@ -121,8 +121,13 @@
    return;
   }
   const data=kind==='bar'?series.slice(0,12):series;
-  const height=kind==='bar'?Math.max(100,data.length*34+25):240;
-  const svg=svgEl('svg',{viewBox:`0 0 640 ${height}`,role:'img','aria-label':title,'aria-describedby':'active-filters'});
+  const studentHistory=role==='student'&&target.id==='trend-chart'&&kind==='line';
+  const chartWidth=studentHistory?900:640;
+  const lineBase=studentHistory?225:195, lineRange=studentHistory?190:160;
+  const plotSpan=studentHistory?800:550, gridRight=studentHistory?865:615;
+  const height=kind==='bar'?Math.max(100,data.length*34+25):(studentHistory?280:240);
+  const svg=svgEl('svg',{viewBox:`0 0 ${chartWidth} ${height}`,role:'img','aria-label':title,'aria-describedby':'active-filters'});
+  if(studentHistory)svg.classList.add('student-history-chart');
   svg.append(svgEl('title',{},title),svgEl('desc',{},'Values, Student counts and coverage appear in the adjacent data table.'));
   if(kind==='bar'){
    data.forEach((p,i)=>{
@@ -137,49 +142,49 @@
   }else{
    // Horizontal reference grid lines for the active GWA scale (1.00 to 4.00)
    [1.0, 2.0, 3.0, 4.0].forEach(val=>{
-    const y=195-(val-1.0)/3.0*160;
-    svg.append(svgEl('line',{x1:45,x2:615,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.08))','stroke-dasharray':'3 3','stroke-width':1}));
+    const y=lineBase-(val-1.0)/3.0*lineRange;
+    svg.append(svgEl('line',{x1:45,x2:gridRight,y1:y,y2:y,class:'chart-grid-line',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.08))','stroke-dasharray':'3 3','stroke-width':1}));
     svg.append(svgEl('text',{x:40,y:y+3,'text-anchor':'end','font-size':'10px','font-weight':'600',fill:'currentColor'},val.toFixed(2)));
    });
 
    // Subtle vertical guides for term alignment
    data.forEach((p,i)=>{
-    const x=50+(data.length===1?0:i/(data.length-1)*550);
-    svg.append(svgEl('line',{x1:x,x2:x,y1:35,y2:195,class:'chart-grid-vertical',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'2 4','stroke-width':0.75,opacity:0.5}));
+    const x=50+(data.length===1?0:i/(data.length-1)*plotSpan);
+    svg.append(svgEl('line',{x1:x,x2:x,y1:35,y2:lineBase,class:'chart-grid-vertical',stroke:'var(--chart-grid-stroke, rgba(0,0,0,0.06))','stroke-dasharray':'2 4','stroke-width':0.75,opacity:0.5}));
    });
 
    // Primary axis line
-   svg.append(svgEl('line',{x1:45,x2:615,y1:195,y2:195,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
+   svg.append(svgEl('line',{x1:45,x2:gridRight,y1:lineBase,y2:lineBase,class:'analytics-axis',stroke:'var(--chart-axis-stroke, currentColor)'}));
 
    // Compact two-line period labels and primary points/lines
    let segment=[];
    const flush=()=>{if(segment.length>1)svg.append(svgEl('polyline',{points:segment.join(' '),class:'analytics-line'}));segment=[];};
    data.forEach((p,i)=>{
-    const x=50+(data.length===1?0:i/(data.length-1)*550);
+    const x=50+(data.length===1?0:i/(data.length-1)*plotSpan);
     let sy='', sem='';
     if(p.label){
      const match=p.label.match(/^(\d{4}-\d{4})\s*[\u00B7\u00C2·]?\s*Sem(?:ester)?\s*([1-2])/i);
      if(match){
-      sy=match[1];
-      sem='S'+match[2];
+      sy=studentHistory?match[1].replace(/^(\d{4})-\d{2}(\d{2})$/,'$1–$2'):match[1];
+      sem=(studentHistory?'Sem ':'S')+match[2];
      }else{
       sy=p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,' S').replace(/\s*Sem\s*/i,' S');
      }
     }else{
      sy=String(i+1);
     }
-    const termText=svgEl('text',{x,y:213,'text-anchor':'middle','font-size':'9px','font-weight':'600',fill:'currentColor'});
+    const termText=svgEl('text',{x,y:studentHistory?249:213,'text-anchor':'middle','font-size':'9px','font-weight':'600',fill:'currentColor'});
     termText.append(svgEl('tspan',{x,dy:0},sy));
-    if(sem)termText.append(svgEl('tspan',{x,dy:11},' '+sem));
+    if(sem)termText.append(svgEl('tspan',{x,dy:studentHistory?16:11},' '+sem));
     svg.append(termText);
 
     if(p.gwa===null){flush();return;}
-    const y=195-(p.gwa-1)/3*160;
+    const y=lineBase-(p.gwa-1)/3*lineRange;
     segment.push(`${x},${y}`);
     const dot=svgEl('circle',{cx:x,cy:y,r:5,class:'analytics-dot',tabindex:0});
     const fullLabel=p.label?p.label.replace(/\s*[\u00B7\u00C2·]?\s*Semester\s*/i,', Semester '):'';
     dot.append(svgEl('title',{},`School Year ${fullLabel}: ${num(p.gwa)}${p.provisional?' (provisional)':''}, n=${p.student_count}`));
-    svg.append(dot,svgEl('text',{x,y:y-12,'text-anchor':'middle',fill:'currentColor','font-size':'11px','font-weight':'700'},num(p.gwa)));
+    svg.append(dot,svgEl('text',{x,y:y-(studentHistory?15:12),'text-anchor':'middle',fill:'currentColor','font-size':'11px','font-weight':'700'},num(p.gwa)));
    });
    flush();
   }
@@ -1235,7 +1240,7 @@
   renderPrediction(data.prediction);
 
   const trendDesc=document.getElementById('trend-description');
-  if(trendDesc)trendDesc.textContent=`${t.series.length} recorded terms · n=${data.summary.student_count}. Points follow term order; gaps mean unavailable values. Refer to the table for periods and coverage.`;
+  if(trendDesc)trendDesc.textContent=role==='student'?'Your semester results in order. Missing results appear as gaps.':`${t.series.length} recorded terms · n=${data.summary.student_count}. Points follow term order; gaps mean unavailable values. Refer to the table for periods and coverage.`;
   chart(document.getElementById('trend-chart'),t.series,'line','Historical semester GWA');
   renderTrendDetails(t);
   table(document.getElementById('trend-table'),['# / Recorded term','Recorded-point mean','Status','Students (n)','Eligible / recorded grades','Numeric coverage'],t.series.map((p,i)=>[`${i+1}. ${p.label}`,num(p.gwa),p.provisional?'Provisional partial records; term GWA pending':'Recorded',p.student_count,`${p.eligible_grade_count} / ${p.expected_grade_count}`,pct(p.numeric_coverage_pct)]),'No recorded terms match these filters.');

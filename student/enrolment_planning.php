@@ -524,15 +524,18 @@ $summaryStatus = match ($planningState) {
                     </div>
                 </div>
                 <div class="pef-cc-field-group">
-                    <label for="pef-cc-subjects">Select proposed subjects (up to 12):</label>
-                    <select class="form-input pef-cc-subjects" id="pef-cc-subjects" name="subject_ids[]" form="pef-cc-planning-form" multiple size="8" aria-describedby="proposed-counter" data-max="12"<?= pefCcPageInvalid('subject_ids', $fieldErrors) ?>>
+                    <fieldset id="pef-cc-subjects" class="pef-cc-subject-checklist" aria-describedby="subject-selection-help proposed-counter" data-max="12"<?= pefCcPageInvalid('subject_ids', $fieldErrors) ?>>
+                        <legend>Select proposed subjects (up to 12)</legend>
+                        <p id="subject-selection-help" class="pef-cc-help">Check each subject you want to propose. Uncheck a subject to remove it. You can select up to 12.</p>
+                        <div class="pef-cc-subject-options">
                         <?php $knownIds = []; foreach ($context['catalog'] as $subject): if (preg_match('/^(CY|DS)/i', (string) $subject['code'])) { continue; } $knownIds[] = (string) $subject['id']; ?>
-                            <option value="<?= (int) $subject['id'] ?>"<?= in_array((string) $subject['id'], $selectedIds, true) ? ' selected' : '' ?>><?= pefCcPageEscape($subject['code'] . ' · ' . $subject['title'] . ' · ' . $subject['units'] . ' units') ?></option>
+                            <label class="pef-cc-subject-option"><input type="checkbox" name="subject_ids[]" form="pef-cc-planning-form" value="<?= (int) $subject['id'] ?>"<?= in_array((string) $subject['id'], $selectedIds, true) ? ' checked' : '' ?>><span><?= pefCcPageEscape($subject['code'] . ' · ' . $subject['title'] . ' · ' . $subject['units'] . ' units') ?></span></label>
                         <?php endforeach; ?>
                         <?php foreach (array_diff($selectedIds, $knownIds) as $unknownId): ?>
-                            <option value="<?= pefCcPageEscape($unknownId) ?>" selected>Unrecognized selection (<?= pefCcPageEscape($unknownId) ?>) — remove before preview</option>
+                            <label class="pef-cc-subject-option"><input type="checkbox" name="subject_ids[]" form="pef-cc-planning-form" value="<?= pefCcPageEscape($unknownId) ?>" checked><span>Unrecognized selection (<?= pefCcPageEscape($unknownId) ?>) — uncheck before preview</span></label>
                         <?php endforeach; ?>
-                    </select>
+                        </div>
+                    </fieldset>
                     <p id="proposed-counter" class="pef-cc-counter" aria-live="polite">Proposed subjects: <span data-testid="proposed-count"><?= count($inputs['subject_ids']) ?></span> of 12</p>
                 </div>
             <?php elseif ($hasMultipleSections): ?>
