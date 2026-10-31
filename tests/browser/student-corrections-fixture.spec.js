@@ -309,17 +309,50 @@ test('three-region layout geometry and scale separation contract', async ({page}
         const chart = window.chartInstances[0];
         const canvas = document.getElementById('semGwaChart');
         return {
-            histPoints: chart.data.datasets[0].data,
-            currentAssessmentPoints: chart.data.datasets[1].data,
-            estimatePoints: chart.data.datasets[2].data,
-            currentConnector: chart.data.datasets[3].data,
-            estimateConnector: chart.data.datasets[4].data,
+            histDataset: {
+                data: chart.data.datasets[0].data,
+                tension: chart.data.datasets[0].tension,
+                borderDash: chart.data.datasets[0].borderDash,
+                borderColor: chart.data.datasets[0].borderColor,
+                pointStyle: chart.data.datasets[0].pointStyle,
+                order: chart.data.datasets[0].order
+            },
+            currentAssessmentDataset: {
+                data: chart.data.datasets[1].data,
+                pointStyle: chart.data.datasets[1].pointStyle,
+                pointBorderColor: chart.data.datasets[1].pointBorderColor,
+                pointBackgroundColor: chart.data.datasets[1].pointBackgroundColor,
+                pointBorderWidth: chart.data.datasets[1].pointBorderWidth,
+                order: chart.data.datasets[1].order
+            },
+            estimateDataset: {
+                data: chart.data.datasets[2].data,
+                pointStyle: chart.data.datasets[2].pointStyle,
+                pointBorderColor: chart.data.datasets[2].pointBorderColor,
+                pointBackgroundColor: chart.data.datasets[2].pointBackgroundColor,
+                order: chart.data.datasets[2].order
+            },
+            provisionalPathDataset: {
+                label: chart.data.datasets[3].label,
+                data: chart.data.datasets[3].data,
+                tension: chart.data.datasets[3].tension,
+                borderDash: chart.data.datasets[3].borderDash,
+                borderWidth: chart.data.datasets[3].borderWidth,
+                order: chart.data.datasets[3].order,
+                showLine: chart.data.datasets[3].showLine
+            },
+            datasetLabels: chart.data.datasets.map(d => d.label),
+            allDatasetData: chart.data.datasets.map(d => d.data),
             ariaLabel: canvas.getAttribute('aria-label'),
             histWidthPct: canvas.dataset.histWidthPct,
             currentWidthPct: canvas.dataset.currentWidthPct,
             estWidthPct: canvas.dataset.estWidthPct,
             dividers: canvas.dataset.dividers,
-            currentAssessmentPoint: canvas.dataset.currentAssessmentPoint
+            currentAssessmentPoint: canvas.dataset.currentAssessmentPoint,
+            provisionalPathType: canvas.dataset.provisionalPathType,
+            provisionalPathTension: canvas.dataset.provisionalPathTension,
+            provisionalPathOrder: canvas.dataset.provisionalPathOrder,
+            directBranch: canvas.dataset.directBranch
         };
     });
 
@@ -331,43 +364,66 @@ test('three-region layout geometry and scale separation contract', async ({page}
     expect(Number(chartData.currentAssessmentPoint)).toBe(3.25);
 
     // Verification: Historical points fit strictly inside Region 1 (0 to 78)
-    expect(chartData.histPoints.length).toBe(6);
-    expect(chartData.histPoints[0].x).toBeGreaterThan(0); // does not touch y-axis
-    expect(chartData.histPoints[chartData.histPoints.length - 1].x).toBeLessThan(78); // does not touch Divider 1
+    expect(chartData.histDataset.data.length).toBe(6);
+    expect(chartData.histDataset.data[0].x).toBeGreaterThan(0); // does not touch y-axis
+    expect(chartData.histDataset.data[chartData.histDataset.data.length - 1].x).toBeLessThan(78); // does not touch Divider 1
+    expect(chartData.histDataset.data[chartData.histDataset.data.length - 1].y).toBe(3.34);
 
     // Verification: Current assessment point is centered in Region 2 (78 to 88) at x = 83, y = 3.25
-    expect(chartData.currentAssessmentPoints.length).toBe(1);
-    expect(chartData.currentAssessmentPoints[0].x).toBe(83);
-    expect(chartData.currentAssessmentPoints[0].y).toBe(3.25);
+    expect(chartData.currentAssessmentDataset.data.length).toBe(1);
+    expect(chartData.currentAssessmentDataset.data[0].x).toBe(83);
+    expect(chartData.currentAssessmentDataset.data[0].y).toBe(3.25);
+    expect(chartData.currentAssessmentDataset.pointStyle).toBe('circle');
+    expect(chartData.currentAssessmentDataset.pointBorderWidth).toBe(2.5);
 
     // Verification: Estimate point is centered in Region 3 (88 to 100) at x = 94, y = 3.05
-    expect(chartData.estimatePoints.length).toBe(1);
-    expect(chartData.estimatePoints[0].x).toBe(94);
-    expect(chartData.estimatePoints[0].y).toBe(3.05);
+    expect(chartData.estimateDataset.data.length).toBe(1);
+    expect(chartData.estimateDataset.data[0].x).toBe(94);
+    expect(chartData.estimateDataset.data[0].y).toBe(3.05);
+    expect(chartData.estimateDataset.pointStyle).toBe('rectRot');
 
-    // Verification: Independent branching dashed connectors from last completed GWA (3.34 at x = 72)
-    // Connector 1: to Current assessment point (3.25)
-    expect(chartData.currentConnector.length).toBe(2);
-    expect(chartData.currentConnector[0].y).toBe(3.34);
-    expect(chartData.currentConnector[1].y).toBe(3.25);
+    // Verification 1: Exactly one semantic provisional path exists with 3 vertices
+    expect(chartData.provisionalPathDataset.label).toBe('Provisional path');
+    expect(chartData.provisionalPathDataset.data.length).toBe(3);
+    expect(chartData.provisionalPathDataset.showLine).toBe(true);
 
-    // Connector 2: to Estimated GWA (3.05)
-    expect(chartData.estimateConnector.length).toBe(2);
-    expect(chartData.estimateConnector[0].y).toBe(3.34);
-    expect(chartData.estimateConnector[1].y).toBe(3.05);
+    // Verification 2: Path order is 3.34 -> 3.25 -> 3.05
+    expect(chartData.provisionalPathDataset.data[0].y).toBe(3.34);
+    expect(chartData.provisionalPathDataset.data[1].y).toBe(3.25);
+    expect(chartData.provisionalPathDataset.data[2].y).toBe(3.05);
+    expect(chartData.provisionalPathOrder).toBe('3.34->3.25->3.05');
 
-    // Verification: Raw percentage 92.94% is NOT in any GWA dataset
-    const allGwaValues = [
-        ...chartData.histPoints,
-        ...chartData.currentAssessmentPoints,
-        ...chartData.estimatePoints,
-        ...chartData.currentConnector,
-        ...chartData.estimateConnector
-    ].map(p => p.y);
+    // Verification 3: Current assessment marker is a true path vertex and center passes through marker
+    expect(chartData.provisionalPathDataset.data[1].x).toBe(chartData.currentAssessmentDataset.data[0].x);
+    expect(chartData.provisionalPathDataset.data[1].y).toBe(chartData.currentAssessmentDataset.data[0].y);
+    expect(chartData.provisionalPathDataset.data[1].x).toBe(83);
+    expect(chartData.provisionalPathDataset.data[1].y).toBe(3.25);
+
+    // Verification 4: No direct branch from 3.34 to 3.05 exists
+    expect(chartData.directBranch).toBe('false');
+    const directBranchFound = chartData.allDatasetData.some(pts =>
+        Array.isArray(pts) && pts.length === 2 &&
+        pts[0]?.y === 3.34 && pts[1]?.y === 3.05
+    );
+    expect(directBranchFound).toBe(false);
+
+    // Verification 5: Curve uses gentle tension (between 0.25 and 0.35)
+    expect(chartData.provisionalPathDataset.tension).toBeGreaterThanOrEqual(0.25);
+    expect(chartData.provisionalPathDataset.tension).toBeLessThanOrEqual(0.35);
+
+    // Verification 6: Historical line remains solid; provisional continuation remains dashed
+    expect(chartData.histDataset.tension).toBe(0);
+    expect(chartData.histDataset.borderDash).toBeFalsy();
+    expect(chartData.provisionalPathDataset.borderDash).toEqual([6, 4]);
+
+    // Verification 7: Marker stacking order (provisional path order: 2 is drawn behind markers order: 1)
+    expect(chartData.provisionalPathDataset.order).toBeGreaterThan(chartData.currentAssessmentDataset.order);
+    expect(chartData.provisionalPathDataset.order).toBeGreaterThan(chartData.estimateDataset.order);
+
+    // Verification 8: Raw percentage 92.94% is NOT in any GWA dataset
+    const allGwaValues = chartData.allDatasetData.flat().map(p => p.y);
     expect(allGwaValues.includes(92.94)).toBe(false);
 
-    // Verification: Canvas accessible description distinguishes all three parts
-    expect(chartData.ariaLabel).toContain('Completed GWA values range from 3.02 to 3.43 across 6 completed semesters');
-    expect(chartData.ariaLabel).toContain('Current-term assessment point 3.25, converted from the recorded Preliminary average of 92.94 percent');
-    expect(chartData.ariaLabel).toContain('The provisional estimated GWA is 3.05');
+    // Verification 9: Canvas accessible description states the continuous path distinction
+    expect(chartData.ariaLabel).toContain('The latest completed GWA is 3.34. A dashed provisional path continues through the current assessment point of 3.25, converted from the recorded Preliminary average of 92.94 percent, and ends at the provisional estimated GWA of 3.05. The current assessment point and estimated GWA are not completed-term results.');
 });

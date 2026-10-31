@@ -65,9 +65,9 @@
             grid: css.getPropertyValue('--border-color').trim() || (isDark ? '#334155' : '#e2e8f0'),
             history: css.getPropertyValue('--accent-blue').trim() || (isDark ? '#38bdf8' : '#2563eb'),
             teal: isDark ? '#2dd4bf' : '#0d9488',
-            tealConnector: isDark ? 'rgba(45, 212, 191, 0.45)' : 'rgba(13, 148, 136, 0.45)',
+            tealConnector: isDark ? 'rgba(45, 212, 191, 0.55)' : 'rgba(13, 148, 136, 0.55)',
             estimate: isDark ? '#fbbf24' : '#d97706',
-            bridge: isDark ? 'rgba(251, 191, 36, 0.45)' : 'rgba(217, 119, 6, 0.45)',
+            bridge: isDark ? 'rgba(251, 191, 36, 0.55)' : 'rgba(217, 119, 6, 0.55)',
             guides: [0, 1, 2, 3].map(index => guideStyle.getPropertyValue('--trend-guide-' + index).trim())
         };
     };
@@ -97,20 +97,19 @@
     const lastHistoryIndex = historyPoints.reduce((last, p, i) => p.value !== null ? i : last, -1);
     const lastHistPoint = lastHistoryIndex >= 0 ? historyPoints[lastHistoryIndex] : null;
 
-    // Independent prospective connectors branching from latest completed GWA:
-    // 1. Current assessment connector: thin dashed teal line to current assessment point
-    const hasCurrentConnector = lastHistPoint !== null && hasCurrentAssessment;
-    const currentConnectorData = hasCurrentConnector ? [
-        { x: lastHistPoint.x, y: lastHistPoint.value },
-        { x: currentAssessmentPoint.x, y: currentAssessmentPoint.value }
-    ] : [];
-
-    // 2. Estimate connector (Projection bridge): thin dashed amber line to provisional estimated GWA
-    const hasEstimateConnector = lastHistPoint !== null && hasEstimate;
-    const estimateConnectorData = hasEstimateConnector ? [
-        { x: lastHistPoint.x, y: lastHistPoint.value },
-        { x: estimatePoint.x, y: estimatePoint.value }
-    ] : [];
+    // One continuous provisional path: Latest completed GWA -> Current assessment point -> Estimated GWA
+    // Sequence: 3.34 ● - - - - ○ 3.25 - - - - ◆ 3.05 (no branching lines)
+    const hasProvisionalPath = lastHistPoint !== null && (hasCurrentAssessment || hasEstimate);
+    const provisionalPathData = [];
+    if (lastHistPoint !== null) {
+        provisionalPathData.push({ x: lastHistPoint.x, y: lastHistPoint.value });
+        if (hasCurrentAssessment) {
+            provisionalPathData.push({ x: currentAssessmentPoint.x, y: currentAssessmentPoint.value });
+        }
+        if (hasEstimate) {
+            provisionalPathData.push({ x: estimatePoint.x, y: estimatePoint.value });
+        }
+    }
 
     // Never crop a genuine low/zero result merely to tighten the usual GWA view.
     const validPointValues = points.filter(p => p.value !== null).map(p => p.value);
@@ -139,10 +138,10 @@
     const contextPlugin = {
         id: 'studentEvidenceContext',
         beforeDatasetDraw(chart, args) {
-            if (args.index >= 5) { chart.ctx.save(); chart.ctx.globalAlpha = .45; }
+            if (args.index >= 4) { chart.ctx.save(); chart.ctx.globalAlpha = .45; }
         },
         afterDatasetDraw(chart, args) {
-            if (args.index >= 5) chart.ctx.restore();
+            if (args.index >= 4) chart.ctx.restore();
         },
         afterDatasetsDraw(chart) {
             const { ctx, chartArea, scales } = chart;
@@ -198,7 +197,7 @@
             // Guide values on the right
             ctx.font = '600 12px sans-serif'; ctx.textAlign = 'left';
             guides.forEach((guide, index) => {
-                if (!chart.isDatasetVisible(index + 5)) return;
+                if (!chart.isDatasetVisible(index + 4)) return;
                 const label = guide.value.toFixed(2);
                 paintValue(label, chartArea.right + 12, scales.y.getPixelForValue(guide.value));
             });
@@ -225,6 +224,7 @@
                     tension: 0,
                     fill: false,
                     borderWidth: 3,
+                    order: 1,
                     segment: { borderWidth: context => historyPoints[context.p1DataIndex]?.connect ? 3 : 0 }
                 },
                 {
@@ -240,7 +240,8 @@
                     pointHoverRadius: 8,
                     showLine: false,
                     spanGaps: false,
-                    fill: false
+                    fill: false,
+                    order: 1
                 },
                 {
                     label: 'Estimated GWA',
@@ -255,31 +256,28 @@
                     showLine: false,
                     spanGaps: false,
                     fill: false,
-                    borderWidth: 2
+                    borderWidth: 2,
+                    order: 1
                 },
                 {
-                    label: 'Current assessment transition',
-                    data: currentConnectorData,
+                    label: 'Provisional path',
+                    data: provisionalPathData,
                     borderColor: colors.tealConnector,
-                    borderWidth: 1.5,
-                    borderDash: [5, 4],
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
-                    showLine: hasCurrentConnector,
-                    spanGaps: true,
-                    fill: false
-                },
-                {
-                    label: 'Estimate transition',
-                    data: estimateConnectorData,
-                    borderColor: colors.bridge,
-                    borderWidth: 1.5,
+                    segment: {
+                        borderColor: ctx => ctx.p1DataIndex === 1 ? colors.tealConnector : colors.bridge
+                    },
+                    tension: 0.3,
+                    cubicInterpolationMode: 'default',
                     borderDash: [6, 4],
+                    borderWidth: 1.75,
+                    borderCapStyle: 'round',
+                    borderJoinStyle: 'round',
                     pointRadius: 0,
                     pointHoverRadius: 0,
-                    showLine: hasEstimateConnector,
+                    showLine: hasProvisionalPath,
                     spanGaps: true,
-                    fill: false
+                    fill: false,
+                    order: 2
                 },
                 ...guides.map(guide => ({
                     label: `${guide.names.join(" / ")} (${guide.value.toFixed(2)}); full criteria apply`,
@@ -289,7 +287,8 @@
                     borderColor: colors.guides[guide.style],
                     borderWidth: 1.25,
                     borderDash: guide.style === 1 ? [3, 3] : [8, 4],
-                    fill: false
+                    fill: false,
+                    order: 3
                 }))
             ]
         },
@@ -314,7 +313,7 @@
                             if (!items.length) return '';
                             const it = items[0];
                             if (it.datasetIndex === 0) return historyPoints[it.dataIndex]?.period || '';
-                            if (it.datasetIndex === 1) return 'Current-term assessment point';
+                            if (it.datasetIndex === 1) return 'Current assessment point';
                             if (it.datasetIndex === 2) return 'Estimated GWA';
                             return '';
                         },
@@ -325,30 +324,28 @@
                             }
                             if (item.datasetIndex === 1) {
                                 const p = currentAssessmentPoint;
-                                const stage = p?.stage_name || 'Preliminary';
-                                const raw = p?.raw_percentage || '92.94%';
-                                return `Current-term assessment: ${p.value.toFixed(2)} (${stage}-based, converted from ${raw})`;
+                                return p ? `Current assessment point: ${p.value.toFixed(2)}` : '';
                             }
                             if (item.datasetIndex === 2) {
                                 const p = estimatePoint;
-                                return p ? `Estimated GWA: ${p.value.toFixed(2)} (Provisional advisory estimate)` : '';
+                                return p ? `Estimated GWA: ${p.value.toFixed(2)}` : '';
                             }
                             return '';
                         },
                         afterLabel: item => {
                             if (item.datasetIndex === 0) {
-                                const p = historyPoints[item.dataIndex];
-                                return p ? [p.detail, p.comparison].flatMap(text => text ? text.match(/.{1,62}(?:\s|$)|\S+/g) || [text] : []) : [];
+                                return ['Recorded'];
                             }
                             if (item.datasetIndex === 1) {
+                                const stage = currentAssessmentPoint?.stage_name || 'Preliminary';
+                                const raw = currentAssessmentPoint?.raw_percentage || '92.94%';
                                 return [
-                                    'Converted point grade; not a completed-term GWA.',
-                                    currentAssessmentPoint?.coverage_text || 'Recorded across eligible current subjects.'
+                                    `Converted from ${stage} average: ${raw}`,
+                                    'Not a completed-term GWA'
                                 ];
                             }
                             if (item.datasetIndex === 2) {
-                                const p = estimatePoint;
-                                return p ? [p.detail, p.comparison].flatMap(text => text ? text.match(/.{1,62}(?:\s|$)|\S+/g) || [text] : []) : [];
+                                return ['Provisional advisory estimate'];
                             }
                             return [];
                         }
@@ -400,17 +397,19 @@
         accessibleDesc += `Completed GWA values range from ${minCompleted} to ${maxCompleted} across ${countCompleted} completed semester${countCompleted === 1 ? '' : 's'}. `;
     }
 
-    if (hasCurrentAssessment) {
+    if (lastHistPoint !== null && hasCurrentAssessment && hasEstimate) {
         const stage = currentAssessmentPoint.stage_name || 'Preliminary';
         const raw = (currentAssessmentPoint.raw_percentage || '92.94%').replace('%', ' percent');
-        accessibleDesc += `Current-term assessment point ${currentAssessmentPoint.value.toFixed(2)}, converted from the recorded ${stage} average of ${raw}. This is not a completed-term GWA. `;
-    }
-
-    if (hasEstimate) {
-        accessibleDesc += `The provisional estimated GWA is ${estimatePoint.value.toFixed(2)}. `;
-    }
-    if (hasCurrentConnector && hasEstimateConnector) {
-        accessibleDesc += `Two independent dashed connectors branch from the latest completed GWA: a teal connector to the current assessment point and an amber connector to the estimated GWA. `;
+        accessibleDesc += `The latest completed GWA is ${lastHistPoint.value.toFixed(2)}. A dashed provisional path continues through the current assessment point of ${currentAssessmentPoint.value.toFixed(2)}, converted from the recorded ${stage} average of ${raw}, and ends at the provisional estimated GWA of ${estimatePoint.value.toFixed(2)}. The current assessment point and estimated GWA are not completed-term results. `;
+    } else {
+        if (hasCurrentAssessment) {
+            const stage = currentAssessmentPoint.stage_name || 'Preliminary';
+            const raw = (currentAssessmentPoint.raw_percentage || '92.94%').replace('%', ' percent');
+            accessibleDesc += `Current assessment point is ${currentAssessmentPoint.value.toFixed(2)}, converted from the recorded ${stage} average of ${raw}. `;
+        }
+        if (hasEstimate) {
+            accessibleDesc += `The provisional estimated GWA is ${estimatePoint.value.toFixed(2)}. `;
+        }
     }
     accessibleDesc += 'Higher GWA is better.';
 
@@ -425,6 +424,11 @@
         if (hasCurrentAssessment) {
             canvas.dataset.currentAssessmentPoint = currentAssessmentPoint.value.toFixed(2);
         }
+        canvas.dataset.provisionalPathType = 'continuous-curved';
+        canvas.dataset.provisionalPathTension = '0.3';
+        canvas.dataset.provisionalPathOrder = provisionalPathData.map(p => p.y.toFixed(2)).join('->');
+        canvas.dataset.provisionalVertices = String(provisionalPathData.length);
+        canvas.dataset.directBranch = 'false';
     }
     const trendWrap = document.querySelector('.trend-chart');
     if (trendWrap) {
@@ -520,12 +524,14 @@
             });
         }
         if (chart.data.datasets[3]) {
-            Object.assign(chart.data.datasets[3], { borderColor: colors.tealConnector });
+            Object.assign(chart.data.datasets[3], {
+                borderColor: colors.tealConnector,
+                segment: {
+                    borderColor: ctx => ctx.p1DataIndex === 1 ? colors.tealConnector : colors.bridge
+                }
+            });
         }
-        if (chart.data.datasets[4]) {
-            Object.assign(chart.data.datasets[4], { borderColor: colors.bridge });
-        }
-        chart.data.datasets.slice(5).forEach((dataset, index) => {
+        chart.data.datasets.slice(4).forEach((dataset, index) => {
             dataset.borderColor = colors.guides[guides[index].style];
         });
         chart.update('none');
