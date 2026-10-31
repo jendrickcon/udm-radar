@@ -321,25 +321,20 @@ require_once '../includes/sidebar.php';
 
     <div class="faculty-summary-grid">
         <section class="card faculty-summary-card" aria-labelledby="faculty-snapshot-heading">
-            <h2 id="faculty-snapshot-heading">Assigned classes</h2>
-            <p class="faculty-subtext">SY <?= $escape($currentTerm['school_year']) ?> · <?= (int)$currentTerm['semester']===3?'Summer':'Semester '.(int)$currentTerm['semester'] ?><?= $a?' · '.$escape($a['label']):'' ?></p>
+            <div class="faculty-summary-card__header"><div class="faculty-summary-card__intro"><h2 id="faculty-snapshot-heading">Assigned classes</h2>
+            <p class="faculty-subtext">SY <?= $escape($currentTerm['school_year']) ?> · <?= (int)$currentTerm['semester']===3?'Summer':'Semester '.(int)$currentTerm['semester'] ?><?= $a?' · '.$escape($a['label']):'' ?></p></div><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
             <ul class="faculty-summary-values">
-                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> subject-sections</li>
-                <li><strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
-                <li><?php if($a): ?><strong data-faculty-summary="assessment-mean"><?= $pct($a['mean']) ?></strong> latest assessment mean<?php else: ?>Latest assessment mean: <strong data-faculty-summary="assessment-mean"><?= $escape($facOverview['status']) ?></strong><?php endif; ?></li>
-                <li><strong data-faculty-summary="assessment-coverage"><?= $a?$pct($a['coverage']):'Unavailable' ?></strong> assessment coverage</li>
+                <li><strong data-faculty-summary="assigned-classes"><?= count($facAssessmentData['loads']) ?></strong> subject-sections · <strong data-faculty-summary="unique-students"><?= $facAssessment['students'] ?></strong> Students</li>
+                <li><?php if($a): ?><strong data-faculty-summary="assessment-mean"><?= $pct($a['mean']) ?></strong> latest assessment mean<?php else: ?>Latest assessment mean: <strong data-faculty-summary="assessment-mean"><?= $escape($facOverview['status']) ?></strong><?php endif; ?> · <strong data-faculty-summary="assessment-coverage"><?= $a?$pct($a['coverage']):'Unavailable' ?></strong> coverage</li>
                 <li><strong data-faculty-summary="attention"><?= $facAssessment['attention'] ?></strong> requiring attention</li>
             </ul>
-            <div class="faculty-summary-action"><a href="trend.php" class="btn btn--secondary">View performance trends</a></div>
         </section>
         <section class="card faculty-summary-card" aria-labelledby="faculty-support-heading">
-            <h2 id="faculty-support-heading">Support work</h2>
+            <div class="faculty-summary-card__header"><h2 id="faculty-support-heading">Support work</h2><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
             <ul class="faculty-summary-values">
-                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong> active referral<?= $facReferrals===1?'':'s' ?></li>
-                <li><strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?> issued</li>
+                <li><strong data-dashboard-metric="active-referrals"><?= $facReferrals ?></strong> active referral<?= $facReferrals===1?'':'s' ?> · <strong data-dashboard-metric="notices-issued"><?= $facNotices ?></strong> notice<?= $facNotices===1?'':'s' ?> issued</li>
                 <li><strong data-dashboard-metric="pending-support"><?= $openConcernCount+$supportReviewCount ?></strong> concerns and support reviews</li>
             </ul>
-            <div class="faculty-summary-action"><a href="feedback.php?tab=support" class="btn btn--secondary">Review support cases</a></div>
         </section>
     </div>
 

@@ -34,13 +34,14 @@
 .faculty-class-table { min-width:850px; }
 .faculty-class-table .btn { white-space:nowrap; }
 .faculty-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:18px; margin:20px 0 24px; }
-.faculty-summary-card { display:flex; flex-direction:column; min-width:0; margin:0; }
-.faculty-summary-card h2 { margin:0 0 8px; }
-.faculty-summary-card > p { margin:0 0 10px; }
-.faculty-summary-values { list-style:none; padding:0; margin:0; line-height:1.6; }
-.faculty-summary-values li { margin:3px 0; }
-.faculty-summary-action { display:flex; justify-content:flex-end; margin-top:auto; padding-top:16px; }
-.faculty-summary-action .btn { white-space:normal; text-align:center; }
+.faculty-summary-card { display:flex; flex-direction:column; min-width:0; margin:0; padding:18px; }
+.faculty-summary-card__header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; }
+.faculty-summary-card__intro { flex:1 1 130px; min-width:0; }
+.faculty-summary-card__header h2 { margin:0; line-height:1.2; }
+.faculty-summary-card__header .btn { flex:0 0 auto; max-width:100%; white-space:normal; text-align:center; }
+.faculty-summary-card__intro p { margin:4px 0 0; }
+.faculty-summary-values { list-style:none; padding:0; margin:10px 0 0; font-size:.85rem; line-height:1.5; }
+.faculty-summary-values li { margin:4px 0; }
 .faculty-table-panel { padding:16px; margin-top:18px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); }
 .faculty-table-panel > .faculty-subtext { margin:6px 0 12px; }
 .faculty-table-panel thead { background:var(--table-header-bg); }
@@ -57,9 +58,13 @@
 .faculty-info-disclosure > summary::marker { content:""; }
 .faculty-info-disclosure > summary::-webkit-details-marker { display:none; }
 .faculty-info-disclosure > summary > svg { flex:0 0 20px; width:20px; height:20px; }
-.faculty-info-disclosure[open] { background:var(--bg-color); }
+.faculty-info-disclosure[open] { background:var(--card-bg); border-color:var(--border-color); }
 .faculty-info-disclosure[open] > summary { border-bottom:1px solid var(--border-color); border-radius:8px 8px 0 0; }
-.faculty-info-disclosure > .faculty-table-scroll { margin:0 12px 12px; }
+.faculty-info-disclosure > .faculty-table-scroll { box-sizing:border-box; margin:0; padding:14px 16px 16px; background:var(--surface-muted); background:color-mix(in srgb,var(--card-bg) 92%,var(--accent-blue) 8%); border-radius:0 0 8px 8px; color:var(--text-dark); }
+.faculty-info-disclosure caption { padding:0 0 10px; color:var(--text-gray); }
+.faculty-info-disclosure table,.faculty-info-disclosure tbody tr,.faculty-info-disclosure tbody th { background:transparent; }
+.faculty-info-disclosure :is(th,td) { padding:10px 11px; color:var(--text-dark); border-bottom:1px solid var(--border-color); }
+.faculty-info-disclosure thead th { background:var(--table-header-bg); }
 .faculty-info-disclosure .faculty-risk-empty { padding:0 16px 12px; }
 .faculty-final-note { margin:12px 0 18px; }
 .faculty-assessment table { border-collapse:collapse; width:100%; text-align:left; font-size:.85rem; }
